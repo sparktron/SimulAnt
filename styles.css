@@ -1,0 +1,131 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --panel-bg: #1b1f26;
+  --panel-border: #2c3340;
+  --text: #d8dce3;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0e1116;
+  color: var(--text);
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: 100%;
+}
+
+.sidebar {
+  overflow-y: auto;
+  border-right: 1px solid var(--panel-border);
+  background: #11151c;
+  padding: 12px;
+}
+
+h1 {
+  font-size: 1.2rem;
+  margin: 0 0 10px;
+}
+
+.controls {
+  display: grid;
+  gap: 10px;
+}
+
+label,
+legend,
+p,
+li,
+button {
+  font-size: 0.88rem;
+}
+
+.button-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+button,
+input,
+select {
+  border: 1px solid #3b4354;
+  background: #1f2530;
+  color: #f2f4f8;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+input[type='range'] {
+  width: 100%;
+  padding: 0;
+}
+
+fieldset {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 6px;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+}
+
+.main-content {
+  position: relative;
+}
+
+#simCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #151a1f;
+  cursor: crosshair;
+}
+
+.hud {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(17, 21, 28, 0.8);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 8px;
+  min-width: 220px;
+  pointer-events: none;
+}
+
+.hud p {
+  margin: 3px 0;
+}
+
+#helpPanel {
+  max-width: 520px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  color: var(--text);
+}
+
+.shortcut-note {
+  opacity: 0.8;
+  margin: 0;
+}
+
+kbd {
+  background: #2a3140;
+  border: 1px solid #4a556d;
+  border-radius: 4px;
+  padding: 1px 4px;
+}
