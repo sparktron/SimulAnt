@@ -22,11 +22,15 @@ export class World {
     this._toHomeNext = new Float32Array(this.size);
     this._dangerNext = new Float32Array(this.size);
 
+    // Underground model: 0 = compact soil, 1 = dug tunnel.
+    this.tunnel = new Uint8Array(this.size);
+
     this.nestX = Math.floor(width * 0.5);
     this.nestY = Math.floor(height * 0.5);
     this.nestRadius = 8;
     this.nestInfluence = new Float32Array(this.size);
     this.recomputeNestInfluence();
+    this.seedInitialChamber();
   }
 
   index(x, y) {
@@ -37,16 +41,37 @@ export class World {
     return x >= 0 && x < this.width && y >= 0 && y < this.height;
   }
 
-  isPassable(x, y) {
+  isSurfacePassable(x, y) {
     if (!this.inBounds(x, y)) return false;
     const terrain = this.terrain[this.index(x, y)];
     return terrain !== TERRAIN.WALL && terrain !== TERRAIN.WATER;
+  }
+
+  isUndergroundPassable(x, y) {
+    if (!this.inBounds(x, y)) return false;
+    return this.tunnel[this.index(x, y)] === 1;
   }
 
   setNest(x, y) {
     this.nestX = Math.max(0, Math.min(this.width - 1, x));
     this.nestY = Math.max(0, Math.min(this.height - 1, y));
     this.recomputeNestInfluence();
+    this.seedInitialChamber();
+  }
+
+  seedInitialChamber() {
+    this.paintCircle(this.nestX, this.nestY, 3, (idx) => {
+      this.tunnel[idx] = 1;
+    });
+  }
+
+  tryDigTunnel(x, y) {
+    if (!this.inBounds(x, y)) return false;
+    const idx = this.index(x, y);
+    if (this.tunnel[idx] === 1) return false;
+    if (this.terrain[idx] === TERRAIN.WATER) return false;
+    this.tunnel[idx] = 1;
+    return true;
   }
 
   recomputeNestInfluence() {
@@ -101,7 +126,6 @@ export class World {
       }
     }
 
-    // Borders evaporate in place for stability.
     for (let x = 0; x < w; x += 1) {
       const top = x;
       const bot = (h - 1) * w + x;
@@ -130,6 +154,7 @@ export class World {
       toFood: Array.from(this.toFood),
       toHome: Array.from(this.toHome),
       danger: Array.from(this.danger),
+      tunnel: Array.from(this.tunnel),
     };
   }
 
@@ -143,7 +168,9 @@ export class World {
     world.toFood.set(data.toFood);
     world.toHome.set(data.toHome);
     world.danger.set(data.danger);
+    if (data.tunnel) world.tunnel.set(data.tunnel);
     world.recomputeNestInfluence();
+    world.seedInitialChamber();
     return world;
   }
 }

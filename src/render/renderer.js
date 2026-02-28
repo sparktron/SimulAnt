@@ -33,7 +33,7 @@ export class Renderer {
     };
   }
 
-  draw(colony, options) {
+  draw(colony, options, viewMode) {
     const ctx = this.ctx;
     const { world } = this;
     const cw = this.canvas.clientWidth;
@@ -46,36 +46,56 @@ export class Renderer {
     ctx.scale(this.zoom, this.zoom);
     ctx.translate(-this.cameraX, -this.cameraY);
 
-    this.#drawTerrain(ctx, world, options);
-    this.#drawGrid(ctx, world);
-    this.#drawNest(ctx, world);
-    this.#drawAnts(ctx, colony);
+    this.#drawTerrain(ctx, world, options, viewMode);
+    this.#drawNest(ctx, world, colony.queen, viewMode);
+    this.#drawAnts(ctx, colony, viewMode);
 
     ctx.restore();
-    this.#drawVignette(ctx, cw, ch);
   }
 
-  #drawTerrain(ctx, world, options) {
+  #drawTerrain(ctx, world, options, viewMode) {
     const image = this.terrainCtx.createImageData(world.width, world.height);
     const data = image.data;
 
     for (let i = 0; i < world.size; i += 1) {
       const offset = i * 4;
-      const terrain = world.terrain[i];
 
-      let r = 24;
-      let g = 31;
-      let b = 24;
+      let r;
+      let g;
+      let b;
 
-      if (terrain === TERRAIN.WALL) {
-        r = 92; g = 104; b = 122;
-      } else if (terrain === TERRAIN.WATER) {
-        r = 34; g = 96; b = 175;
-      } else if (terrain === TERRAIN.HAZARD) {
-        r = 138; g = 43; b = 59;
+      if (viewMode === 'underground') {
+        if (world.tunnel[i] === 1) {
+          r = 113;
+          g = 83;
+          b = 56;
+        } else {
+          r = 50;
+          g = 35;
+          b = 23;
+        }
+      } else {
+        const terrain = world.terrain[i];
+        r = 24;
+        g = 31;
+        b = 24;
+
+        if (terrain === TERRAIN.WALL) {
+          r = 92;
+          g = 104;
+          b = 122;
+        } else if (terrain === TERRAIN.WATER) {
+          r = 34;
+          g = 96;
+          b = 175;
+        } else if (terrain === TERRAIN.HAZARD) {
+          r = 138;
+          g = 43;
+          b = 59;
+        }
       }
 
-      if (options.showFood) {
+      if (options.showFood && viewMode === 'surface') {
         r = Math.min(255, r + world.food[i] * 4);
         g = Math.min(255, g + world.food[i] * 18);
       }
@@ -87,7 +107,6 @@ export class Renderer {
       }
       if (options.showDanger) {
         r = Math.min(255, r + world.danger[i] * 130);
-        b = Math.max(0, b - world.danger[i] * 36);
       }
 
       data[offset] = r;
@@ -101,80 +120,54 @@ export class Renderer {
     ctx.drawImage(this.terrainCanvas, 0, 0);
   }
 
-  #drawGrid(ctx, world) {
-    if (this.zoom < 2.7) return;
-    ctx.strokeStyle = 'rgba(160, 200, 255, 0.07)';
-    ctx.lineWidth = 1 / this.zoom;
-
-    const step = 8;
-    for (let x = 0; x <= world.width; x += step) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, world.height);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= world.height; y += step) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(world.width, y);
-      ctx.stroke();
-    }
-  }
-
-  #drawNest(ctx, world) {
+  #drawNest(ctx, world, queen, viewMode) {
+    const radius = viewMode === 'underground' ? world.nestRadius * 2 : world.nestRadius * 1.6;
     const gradient = ctx.createRadialGradient(
       world.nestX + 0.5,
       world.nestY + 0.5,
       1,
       world.nestX + 0.5,
       world.nestY + 0.5,
-      world.nestRadius * 1.6,
+      radius,
     );
     gradient.addColorStop(0, 'rgba(255, 232, 140, 0.96)');
     gradient.addColorStop(0.6, 'rgba(255, 188, 92, 0.7)');
-    gradient.addColorStop(1, 'rgba(255, 150, 64, 0.06)');
+    gradient.addColorStop(1, 'rgba(255, 150, 64, 0.08)');
 
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(world.nestX + 0.5, world.nestY + 0.5, world.nestRadius * 1.6, 0, Math.PI * 2);
+    ctx.arc(world.nestX + 0.5, world.nestY + 0.5, radius, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = 'rgba(255, 244, 176, 0.88)';
-    ctx.lineWidth = 0.7;
-    ctx.beginPath();
-    ctx.arc(world.nestX + 0.5, world.nestY + 0.5, world.nestRadius * 0.95, 0, Math.PI * 2);
-    ctx.stroke();
+    if (viewMode === 'underground' && queen?.alive) {
+      ctx.fillStyle = '#ffe3c4';
+      ctx.beginPath();
+      ctx.arc(queen.x + 0.5, queen.y + 0.5, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  #drawAnts(ctx, colony) {
+  #drawAnts(ctx, colony, viewMode) {
     ctx.shadowBlur = 6;
     for (let i = 0; i < colony.ants.length; i += 1) {
       const ant = colony.ants[i];
-      if (ant.carrying > 0) {
+      if (viewMode === 'underground' && !ant.underground) continue;
+      if (viewMode === 'surface' && ant.underground) continue;
+
+      if (ant.role === 'soldier') {
+        ctx.fillStyle = '#ff7f7f';
+      } else if (ant.role === 'male') {
+        ctx.fillStyle = '#a7b6ff';
+      } else if (ant.role === 'breeder') {
+        ctx.fillStyle = '#ff9cff';
+      } else if (ant.carrying > 0) {
         ctx.fillStyle = '#ffd978';
-        ctx.shadowColor = 'rgba(255, 209, 114, 0.64)';
       } else {
         ctx.fillStyle = '#dbf2ff';
-        ctx.shadowColor = 'rgba(128, 208, 255, 0.44)';
       }
+      ctx.shadowColor = 'rgba(180, 220, 255, 0.45)';
       ctx.fillRect(ant.x, ant.y, 1, 1);
     }
     ctx.shadowBlur = 0;
-  }
-
-  #drawVignette(ctx, width, height) {
-    const g = ctx.createRadialGradient(
-      width * 0.5,
-      height * 0.5,
-      Math.min(width, height) * 0.2,
-      width * 0.5,
-      height * 0.5,
-      Math.max(width, height) * 0.7,
-    );
-    g.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    g.addColorStop(1, 'rgba(0, 0, 0, 0.38)');
-
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, width, height);
   }
 }

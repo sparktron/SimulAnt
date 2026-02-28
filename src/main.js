@@ -5,7 +5,7 @@ import { Renderer } from './render/renderer.js';
 import { createControls } from './ui/controls.js';
 import { updateHud } from './ui/hud.js';
 
-const STORAGE_KEY = 'simant-save-v1';
+const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
 
 const state = {
@@ -14,6 +14,7 @@ const state = {
   simSpeed: 1,
   selectedTool: 'food',
   brushRadius: 3,
+  viewMode: 'surface',
   overlays: {
     showFood: false,
     showToFood: false,
@@ -30,6 +31,9 @@ const state = {
     dangerDeposit: 0.6,
     hazardDeathChance: 0.02,
     foodPickupRate: 0.7,
+    digChance: 0.06,
+    queenLayTicks: 90,
+    eggCost: 0.9,
   },
 };
 
@@ -53,7 +57,7 @@ const hudElement = document.getElementById('hud');
 resetSimulation(state.seed);
 renderer = new Renderer(canvas, world);
 renderer.resize();
-initMouseControls(canvas, renderer, state, () => world);
+initMouseControls(canvas, renderer, () => world);
 
 createControls(state, {
   stepOnce: () => runTicks(1),
@@ -71,7 +75,6 @@ function resetSimulation(seed) {
   rng = new SeededRng(state.seed);
   world = new World(256, 256);
 
-  // procedural landmarks
   world.paintCircle(world.nestX + 45, world.nestY, 10, (idx) => {
     world.food[idx] = 10;
   });
@@ -82,7 +85,7 @@ function resetSimulation(seed) {
     world.terrain[idx] = TERRAIN.HAZARD;
   });
 
-  colony = new Colony(world, rng, 350);
+  colony = new Colony(world, rng, 24);
   tick = 0;
   accumulator = 0;
   if (renderer) renderer.world = world;
@@ -120,7 +123,7 @@ function loop(now) {
     }
   }
 
-  renderer.draw(colony, state.overlays);
+  renderer.draw(colony, state.overlays, state.viewMode);
   updateHud(hudElement, {
     fps,
     simMs,
@@ -129,6 +132,11 @@ function loop(now) {
     foodStored: colony.foodStored,
     births: colony.births,
     deaths: colony.deaths,
+    queenHealth: colony.queen.health,
+    dugTiles: colony.dugTiles,
+    roles: colony.countRoles(),
+    brood: colony.broodCounts(),
+    viewMode: state.viewMode,
   });
 
   requestAnimationFrame(loop);
@@ -169,13 +177,15 @@ function applyTool(worldX, worldY) {
       break;
     case 'nest':
       world.setNest(worldX, worldY);
+      colony.queen.x = world.nestX;
+      colony.queen.y = world.nestY;
       break;
     default:
       break;
   }
 }
 
-function initMouseControls(canvasEl, simRenderer, simState, getWorld) {
+function initMouseControls(canvasEl, simRenderer, getWorld) {
   let painting = false;
   let panning = false;
   let lastX = 0;
@@ -240,6 +250,7 @@ function saveState() {
       simSpeed: state.simSpeed,
       config: state.config,
       overlays: state.overlays,
+      viewMode: state.viewMode,
     },
     tick,
   };
@@ -260,6 +271,7 @@ function loadState() {
   Object.assign(state.config, data.state?.config || {});
   Object.assign(state.overlays, data.state?.overlays || {});
   state.simSpeed = data.state?.simSpeed || state.simSpeed;
+  state.viewMode = data.state?.viewMode || state.viewMode;
 
   renderer.world = world;
 }

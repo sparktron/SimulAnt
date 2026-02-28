@@ -57,6 +57,7 @@ Works on GitHub Pages, Netlify static deploy, Cloudflare Pages, or personal web 
 - `G`: toggle to-home pheromone overlay
 - `D`: toggle danger overlay
 - `O`: toggle food overlay
+- `U`: toggle underground/surface view
 - `H`: show/hide help
 
 ## Save / load
@@ -69,3 +70,10 @@ Use **Save** and **Load** buttons to persist simulation state into `localStorage
 - Increase **Pheromone update every N ticks** (e.g., 3-5) for faster simulation.
 - Reduce **Diffusion** to cut pheromone processing cost.
 - Keep world at default `256x256` for smooth 60 FPS on typical laptops.
+
+
+## Colony lifecycle
+
+- Queen resides in nest and lays eggs over time when food reserves are available.
+- Brood advances through egg -> larva -> pupa and hatches into role-based ants.
+- Workers excavate underground tunnels, creating a growing nest network.
