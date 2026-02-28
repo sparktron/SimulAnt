@@ -33,7 +33,7 @@ export class Renderer {
     };
   }
 
-  draw(colony, options, viewMode) {
+  draw(colony, options) {
     const ctx = this.ctx;
     const { world } = this;
     const cw = this.canvas.clientWidth;
@@ -46,67 +46,44 @@ export class Renderer {
     ctx.scale(this.zoom, this.zoom);
     ctx.translate(-this.cameraX, -this.cameraY);
 
-    this.#drawTerrain(ctx, world, options, viewMode);
-    this.#drawNest(ctx, world, colony.queen, viewMode);
-    this.#drawAnts(ctx, colony, viewMode);
+    this.#drawTerrain(ctx, world, options);
+    this.#drawNest(ctx, world);
+    this.#drawAnts(ctx, colony);
 
     ctx.restore();
   }
 
-  #drawTerrain(ctx, world, options, viewMode) {
+  #drawTerrain(ctx, world, options) {
     const image = this.terrainCtx.createImageData(world.width, world.height);
     const data = image.data;
 
     for (let i = 0; i < world.size; i += 1) {
       const offset = i * 4;
+      const terrain = world.terrain[i];
 
-      let r;
-      let g;
-      let b;
+      let r = 38;
+      let g = 42;
+      let b = 30;
 
-      if (viewMode === 'underground') {
-        if (world.tunnel[i] === 1) {
-          r = 113;
-          g = 83;
-          b = 56;
-        } else {
-          r = 50;
-          g = 35;
-          b = 23;
-        }
-      } else {
-        const terrain = world.terrain[i];
-        r = 24;
-        g = 31;
-        b = 24;
-
-        if (terrain === TERRAIN.WALL) {
-          r = 92;
-          g = 104;
-          b = 122;
-        } else if (terrain === TERRAIN.WATER) {
-          r = 34;
-          g = 96;
-          b = 175;
-        } else if (terrain === TERRAIN.HAZARD) {
-          r = 138;
-          g = 43;
-          b = 59;
-        }
+      if (terrain === TERRAIN.WALL) {
+        r = 75; g = 75; b = 83;
+      } else if (terrain === TERRAIN.WATER) {
+        r = 31; g = 70; b = 123;
+      } else if (terrain === TERRAIN.HAZARD) {
+        r = 90; g = 30; b = 30;
       }
 
-      if (options.showFood && viewMode === 'surface') {
-        r = Math.min(255, r + world.food[i] * 4);
-        g = Math.min(255, g + world.food[i] * 18);
+      if (options.showFood) {
+        g = Math.min(255, g + world.food[i] * 20);
       }
       if (options.showToFood) {
-        r = Math.min(255, r + world.toFood[i] * 110);
+        r = Math.min(255, r + world.toFood[i] * 80);
       }
       if (options.showToHome) {
-        b = Math.min(255, b + world.toHome[i] * 100);
+        b = Math.min(255, b + world.toHome[i] * 80);
       }
       if (options.showDanger) {
-        r = Math.min(255, r + world.danger[i] * 130);
+        r = Math.min(255, r + world.danger[i] * 140);
       }
 
       data[offset] = r;
@@ -120,54 +97,18 @@ export class Renderer {
     ctx.drawImage(this.terrainCanvas, 0, 0);
   }
 
-  #drawNest(ctx, world, queen, viewMode) {
-    const radius = viewMode === 'underground' ? world.nestRadius * 2 : world.nestRadius * 1.6;
-    const gradient = ctx.createRadialGradient(
-      world.nestX + 0.5,
-      world.nestY + 0.5,
-      1,
-      world.nestX + 0.5,
-      world.nestY + 0.5,
-      radius,
-    );
-    gradient.addColorStop(0, 'rgba(255, 232, 140, 0.96)');
-    gradient.addColorStop(0.6, 'rgba(255, 188, 92, 0.7)');
-    gradient.addColorStop(1, 'rgba(255, 150, 64, 0.08)');
-
-    ctx.fillStyle = gradient;
+  #drawNest(ctx, world) {
+    ctx.fillStyle = 'rgba(255, 225, 110, 0.9)';
     ctx.beginPath();
-    ctx.arc(world.nestX + 0.5, world.nestY + 0.5, radius, 0, Math.PI * 2);
+    ctx.arc(world.nestX + 0.5, world.nestY + 0.5, world.nestRadius, 0, Math.PI * 2);
     ctx.fill();
-
-    if (viewMode === 'underground' && queen?.alive) {
-      ctx.fillStyle = '#ffe3c4';
-      ctx.beginPath();
-      ctx.arc(queen.x + 0.5, queen.y + 0.5, 1.8, 0, Math.PI * 2);
-      ctx.fill();
-    }
   }
 
-  #drawAnts(ctx, colony, viewMode) {
-    ctx.shadowBlur = 6;
+  #drawAnts(ctx, colony) {
     for (let i = 0; i < colony.ants.length; i += 1) {
       const ant = colony.ants[i];
-      if (viewMode === 'underground' && !ant.underground) continue;
-      if (viewMode === 'surface' && ant.underground) continue;
-
-      if (ant.role === 'soldier') {
-        ctx.fillStyle = '#ff7f7f';
-      } else if (ant.role === 'male') {
-        ctx.fillStyle = '#a7b6ff';
-      } else if (ant.role === 'breeder') {
-        ctx.fillStyle = '#ff9cff';
-      } else if (ant.carrying > 0) {
-        ctx.fillStyle = '#ffd978';
-      } else {
-        ctx.fillStyle = '#dbf2ff';
-      }
-      ctx.shadowColor = 'rgba(180, 220, 255, 0.45)';
+      ctx.fillStyle = ant.carrying > 0 ? '#ffd166' : '#f0f0f0';
       ctx.fillRect(ant.x, ant.y, 1, 1);
     }
-    ctx.shadowBlur = 0;
   }
 }

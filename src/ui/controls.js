@@ -18,7 +18,6 @@ export function createControls(state, actions) {
   const pheromoneTickSlider = byId('pheromoneTickSlider');
   const brushSlider = byId('brushSlider');
   const helpPanel = byId('helpPanel');
-  const viewToggle = byId('viewModeUnderground');
 
   const seedInput = byId('seedInput');
   const saveBtn = byId('saveBtn');
@@ -70,12 +69,6 @@ export function createControls(state, actions) {
     byId('brushLabel').textContent = `${state.brushRadius}`;
   });
 
-  viewToggle.addEventListener('change', (event) => {
-    state.viewMode = event.target.checked ? 'underground' : 'surface';
-  });
-
-  viewToggle.checked = state.viewMode === 'underground';
-
   document.querySelectorAll('input[name="tool"]').forEach((radio) => {
     radio.addEventListener('change', () => {
       state.selectedTool = radio.value;
@@ -106,9 +99,6 @@ export function createControls(state, actions) {
     } else if (event.key.toLowerCase() === 'h') {
       if (helpPanel.open) helpPanel.close();
       else helpPanel.showModal();
-    } else if (event.key.toLowerCase() === 'u') {
-      viewToggle.checked = !viewToggle.checked;
-      state.viewMode = viewToggle.checked ? 'underground' : 'surface';
     } else if (TOOL_BY_KEY[event.key]) {
       state.selectedTool = TOOL_BY_KEY[event.key];
       const radio = document.querySelector(`input[name="tool"][value="${state.selectedTool}"]`);

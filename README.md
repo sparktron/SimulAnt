@@ -1,13 +1,13 @@
-# SimulAnt
+# SimAntWebApp
 
-A browser-playable, static-host ant colony simulation inspired by SimulAnt.
+A browser-playable, static-host ant colony simulation inspired by SimAnt.
 
 ## Run locally
 
 No build step required.
 
 ```bash
-cd /path/to/SimulAnt
+cd /path/to/SimAntWebApp
 python3 -m http.server 8000
 ```
 
@@ -57,7 +57,6 @@ Works on GitHub Pages, Netlify static deploy, Cloudflare Pages, or personal web 
 - `G`: toggle to-home pheromone overlay
 - `D`: toggle danger overlay
 - `O`: toggle food overlay
-- `U`: toggle underground/surface view
 - `H`: show/hide help
 
 ## Save / load
@@ -70,26 +69,3 @@ Use **Save** and **Load** buttons to persist simulation state into `localStorage
 - Increase **Pheromone update every N ticks** (e.g., 3-5) for faster simulation.
 - Reduce **Diffusion** to cut pheromone processing cost.
 - Keep world at default `256x256` for smooth 60 FPS on typical laptops.
-
-
-## Colony lifecycle
-
-- Queen resides in nest and lays eggs over time when food reserves are available.
-- Brood advances through egg -> larva -> pupa and hatches into role-based ants.
-- Workers excavate underground tunnels, creating a growing nest network.
-
-## Verification
-
-Run quick syntax checks before opening a PR:
-
-```bash
-node --check src/main.js
-node --check src/sim/world.js
-node --check src/sim/ant.js
-node --check src/sim/colony.js
-node --check src/sim/rng.js
-node --check src/render/renderer.js
-node --check src/ui/controls.js
-node --check src/ui/hud.js
-```
-
