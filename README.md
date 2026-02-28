@@ -77,3 +77,19 @@ Use **Save** and **Load** buttons to persist simulation state into `localStorage
 - Queen resides in nest and lays eggs over time when food reserves are available.
 - Brood advances through egg -> larva -> pupa and hatches into role-based ants.
 - Workers excavate underground tunnels, creating a growing nest network.
+
+## Verification
+
+Run quick syntax checks before opening a PR:
+
+```bash
+node --check src/main.js
+node --check src/sim/world.js
+node --check src/sim/ant.js
+node --check src/sim/colony.js
+node --check src/sim/rng.js
+node --check src/render/renderer.js
+node --check src/ui/controls.js
+node --check src/ui/hud.js
+```
+
