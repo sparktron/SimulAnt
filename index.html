@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SimulAnt</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-layout">
+      <aside class="sidebar">
+        <h1>SimulAnt</h1>
+        <section class="controls" id="controls">
+          <div class="button-row">
+            <button id="startPauseBtn">Pause</button>
+            <button id="stepBtn">Step</button>
+            <button id="resetBtn">Reset Seed</button>
+          </div>
+
+          <label>Seed
+            <input id="seedInput" type="text" value="simulant-default" />
+          </label>
+
+          <label>Simulation speed: <span id="speedLabel">1.0x</span>
+            <input id="speedSlider" type="range" min="0.5" max="10" step="0.5" value="1" />
+          </label>
+
+          <label>Ant cap: <span id="antCapLabel">2000</span>
+            <input id="antCapSlider" type="range" min="100" max="5000" step="100" value="2000" />
+          </label>
+
+          <label>Evaporation: <span id="evapLabel">0.010</span>
+            <input id="evapSlider" type="range" min="0" max="0.05" step="0.001" value="0.01" />
+          </label>
+
+          <label>Diffusion: <span id="diffLabel">0.120</span>
+            <input id="diffSlider" type="range" min="0" max="0.4" step="0.01" value="0.12" />
+          </label>
+
+          <label>Pheromone update every N ticks: <span id="pheromoneTickLabel">2</span>
+            <input id="pheromoneTickSlider" type="range" min="1" max="8" step="1" value="2" />
+          </label>
+
+          <div class="button-row">
+            <button id="saveBtn">Save</button>
+            <button id="loadBtn">Load</button>
+            <button id="clearBtn">Clear World</button>
+          </div>
+
+          <fieldset>
+            <legend>Tools</legend>
+            <div class="tool-grid">
+              <label><input type="radio" name="tool" value="food" checked /> Paint Food</label>
+              <label><input type="radio" name="tool" value="wall" /> Paint Wall</label>
+              <label><input type="radio" name="tool" value="water" /> Paint Water</label>
+              <label><input type="radio" name="tool" value="hazard" /> Paint Spider Zone</label>
+              <label><input type="radio" name="tool" value="erase" /> Erase</label>
+              <label><input type="radio" name="tool" value="nest" /> Move Nest</label>
+            </div>
+            <label>Brush radius: <span id="brushLabel">3</span>
+              <input id="brushSlider" type="range" min="1" max="12" step="1" value="3" />
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>View</legend>
+            <label><input id="viewModeUnderground" type="checkbox" /> Underground mode</label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Overlays</legend>
+            <label><input id="showFoodOverlay" type="checkbox" /> Food heatmap</label>
+            <label><input id="showToFoodOverlay" type="checkbox" /> To-food pheromone</label>
+            <label><input id="showToHomeOverlay" type="checkbox" /> To-home pheromone</label>
+            <label><input id="showDangerOverlay" type="checkbox" /> Danger pheromone</label>
+          </fieldset>
+
+          <p class="shortcut-note">Press <kbd>H</kbd> to toggle help panel.</p>
+        </section>
+      </aside>
+
+      <main class="main-content">
+        <canvas id="simCanvas" width="1024" height="768"></canvas>
+        <section id="hud" class="hud"></section>
+      </main>
+    </div>
+
+    <dialog id="helpPanel" open>
+      <h2>How to Play</h2>
+      <p>
+        Build a colony by feeding workers and letting them excavate tunnels underground.
+        A queen in the nest lays eggs that progress through larva and pupa into workers,
+        soldiers, breeders, and males. Use surface foraging and underground expansion together.
+      </p>
+      <h3>Mouse</h3>
+      <ul>
+        <li>Left drag: paint selected tool</li>
+        <li>Right drag / Shift+drag: pan camera</li>
+        <li>Mouse wheel: zoom</li>
+      </ul>
+      <h3>Keybindings</h3>
+      <ul>
+        <li><kbd>Space</kbd>: Pause/Resume</li>
+        <li><kbd>N</kbd>: Step one tick</li>
+        <li><kbd>R</kbd>: Reset from seed</li>
+        <li><kbd>1..6</kbd>: Select tool (food, wall, water, hazard, erase, nest)</li>
+        <li><kbd>F</kbd>/<kbd>G</kbd>/<kbd>D</kbd>: Toggle to-food/to-home/danger overlays</li>
+        <li><kbd>O</kbd>: Toggle food overlay</li>
+        <li><kbd>U</kbd>: Toggle underground/surface view</li>
+        <li><kbd>H</kbd>: Toggle this help panel</li>
+      </ul>
+      <button id="closeHelpBtn">Close</button>
+    </dialog>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
