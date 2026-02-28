@@ -30,6 +30,12 @@ const state = {
     dangerDeposit: 0.6,
     hazardDeathChance: 0.02,
     foodPickupRate: 0.7,
+    digChance: 0.04,
+    digEnergyCost: 8,
+    digHomeBoost: 0.9,
+    queenEggTicks: 20,
+    queenEggFoodCost: 0.8,
+    soldierSpawnChance: 0.2,
   },
 };
 
@@ -82,7 +88,10 @@ function resetSimulation(seed) {
     world.terrain[idx] = TERRAIN.HAZARD;
   });
 
-  colony = new Colony(world, rng, 350);
+  // Keep initial chamber open for immediate underground behavior.
+  world.setNest(world.nestX, world.nestY);
+
+  colony = new Colony(world, rng, 320);
   tick = 0;
   accumulator = 0;
   if (renderer) renderer.world = world;
@@ -129,6 +138,12 @@ function loop(now) {
     foodStored: colony.foodStored,
     births: colony.births,
     deaths: colony.deaths,
+    eggsLaid: colony.queen.eggsLaid,
+    brood: colony.queen.brood,
+    queenAlive: colony.queen.alive,
+    workers: colony.ants.filter((ant) => ant.role === 'worker').length,
+    soldiers: colony.ants.filter((ant) => ant.role === 'soldier').length,
+    excavatedTiles: colony.excavatedTiles,
   });
 
   requestAnimationFrame(loop);
@@ -265,7 +280,7 @@ function loadState() {
 }
 
 function clearWorld() {
-  world.terrain.fill(TERRAIN.GROUND);
+  world.initializeTerrain();
   world.food.fill(0);
   world.toFood.fill(0);
   world.toHome.fill(0);
