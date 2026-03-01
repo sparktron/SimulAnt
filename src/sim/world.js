@@ -3,6 +3,8 @@ export const TERRAIN = {
   WALL: 1,
   WATER: 2,
   HAZARD: 3,
+  SOIL: 4,
+  TUNNEL: 5,
 };
 
 export class World {
@@ -26,6 +28,8 @@ export class World {
     this.nestY = Math.floor(height * 0.5);
     this.nestRadius = 8;
     this.nestInfluence = new Float32Array(this.size);
+
+    this.initializeTerrain();
     this.recomputeNestInfluence();
   }
 
@@ -40,13 +44,36 @@ export class World {
   isPassable(x, y) {
     if (!this.inBounds(x, y)) return false;
     const terrain = this.terrain[this.index(x, y)];
-    return terrain !== TERRAIN.WALL && terrain !== TERRAIN.WATER;
+    return terrain !== TERRAIN.WALL && terrain !== TERRAIN.WATER && terrain !== TERRAIN.SOIL;
+  }
+
+  isUnderground(x, y) {
+    if (!this.inBounds(x, y)) return false;
+    return this.terrain[this.index(x, y)] === TERRAIN.TUNNEL;
+  }
+
+  initializeTerrain() {
+    // Surface (top half) is open ground, lower half is compact soil to dig through.
+    for (let y = 0; y < this.height; y += 1) {
+      for (let x = 0; x < this.width; x += 1) {
+        const idx = this.index(x, y);
+        this.terrain[idx] = y > this.nestY ? TERRAIN.SOIL : TERRAIN.GROUND;
+      }
+    }
+
+    // Starter nest chamber around queen spawn point.
+    this.paintCircle(this.nestX, this.nestY + 2, this.nestRadius, (idx, _x, y) => {
+      if (y >= this.nestY - 1) this.terrain[idx] = TERRAIN.TUNNEL;
+    });
   }
 
   setNest(x, y) {
     this.nestX = Math.max(0, Math.min(this.width - 1, x));
     this.nestY = Math.max(0, Math.min(this.height - 1, y));
     this.recomputeNestInfluence();
+    this.paintCircle(this.nestX, this.nestY + 2, this.nestRadius, (idx, _cx, cy) => {
+      if (cy >= this.nestY - 1) this.terrain[idx] = TERRAIN.TUNNEL;
+    });
   }
 
   recomputeNestInfluence() {

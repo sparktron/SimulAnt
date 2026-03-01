@@ -12,13 +12,14 @@ const DIRS = [
 ];
 
 export class Ant {
-  constructor(x, y, rng) {
+  constructor(x, y, rng, role = 'worker') {
     this.x = x;
     this.y = y;
     this.dir = rng.int(DIRS.length);
     this.energy = 400 + rng.int(200);
     this.carrying = 0;
     this.alive = true;
+    this.role = role;
   }
 
   update(world, colony, rng, config) {
@@ -49,6 +50,10 @@ export class Ant {
       this.carrying = amount;
     }
 
+    if (this.role === 'worker' && this.carrying === 0) {
+      this.tryDigTunnel(world, colony, rng, config);
+    }
+
     if (this.carrying > 0) {
       world.toFood[idx] += config.toFoodDeposit;
       this.stepByGradient(world, rng, world.nestInfluence, world.toHome, world.danger, true);
@@ -57,10 +62,32 @@ export class Ant {
       this.stepByGradient(world, rng, world.toFood, world.nestInfluence, world.danger, false);
     }
 
-    this.energy -= 1;
+    this.energy -= this.role === 'soldier' ? 1.1 : 1;
     if (this.energy <= 0) {
       this.alive = false;
       colony.deaths += 1;
+    }
+  }
+
+  tryDigTunnel(world, colony, rng, config) {
+    const hereIdx = world.index(this.x, this.y);
+    if (world.terrain[hereIdx] !== TERRAIN.TUNNEL) return;
+    if (!rng.chance(config.digChance)) return;
+
+    for (let i = 0; i < DIRS.length; i += 1) {
+      const d = (this.dir + i) % DIRS.length;
+      const nx = this.x + DIRS[d][0];
+      const ny = this.y + DIRS[d][1];
+      if (!world.inBounds(nx, ny)) continue;
+      const nidx = world.index(nx, ny);
+
+      if (world.terrain[nidx] === TERRAIN.SOIL) {
+        world.terrain[nidx] = TERRAIN.TUNNEL;
+        colony.excavatedTiles += 1;
+        world.toHome[nidx] += config.digHomeBoost;
+        this.energy = Math.max(0, this.energy - config.digEnergyCost);
+        return;
+      }
     }
   }
 
@@ -75,14 +102,15 @@ export class Ant {
       if (!world.inBounds(nx, ny)) continue;
       const nidx = world.index(nx, ny);
       const terrain = world.terrain[nidx];
-      if (terrain === TERRAIN.WALL || terrain === TERRAIN.WATER) continue;
+      if (terrain === TERRAIN.WALL || terrain === TERRAIN.WATER || terrain === TERRAIN.SOIL) continue;
 
       const primary = primaryField[nidx] * 1.2;
       const secondary = secondaryField[nidx] * 0.8;
       const danger = dangerField[nidx] * 2.2;
       const randomness = rng.range(0, 0.4);
       const inertia = i === 0 ? 0.5 : 0;
-      const score = primary + secondary + randomness + inertia - danger;
+      const roleBias = this.role === 'soldier' ? world.danger[nidx] * 0.4 : 0;
+      const score = primary + secondary + randomness + inertia + roleBias - danger;
 
       if (headingHome && world.nestInfluence[nidx] > 0.97) {
         this.x = nx;
@@ -110,7 +138,6 @@ export class Ant {
       return;
     }
 
-    // fallback random motion when blocked
     for (let i = 0; i < DIRS.length; i += 1) {
       const d = rng.int(DIRS.length);
       const nx = this.x + DIRS[d][0];
