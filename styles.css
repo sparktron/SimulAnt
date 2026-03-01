@@ -1,190 +1,181 @@
+/* SimAnt -- external stylesheet (duplicates inline <style> in index.html).
+   Kept for reference; the inline version is authoritative. */
+
 :root {
-  --bg: #00a2df;
-  --panel: #c8c8c8;
-  --panel-border: #3a3a3a;
+  --bg: #2872a8;
+  --panel: #c0c0c0;
+  --panel-border: #333;
   --text: #111;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-html,
-body {
-  width: 100%;
-  height: 100%;
-  margin: 0;
+html, body {
+  width: 100%; height: 100%; margin: 0;
   image-rendering: pixelated;
   background: var(--bg);
   color: var(--text);
   font-family: 'Courier New', monospace;
+  overflow: hidden;
 }
 
 .screen {
-  height: 100%;
+  height: 100vh;
   display: grid;
-  grid-template-rows: 26px 1fr 96px;
-  gap: 6px;
-  padding: 6px;
+  grid-template-rows: 26px 1fr 80px;
+  gap: 4px;
+  padding: 4px;
 }
 
 .menu-bar {
-  background: #d5d5d5;
-  border: 2px solid var(--panel-border);
+  background: #d0d0d0;
+  border: 2px outset #eee;
   font-weight: bold;
   text-align: center;
   line-height: 22px;
+  font-size: 13px;
 }
 
 .frame {
   display: grid;
-  grid-template-columns: 150px 1fr 190px;
-  gap: 6px;
+  grid-template-columns: 140px 1fr 172px;
+  gap: 4px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .left-palette,
 .right-panel {
   background: var(--panel);
-  border: 2px solid var(--panel-border);
-  padding: 6px;
+  border: 2px outset #ddd;
+  padding: 4px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
 }
 
 .palette-btn {
   width: 100%;
-  border: 2px solid #111;
-  background: #efefef;
-  padding: 4px;
+  border: 2px outset #ccc;
+  background: #e4e4e4;
+  padding: 3px 2px;
   font-family: inherit;
+  font-size: 11px;
   font-weight: bold;
   cursor: pointer;
+  flex-shrink: 0;
 }
+.palette-btn:active { border-style: inset; }
 
 .tool-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
-  font-size: 11px;
+  font-size: 10px;
+  flex-shrink: 0;
 }
+.tool-grid label { cursor: pointer; }
 
 .health-block {
-  border: 2px solid var(--panel-border);
-  padding: 4px;
+  border: 2px inset #aaa;
+  padding: 3px;
+  flex-shrink: 0;
 }
+.health-block h3 { margin: 0 0 3px; font-size: 11px; }
 
-.health-block h3 {
-  margin: 0 0 4px;
-  font-size: 12px;
-}
-
-.health-bars {
-  display: flex;
-  gap: 6px;
-}
+.health-bars { display: flex; gap: 4px; }
 
 .bar-wrap {
-  width: 14px;
-  height: 80px;
-  border: 2px solid #111;
+  width: 14px; height: 64px;
+  border: 1px solid #111;
   background: #efefef;
   display: flex;
   flex-direction: column-reverse;
 }
-
-.bar {
-  width: 100%;
-  height: 0;
-}
-
-.bar.yellow { background: #f5e600; }
+.bar { width: 100%; height: 0; }
+.bar.yellow { background: #e8d600; }
 .bar.black { background: #111; }
-.bar.red { background: #d51f1f; }
+.bar.red { background: #d41a1a; }
 
-.button-column {
-  display: grid;
-  gap: 4px;
-}
+.button-column { display: grid; gap: 3px; flex-shrink: 0; }
 
 .left-palette label,
 .caste-sliders label {
-  font-size: 11px;
+  font-size: 10px;
   display: grid;
-  gap: 2px;
+  gap: 1px;
 }
-
 input[type='text'],
-input[type='range'] {
-  width: 100%;
-}
+input[type='range'] { width: 100%; }
 
 .playfield {
   position: relative;
-  border: 2px solid #f6f79c;
-  background: #222;
+  border: 2px solid #c8ca70;
+  background: #111;
   min-height: 0;
+  overflow: hidden;
 }
 
 .mode-banner {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   z-index: 1;
-  height: 22px;
+  height: 20px;
   text-align: center;
-  line-height: 20px;
-  background: rgba(190, 190, 190, 0.92);
+  line-height: 18px;
+  background: rgba(180, 180, 180, 0.92);
   border-bottom: 2px solid #2d2d2d;
   font-weight: bold;
+  font-size: 12px;
 }
 
 #simCanvas {
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   display: block;
   cursor: crosshair;
 }
 
 .minimap {
-  border: 2px solid #1b1b1b;
-  height: 170px;
-  background: #9f9f9f;
+  border: 2px inset #aaa;
+  height: 140px;
+  background: #9a9a9a;
   text-align: center;
-  padding-top: 8px;
+  padding-top: 6px;
   font-weight: bold;
+  font-size: 11px;
+  flex-shrink: 0;
 }
 
 .stat-lines {
-  border: 2px solid #1b1b1b;
-  padding: 4px;
-  background: #e8e8e8;
+  border: 2px inset #aaa;
+  padding: 3px;
+  background: #e4e4e4;
+  font-size: 11px;
 }
-
-.stat-lines p {
-  margin: 3px 0;
-}
+.stat-lines p { margin: 2px 0; }
 
 .caste-sliders {
   background: var(--panel);
-  border: 2px solid var(--panel-border);
+  border: 2px outset #ddd;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 10px;
+  gap: 10px;
+  padding: 8px;
+  align-content: center;
 }
 
 #helpPanel {
-  border: 2px solid var(--panel-border);
+  border: 2px outset #ccc;
   background: #dcdcdc;
   font-family: 'Courier New', monospace;
+  font-size: 12px;
 }
-
 kbd {
   border: 1px solid #333;
   padding: 1px 4px;
   background: #fff;
+  font-size: 11px;
 }
