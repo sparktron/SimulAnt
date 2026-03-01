@@ -4,104 +4,276 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SimAnt Web App</title>
-    <link rel="stylesheet" href="styles.css" />
+    <style>
+      :root {
+        --bg: #2872a8;
+        --panel: #c0c0c0;
+        --panel-border: #333;
+        --text: #111;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        width: 100%; height: 100%; margin: 0;
+        image-rendering: pixelated;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Courier New', monospace;
+        overflow: hidden;
+      }
+
+      .screen {
+        height: 100vh;
+        display: grid;
+        grid-template-rows: 26px 1fr 80px;
+        gap: 4px;
+        padding: 4px;
+      }
+
+      .menu-bar {
+        background: #d0d0d0;
+        border: 2px outset #eee;
+        font-weight: bold;
+        text-align: center;
+        line-height: 22px;
+        font-size: 13px;
+      }
+
+      .frame {
+        display: grid;
+        grid-template-columns: 140px 1fr 172px;
+        gap: 4px;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .left-palette,
+      .right-panel {
+        background: var(--panel);
+        border: 2px outset #ddd;
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        min-height: 0;
+      }
+
+      .palette-btn {
+        width: 100%;
+        border: 2px outset #ccc;
+        background: #e4e4e4;
+        padding: 3px 2px;
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: bold;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .palette-btn:active { border-style: inset; }
+
+      .tool-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px;
+        font-size: 10px;
+        flex-shrink: 0;
+      }
+      .tool-grid label { cursor: pointer; }
+
+      .health-block {
+        border: 2px inset #aaa;
+        padding: 3px;
+        flex-shrink: 0;
+      }
+      .health-block h3 { margin: 0 0 3px; font-size: 11px; }
+
+      .health-bars { display: flex; gap: 4px; }
+
+      .bar-wrap {
+        width: 14px; height: 64px;
+        border: 1px solid #111;
+        background: #efefef;
+        display: flex;
+        flex-direction: column-reverse;
+      }
+      .bar { width: 100%; height: 0; }
+      .bar.yellow { background: #e8d600; }
+      .bar.black { background: #111; }
+      .bar.red { background: #d41a1a; }
+
+      .button-column { display: grid; gap: 3px; flex-shrink: 0; }
+
+      .left-palette label,
+      .caste-sliders label {
+        font-size: 10px;
+        display: grid;
+        gap: 1px;
+      }
+      input[type='text'],
+      input[type='range'] { width: 100%; }
+
+      .playfield {
+        position: relative;
+        border: 2px solid #c8ca70;
+        background: #111;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .mode-banner {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        z-index: 1;
+        height: 20px;
+        text-align: center;
+        line-height: 18px;
+        background: rgba(180, 180, 180, 0.92);
+        border-bottom: 2px solid #2d2d2d;
+        font-weight: bold;
+        font-size: 12px;
+      }
+
+      #simCanvas {
+        width: 100%; height: 100%;
+        display: block;
+        cursor: crosshair;
+      }
+
+      .minimap {
+        border: 2px inset #aaa;
+        height: 140px;
+        background: #9a9a9a;
+        text-align: center;
+        padding-top: 6px;
+        font-weight: bold;
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+
+      .stat-lines {
+        border: 2px inset #aaa;
+        padding: 3px;
+        background: #e4e4e4;
+        font-size: 11px;
+      }
+      .stat-lines p { margin: 2px 0; }
+
+      .caste-sliders {
+        background: var(--panel);
+        border: 2px outset #ddd;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 8px;
+        align-content: center;
+      }
+
+      #helpPanel {
+        border: 2px outset #ccc;
+        background: #dcdcdc;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+      }
+      kbd {
+        border: 1px solid #333;
+        padding: 1px 4px;
+        background: #fff;
+        font-size: 11px;
+      }
+    </style>
   </head>
   <body>
-    <div class="app-layout">
-      <aside class="sidebar">
-        <h1>SimAnt Web</h1>
-        <section class="controls" id="controls">
-          <div class="button-row">
-            <button id="startPauseBtn">Pause</button>
-            <button id="stepBtn">Step</button>
-            <button id="resetBtn">Reset Seed</button>
+    <div class="screen">
+      <header class="menu-bar">SimAnt - Two View Colony</header>
+
+      <div class="frame">
+        <aside class="left-palette">
+          <button id="viewToggleBtn" class="palette-btn">VIEW: SURFACE</button>
+          <button id="startPauseBtn" class="palette-btn">PAUSE</button>
+          <button id="stepBtn" class="palette-btn">STEP</button>
+
+          <div class="tool-grid">
+            <label><input type="radio" name="tool" value="food" checked />MAP</label>
+            <label><input type="radio" name="tool" value="wall" />WALL</label>
+            <label><input type="radio" name="tool" value="water" />WATER</label>
+            <label><input type="radio" name="tool" value="hazard" />DANGER</label>
+            <label><input type="radio" name="tool" value="erase" />ERASE</label>
+            <label><input type="radio" name="tool" value="nest" />NEST</label>
           </div>
 
-          <label>Seed
-            <input id="seedInput" type="text" value="simant-default" />
-          </label>
+          <div class="health-block">
+            <h3>HEALTH</h3>
+            <div class="health-bars">
+              <div class="bar-wrap"><div id="healthYellow" class="bar yellow"></div></div>
+              <div class="bar-wrap"><div id="healthBlack" class="bar black"></div></div>
+              <div class="bar-wrap"><div id="healthRed" class="bar red"></div></div>
+            </div>
+          </div>
 
-          <label>Simulation speed: <span id="speedLabel">1.0x</span>
+          <label>Seed <input id="seedInput" type="text" value="simant-default" /></label>
+          <label>Brush <span id="brushLabel">3</span>
+            <input id="brushSlider" type="range" min="1" max="12" step="1" value="3" />
+          </label>
+          <label>Speed <span id="speedLabel">1.0x</span>
             <input id="speedSlider" type="range" min="0.5" max="10" step="0.5" value="1" />
           </label>
-
-          <label>Ant cap: <span id="antCapLabel">2000</span>
+          <label>Ant cap <span id="antCapLabel">2000</span>
             <input id="antCapSlider" type="range" min="100" max="5000" step="100" value="2000" />
           </label>
 
-          <label>Evaporation: <span id="evapLabel">0.010</span>
-            <input id="evapSlider" type="range" min="0" max="0.05" step="0.001" value="0.01" />
-          </label>
-
-          <label>Diffusion: <span id="diffLabel">0.120</span>
-            <input id="diffSlider" type="range" min="0" max="0.4" step="0.01" value="0.12" />
-          </label>
-
-          <label>Pheromone update every N ticks: <span id="pheromoneTickLabel">2</span>
-            <input id="pheromoneTickSlider" type="range" min="1" max="8" step="1" value="2" />
-          </label>
-
-          <div class="button-row">
-            <button id="saveBtn">Save</button>
-            <button id="loadBtn">Load</button>
-            <button id="clearBtn">Clear World</button>
+          <div class="button-column">
+            <button id="resetBtn" class="palette-btn">RESET</button>
+            <button id="saveBtn" class="palette-btn">SAVE</button>
+            <button id="loadBtn" class="palette-btn">LOAD</button>
+            <button id="clearBtn" class="palette-btn">CLEAR</button>
           </div>
+        </aside>
 
-          <fieldset>
-            <legend>Tools</legend>
-            <div class="tool-grid">
-              <label><input type="radio" name="tool" value="food" checked /> Paint Food</label>
-              <label><input type="radio" name="tool" value="wall" /> Paint Wall</label>
-              <label><input type="radio" name="tool" value="water" /> Paint Water</label>
-              <label><input type="radio" name="tool" value="hazard" /> Paint Spider Zone</label>
-              <label><input type="radio" name="tool" value="erase" /> Erase</label>
-              <label><input type="radio" name="tool" value="nest" /> Move Nest</label>
-            </div>
-            <label>Brush radius: <span id="brushLabel">3</span>
-              <input id="brushSlider" type="range" min="1" max="12" step="1" value="3" />
-            </label>
-          </fieldset>
+        <main class="playfield">
+          <div class="mode-banner">MODE: <span id="modeIndicator">SURFACE</span></div>
+          <canvas id="simCanvas" width="960" height="640"></canvas>
+        </main>
 
-          <fieldset>
-            <legend>Overlays</legend>
-            <label><input id="showFoodOverlay" type="checkbox" /> Food heatmap</label>
-            <label><input id="showToFoodOverlay" type="checkbox" /> To-food pheromone</label>
-            <label><input id="showToHomeOverlay" type="checkbox" /> To-home pheromone</label>
-            <label><input id="showDangerOverlay" type="checkbox" /> Danger pheromone</label>
-          </fieldset>
+        <aside class="right-panel">
+          <div class="minimap">MINI MAP<br /><small>(active view only)</small></div>
+          <div class="stat-lines">
+            <p>TICK: <span id="hudTick">0</span></p>
+            <p>ANTS: <span id="hudAnts">0</span></p>
+            <p>WORKERS: <span id="hudWorkers">0</span></p>
+            <p>SOLDIERS: <span id="hudSoldiers">0</span></p>
+            <p>FOOD: <span id="hudFood">0</span></p>
+            <p>FPS: <span id="hudFps">0</span></p>
+          </div>
+        </aside>
+      </div>
 
-          <p class="shortcut-note">Press <kbd>H</kbd> to toggle help panel.</p>
-        </section>
-      </aside>
-
-      <main class="main-content">
-        <canvas id="simCanvas" width="1024" height="768"></canvas>
-        <section id="hud" class="hud"></section>
-      </main>
+      <footer class="caste-sliders">
+        <label>WORKERS <span id="workerPct">70%</span>
+          <input id="workerSlider" type="range" min="0" max="100" step="1" value="70" />
+        </label>
+        <label>SOLDIERS <span id="soldierPct">30%</span>
+          <input id="soldierSlider" type="range" min="0" max="100" step="1" value="30" />
+        </label>
+      </footer>
     </div>
 
-    <dialog id="helpPanel" open>
+    <dialog id="helpPanel">
       <h2>How to Play</h2>
-      <p>
-        Build a colony by painting food and terrain. Workers now dig underground tunnels in soil,
-        return food to the nest, and feed a queen who lays eggs that mature into workers and soldiers.
-      </p>
-      <h3>Mouse</h3>
       <ul>
-        <li>Left drag: paint selected tool</li>
-        <li>Right drag / Shift+drag: pan camera</li>
-        <li>Mouse wheel: zoom</li>
-      </ul>
-      <h3>Keybindings</h3>
-      <ul>
+        <li><kbd>TAB</kbd>: Toggle SURFACE / NEST view</li>
         <li><kbd>Space</kbd>: Pause/Resume</li>
         <li><kbd>N</kbd>: Step one tick</li>
-        <li><kbd>R</kbd>: Reset from seed</li>
-        <li><kbd>1..6</kbd>: Select tool (food, wall, water, hazard, erase, nest)</li>
-        <li>Workers excavate soil automatically from tunnel fronts</li>
-        <li><kbd>F</kbd>/<kbd>G</kbd>/<kbd>D</kbd>: Toggle to-food/to-home/danger overlays</li>
-        <li><kbd>O</kbd>: Toggle food overlay</li>
-        <li><kbd>H</kbd>: Toggle this help panel</li>
+        <li><kbd>R</kbd>: Reset simulation</li>
+        <li><kbd>F</kbd>: Toggle food overlay</li>
+        <li><kbd>G</kbd>: Toggle to-food pheromone overlay</li>
+        <li><kbd>O</kbd>: Toggle to-home pheromone overlay</li>
+        <li><kbd>D</kbd>: Toggle danger pheromone overlay</li>
+        <li>Left drag: paint tool</li>
+        <li>Right drag / Shift+drag: pan camera (active view only)</li>
+        <li>Wheel: zoom camera (active view only)</li>
       </ul>
       <button id="closeHelpBtn">Close</button>
     </dialog>

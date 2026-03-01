@@ -1,19 +1,20 @@
-import { World, TERRAIN } from './sim/world.js';
-import { SeededRng } from './sim/rng.js';
-import { Colony } from './sim/colony.js';
-import { Renderer } from './render/renderer.js';
 import { createControls } from './ui/controls.js';
 import { updateHud } from './ui/hud.js';
+import { SurfaceRenderer } from './render/SurfaceRenderer.js';
+import { NestRenderer } from './render/NestRenderer.js';
+import { SimulationCore } from './sim/SimulationCore.js';
+import { ViewManager, VIEW } from './ui/ViewManager.js';
+import { InputRouter } from './input/InputRouter.js';
 
-const STORAGE_KEY = 'simant-save-v1';
+const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
 
 const state = {
-  seed: 'simant-default',
   paused: false,
   simSpeed: 1,
   selectedTool: 'food',
   brushRadius: 3,
+  seed: 'simant-default',
   overlays: {
     showFood: false,
     showToFood: false,
@@ -37,77 +38,77 @@ const state = {
     queenEggFoodCost: 0.8,
     soldierSpawnChance: 0.2,
   },
+  casteTargets: {
+    workers: 70,
+    soldiers: 30,
+  },
 };
 
-let rng;
-let world;
-let colony;
-let renderer;
+const canvas = mustById('simCanvas');
+const simCore = new SimulationCore(state.seed);
+const viewManager = new ViewManager(VIEW.SURFACE);
+const surfaceRenderer = new SurfaceRenderer(canvas, simCore.world);
+const nestRenderer = new NestRenderer(canvas, simCore.world);
+
+surfaceRenderer.resize();
+nestRenderer.resize();
+
+new InputRouter(canvas, viewManager, {
+  surface: {
+    screenToWorld: (sx, sy) => surfaceRenderer.screenToWorld(sx, sy),
+    paint: (x, y) => applyToolIfInBounds(x, y),
+    pan: (dx, dy) => {
+      surfaceRenderer.cameraX -= dx / surfaceRenderer.zoom;
+      surfaceRenderer.cameraY -= dy / surfaceRenderer.zoom;
+    },
+    zoom: (zoomDelta) => {
+      surfaceRenderer.zoom = Math.max(1, Math.min(10, surfaceRenderer.zoom * zoomDelta));
+    },
+  },
+  nest: {
+    screenToWorld: (sx, sy) => nestRenderer.screenToWorld(sx, sy),
+    paint: (x, y) => applyToolIfInBounds(x, y),
+    pan: (dx, dy) => {
+      nestRenderer.cameraX -= dx / nestRenderer.zoom;
+      nestRenderer.cameraY -= dy / nestRenderer.zoom;
+    },
+    zoom: (zoomDelta) => {
+      nestRenderer.zoom = Math.max(1, Math.min(10, nestRenderer.zoom * zoomDelta));
+    },
+  },
+});
+
+createControls(state, {
+  stepOnce: () => simCore.update(state.config),
+  reset: (seed) => {
+    state.seed = seed || state.seed;
+    simCore.reset(state.seed);
+    syncRenderWorld();
+  },
+  save: () => saveState(),
+  load: () => loadState(),
+  clearWorld: () => simCore.clearWorld(),
+  toggleView: () => viewManager.toggle(),
+});
+
+window.addEventListener('resize', () => {
+  surfaceRenderer.resize();
+  nestRenderer.resize();
+});
+
+viewManager.onChange((mode) => {
+  mustById('viewToggleBtn').textContent = mode === VIEW.SURFACE ? 'VIEW: SURFACE' : 'VIEW: NEST';
+  mustById('modeIndicator').textContent = mode;
+});
 
 let accumulator = 0;
 let lastTime = performance.now();
-let tick = 0;
-
 let fps = 60;
-let simMs = 0;
 let fpsTimer = 0;
 let frameCount = 0;
+let simMs = 0;
 
-const canvas = document.getElementById('simCanvas');
-const hudElement = document.getElementById('hud');
-
-resetSimulation(state.seed);
-renderer = new Renderer(canvas, world);
-renderer.resize();
-initMouseControls(canvas, renderer, state, () => world);
-
-createControls(state, {
-  stepOnce: () => runTicks(1),
-  reset: (seed) => resetSimulation(seed),
-  save: () => saveState(),
-  load: () => loadState(),
-  clearWorld: () => clearWorld(),
-});
-
-window.addEventListener('resize', () => renderer.resize());
 requestAnimationFrame(loop);
-
-function resetSimulation(seed) {
-  state.seed = seed || 'simant-default';
-  rng = new SeededRng(state.seed);
-  world = new World(256, 256);
-
-  // procedural landmarks
-  world.paintCircle(world.nestX + 45, world.nestY, 10, (idx) => {
-    world.food[idx] = 10;
-  });
-  world.paintCircle(world.nestX - 60, world.nestY + 30, 15, (idx) => {
-    world.food[idx] = 8;
-  });
-  world.paintCircle(world.nestX + 70, world.nestY - 50, 14, (idx) => {
-    world.terrain[idx] = TERRAIN.HAZARD;
-  });
-
-  // Keep initial chamber open for immediate underground behavior.
-  world.setNest(world.nestX, world.nestY);
-
-  colony = new Colony(world, rng, 320);
-  tick = 0;
-  accumulator = 0;
-  if (renderer) renderer.world = world;
-}
-
-function runTicks(count) {
-  const start = performance.now();
-  for (let i = 0; i < count; i += 1) {
-    tick += 1;
-    colony.update(state.config);
-    if (tick % state.config.pheromoneUpdateTicks === 0) {
-      world.diffuseAndEvaporate(state.config.diffusionRate, state.config.evaporationRate, true);
-    }
-  }
-  simMs = performance.now() - start;
-}
 
 function loop(now) {
   const elapsed = Math.min(0.25, (now - lastTime) / 1000);
@@ -123,166 +124,105 @@ function loop(now) {
 
   if (!state.paused) {
     accumulator += elapsed * state.simSpeed;
+    const start = performance.now();
     while (accumulator >= SIM_DT) {
-      runTicks(1);
+      simCore.update(state.config);
       accumulator -= SIM_DT;
     }
+    simMs = performance.now() - start;
   }
 
-  renderer.draw(colony, state.overlays);
-  updateHud(hudElement, {
+  const activeView = viewManager.getCurrent();
+  if (activeView === VIEW.SURFACE) {
+    surfaceRenderer.draw(simCore.colony, state.overlays);
+  } else {
+    nestRenderer.draw(simCore.colony);
+  }
+
+  updateHud({
+    viewMode: activeView,
     fps,
+    tick: simCore.tick,
+    ants: simCore.colony.ants.length,
+    workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
+    soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
+    foodStored: simCore.colony.foodStored,
+    queenAlive: simCore.colony.queen.alive,
     simMs,
-    tick,
-    ants: colony.ants.length,
-    foodStored: colony.foodStored,
-    births: colony.births,
-    deaths: colony.deaths,
-    eggsLaid: colony.queen.eggsLaid,
-    brood: colony.queen.brood,
-    queenAlive: colony.queen.alive,
-    workers: colony.ants.filter((ant) => ant.role === 'worker').length,
-    soldiers: colony.ants.filter((ant) => ant.role === 'soldier').length,
-    excavatedTiles: colony.excavatedTiles,
   });
 
   requestAnimationFrame(loop);
 }
 
-function applyTool(worldX, worldY) {
-  const radius = state.brushRadius;
-  switch (state.selectedTool) {
-    case 'food':
-      world.paintCircle(worldX, worldY, radius, (idx) => {
-        world.food[idx] = Math.min(world.food[idx] + 4, 20);
-        if (world.terrain[idx] !== TERRAIN.GROUND) world.terrain[idx] = TERRAIN.GROUND;
-      });
-      break;
-    case 'wall':
-      world.paintCircle(worldX, worldY, radius, (idx) => {
-        world.terrain[idx] = TERRAIN.WALL;
-      });
-      break;
-    case 'water':
-      world.paintCircle(worldX, worldY, radius, (idx) => {
-        world.terrain[idx] = TERRAIN.WATER;
-      });
-      break;
-    case 'hazard':
-      world.paintCircle(worldX, worldY, radius, (idx) => {
-        world.terrain[idx] = TERRAIN.HAZARD;
-      });
-      break;
-    case 'erase':
-      world.paintCircle(worldX, worldY, radius, (idx) => {
-        world.terrain[idx] = TERRAIN.GROUND;
-        world.food[idx] = 0;
-        world.toFood[idx] = 0;
-        world.toHome[idx] = 0;
-        world.danger[idx] = 0;
-      });
-      break;
-    case 'nest':
-      world.setNest(worldX, worldY);
-      break;
-    default:
-      break;
-  }
-}
-
-function initMouseControls(canvasEl, simRenderer, simState, getWorld) {
-  let painting = false;
-  let panning = false;
-  let lastX = 0;
-  let lastY = 0;
-
-  canvasEl.addEventListener('contextmenu', (event) => event.preventDefault());
-
-  canvasEl.addEventListener('pointerdown', (event) => {
-    canvasEl.setPointerCapture(event.pointerId);
-    lastX = event.clientX;
-    lastY = event.clientY;
-
-    if (event.button === 2 || event.shiftKey) {
-      panning = true;
-    } else {
-      painting = true;
-      const rect = canvasEl.getBoundingClientRect();
-      const pt = simRenderer.screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
-      applyTool(pt.x, pt.y);
-    }
-  });
-
-  canvasEl.addEventListener('pointermove', (event) => {
-    const dx = event.clientX - lastX;
-    const dy = event.clientY - lastY;
-    lastX = event.clientX;
-    lastY = event.clientY;
-
-    if (panning) {
-      simRenderer.cameraX -= dx / simRenderer.zoom;
-      simRenderer.cameraY -= dy / simRenderer.zoom;
-      return;
-    }
-
-    if (painting) {
-      const rect = canvasEl.getBoundingClientRect();
-      const pt = simRenderer.screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
-      if (getWorld().inBounds(pt.x, pt.y)) {
-        applyTool(pt.x, pt.y);
-      }
-    }
-  });
-
-  canvasEl.addEventListener('pointerup', () => {
-    painting = false;
-    panning = false;
-  });
-
-  canvasEl.addEventListener('wheel', (event) => {
-    event.preventDefault();
-    const zoomDelta = event.deltaY < 0 ? 1.1 : 0.9;
-    simRenderer.zoom = Math.max(1, Math.min(10, simRenderer.zoom * zoomDelta));
-  });
+function applyToolIfInBounds(x, y) {
+  if (!simCore.world.inBounds(x, y)) return;
+  simCore.applyTool(state.selectedTool, x, y, state.brushRadius);
 }
 
 function saveState() {
-  const save = {
-    seed: state.seed,
-    world: world.serialize(),
-    colony: colony.serialize(),
-    state: {
-      simSpeed: state.simSpeed,
-      config: state.config,
-      overlays: state.overlays,
+  const save = simCore.serialize({
+    simSpeed: state.simSpeed,
+    config: state.config,
+    overlays: state.overlays,
+    casteTargets: state.casteTargets,
+    selectedTool: state.selectedTool,
+    brushRadius: state.brushRadius,
+    viewMode: viewManager.getCurrent(),
+    cameras: {
+      surface: {
+        x: surfaceRenderer.cameraX,
+        y: surfaceRenderer.cameraY,
+        zoom: surfaceRenderer.zoom,
+      },
+      nest: {
+        x: nestRenderer.cameraX,
+        y: nestRenderer.cameraY,
+        zoom: nestRenderer.zoom,
+      },
     },
-    tick,
-  };
+  });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
 }
 
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return;
-
   const data = JSON.parse(raw);
-  state.seed = data.seed || state.seed;
-  rng = new SeededRng(state.seed);
-  world = World.fromSerialized(data.world);
-  colony = Colony.fromSerialized(world, rng, data.colony);
-  tick = data.tick || 0;
+
+  simCore.loadFromSerialized(data);
+  syncRenderWorld();
 
   Object.assign(state.config, data.state?.config || {});
   Object.assign(state.overlays, data.state?.overlays || {});
+  Object.assign(state.casteTargets, data.state?.casteTargets || {});
   state.simSpeed = data.state?.simSpeed || state.simSpeed;
+  state.selectedTool = data.state?.selectedTool || state.selectedTool;
+  state.brushRadius = data.state?.brushRadius || state.brushRadius;
 
-  renderer.world = world;
+  const surfaceCam = data.state?.cameras?.surface;
+  if (surfaceCam) {
+    surfaceRenderer.cameraX = surfaceCam.x;
+    surfaceRenderer.cameraY = surfaceCam.y;
+    surfaceRenderer.zoom = surfaceCam.zoom;
+  }
+  const nestCam = data.state?.cameras?.nest;
+  if (nestCam) {
+    nestRenderer.cameraX = nestCam.x;
+    nestRenderer.cameraY = nestCam.y;
+    nestRenderer.zoom = nestCam.zoom;
+  }
+
+  const mode = data.state?.viewMode;
+  if (mode === VIEW.SURFACE || mode === VIEW.NEST) viewManager.setView(mode);
 }
 
-function clearWorld() {
-  world.initializeTerrain();
-  world.food.fill(0);
-  world.toFood.fill(0);
-  world.toHome.fill(0);
-  world.danger.fill(0);
+function syncRenderWorld() {
+  surfaceRenderer.setWorld(simCore.world);
+  nestRenderer.setWorld(simCore.world);
+}
+
+function mustById(id) {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`Missing required element: ${id}`);
+  return el;
 }
