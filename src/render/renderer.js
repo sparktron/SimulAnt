@@ -71,6 +71,10 @@ export class Renderer {
         r = 31; g = 70; b = 123;
       } else if (terrain === TERRAIN.HAZARD) {
         r = 90; g = 30; b = 30;
+      } else if (terrain === TERRAIN.SOIL) {
+        r = 68; g = 54; b = 38;
+      } else if (terrain === TERRAIN.TUNNEL) {
+        r = 104; g = 86; b = 60;
       }
 
       if (options.showFood) {
@@ -107,7 +111,8 @@ export class Renderer {
   #drawAnts(ctx, colony) {
     for (let i = 0; i < colony.ants.length; i += 1) {
       const ant = colony.ants[i];
-      ctx.fillStyle = ant.carrying > 0 ? '#ffd166' : '#f0f0f0';
+      if (ant.role === 'soldier') ctx.fillStyle = '#ff8f70';
+      else ctx.fillStyle = ant.carrying > 0 ? '#ffd166' : '#f0f0f0';
       ctx.fillRect(ant.x, ant.y, 1, 1);
     }
   }

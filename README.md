@@ -1,6 +1,6 @@
 # SimAntWebApp
 
-A browser-playable, static-host ant colony simulation inspired by SimAnt.
+A browser-playable, static-host ant colony simulation inspired by SimAnt, including underground excavation and queen-led reproduction.
 
 ## Run locally
 
@@ -42,6 +42,7 @@ Works on GitHub Pages, Netlify static deploy, Cloudflare Pages, or personal web 
 - Paint spider zone (hazard)
 - Erase terrain/food/pheromones
 - Move nest
+- Workers automatically dig tunnels into soil from existing chambers
 
 ### Mouse
 - Left drag: paint with current tool
