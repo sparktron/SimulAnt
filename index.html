@@ -4,7 +4,186 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SimAnt Web App</title>
-    <link rel="stylesheet" href="styles.css" />
+    <style>
+      :root {
+        --bg: #2872a8;
+        --panel: #c0c0c0;
+        --panel-border: #333;
+        --text: #111;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        width: 100%; height: 100%; margin: 0;
+        image-rendering: pixelated;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Courier New', monospace;
+        overflow: hidden;
+      }
+
+      .screen {
+        height: 100vh;
+        display: grid;
+        grid-template-rows: 26px 1fr 80px;
+        gap: 4px;
+        padding: 4px;
+      }
+
+      .menu-bar {
+        background: #d0d0d0;
+        border: 2px outset #eee;
+        font-weight: bold;
+        text-align: center;
+        line-height: 22px;
+        font-size: 13px;
+      }
+
+      .frame {
+        display: grid;
+        grid-template-columns: 140px 1fr 172px;
+        gap: 4px;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .left-palette,
+      .right-panel {
+        background: var(--panel);
+        border: 2px outset #ddd;
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        min-height: 0;
+      }
+
+      .palette-btn {
+        width: 100%;
+        border: 2px outset #ccc;
+        background: #e4e4e4;
+        padding: 3px 2px;
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: bold;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .palette-btn:active { border-style: inset; }
+
+      .tool-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px;
+        font-size: 10px;
+        flex-shrink: 0;
+      }
+      .tool-grid label { cursor: pointer; }
+
+      .health-block {
+        border: 2px inset #aaa;
+        padding: 3px;
+        flex-shrink: 0;
+      }
+      .health-block h3 { margin: 0 0 3px; font-size: 11px; }
+
+      .health-bars { display: flex; gap: 4px; }
+
+      .bar-wrap {
+        width: 14px; height: 64px;
+        border: 1px solid #111;
+        background: #efefef;
+        display: flex;
+        flex-direction: column-reverse;
+      }
+      .bar { width: 100%; height: 0; }
+      .bar.yellow { background: #e8d600; }
+      .bar.black { background: #111; }
+      .bar.red { background: #d41a1a; }
+
+      .button-column { display: grid; gap: 3px; flex-shrink: 0; }
+
+      .left-palette label,
+      .caste-sliders label {
+        font-size: 10px;
+        display: grid;
+        gap: 1px;
+      }
+      input[type='text'],
+      input[type='range'] { width: 100%; }
+
+      .playfield {
+        position: relative;
+        border: 2px solid #c8ca70;
+        background: #111;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .mode-banner {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        z-index: 1;
+        height: 20px;
+        text-align: center;
+        line-height: 18px;
+        background: rgba(180, 180, 180, 0.92);
+        border-bottom: 2px solid #2d2d2d;
+        font-weight: bold;
+        font-size: 12px;
+      }
+
+      #simCanvas {
+        width: 100%; height: 100%;
+        display: block;
+        cursor: crosshair;
+      }
+
+      .minimap {
+        border: 2px inset #aaa;
+        height: 140px;
+        background: #9a9a9a;
+        text-align: center;
+        padding-top: 6px;
+        font-weight: bold;
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+
+      .stat-lines {
+        border: 2px inset #aaa;
+        padding: 3px;
+        background: #e4e4e4;
+        font-size: 11px;
+      }
+      .stat-lines p { margin: 2px 0; }
+
+      .caste-sliders {
+        background: var(--panel);
+        border: 2px outset #ddd;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 8px;
+        align-content: center;
+      }
+
+      #helpPanel {
+        border: 2px outset #ccc;
+        background: #dcdcdc;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+      }
+      kbd {
+        border: 1px solid #333;
+        padding: 1px 4px;
+        background: #fff;
+        font-size: 11px;
+      }
+    </style>
   </head>
   <body>
     <div class="screen">
@@ -86,8 +265,14 @@
       <ul>
         <li><kbd>TAB</kbd>: Toggle SURFACE / NEST view</li>
         <li><kbd>Space</kbd>: Pause/Resume</li>
+        <li><kbd>N</kbd>: Step one tick</li>
+        <li><kbd>R</kbd>: Reset simulation</li>
+        <li><kbd>F</kbd>: Toggle food overlay</li>
+        <li><kbd>G</kbd>: Toggle to-food pheromone overlay</li>
+        <li><kbd>O</kbd>: Toggle to-home pheromone overlay</li>
+        <li><kbd>D</kbd>: Toggle danger pheromone overlay</li>
         <li>Left drag: paint tool</li>
-        <li>Right drag/Shift+drag: pan camera (active view only)</li>
+        <li>Right drag / Shift+drag: pan camera (active view only)</li>
         <li>Wheel: zoom camera (active view only)</li>
       </ul>
       <button id="closeHelpBtn">Close</button>

@@ -84,6 +84,14 @@ export function createControls(state, actions) {
     } else if (event.key.toLowerCase() === 'h') {
       if (helpPanel.open) helpPanel.close();
       else helpPanel.showModal();
+    } else if (event.key.toLowerCase() === 'f') {
+      state.overlays.showFood = !state.overlays.showFood;
+    } else if (event.key.toLowerCase() === 'g') {
+      state.overlays.showToFood = !state.overlays.showToFood;
+    } else if (event.key.toLowerCase() === 'o') {
+      state.overlays.showToHome = !state.overlays.showToHome;
+    } else if (event.key.toLowerCase() === 'd') {
+      state.overlays.showDanger = !state.overlays.showDanger;
     } else if (TOOL_BY_KEY[event.key]) {
       state.selectedTool = TOOL_BY_KEY[event.key];
       const radio = document.querySelector(`input[name="tool"][value="${state.selectedTool}"]`);
