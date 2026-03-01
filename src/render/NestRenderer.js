@@ -1,42 +1,25 @@
 import { TERRAIN } from '../sim/world.js';
 
-/**
- * Nest Renderer -- Side-view 2D cross-section of the underground nest.
- *
- * VIEW ARCHITECTURE
- * -----------------
- * Draws the full world height with emphasis on underground: a sky band
- * above the nest line provides orientation, a green ground-surface strip
- * marks the horizon, and below is soil with carved-out tunnel passages.
- *
- * DATA OWNERSHIP
- *   View-specific : cameraX, cameraY, zoom (restored on toggle)
- *   Shared (read)  : world terrain, colony ants, queen state
- *
- * COORDINATE SYSTEM
- *   (x, depth) where x is horizontal position and depth (y) increases
- *   downward into the earth.  world.nestY is the ground-level horizon.
- */
 export class NestRenderer {
   constructor(canvas, world) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.world = world;
 
-    this.cameraX = world.nestX;
-    this.cameraY = world.nestY + 28;
+    this.cameraX = world.width * 0.5;
+    this.cameraY = world.nestY + 35;
     this.zoom = 3;
 
-    this._off = document.createElement('canvas');
-    this._off.width = world.width;
-    this._off.height = world.height;
-    this._offCtx = this._off.getContext('2d');
+    this.nestCanvas = document.createElement('canvas');
+    this.nestCanvas.width = world.width;
+    this.nestCanvas.height = world.height;
+    this.nestCtx = this.nestCanvas.getContext('2d');
   }
 
   setWorld(world) {
     this.world = world;
-    this._off.width = world.width;
-    this._off.height = world.height;
+    this.nestCanvas.width = world.width;
+    this.nestCanvas.height = world.height;
   }
 
   resize() {
@@ -61,73 +44,41 @@ export class NestRenderer {
     const cw = this.canvas.clientWidth;
     const ch = this.canvas.clientHeight;
 
-    ctx.fillStyle = '#2a1e14';
-    ctx.fillRect(0, 0, cw, ch);
-
+    ctx.clearRect(0, 0, cw, ch);
     ctx.save();
     ctx.translate(cw * 0.5, ch * 0.5);
     ctx.scale(this.zoom, this.zoom);
     ctx.translate(-this.cameraX, -this.cameraY);
 
-    this.#drawTerrain(ctx);
-    this.#drawAnts(ctx, colony);
+    this.#drawNestSection(ctx);
+    this.#drawNestAnts(ctx, colony);
 
     ctx.restore();
   }
 
-  /* ------------------------------------------------------------------
-   * Terrain: sky gradient, green horizon, soil with tunnels.
-   * ----------------------------------------------------------------*/
-  #drawTerrain(ctx) {
+  #drawNestSection(ctx) {
     const { world } = this;
-    const W = world.width;
-    const H = world.height;
-
-    this._off.width = W;
-    this._off.height = H;
-
-    const image = this._offCtx.createImageData(W, H);
+    const image = this.nestCtx.createImageData(world.width, world.height);
     const data = image.data;
 
-    for (let y = 0; y < H; y += 1) {
-      for (let x = 0; x < W; x += 1) {
-        const idx = y * W + x;
+    for (let y = 0; y < world.height; y += 1) {
+      for (let x = 0; x < world.width; x += 1) {
+        const idx = world.index(x, y);
         const o = idx * 4;
         const terrain = world.terrain[idx];
 
-        let r, g, b;
+        let r = 70;
+        let g = 52;
+        let b = 34;
 
-        if (y < world.nestY - 1) {
-          // Sky -- subtle top-to-bottom gradient
-          const t = y / world.nestY;
-          r = Math.floor(38 + 32 * t);
-          g = Math.floor(58 + 42 * t);
-          b = Math.floor(108 + 44 * t);
-        } else if (y <= world.nestY) {
-          // Ground-surface strip (green)
-          r = 66;
-          g = 118;
-          b = 40;
+        if (y < world.nestY) {
+          r = 45; g = 64; b = 90;
         } else if (terrain === TERRAIN.TUNNEL) {
-          // Open tunnel -- light sandy tan
-          r = 196;
-          g = 176;
-          b = 136;
+          r = 194; g = 173; b = 132;
         } else if (terrain === TERRAIN.WATER) {
-          r = 36;
-          g = 82;
-          b = 146;
+          r = 33; g = 80; b = 143;
         } else if (terrain === TERRAIN.HAZARD) {
-          r = 128;
-          g = 42;
-          b = 38;
-        } else {
-          // Compact soil -- depth gradient + noise
-          const depthFrac = (y - world.nestY) / (H - world.nestY);
-          const noise = ((x * 5 + y * 9) % 7) - 3;
-          r = Math.floor(76 - 16 * depthFrac) + noise;
-          g = Math.floor(56 - 12 * depthFrac) + noise;
-          b = Math.floor(38 - 10 * depthFrac);
+          r = 116; g = 38; b = 34;
         }
 
         data[o] = r;
@@ -137,45 +88,29 @@ export class NestRenderer {
       }
     }
 
-    this._offCtx.putImageData(image, 0, 0);
+    this.nestCtx.putImageData(image, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this._off, 0, 0);
+    ctx.drawImage(this.nestCanvas, 0, 0);
 
-    // Horizon line
-    ctx.strokeStyle = '#5a9a44';
-    ctx.lineWidth = 0.7;
+    ctx.strokeStyle = '#9dc9ff';
+    ctx.lineWidth = 0.5;
     ctx.beginPath();
     ctx.moveTo(0, world.nestY + 0.5);
-    ctx.lineTo(W, world.nestY + 0.5);
+    ctx.lineTo(world.width, world.nestY + 0.5);
     ctx.stroke();
   }
 
-  /* ------------------------------------------------------------------
-   * Entities: underground ants (y >= nestY - 1) + queen marker.
-   * ----------------------------------------------------------------*/
-  #drawAnts(ctx, colony) {
+  #drawNestAnts(ctx, colony) {
     const { world } = this;
-
     for (const ant of colony.ants) {
       if (ant.y < world.nestY - 1) continue;
-      ctx.fillStyle =
-        ant.role === 'soldier'
-          ? '#ef775f'
-          : ant.carrying > 0
-            ? '#f7d55d'
-            : '#c8b8a0';
+      ctx.fillStyle = ant.role === 'soldier' ? '#ef775f' : ant.carrying > 0 ? '#f7d55d' : '#20160e';
       ctx.fillRect(ant.x, ant.y, 1, 1);
     }
 
-    if (colony.queen.alive) {
-      ctx.fillStyle = '#f74f4f';
-      ctx.beginPath();
-      ctx.arc(world.nestX + 0.5, world.nestY + 2.5, 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#d43030';
-      ctx.beginPath();
-      ctx.arc(world.nestX + 0.5, world.nestY + 2.5, 1.1, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.fillStyle = '#f74f4f';
+    ctx.beginPath();
+    ctx.arc(world.nestX + 0.5, world.nestY + 2, 1.8, 0, Math.PI * 2);
+    ctx.fill();
   }
 }

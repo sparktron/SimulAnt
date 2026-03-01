@@ -98,7 +98,6 @@ window.addEventListener('resize', () => {
 
 viewManager.onChange((mode) => {
   mustById('viewToggleBtn').textContent = mode === VIEW.SURFACE ? 'VIEW: SURFACE' : 'VIEW: NEST';
-  mustById('modeIndicator').textContent = mode;
 });
 
 let accumulator = 0;
