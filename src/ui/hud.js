@@ -12,10 +12,17 @@ export function updateHud(stats) {
   setText('hudPherMax', `F:${pher.maxFood.toFixed(2)} H:${pher.maxHome.toFixed(2)}`);
   setText('hudPherAvg', `F:${pher.avgFood.toFixed(2)} H:${pher.avgHome.toFixed(2)}`);
   setText('hudFollow', `F:${stats.followingFood || 0} H:${stats.followingHome || 0}`);
+  const healthStats = stats.antHealthStats || { min: 0, avg: 0, max: 0 };
+  setText('hudHealthStats', `MIN:${healthStats.min.toFixed(1)} AVG:${healthStats.avg.toFixed(1)} MAX:${healthStats.max.toFixed(1)}`);
 
-  setBar('healthYellow', Math.max(0, Math.min(100, (stats.selectedAntHealth / 100) * 100)));
-  setBar('healthBlack', Math.max(0, Math.min(100, (stats.foodStored / 300) * 100)));
-  setBar('healthRed', Math.max(0, Math.min(100, (stats.soldiers / Math.max(1, stats.ants)) * 100)));
+  const focusHealth = Number.isFinite(stats.selectedAntHealth) ? stats.selectedAntHealth : healthStats.avg;
+  setBar('healthYellow', clampPercent(focusHealth));
+  setBar('healthBlack', clampPercent(healthStats.min));
+  setBar('healthRed', clampPercent(healthStats.max));
+}
+
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, value));
 }
 
 function setText(id, value) {
