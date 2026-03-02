@@ -3,6 +3,9 @@ import { Colony } from './colony.js';
 import { SeededRng } from './rng.js';
 import { DigSystem } from './DigSystem.js';
 import { FoodPellet, DEFAULT_PELLET_NUTRITION } from './Food.js';
+import { MacroEngine } from './core/MacroEngine.js';
+import { MicroPatchEngine } from './core/MicroPatchEngine.js';
+import { TickScheduler } from './core/TickScheduler.js';
 
 const SURFACE_DEPOSIT_RATIO = 0.7;
 
@@ -28,6 +31,10 @@ export class SimulationCore {
     this.colony = new Colony(this.world, this.rng, 320);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
+    this.macroEngine = new MacroEngine(this.world);
+    this.macroEngine.reset();
+    this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
+    this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
     this.nestEntrances = [
       {
         id: 'entrance-main',
@@ -47,11 +54,16 @@ export class SimulationCore {
 
   update(config) {
     this.tick += 1;
-    this.colony.setSurfaceFoodPellets(this.foodPellets);
-    this.colony.setNestEntrances(this.nestEntrances);
-    this.colony.update(config);
-    this.digSystem.update(config);
-    this.world.updatePheromones(config, this.tick);
+    this.tickScheduler.runTick({
+      tick: this.tick,
+      config,
+      foodPellets: this.foodPellets,
+      nestEntrances: this.nestEntrances,
+    });
+  }
+
+  getPatchState(x, y) {
+    return this.microEngine.getPatchState(x, y, this.foodPellets);
   }
 
   spawnFoodCluster(centerX, centerY, radius = 8, count = 8) {
@@ -165,6 +177,8 @@ export class SimulationCore {
           this.nestEntrances[0].radius = this.nestEntrances[0].radius || 2;
         }
         this.digSystem = new DigSystem(this.world, this.colony, this.rng);
+        this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
+        this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
         break;
       default:
         break;
@@ -174,6 +188,8 @@ export class SimulationCore {
   clearWorld() {
     this.world.initializeTerrain();
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
+    this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
+    this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
     this.world.food.fill(0);
     this.world.toFood.fill(0);
     this.world.toHome.fill(0);
@@ -191,6 +207,7 @@ export class SimulationCore {
       foodPellets: this.foodPellets,
       nextPelletId: this.nextPelletId,
       digSystem: this.digSystem.serialize(),
+      macro: this.macroEngine.serialize(),
       state,
     };
   }
@@ -203,6 +220,10 @@ export class SimulationCore {
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.digSystem.loadFromSerialized(data.digSystem);
+    this.macroEngine = new MacroEngine(this.world);
+    this.macroEngine.loadFromSerialized(data.macro);
+    this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
+    this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
     this.tick = data.tick || 0;
     this.foodPellets = Array.isArray(data.foodPellets)
       ? data.foodPellets.map((pellet) => new FoodPellet(pellet.id, pellet.x, pellet.y, pellet.nutrition))
