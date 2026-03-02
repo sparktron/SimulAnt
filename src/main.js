@@ -10,6 +10,9 @@ import { normalizeUnhandledRejectionReason, shouldReportFatalWindowError } from 
 const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
 const BASE_SIM_SPEED_SCALE = 0.4;
+const DEBUG_UI = false;
+const DEBUG_RENDER = false;
+const EDIT_TOOLS = new Set(['food', 'wall', 'water', 'hazard', 'erase']);
 
 const state = {
   paused: false,
@@ -167,6 +170,11 @@ window.addEventListener('resize', () => {
 });
 
 viewManager.onChange((mode) => {
+  if (mode !== VIEW.SURFACE && mode !== VIEW.NEST) {
+    console.warn('[SimAnt] Invalid view transition requested:', mode);
+    viewManager.setView(VIEW.SURFACE);
+    return;
+  }
   mustById('viewToggleBtn').textContent = mode === VIEW.SURFACE ? 'VIEW: SURFACE' : 'VIEW: NEST';
   mustById('modeIndicator').textContent = mode;
 });
@@ -178,6 +186,11 @@ let fpsTimer = 0;
 let frameCount = 0;
 let simMs = 0;
 let hasFatalError = false;
+const lastGoodRenderState = {
+  view: VIEW.SURFACE,
+  surfaceCam: { x: surfaceRenderer.cameraX, y: surfaceRenderer.cameraY, zoom: surfaceRenderer.zoom },
+  nestCam: { x: nestRenderer.cameraX, y: nestRenderer.cameraY, zoom: nestRenderer.zoom },
+};
 
 window.addEventListener('error', (event) => {
   if (!shouldReportFatalWindowError(event)) return;
@@ -215,19 +228,24 @@ function loop(now) {
       simMs = performance.now() - start;
     }
 
-    const activeView = viewManager.getCurrent();
-    if (activeView === VIEW.SURFACE) {
-      surfaceRenderer.draw(simCore.colony, state.overlays, simCore.nestEntrances, simCore.foodPellets, {
-        selectedAntId: state.selectedAntId,
-        showDebugStats: state.debug.showStats,
-        showEntranceInfo: state.debug.showEntranceInfo,
-        cursor: state.cursor.surface,
-      });
-    } else {
-      nestRenderer.draw(simCore.colony, {
-        selectedAntId: state.selectedAntId,
-        showDebugStats: state.debug.showStats,
-      });
+    const activeView = getSafeViewMode();
+    try {
+      if (activeView === VIEW.SURFACE) {
+        surfaceRenderer.draw(simCore.colony, state.overlays, simCore.nestEntrances, simCore.foodPellets, {
+          selectedAntId: state.selectedAntId,
+          showDebugStats: state.debug.showStats,
+          showEntranceInfo: state.debug.showEntranceInfo,
+          cursor: state.cursor.surface,
+        });
+      } else {
+        nestRenderer.draw(simCore.colony, {
+          selectedAntId: state.selectedAntId,
+          showDebugStats: state.debug.showStats,
+        });
+      }
+      captureLastGoodRenderState(activeView);
+    } catch (renderError) {
+      recoverFromRenderError(renderError);
     }
 
     const selectedAnt = simCore.findAntById(state.selectedAntId);
@@ -262,8 +280,82 @@ function selectAntNear(x, y) {
 }
 
 function applyToolIfInBounds(x, y) {
-  if (!simCore.world.inBounds(x, y)) return;
-  simCore.applyTool(state.selectedTool, x, y, state.brushRadius);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !simCore?.world) return;
+
+  const worldX = Math.floor(x);
+  const worldY = Math.floor(y);
+  const activeView = getSafeViewMode();
+
+  if (DEBUG_UI) {
+    console.debug('[SimAnt UI] Canvas click:', {
+      tool: state.selectedTool,
+      viewMode: activeView,
+      canvas: { width: canvas.clientWidth, height: canvas.clientHeight },
+      worldPoint: { x: worldX, y: worldY },
+      nest: { x: simCore.world.nestX, y: simCore.world.nestY },
+      cameras: {
+        surface: { x: surfaceRenderer.cameraX, y: surfaceRenderer.cameraY, zoom: surfaceRenderer.zoom },
+        nest: { x: nestRenderer.cameraX, y: nestRenderer.cameraY, zoom: nestRenderer.zoom },
+      },
+    });
+  }
+
+  if (!simCore.world.inBounds(worldX, worldY)) return;
+
+  if (!EDIT_TOOLS.has(state.selectedTool)) {
+    if (DEBUG_UI) console.debug('[SimAnt UI] Ignored unsupported tool selection.', state.selectedTool);
+    return;
+  }
+
+  simCore.applyTool(state.selectedTool, worldX, worldY, state.brushRadius);
+}
+
+function getSafeViewMode() {
+  const mode = viewManager.getCurrent();
+  if (mode === VIEW.SURFACE || mode === VIEW.NEST) return mode;
+  console.warn('[SimAnt] Invalid active view mode. Falling back to SURFACE.', mode);
+  viewManager.setView(VIEW.SURFACE);
+  return VIEW.SURFACE;
+}
+
+function captureLastGoodRenderState(view) {
+  lastGoodRenderState.view = view;
+  lastGoodRenderState.surfaceCam = {
+    x: surfaceRenderer.cameraX,
+    y: surfaceRenderer.cameraY,
+    zoom: surfaceRenderer.zoom,
+  };
+  lastGoodRenderState.nestCam = {
+    x: nestRenderer.cameraX,
+    y: nestRenderer.cameraY,
+    zoom: nestRenderer.zoom,
+  };
+}
+
+function recoverFromRenderError(error) {
+  console.error('[SimAnt] Render error. Recovering safely:', error);
+  const fallbackView = lastGoodRenderState.view === VIEW.NEST ? VIEW.NEST : VIEW.SURFACE;
+
+  viewManager.setView(fallbackView);
+  surfaceRenderer.cameraX = Number.isFinite(lastGoodRenderState.surfaceCam.x) ? lastGoodRenderState.surfaceCam.x : simCore.world.nestX;
+  surfaceRenderer.cameraY = Number.isFinite(lastGoodRenderState.surfaceCam.y) ? lastGoodRenderState.surfaceCam.y : simCore.world.nestY * 0.42;
+  surfaceRenderer.zoom = Number.isFinite(lastGoodRenderState.surfaceCam.zoom) ? lastGoodRenderState.surfaceCam.zoom : 2;
+  nestRenderer.cameraX = Number.isFinite(lastGoodRenderState.nestCam.x) ? lastGoodRenderState.nestCam.x : simCore.world.nestX;
+  nestRenderer.cameraY = Number.isFinite(lastGoodRenderState.nestCam.y) ? lastGoodRenderState.nestCam.y : simCore.world.nestY + 28;
+  nestRenderer.zoom = Number.isFinite(lastGoodRenderState.nestCam.zoom) ? lastGoodRenderState.nestCam.zoom : 3;
+
+  surfaceRenderer.resize();
+  nestRenderer.resize();
+
+  if (DEBUG_RENDER) {
+    console.debug('[SimAnt Render] Recovery state:', {
+      fallbackView,
+      canvas: { width: canvas.clientWidth, height: canvas.clientHeight },
+      nest: { x: simCore.world.nestX, y: simCore.world.nestY },
+      surfaceCam: { ...lastGoodRenderState.surfaceCam },
+      nestCam: { ...lastGoodRenderState.nestCam },
+    });
+  }
 }
 
 function saveState() {
@@ -304,7 +396,8 @@ function loadState() {
   Object.assign(state.overlays, data.state?.overlays || {});
   Object.assign(state.casteTargets, data.state?.casteTargets || {});
   state.simSpeed = data.state?.simSpeed || state.simSpeed;
-  state.selectedTool = data.state?.selectedTool || state.selectedTool;
+  const savedTool = data.state?.selectedTool;
+  state.selectedTool = EDIT_TOOLS.has(savedTool) ? savedTool : 'food';
   state.brushRadius = data.state?.brushRadius || state.brushRadius;
   state.selectedAntId = data.state?.selectedAntId || null;
 
