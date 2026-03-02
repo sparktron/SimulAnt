@@ -10,7 +10,7 @@ export function createLeftToolbar({ state, viewManager, actions, toast }) {
     { id: 'editor', icon: '⛏+💧', key: 'e', tooltip: 'Map editor', enabled: () => true, onClick: () => actions.toggleEditor() },
     { id: 'surface', icon: 'SUR', key: '1', tooltip: 'Surface view', enabled: () => true, onClick: () => viewManager.setView(VIEW.SURFACE) },
     { id: 'redNest', icon: 'RED', tooltip: 'Red nest', enabled: () => true, onClick: () => { viewManager.setView(VIEW.RED_NEST); toast.show('Red colony not implemented'); } },
-    { id: 'blackNest', icon: 'BLK', key: '2', tooltip: 'Black nest', enabled: () => true, onClick: () => viewManager.setView(VIEW.BLACK_NEST) },
+    { id: 'blackNest', icon: 'BLK', key: '2', tooltip: 'Black nest', enabled: () => true, onClick: () => viewManager.setView(viewManager.getCurrent() === VIEW.BLACK_NEST ? VIEW.SURFACE : VIEW.BLACK_NEST) },
     { id: 'yellowAnt', icon: '🐜', tooltip: 'Center selected ant', enabled: () => true, onClick: () => actions.centerSelectedAnt() },
     { id: 'blackQueen', icon: 'BQ', tooltip: 'Center black queen', enabled: () => true, onClick: () => actions.centerBlackQueen() },
     { id: 'redQueen', icon: 'RQ', tooltip: 'Center red queen', enabled: () => true, onClick: () => toast.show('Red queen not implemented') },
