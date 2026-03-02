@@ -73,6 +73,17 @@ const state = {
     nearEntranceScatterRadius: 9,
     foodTrailDistanceScale: 1.1,
     maxFoodTrailScale: 3.2,
+    homeScentBaseWeight: 0.35,
+    homeScentSearchStateScale: 0.3,
+    homeScentReturnStateScale: 1.15,
+    homeScentFalloffStartDist: 10,
+    homeScentFalloffEndDist: 80,
+    homeScentMinFalloff: 0.2,
+    homeScentMaxContributionPerStep: 1.2,
+    homeTieBiasScale: 0.003,
+    foodTieBiasScale: 0.01,
+    debugSteeringContributions: false,
+    debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 10,
   },
   casteTargets: {
@@ -266,10 +277,33 @@ function loop(now) {
       followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
     });
 
+    maybeLogSteeringDebug(selectedAnt);
+
     requestAnimationFrame(loop);
   } catch (error) {
     reportFatalError(error);
   }
+}
+
+function maybeLogSteeringDebug(selectedAnt) {
+  if (!state.config.debugSteeringContributions || !state.debug.showStats) return;
+  const interval = Math.max(1, Math.floor(state.config.debugSteeringLogIntervalTicks || 1));
+  if (simCore.tick % interval !== 0) return;
+
+  const sample = selectedAnt || simCore.colony.ants.find((ant) => ant.role === 'worker');
+  if (!sample?.lastSteeringDebug) return;
+
+  console.debug('[SimAnt Steering Debug]', {
+    tick: simCore.tick,
+    antId: sample.id,
+    state: sample.state,
+    carrying: sample.carrying?.type || 'none',
+    channel: sample.lastSteeringDebug.channel,
+    chosenDir: sample.lastSteeringDebug.chosenDir,
+    components: sample.lastSteeringDebug.components,
+    distanceToEntrance: sample.lastSteeringDebug.distanceToEntrance,
+    homeScentWeight: sample.lastSteeringDebug.homeScentWeight,
+  });
 }
 
 function selectAntNear(x, y) {
