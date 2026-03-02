@@ -38,36 +38,59 @@ export class Ant {
 
     const dt = config.tickSeconds || 1 / 30;
     const idx = world.index(this.x, this.y);
-    const nearNest = world.nestInfluence[idx] > 0.94;
     const inNest = this.y >= world.nestY;
 
     if (this.role === 'worker' && this.#tryEatFromNest(colony, inNest, config)) {
       this.state = 'EAT';
     }
 
-    if (nearNest && this.carrying?.type === 'food') {
-      const delivered = colony.depositPellet(this.carrying.pelletNutrition || 0);
-      if (delivered > 0) this.carrying = null;
-      this.state = 'DEPOSIT';
+    const targetEntrance = colony.nearestEntrance(this.x, this.y);
+    if (targetEntrance && this.carrying?.type === 'food') {
+      const distanceToEntrance = Math.hypot(this.x - targetEntrance.x, this.y - targetEntrance.y);
+      const radius = targetEntrance.radius ?? 2;
+      if (distanceToEntrance <= radius) {
+        const delivered = colony.depositPellet(this.carrying.pelletNutrition || 0);
+        if (delivered > 0) this.carrying = null;
+        this.state = 'DEPOSIT';
+      }
     }
 
     let didMove = false;
-    if (this.role === 'worker' && this.carrying?.type === 'food') {
+    if (this.role === 'worker' && this.carrying?.type === 'food' && targetEntrance) {
       this.state = 'CARRY_TO_NEST';
-      didMove = this.#moveToward(world, world.nestX, world.nestY, rng);
+      world.toFood[idx] = Math.min(config.pheromoneCap, world.toFood[idx] + config.toFoodDeposit);
+      didMove = this.#moveToward(world, targetEntrance.x, targetEntrance.y, rng);
     } else if (this.role === 'worker' && this.#needsForage(colony)) {
-      const pellet = colony.findAvailablePelletAt(this.x, this.y);
-      if (pellet) {
-        pellet.takenByAntId = this.id;
-        this.carrying = {
-          type: 'food',
-          pelletId: pellet.id,
-          pelletNutrition: pellet.nutrition,
-        };
-        colony.removePelletById(pellet.id);
-        this.state = 'PICKUP';
+      const visiblePellet = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
+      if (visiblePellet) {
+        if (this.x === visiblePellet.x && this.y === visiblePellet.y) {
+          visiblePellet.takenByAntId = this.id;
+          this.carrying = {
+            type: 'food',
+            pelletId: visiblePellet.id,
+            pelletNutrition: visiblePellet.nutrition,
+          };
+          colony.removePelletById(visiblePellet.id);
+          this.state = 'PICKUP';
+        } else {
+          this.state = 'GO_TO_FOOD';
+          didMove = this.#moveToward(world, visiblePellet.x, visiblePellet.y, rng);
+        }
       } else {
-        this.state = 'FORAGE_SEARCH';
+        const onPellet = colony.findAvailablePelletAt(this.x, this.y);
+        if (onPellet) {
+          onPellet.takenByAntId = this.id;
+          this.carrying = {
+            type: 'food',
+            pelletId: onPellet.id,
+            pelletNutrition: onPellet.nutrition,
+          };
+          colony.removePelletById(onPellet.id);
+          this.state = 'PICKUP';
+        } else {
+          this.state = 'FORAGE_SEARCH';
+          didMove = this.#followFoodPheromone(world, rng, targetEntrance, config);
+        }
       }
     }
 
@@ -82,7 +105,6 @@ export class Ant {
     }
 
     if (!didMove && this.carrying?.type === 'food') {
-      world.toFood[idx] += config.toFoodDeposit;
       this.stepByGradient(world, rng, world.nestInfluence, world.toHome, world.danger, true);
       didMove = true;
     } else if (!didMove) {
@@ -116,6 +138,46 @@ export class Ant {
     const wasStarving = this.hunger <= 0;
     this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
     if (wasStarving) this.health = Math.min(this.healthMax, this.health + config.starvationRecoveryHealth);
+    return true;
+  }
+
+  #followFoodPheromone(world, rng, targetEntrance, config) {
+    const lookAhead = config.pheromoneLookAhead;
+    const threshold = config.pheromoneFollowThreshold;
+    let bestDir = this.dir;
+    let bestScore = -Infinity;
+
+    for (let i = 0; i < DIRS.length; i += 1) {
+      const d = (this.dir + i) % DIRS.length;
+      const nx = this.x + DIRS[d][0];
+      const ny = this.y + DIRS[d][1];
+      if (!world.isPassable(nx, ny)) continue;
+      const lx = nx + DIRS[d][0] * lookAhead;
+      const ly = ny + DIRS[d][1] * lookAhead;
+      const sampleX = Math.max(0, Math.min(world.width - 1, lx));
+      const sampleY = Math.max(0, Math.min(world.nestY, ly));
+      const sidx = world.index(sampleX, sampleY);
+      const p = world.toFood[sidx];
+      const inertia = i === 0 ? 0.4 : 0;
+      const noise = rng.range(0, 0.2);
+      const awayFromNest = targetEntrance ? Math.hypot(nx - targetEntrance.x, ny - targetEntrance.y) * 0.015 : 0;
+      const score = p + inertia + noise + awayFromNest;
+      if (score > bestScore) {
+        bestScore = score;
+        bestDir = d;
+      }
+    }
+
+    if (bestScore < threshold || rng.chance(0.12)) {
+      bestDir = (bestDir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
+    }
+
+    const tx = this.x + DIRS[bestDir][0];
+    const ty = this.y + DIRS[bestDir][1];
+    if (!world.isPassable(tx, ty)) return false;
+    this.x = tx;
+    this.y = ty;
+    this.dir = bestDir;
     return true;
   }
 

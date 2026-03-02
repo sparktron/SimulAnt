@@ -68,6 +68,7 @@ export class SurfaceRenderer {
     this.#drawFoodPellets(ctx, foodPellets);
     this.#drawEntranceMounds(ctx, nestEntrances);
     this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats);
+    if (options.showDebugStats && options.cursor) this.#drawCursorDebug(ctx, options.cursor);
     if (options.showEntranceInfo) this.#drawEntranceDebug(ctx, nestEntrances);
 
     ctx.restore();
@@ -111,7 +112,12 @@ export class SurfaceRenderer {
           b = 46;
         }
 
-        if (overlays.showToFood) r = Math.min(255, r + Math.floor(world.toFood[idx] * 60));
+        if (overlays.showToFood || overlays.showScent) {
+          const scent = Math.min(1, world.toFood[idx] / 4);
+          r = Math.floor(r * (1 - scent) + 60 * scent);
+          g = Math.floor(g * (1 - scent) + 220 * scent);
+          b = Math.floor(b * (1 - scent) + 85 * scent);
+        }
         if (overlays.showToHome) b = Math.min(255, b + Math.floor(world.toHome[idx] * 60));
         if (overlays.showDanger) {
           r = Math.min(255, r + Math.floor(world.danger[idx] * 100));
@@ -131,7 +137,7 @@ export class SurfaceRenderer {
   }
 
   #drawFoodPellets(ctx, foodPellets) {
-    ctx.fillStyle = '#f8f05a';
+    ctx.fillStyle = '#35d84b';
     for (const pellet of foodPellets) {
       ctx.fillRect(pellet.x, pellet.y, 1, 1);
     }
@@ -150,7 +156,7 @@ export class SurfaceRenderer {
       ctx.fillRect(ant.x, ant.y, 1, 1);
 
       if (ant.carrying?.type === 'food') {
-        ctx.fillStyle = '#ffe84f';
+        ctx.fillStyle = '#35d84b';
         ctx.fillRect(ant.x + 0.7, ant.y, 0.6, 0.6);
       }
 
@@ -172,6 +178,15 @@ export class SurfaceRenderer {
       ctx.font = '3px monospace';
       ctx.fillText(`FoodStore:${Math.round(colony.foodStored)}`, world.nestX + 3, Math.max(4, world.nestY - 4));
     }
+  }
+
+
+  #drawCursorDebug(ctx, cursor) {
+    const idx = this.world.index(cursor.x, cursor.y);
+    const scent = this.world.toFood[idx] || 0;
+    ctx.fillStyle = '#b0fff0';
+    ctx.font = '3px monospace';
+    ctx.fillText(`Scent:${scent.toFixed(2)}`, cursor.x + 2, cursor.y + 2);
   }
 
   #drawEntranceDebug(ctx, nestEntrances) {

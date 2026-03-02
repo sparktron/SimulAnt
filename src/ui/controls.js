@@ -23,6 +23,7 @@ export function createControls(state, actions) {
   const saveBtn = byId('saveBtn');
   const loadBtn = byId('loadBtn');
   const clearBtn = byId('clearBtn');
+  const scentBtn = byId('scentBtn');
   const helpPanel = byId('helpPanel');
 
   startPauseBtn.addEventListener('click', () => {
@@ -67,6 +68,9 @@ export function createControls(state, actions) {
   saveBtn.addEventListener('click', () => actions.save());
   loadBtn.addEventListener('click', () => actions.load());
   clearBtn.addEventListener('click', () => actions.clearWorld());
+  scentBtn.addEventListener('click', () => {
+    if (actions.toggleScentOverlay) actions.toggleScentOverlay();
+  });
   byId('closeHelpBtn').addEventListener('click', () => helpPanel.close());
 
   document.addEventListener('keydown', (event) => {
@@ -96,6 +100,8 @@ export function createControls(state, actions) {
       if (actions.forceChamber) actions.forceChamber();
     } else if (event.key.toLowerCase() === 't') {
       state.overlays.showToFood = !state.overlays.showToFood;
+    } else if (event.key.toLowerCase() === 'v') {
+      if (actions.toggleScentOverlay) actions.toggleScentOverlay();
     } else if (event.key.toLowerCase() === 'l') {
       state.overlays.showToHome = !state.overlays.showToHome;
     } else if (event.key.toLowerCase() === 'd') {

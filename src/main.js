@@ -23,6 +23,7 @@ const state = {
     showToFood: false,
     showToHome: false,
     showDanger: false,
+    showScent: false,
   },
   debug: {
     showEntranceInfo: false,
@@ -53,6 +54,10 @@ const state = {
     healthDrainRate: 10,
     healthRegenRate: 1,
     soldierSpawnChance: 0.2,
+    foodVisionRadius: 7,
+    pheromoneLookAhead: 3,
+    pheromoneFollowThreshold: 0.25,
+    pheromoneCap: 8,
   },
   casteTargets: {
     workers: 70,
@@ -117,6 +122,9 @@ createControls(state, {
   toggleDebugStats: () => {
     state.debug.showStats = !state.debug.showStats;
     state.debug.showEntranceInfo = state.debug.showStats;
+  },
+  toggleScentOverlay: () => {
+    state.overlays.showScent = !state.overlays.showScent;
   },
   spawnFoodAtCursor: () => {
     if (viewManager.getCurrent() !== VIEW.SURFACE || !state.cursor.surface) return;
@@ -200,6 +208,7 @@ function loop(now) {
         selectedAntId: state.selectedAntId,
         showDebugStats: state.debug.showStats,
         showEntranceInfo: state.debug.showEntranceInfo,
+        cursor: state.cursor.surface,
       });
     } else {
       nestRenderer.draw(simCore.colony, {

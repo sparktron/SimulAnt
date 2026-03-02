@@ -35,6 +35,7 @@ export class SimulationCore {
         y: this.world.nestY,
         excavatedSoilTotal: 0,
         soilOnSurface: 0,
+        radius: 2,
       },
     ];
     this.foodPellets = [];
@@ -47,6 +48,7 @@ export class SimulationCore {
   update(config) {
     this.tick += 1;
     this.colony.setSurfaceFoodPellets(this.foodPellets);
+    this.colony.setNestEntrances(this.nestEntrances);
     this.colony.update(config);
     this.digSystem.update(config);
     if (this.tick % config.pheromoneUpdateTicks === 0) {
@@ -157,10 +159,12 @@ export class SimulationCore {
             y: worldY,
             excavatedSoilTotal: 0,
             soilOnSurface: 0,
+            radius: 2,
           });
         } else {
           this.nestEntrances[0].x = worldX;
           this.nestEntrances[0].y = worldY;
+          this.nestEntrances[0].radius = this.nestEntrances[0].radius || 2;
         }
         this.digSystem = new DigSystem(this.world, this.colony, this.rng);
         break;
@@ -214,6 +218,7 @@ export class SimulationCore {
         y: entry.y,
         excavatedSoilTotal: entry.excavatedSoilTotal || 0,
         soilOnSurface: entry.soilOnSurface || 0,
+        radius: entry.radius || 2,
       }));
     } else {
       this.nestEntrances = [
@@ -223,6 +228,7 @@ export class SimulationCore {
           y: this.world.nestY,
           excavatedSoilTotal: 0,
           soilOnSurface: 0,
+          radius: 2,
         },
       ];
     }

@@ -212,6 +212,14 @@ export class NestRenderer {
       }
     }
 
+    const pileR = Math.max(1.2, Math.min(5, Math.sqrt(Math.max(0, colony.foodStored)) * 0.18));
+    if (colony.foodStored > 0.1) {
+      ctx.fillStyle = '#35d84b';
+      ctx.beginPath();
+      ctx.arc(world.nestX - 5, world.nestY + 4, pileR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     if (colony.queen.alive) {
       ctx.fillStyle = '#f74f4f';
       ctx.beginPath();

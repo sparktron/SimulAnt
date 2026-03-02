@@ -11,6 +11,7 @@ export class Colony {
     this.deaths = 0;
     this.spawnCost = 12;
     this.surfaceFoodPellets = [];
+    this.nestEntrances = [];
 
     this.queen = {
       alive: true,
@@ -125,6 +126,42 @@ export class Colony {
   }
   setSurfaceFoodPellets(pellets) {
     this.surfaceFoodPellets = pellets;
+  }
+
+  setNestEntrances(nestEntrances) {
+    this.nestEntrances = nestEntrances;
+  }
+
+  nearestEntrance(x, y) {
+    if (this.nestEntrances.length === 0) return null;
+    let nearest = this.nestEntrances[0];
+    let best = Math.hypot(nearest.x - x, nearest.y - y);
+    for (let i = 1; i < this.nestEntrances.length; i += 1) {
+      const entry = this.nestEntrances[i];
+      const d = Math.hypot(entry.x - x, entry.y - y);
+      if (d < best) {
+        best = d;
+        nearest = entry;
+      }
+    }
+    return nearest;
+  }
+
+  findVisiblePellet(x, y, radius = 6) {
+    const r2 = radius * radius;
+    let best = null;
+    let bestD2 = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < this.surfaceFoodPellets.length; i += 1) {
+      const pellet = this.surfaceFoodPellets[i];
+      if (pellet.takenByAntId != null) continue;
+      const dx = pellet.x - x;
+      const dy = pellet.y - y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > r2 || d2 >= bestD2) continue;
+      bestD2 = d2;
+      best = pellet;
+    }
+    return best;
   }
 
   findAvailablePelletAt(x, y) {
