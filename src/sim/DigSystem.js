@@ -56,6 +56,43 @@ export class DigSystem {
     }
 
     this.fronts.sort((a, b) => b.lastAdvanceTick - a.lastAdvanceTick);
+    this.#updateDirtCarriers(assignedFronts);
+  }
+
+
+  #updateDirtCarriers(assignedFronts) {
+    const ants = this.colony.ants;
+    for (let i = 0; i < ants.length; i += 1) {
+      const ant = ants[i];
+      if (!ant.alive || ant.role !== 'worker') continue;
+      if (ant.carrying?.type === 'food') {
+        ant.carryingType = 'food';
+      } else {
+        ant.carryingType = 'none';
+      }
+    }
+
+    const maxFronts = Math.min(assignedFronts, this.fronts.length);
+    for (let i = 0; i < maxFronts; i += 1) {
+      const front = this.fronts[i];
+      let nearest = null;
+      let nearestDist2 = 121;
+
+      for (let j = 0; j < ants.length; j += 1) {
+        const ant = ants[j];
+        if (!ant.alive || ant.role !== 'worker' || ant.carryingType !== 'none') continue;
+        if (ant.y < this.world.nestY + 1) continue;
+        const dx = ant.x - front.x;
+        const dy = ant.y - front.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < nearestDist2) {
+          nearestDist2 = d2;
+          nearest = ant;
+        }
+      }
+
+      if (nearest) nearest.carryingType = 'dirt';
+    }
   }
 
   toggleAutoDig() {

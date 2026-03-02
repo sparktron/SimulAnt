@@ -272,3 +272,83 @@ test('Dig system sanitizes corrupted saved front progress to prevent lockups', (
   assert.equal(Number.isFinite(sim.digSystem.fronts[0].progress), true);
   assert.ok(sim.tick > 0);
 });
+
+
+test('Ant base color and carrying type persist through serialization', () => {
+  const sim = new SimulationCore('seed-ant-color');
+  const ant = sim.colony.ants[0];
+  ant.baseColor = '#ffcc00';
+  ant.carryingType = 'dirt';
+
+  const serialized = sim.serialize({});
+  const restored = new SimulationCore('other');
+  restored.loadFromSerialized(serialized);
+
+  assert.equal(restored.colony.ants[0].baseColor, '#ffcc00');
+  assert.equal(restored.colony.ants[0].carryingType, 'dirt');
+});
+
+test('Depositing and consuming food updates nest food cell storage', () => {
+  const sim = new SimulationCore('seed-nest-food');
+  const idx = sim.world.index(sim.world.nestX, sim.world.nestY + 3);
+  const before = sim.world.nestFood[idx];
+
+  sim.colony.depositPellet(5);
+  assert.equal(sim.world.nestFood[idx], before + 5);
+
+  sim.colony.consumeFromStore(2);
+  assert.equal(sim.world.nestFood[idx], before + 3);
+});
+
+
+test('Food-carrying ants must enter nest before depositing pellets', () => {
+  const sim = new SimulationCore('seed-deposit-inside-nest');
+  const ant = sim.colony.ants[0];
+  const entrance = sim.nestEntrances[0];
+  sim.colony.setNestEntrances(sim.nestEntrances);
+
+  ant.role = 'worker';
+  ant.x = entrance.x;
+  ant.y = Math.max(0, entrance.y - 2);
+  ant.carrying = { type: 'food', pelletNutrition: 4 };
+  ant.carryingType = 'food';
+
+  const cfg = {
+    tickSeconds: 1 / 30,
+    randomTurnChance: 0,
+    maxFoodTrailScale: 1.2,
+    foodTrailDistanceScale: 1,
+    depositFood: 0.1,
+    pheromoneMaxClamp: 10,
+    followAlpha: 1,
+    momentumBias: 0,
+    reversePenalty: 0,
+    followBeta: 1,
+    wanderNoise: 0,
+    homeDepositMinDistance: 2,
+    homeDepositIntervalTicks: 8,
+    depositHome: 0.1,
+    foodVisionRadius: 5,
+    nearEntranceScatterRadius: 4,
+    hazardDeathChance: 0,
+    dangerDeposit: 0,
+    healthDrainRate: 0,
+    healthRegenRate: 0,
+    workerEatNutrition: 0,
+    starvationRecoveryHealth: 0,
+  };
+
+  ant.update(sim.world, sim.colony, sim.rng, cfg);
+  assert.notEqual(ant.carrying, null);
+
+  for (let i = 0; i < 200 && ant.carrying; i += 1) {
+    ant.update(sim.world, sim.colony, sim.rng, cfg);
+  }
+
+  let nestFoodTotal = 0;
+  for (let i = 0; i < sim.world.nestFood.length; i += 1) nestFoodTotal += sim.world.nestFood[i];
+
+  assert.equal(ant.carrying, null);
+  assert.ok(ant.y >= sim.world.nestY + 1);
+  assert.ok(nestFoodTotal > 0);
+});

@@ -191,6 +191,7 @@ export class SimulationCore {
     this.#syncMacroHomeTerritory();
     this.#rebuildTickPipeline();
     this.world.food.fill(0);
+    this.world.nestFood.fill(0);
     this.world.toFood.fill(0);
     this.world.toHome.fill(0);
     this.world.danger.fill(0);

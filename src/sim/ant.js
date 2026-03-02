@@ -29,6 +29,8 @@ export class Ant {
     };
     this.state = 'IDLE';
     this.carrying = null;
+    this.carryingType = 'none';
+    this.baseColor = role === 'soldier' ? '#d93828' : '#1a1208';
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;
@@ -74,6 +76,7 @@ export class Ant {
       if (distance <= (context.entrance.radius ?? 2)) {
         colony.depositPellet(this.carrying.pelletNutrition || 0);
         this.carrying = null;
+        this.carryingType = 'none';
         this.state = 'DEPOSIT';
       }
     }

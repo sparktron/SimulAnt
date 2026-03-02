@@ -16,6 +16,7 @@ export class World {
 
     this.terrain = new Uint8Array(this.size);
     this.food = new Float32Array(this.size);
+    this.nestFood = new Float32Array(this.size);
 
     this.toFood = new Float32Array(this.size);
     this.toHome = new Float32Array(this.size);
@@ -220,6 +221,7 @@ export class World {
       nestRadius: this.nestRadius,
       terrain: Array.from(this.terrain),
       food: Array.from(this.food),
+      nestFood: Array.from(this.nestFood),
       toFood: Array.from(this.toFood),
       toHome: Array.from(this.toHome),
       danger: Array.from(this.danger),
@@ -233,6 +235,7 @@ export class World {
     world.nestRadius = data.nestRadius;
     world.terrain.set(data.terrain);
     world.food.set(data.food);
+    if (Array.isArray(data.nestFood)) world.nestFood.set(data.nestFood);
     world.toFood.set(data.toFood);
     world.toHome.set(data.toHome);
     world.danger.set(data.danger);

@@ -157,11 +157,12 @@ export class SurfaceRenderer {
     ctx.font = '2.8px monospace';
     for (const ant of colony.ants) {
       if (ant.y > world.nestY + 1) continue;
-      ctx.fillStyle = ant.role === 'soldier' ? '#d93828' : (ant.state === 'RETURN_HOME' ? '#2e78ff' : '#1a1208');
+      ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
 
-      if (ant.carrying?.type === 'food') {
-        ctx.fillStyle = '#35d84b';
+      const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');
+      if (carryingType === 'food' || carryingType === 'dirt') {
+        ctx.fillStyle = carryingType === 'food' ? '#35d84b' : '#7a4b22';
         ctx.fillRect(ant.x + 0.7, ant.y, 0.6, 0.6);
       }
 
@@ -173,7 +174,7 @@ export class SurfaceRenderer {
 
       if (showDebugStats) {
         ctx.fillStyle = '#ffffff';
-        const c = ant.carrying?.type === 'food' ? ' C' : '';
+        const c = ant.carryingType && ant.carryingType !== 'none' ? ` ${ant.carryingType[0].toUpperCase()}` : '';
         ctx.fillText(`H:${Math.round(ant.hunger)} HP:${Math.round(ant.health)}${c}`, ant.x + 1.2, ant.y - 0.2);
       }
     }
