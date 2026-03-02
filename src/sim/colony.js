@@ -24,6 +24,8 @@ export class Colony {
       hungerMax: 100,
       health: 100,
       healthMax: 100,
+      x: world.nestX,
+      y: Math.min(world.height - 1, world.nestY + 6),
     };
 
     this.excavatedTiles = 0;
@@ -227,6 +229,14 @@ export class Colony {
     this.nestEntrances = nestEntrances;
   }
 
+  syncQueenPositionToNest(nestX = this.world.nestX, nestY = this.world.nestY) {
+    this.queen.x = Math.max(0, Math.min(this.world.width - 1, Math.round(nestX)));
+    this.queen.y = Math.max(
+      this.world.nestY + 1,
+      Math.min(this.world.height - 1, Math.round(nestY + 6)),
+    );
+  }
+
   nearestEntrance(x, y) {
     if (this.nestEntrances.length === 0) return null;
     let nearest = this.nestEntrances[0];
@@ -308,6 +318,9 @@ export class Colony {
     colony.births = data.births;
     colony.deaths = data.deaths;
     colony.queen = { ...colony.queen, ...(data.queen || {}) };
+    if (!Number.isFinite(colony.queen.x) || !Number.isFinite(colony.queen.y)) {
+      colony.syncQueenPositionToNest(world.nestX, world.nestY);
+    }
     colony.excavatedTiles = data.excavatedTiles || 0;
     colony.nestFoodPellets = Array.isArray(data.nestFoodPellets)
       ? data.nestFoodPellets

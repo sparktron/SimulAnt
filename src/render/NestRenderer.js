@@ -228,13 +228,19 @@ export class NestRenderer {
     }
 
     if (colony.queen.alive) {
-      ctx.fillStyle = '#f74f4f';
+      const queenX = Number.isFinite(colony.queen.x) ? colony.queen.x : world.nestX;
+      const queenY = Number.isFinite(colony.queen.y) ? colony.queen.y : world.nestY + 6;
+
+      // Intentional marker for the queen's chamber location.
+      // Keep this visually distinct from debug overlays and entrance visuals.
+      ctx.fillStyle = '#7b3fc9';
       ctx.beginPath();
-      ctx.arc(world.nestX + 0.5, world.nestY + 2.5, 2, 0, Math.PI * 2);
+      ctx.arc(queenX + 0.5, queenY + 0.5, 1.8, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#d43030';
+
+      ctx.fillStyle = '#d1aa38';
       ctx.beginPath();
-      ctx.arc(world.nestX + 0.5, world.nestY + 2.5, 1.1, 0, Math.PI * 2);
+      ctx.arc(queenX + 0.5, queenY + 0.5, 0.85, 0, Math.PI * 2);
       ctx.fill();
     }
 

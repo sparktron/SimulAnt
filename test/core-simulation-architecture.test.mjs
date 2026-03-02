@@ -112,6 +112,19 @@ test('macro home territory follows nest tool relocation', () => {
   assert.equal(home.centerY, targetY);
 });
 
+test('nest relocation also repositions queen marker state away from entrance', () => {
+  const sim = new SimulationCore('queen-marker-sync-seed');
+  const targetX = sim.world.nestX - 8;
+  const targetY = sim.world.nestY + 1;
+
+  sim.applyTool('nest', targetX, targetY, 2);
+
+  assert.equal(sim.colony.queen.x, targetX);
+  assert.equal(sim.colony.queen.y, targetY + 6);
+  assert.equal(sim.nestEntrances[0].x, targetX);
+  assert.equal(sim.nestEntrances[0].y, targetY);
+});
+
 test('macro load sanitizes malformed saved territories and restores home territory', () => {
   const sim = new SimulationCore('macro-sanitize-seed');
   sim.macroEngine.loadFromSerialized({
