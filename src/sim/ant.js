@@ -2,12 +2,12 @@ import { TERRAIN } from './world.js';
 
 const DIRS = [
   [1, 0],
-  [0, 1],
-  [-1, 0],
-  [0, -1],
   [1, 1],
+  [0, 1],
   [-1, 1],
+  [-1, 0],
   [-1, -1],
+  [0, -1],
   [1, -1],
 ];
 
@@ -40,56 +40,58 @@ export class Ant {
     const idx = world.index(this.x, this.y);
     const inNest = this.y >= world.nestY;
 
-    if (this.role === 'worker' && this.#tryEatFromNest(colony, inNest, config)) {
-      this.state = 'EAT';
-    }
+    if (this.role === 'worker' && this.#tryEatFromNest(colony, inNest, config)) this.state = 'EAT';
 
-    const targetEntrance = colony.nearestEntrance(this.x, this.y);
-    if (targetEntrance && this.carrying?.type === 'food') {
-      const distanceToEntrance = Math.hypot(this.x - targetEntrance.x, this.y - targetEntrance.y);
-      const radius = targetEntrance.radius ?? 2;
-      if (distanceToEntrance <= radius) {
-        const delivered = colony.depositPellet(this.carrying.pelletNutrition || 0);
-        if (delivered > 0) this.carrying = null;
+    const entrance = colony.nearestEntrance(this.x, this.y);
+
+    if (this.role === 'worker' && this.carrying?.type === 'food' && entrance) {
+      const distance = Math.hypot(this.x - entrance.x, this.y - entrance.y);
+      if (distance <= (entrance.radius ?? 2)) {
+        colony.depositPellet(this.carrying.pelletNutrition || 0);
+        this.carrying = null;
         this.state = 'DEPOSIT';
       }
     }
 
     let didMove = false;
-    if (this.role === 'worker' && this.carrying?.type === 'food' && targetEntrance) {
-      this.state = 'CARRY_TO_NEST';
-      world.toFood[idx] = Math.min(config.pheromoneCap, world.toFood[idx] + config.toFoodDeposit);
-      didMove = this.#moveToward(world, targetEntrance.x, targetEntrance.y, rng);
-    } else if (this.role === 'worker' && this.#needsForage(colony)) {
-      const visiblePellet = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
-      if (visiblePellet) {
-        if (this.x === visiblePellet.x && this.y === visiblePellet.y) {
-          visiblePellet.takenByAntId = this.id;
-          this.carrying = {
-            type: 'food',
-            pelletId: visiblePellet.id,
-            pelletNutrition: visiblePellet.nutrition,
-          };
-          colony.removePelletById(visiblePellet.id);
-          this.state = 'PICKUP';
+    if (this.role === 'worker') {
+      if (this.carrying?.type === 'food') {
+        this.state = 'RETURN_HOME';
+        world.toFood[idx] = Math.min(config.pheromoneMaxClamp, world.toFood[idx] + config.depositFood);
+        didMove = this.#moveByPheromone(world, rng, config, 'home', entrance);
+      } else if (this.#needsForage(colony)) {
+        world.toHome[idx] = Math.min(config.pheromoneMaxClamp, world.toHome[idx] + config.depositHome);
+
+        const visible = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
+        if (visible) {
+          if (this.x === visible.x && this.y === visible.y) {
+            visible.takenByAntId = this.id;
+            this.carrying = {
+              type: 'food',
+              pelletId: visible.id,
+              pelletNutrition: visible.nutrition,
+            };
+            colony.removePelletById(visible.id);
+            this.state = 'PICKUP';
+          } else {
+            this.state = 'GO_TO_FOOD';
+            didMove = this.#moveToward(world, visible.x, visible.y, rng);
+          }
         } else {
-          this.state = 'GO_TO_FOOD';
-          didMove = this.#moveToward(world, visiblePellet.x, visiblePellet.y, rng);
-        }
-      } else {
-        const onPellet = colony.findAvailablePelletAt(this.x, this.y);
-        if (onPellet) {
-          onPellet.takenByAntId = this.id;
-          this.carrying = {
-            type: 'food',
-            pelletId: onPellet.id,
-            pelletNutrition: onPellet.nutrition,
-          };
-          colony.removePelletById(onPellet.id);
-          this.state = 'PICKUP';
-        } else {
-          this.state = 'FORAGE_SEARCH';
-          didMove = this.#followFoodPheromone(world, rng, targetEntrance, config);
+          const onPellet = colony.findAvailablePelletAt(this.x, this.y);
+          if (onPellet) {
+            onPellet.takenByAntId = this.id;
+            this.carrying = {
+              type: 'food',
+              pelletId: onPellet.id,
+              pelletNutrition: onPellet.nutrition,
+            };
+            colony.removePelletById(onPellet.id);
+            this.state = 'PICKUP';
+          } else {
+            this.state = 'FORAGE_SEARCH';
+            didMove = this.#moveByPheromone(world, rng, config, 'food', entrance);
+          }
         }
       }
     }
@@ -101,16 +103,13 @@ export class Ant {
         colony.deaths += 1;
         return;
       }
-      world.danger[idx] += config.dangerDeposit;
+      world.danger[idx] = Math.min(config.pheromoneMaxClamp, world.danger[idx] + config.dangerDeposit);
     }
 
     if (!didMove && this.carrying?.type === 'food') {
-      this.stepByGradient(world, rng, world.nestInfluence, world.toHome, world.danger, true);
-      didMove = true;
+      didMove = this.#moveByPheromone(world, rng, config, 'home', entrance);
     } else if (!didMove) {
-      world.toHome[idx] += config.toHomeDeposit;
-      this.stepByGradient(world, rng, world.toFood, world.nestInfluence, world.danger, false);
-      didMove = true;
+      didMove = this.#moveByPheromone(world, rng, config, 'food', entrance);
     }
 
     const drain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
@@ -127,6 +126,62 @@ export class Ant {
     }
   }
 
+  #moveByPheromone(world, rng, config, channel, entrance) {
+    const candidates = [0, 1, 7, 2, 6];
+    const field = channel === 'home' ? world.toHome : world.toFood;
+    const epsilon = 0.001;
+    const weights = [];
+    let total = 0;
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const d = (this.dir + candidates[i]) % DIRS.length;
+      const nx = this.x + DIRS[d][0];
+      const ny = this.y + DIRS[d][1];
+      if (!world.isPassable(nx, ny)) {
+        weights.push({ d, w: 0 });
+        continue;
+      }
+      const nidx = world.index(nx, ny);
+      let p = field[nidx];
+      p = Math.pow(p + epsilon, config.followAlpha);
+
+      let tieBias = 0;
+      if (entrance) {
+        const dist = Math.hypot(nx - entrance.x, ny - entrance.y);
+        tieBias = channel === 'home' ? -dist * 0.01 : dist * 0.01;
+      }
+
+      const noise = rng.range(0, config.wanderNoise);
+      const weight = Math.max(0, p * config.followBeta + tieBias + noise);
+      weights.push({ d, w: weight });
+      total += weight;
+    }
+
+    let chosenDir = this.dir;
+    if (total > 0.0001) {
+      let pick = rng.range(0, total);
+      for (let i = 0; i < weights.length; i += 1) {
+        pick -= weights[i].w;
+        if (pick <= 0) {
+          chosenDir = weights[i].d;
+          break;
+        }
+      }
+    } else if (channel === 'home' && entrance) {
+      return this.#moveToward(world, entrance.x, entrance.y, rng);
+    } else {
+      chosenDir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
+    }
+
+    const tx = this.x + DIRS[chosenDir][0];
+    const ty = this.y + DIRS[chosenDir][1];
+    if (!world.isPassable(tx, ty)) return false;
+    this.x = tx;
+    this.y = ty;
+    this.dir = chosenDir;
+    return true;
+  }
+
   #needsForage(colony) {
     return this.hunger < this.hungerMax * 0.4 || colony.foodStored < colony.foodStoreTarget;
   }
@@ -138,46 +193,6 @@ export class Ant {
     const wasStarving = this.hunger <= 0;
     this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
     if (wasStarving) this.health = Math.min(this.healthMax, this.health + config.starvationRecoveryHealth);
-    return true;
-  }
-
-  #followFoodPheromone(world, rng, targetEntrance, config) {
-    const lookAhead = config.pheromoneLookAhead;
-    const threshold = config.pheromoneFollowThreshold;
-    let bestDir = this.dir;
-    let bestScore = -Infinity;
-
-    for (let i = 0; i < DIRS.length; i += 1) {
-      const d = (this.dir + i) % DIRS.length;
-      const nx = this.x + DIRS[d][0];
-      const ny = this.y + DIRS[d][1];
-      if (!world.isPassable(nx, ny)) continue;
-      const lx = nx + DIRS[d][0] * lookAhead;
-      const ly = ny + DIRS[d][1] * lookAhead;
-      const sampleX = Math.max(0, Math.min(world.width - 1, lx));
-      const sampleY = Math.max(0, Math.min(world.nestY, ly));
-      const sidx = world.index(sampleX, sampleY);
-      const p = world.toFood[sidx];
-      const inertia = i === 0 ? 0.4 : 0;
-      const noise = rng.range(0, 0.2);
-      const awayFromNest = targetEntrance ? Math.hypot(nx - targetEntrance.x, ny - targetEntrance.y) * 0.015 : 0;
-      const score = p + inertia + noise + awayFromNest;
-      if (score > bestScore) {
-        bestScore = score;
-        bestDir = d;
-      }
-    }
-
-    if (bestScore < threshold || rng.chance(0.12)) {
-      bestDir = (bestDir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
-    }
-
-    const tx = this.x + DIRS[bestDir][0];
-    const ty = this.y + DIRS[bestDir][1];
-    if (!world.isPassable(tx, ty)) return false;
-    this.x = tx;
-    this.y = ty;
-    this.dir = bestDir;
     return true;
   }
 
@@ -205,65 +220,5 @@ export class Ant {
     }
 
     return false;
-  }
-
-  stepByGradient(world, rng, primaryField, secondaryField, dangerField, headingHome) {
-    let bestDir = this.dir;
-    let bestScore = -Infinity;
-
-    for (let i = 0; i < DIRS.length; i += 1) {
-      const d = (this.dir + i) % DIRS.length;
-      const nx = this.x + DIRS[d][0];
-      const ny = this.y + DIRS[d][1];
-      if (!world.inBounds(nx, ny)) continue;
-      const nidx = world.index(nx, ny);
-      const terrain = world.terrain[nidx];
-      if (terrain === TERRAIN.WALL || terrain === TERRAIN.WATER || terrain === TERRAIN.SOIL) continue;
-
-      const primary = primaryField[nidx] * 1.2;
-      const secondary = secondaryField[nidx] * 0.8;
-      const danger = dangerField[nidx] * 2.2;
-      const randomness = rng.range(0, 0.4);
-      const inertia = i === 0 ? 0.5 : 0;
-      const roleBias = this.role === 'soldier' ? world.danger[nidx] * 0.4 : 0;
-      const score = primary + secondary + randomness + inertia + roleBias - danger;
-
-      if (headingHome && world.nestInfluence[nidx] > 0.97) {
-        this.x = nx;
-        this.y = ny;
-        this.dir = d;
-        return;
-      }
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestDir = d;
-      }
-    }
-
-    if (rng.chance(0.08)) {
-      bestDir = (bestDir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
-    }
-
-    const tx = this.x + DIRS[bestDir][0];
-    const ty = this.y + DIRS[bestDir][1];
-    if (world.isPassable(tx, ty)) {
-      this.x = tx;
-      this.y = ty;
-      this.dir = bestDir;
-      return;
-    }
-
-    for (let i = 0; i < DIRS.length; i += 1) {
-      const d = rng.int(DIRS.length);
-      const nx = this.x + DIRS[d][0];
-      const ny = this.y + DIRS[d][1];
-      if (world.isPassable(nx, ny)) {
-        this.x = nx;
-        this.y = ny;
-        this.dir = d;
-        break;
-      }
-    }
   }
 }

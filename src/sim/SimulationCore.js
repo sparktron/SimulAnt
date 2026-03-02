@@ -51,9 +51,7 @@ export class SimulationCore {
     this.colony.setNestEntrances(this.nestEntrances);
     this.colony.update(config);
     this.digSystem.update(config);
-    if (this.tick % config.pheromoneUpdateTicks === 0) {
-      this.world.diffuseAndEvaporate(config.diffusionRate, config.evaporationRate, true);
-    }
+    this.world.updatePheromones(config, this.tick);
   }
 
   spawnFoodCluster(centerX, centerY, radius = 8, count = 8) {

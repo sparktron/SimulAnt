@@ -113,12 +113,17 @@ export class SurfaceRenderer {
         }
 
         if (overlays.showToFood || overlays.showScent) {
-          const scent = Math.min(1, world.toFood[idx] / 4);
-          r = Math.floor(r * (1 - scent) + 60 * scent);
-          g = Math.floor(g * (1 - scent) + 220 * scent);
-          b = Math.floor(b * (1 - scent) + 85 * scent);
+          const scentFood = Math.min(1, Math.sqrt(world.toFood[idx] / 6));
+          r = Math.floor(r * (1 - scentFood) + 40 * scentFood);
+          g = Math.floor(g * (1 - scentFood) + 220 * scentFood);
+          b = Math.floor(b * (1 - scentFood) + 70 * scentFood);
         }
-        if (overlays.showToHome) b = Math.min(255, b + Math.floor(world.toHome[idx] * 60));
+        if (overlays.showToHome || overlays.showScent) {
+          const scentHome = Math.min(1, Math.sqrt(world.toHome[idx] / 6));
+          r = Math.floor(r * (1 - scentHome) + 55 * scentHome);
+          g = Math.floor(g * (1 - scentHome) + 110 * scentHome);
+          b = Math.floor(b * (1 - scentHome) + 245 * scentHome);
+        }
         if (overlays.showDanger) {
           r = Math.min(255, r + Math.floor(world.danger[idx] * 100));
           g = Math.max(0, g - Math.floor(world.danger[idx] * 40));
@@ -152,7 +157,7 @@ export class SurfaceRenderer {
     ctx.font = '2.8px monospace';
     for (const ant of colony.ants) {
       if (ant.y > world.nestY + 1) continue;
-      ctx.fillStyle = ant.role === 'soldier' ? '#d93828' : '#1a1208';
+      ctx.fillStyle = ant.role === 'soldier' ? '#d93828' : (ant.state === 'RETURN_HOME' ? '#2e78ff' : '#1a1208');
       ctx.fillRect(ant.x, ant.y, 1, 1);
 
       if (ant.carrying?.type === 'food') {
@@ -183,10 +188,11 @@ export class SurfaceRenderer {
 
   #drawCursorDebug(ctx, cursor) {
     const idx = this.world.index(cursor.x, cursor.y);
-    const scent = this.world.toFood[idx] || 0;
+    const scentFood = this.world.toFood[idx] || 0;
+    const scentHome = this.world.toHome[idx] || 0;
     ctx.fillStyle = '#b0fff0';
     ctx.font = '3px monospace';
-    ctx.fillText(`Scent:${scent.toFixed(2)}`, cursor.x + 2, cursor.y + 2);
+    ctx.fillText(`Food:${scentFood.toFixed(2)} Home:${scentHome.toFixed(2)}`, cursor.x + 2, cursor.y + 2);
   }
 
   #drawEntranceDebug(ctx, nestEntrances) {
