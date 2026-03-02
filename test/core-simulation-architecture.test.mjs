@@ -97,3 +97,34 @@ test('tick config sanitization prevents invalid diffusion cadence values', () =>
   assert.doesNotThrow(() => sim.update(config));
   assert.equal(sim.tick, 1);
 });
+
+test('macro home territory follows nest tool relocation', () => {
+  const sim = new SimulationCore('macro-home-sync-seed');
+  const targetX = sim.world.nestX + 10;
+  const targetY = sim.world.nestY + 2;
+
+  sim.applyTool('nest', targetX, targetY, 2);
+
+  const home = sim.macroEngine.serialize().territories.find((territory) => territory.id === 'territory-home');
+  assert.ok(home);
+  assert.equal(home.centerX, targetX);
+  assert.equal(home.centerY, targetY);
+});
+
+test('macro load sanitizes malformed saved territories and restores home territory', () => {
+  const sim = new SimulationCore('macro-sanitize-seed');
+  sim.macroEngine.loadFromSerialized({
+    territories: [{ id: null }, { id: 'enemy', centerX: Infinity, centerY: NaN, owner: 123 }],
+  });
+
+  const territories = sim.macroEngine.serialize().territories;
+  const home = territories.find((territory) => territory.id === 'territory-home');
+  const enemy = territories.find((territory) => territory.id === 'enemy');
+
+  assert.ok(home);
+  assert.equal(home.centerX, sim.world.nestX);
+  assert.equal(home.centerY, sim.world.nestY);
+  assert.equal(enemy.owner, '123');
+  assert.equal(enemy.centerX, sim.world.nestX);
+  assert.equal(enemy.centerY, sim.world.nestY);
+});

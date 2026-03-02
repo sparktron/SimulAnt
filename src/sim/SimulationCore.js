@@ -33,8 +33,8 @@ export class SimulationCore {
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.reset();
-    this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
-    this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
+    this.#rebuildTickPipeline();
+
     this.nestEntrances = [
       {
         id: 'entrance-main',
@@ -177,8 +177,8 @@ export class SimulationCore {
           this.nestEntrances[0].radius = this.nestEntrances[0].radius || 2;
         }
         this.digSystem = new DigSystem(this.world, this.colony, this.rng);
-        this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
-        this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
+        this.#syncMacroHomeTerritory();
+        this.#rebuildTickPipeline();
         break;
       default:
         break;
@@ -188,8 +188,8 @@ export class SimulationCore {
   clearWorld() {
     this.world.initializeTerrain();
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
-    this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
-    this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
+    this.#syncMacroHomeTerritory();
+    this.#rebuildTickPipeline();
     this.world.food.fill(0);
     this.world.toFood.fill(0);
     this.world.toHome.fill(0);
@@ -222,8 +222,8 @@ export class SimulationCore {
     this.digSystem.loadFromSerialized(data.digSystem);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.loadFromSerialized(data.macro);
-    this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
-    this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
+    this.#syncMacroHomeTerritory();
+    this.#rebuildTickPipeline();
     this.tick = data.tick || 0;
     this.foodPellets = Array.isArray(data.foodPellets)
       ? data.foodPellets.map((pellet) => new FoodPellet(pellet.id, pellet.x, pellet.y, pellet.nutrition))
@@ -251,5 +251,14 @@ export class SimulationCore {
         },
       ];
     }
+  }
+
+  #syncMacroHomeTerritory() {
+    this.macroEngine.syncHomeTerritory(this.world.nestX, this.world.nestY);
+  }
+
+  #rebuildTickPipeline() {
+    this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
+    this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
   }
 }
