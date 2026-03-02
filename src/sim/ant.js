@@ -63,7 +63,10 @@ export class Ant {
     if (this.role === 'worker') {
       if (this.carrying?.type === 'food') {
         this.state = 'RETURN_HOME';
-        world.toFood[idx] = Math.min(config.pheromoneMaxClamp, world.toFood[idx] + config.depositFood);
+        const distToNest = entrance ? Math.hypot(this.x - entrance.x, this.y - entrance.y) : 0;
+        const trailScale = Math.min(config.maxFoodTrailScale, 1 + distToNest * config.foodTrailDistanceScale * 0.05);
+        const foodDeposit = config.depositFood * trailScale;
+        world.toFood[idx] = Math.min(config.pheromoneMaxClamp, world.toFood[idx] + foodDeposit);
         didMove = entrance
           ? this.#moveToward(world, entrance.x, entrance.y, rng)
           : this.#moveByPheromone(world, rng, config, 'home', entrance);
@@ -102,7 +105,15 @@ export class Ant {
             this.state = 'PICKUP';
           } else {
             this.state = 'FORAGE_SEARCH';
-            didMove = this.#moveByPheromone(world, rng, config, 'food', entrance);
+            const nearEntrance = entrance
+              ? Math.hypot(this.x - entrance.x, this.y - entrance.y) < config.nearEntranceScatterRadius
+              : false;
+            if (nearEntrance && entrance) {
+              const ax = this.x + (this.x - entrance.x);
+              const ay = this.y + (this.y - entrance.y);
+              didMove = this.#moveToward(world, ax, ay, rng);
+            }
+            if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'food', entrance);
           }
         }
       }
