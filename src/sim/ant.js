@@ -31,6 +31,7 @@ export class Ant {
     this.carrying = null;
     this.alive = true;
     this.role = role;
+    this.stepCounter = 0;
   }
 
   update(world, colony, rng, config) {
@@ -43,8 +44,9 @@ export class Ant {
     if (this.role === 'worker' && this.#tryEatFromNest(colony, inNest, config)) this.state = 'EAT';
 
     const entrance = colony.nearestEntrance(this.x, this.y);
+    this.stepCounter += 1;
 
-    if (this.role === 'worker' && rng.chance(config.randomTurnChance)) {
+    if (this.role === 'worker' && !this.carrying?.type && rng.chance(config.randomTurnChance)) {
       this.dir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
     }
 
@@ -62,9 +64,15 @@ export class Ant {
       if (this.carrying?.type === 'food') {
         this.state = 'RETURN_HOME';
         world.toFood[idx] = Math.min(config.pheromoneMaxClamp, world.toFood[idx] + config.depositFood);
-        didMove = this.#moveByPheromone(world, rng, config, 'home', entrance);
+        didMove = entrance
+          ? this.#moveToward(world, entrance.x, entrance.y, rng)
+          : this.#moveByPheromone(world, rng, config, 'home', entrance);
+        if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', entrance);
       } else if (this.#needsForage(colony)) {
-        world.toHome[idx] = Math.min(config.pheromoneMaxClamp, world.toHome[idx] + config.depositHome);
+        const nearEntrance = entrance ? Math.hypot(this.x - entrance.x, this.y - entrance.y) < config.homeDepositMinDistance : false;
+        if (!nearEntrance && this.stepCounter % config.homeDepositIntervalTicks === 0) {
+          world.toHome[idx] = Math.min(config.pheromoneMaxClamp, world.toHome[idx] + config.depositHome);
+        }
 
         const visible = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
         if (visible) {
