@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ViewManager, VIEW } from '../src/ui/ViewManager.js';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
+import { normalizeSurfaceTerrain } from '../src/render/SurfaceRenderer.js';
+import { TERRAIN } from '../src/sim/world.js';
 
 // ── Toggle state machine ────────────────────────────────────────────
 
@@ -144,4 +146,12 @@ test('Nest entrance soil persists through serialization', () => {
   assert.equal(restored.nestEntrances.length, 1);
   assert.equal(restored.nestEntrances[0].soilOnSurface, sim.nestEntrances[0].soilOnSurface);
   assert.equal(restored.nestEntrances[0].x, sim.nestEntrances[0].x);
+});
+
+
+test('Surface terrain normalization maps underground terrain to ground palette', () => {
+  assert.equal(normalizeSurfaceTerrain(TERRAIN.SOIL), TERRAIN.GROUND);
+  assert.equal(normalizeSurfaceTerrain(TERRAIN.TUNNEL), TERRAIN.GROUND);
+  assert.equal(normalizeSurfaceTerrain(TERRAIN.WATER), TERRAIN.WATER);
+  assert.equal(normalizeSurfaceTerrain(TERRAIN.HAZARD), TERRAIN.HAZARD);
 });

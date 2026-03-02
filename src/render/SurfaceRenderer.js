@@ -1,6 +1,10 @@
 import { TERRAIN } from '../sim/world.js';
 import { drawSoilMound } from './soilMound.js';
 
+export function normalizeSurfaceTerrain(terrain) {
+  return terrain === TERRAIN.SOIL || terrain === TERRAIN.TUNNEL ? TERRAIN.GROUND : terrain;
+}
+
 /**
  * Surface Renderer -- Top-down 2D view of the ground surface.
  */
@@ -73,25 +77,26 @@ export class SurfaceRenderer {
 
     for (let y = 0; y < H; y += 1) {
       for (let x = 0; x < W; x += 1) {
-        const sampleY = y % (world.nestY + 1);
-        const idx = sampleY * W + x;
+        const idx = y * W + x;
         const terrain = world.terrain[idx];
-        const o = (y * W + x) * 4;
+        const o = idx * 4;
 
         const noise = ((x * 7 + y * 13) % 11) - 5;
         let r = 96 + noise;
         let g = 138 + noise;
         let b = 52 + (noise >> 1);
 
-        if (terrain === TERRAIN.WALL) {
+        const surfaceTerrain = normalizeSurfaceTerrain(terrain);
+
+        if (surfaceTerrain === TERRAIN.WALL) {
           r = 142;
           g = 142;
           b = 150;
-        } else if (terrain === TERRAIN.WATER) {
+        } else if (surfaceTerrain === TERRAIN.WATER) {
           r = 48;
           g = 100;
           b = 172;
-        } else if (terrain === TERRAIN.HAZARD) {
+        } else if (surfaceTerrain === TERRAIN.HAZARD) {
           r = 174;
           g = 52;
           b = 46;
