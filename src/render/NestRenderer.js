@@ -108,11 +108,22 @@ export class NestRenderer {
           r = 66;
           g = 118;
           b = 40;
-        } else if (terrain === TERRAIN.TUNNEL) {
-          // Open tunnel -- light sandy tan
-          r = 196;
-          g = 176;
-          b = 136;
+        } else if (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER) {
+          const isChamber = terrain === TERRAIN.CHAMBER;
+          const edge = this.#isTunnelEdge(x, y);
+          if (edge) {
+            r = 96;
+            g = 80;
+            b = 56;
+          } else if (isChamber) {
+            r = 168;
+            g = 152;
+            b = 122;
+          } else {
+            r = 184;
+            g = 166;
+            b = 130;
+          }
         } else if (terrain === TERRAIN.WATER) {
           r = 36;
           g = 82;
@@ -148,6 +159,27 @@ export class NestRenderer {
     ctx.moveTo(0, world.nestY + 0.5);
     ctx.lineTo(W, world.nestY + 0.5);
     ctx.stroke();
+  }
+
+
+  #isTunnelEdge(x, y) {
+    const { world } = this;
+    const neighbors = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ];
+    for (let i = 0; i < neighbors.length; i += 1) {
+      const nx = x + neighbors[i][0];
+      const ny = y + neighbors[i][1];
+      if (!world.inBounds(nx, ny)) return true;
+      const nTerrain = world.terrain[world.index(nx, ny)];
+      if (nTerrain !== TERRAIN.TUNNEL && nTerrain !== TERRAIN.CHAMBER) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /* ------------------------------------------------------------------

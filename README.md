@@ -55,9 +55,11 @@ Works on GitHub Pages, Netlify static deploy, Cloudflare Pages, or personal web 
 - `R`: reset from seed
 - `1..6`: tool select
 - `F`: toggle to-food pheromone overlay
-- `G`: toggle to-home pheromone overlay
+- `G`: toggle auto-dig
+- `C`: force a small chamber at active dig front
+- `T`: toggle to-food pheromone overlay
+- `O`: toggle to-home pheromone overlay
 - `D`: toggle danger overlay
-- `O`: toggle food overlay
 - `H`: show/hide help
 
 ## Save / load

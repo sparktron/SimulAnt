@@ -1,6 +1,7 @@
 import { World, TERRAIN } from './world.js';
 import { Colony } from './colony.js';
 import { SeededRng } from './rng.js';
+import { DigSystem } from './DigSystem.js';
 
 const SURFACE_DEPOSIT_RATIO = 0.7;
 
@@ -29,6 +30,7 @@ export class SimulationCore {
     this.world.setNest(this.world.nestX, this.world.nestY);
     this.colony = new Colony(this.world, this.rng, 320);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
+    this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.nestEntrances = [
       {
         id: 'entrance-main',
@@ -44,9 +46,19 @@ export class SimulationCore {
   update(config) {
     this.tick += 1;
     this.colony.update(config);
+    this.digSystem.update(config);
     if (this.tick % config.pheromoneUpdateTicks === 0) {
       this.world.diffuseAndEvaporate(config.diffusionRate, config.evaporationRate, true);
     }
+  }
+
+
+  toggleAutoDig() {
+    return this.digSystem.toggleAutoDig();
+  }
+
+  forceChamberAtDigFront(config) {
+    return this.digSystem.forceChamberAtActiveFront(config);
   }
 
   onExcavate(volume, worldX, _depthY) {
@@ -119,6 +131,7 @@ export class SimulationCore {
           this.nestEntrances[0].x = worldX;
           this.nestEntrances[0].y = worldY;
         }
+        this.digSystem = new DigSystem(this.world, this.colony, this.rng);
         break;
       default:
         break;
@@ -127,6 +140,7 @@ export class SimulationCore {
 
   clearWorld() {
     this.world.initializeTerrain();
+    this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.world.food.fill(0);
     this.world.toFood.fill(0);
     this.world.toHome.fill(0);
@@ -140,6 +154,7 @@ export class SimulationCore {
       colony: this.colony.serialize(),
       tick: this.tick,
       nestEntrances: this.nestEntrances,
+      digSystem: this.digSystem.serialize(),
       state,
     };
   }
@@ -150,6 +165,8 @@ export class SimulationCore {
     this.world = World.fromSerialized(data.world);
     this.colony = Colony.fromSerialized(this.world, this.rng, data.colony);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
+    this.digSystem = new DigSystem(this.world, this.colony, this.rng);
+    this.digSystem.loadFromSerialized(data.digSystem);
     this.tick = data.tick || 0;
 
     if (Array.isArray(data.nestEntrances) && data.nestEntrances.length > 0) {

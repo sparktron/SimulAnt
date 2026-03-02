@@ -23,6 +23,7 @@ const state = {
   },
   debug: {
     showEntranceInfo: false,
+    digStatus: 'AUTO-DIG: OFF',
   },
   config: {
     antCap: 2000,
@@ -95,6 +96,14 @@ createControls(state, {
   toggleDebugEntrances: () => {
     state.debug.showEntranceInfo = !state.debug.showEntranceInfo;
   },
+  toggleAutoDig: () => {
+    const enabled = simCore.toggleAutoDig();
+    state.debug.digStatus = enabled ? 'AUTO-DIG: ON' : 'AUTO-DIG: OFF';
+  },
+  forceChamber: () => {
+    const carved = simCore.forceChamberAtDigFront(state.config);
+    state.debug.digStatus = carved ? 'AUTO-DIG: CHAMBER CARVED' : 'AUTO-DIG: CHAMBER FAILED';
+  },
 });
 
 window.addEventListener('resize', () => {
@@ -155,6 +164,7 @@ function loop(now) {
     foodStored: simCore.colony.foodStored,
     queenAlive: simCore.colony.queen.alive,
     simMs,
+    digStatus: state.debug.digStatus,
   });
 
   requestAnimationFrame(loop);
