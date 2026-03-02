@@ -127,19 +127,13 @@ export class Colony {
     this.surfaceFoodPellets = pellets;
   }
 
-  findNearestAvailablePellet(x, y) {
-    let best = null;
-    let bestD = Number.POSITIVE_INFINITY;
+  findAvailablePelletAt(x, y) {
     for (let i = 0; i < this.surfaceFoodPellets.length; i += 1) {
       const pellet = this.surfaceFoodPellets[i];
       if (pellet.takenByAntId != null) continue;
-      const d = Math.hypot(pellet.x - x, pellet.y - y);
-      if (d < bestD) {
-        bestD = d;
-        best = pellet;
-      }
+      if (pellet.x === x && pellet.y === y) return pellet;
     }
-    return best;
+    return null;
   }
 
   removePelletById(pelletId) {

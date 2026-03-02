@@ -56,21 +56,18 @@ export class Ant {
       this.state = 'CARRY_TO_NEST';
       didMove = this.#moveToward(world, world.nestX, world.nestY, rng);
     } else if (this.role === 'worker' && this.#needsForage(colony)) {
-      const pellet = colony.findNearestAvailablePellet(this.x, this.y);
+      const pellet = colony.findAvailablePelletAt(this.x, this.y);
       if (pellet) {
-        if (this.x === pellet.x && this.y === pellet.y && pellet.takenByAntId == null) {
-          pellet.takenByAntId = this.id;
-          this.carrying = {
-            type: 'food',
-            pelletId: pellet.id,
-            pelletNutrition: pellet.nutrition,
-          };
-          colony.removePelletById(pellet.id);
-          this.state = 'PICKUP';
-        } else {
-          this.state = 'GO_TO_FOOD';
-          didMove = this.#moveToward(world, pellet.x, pellet.y, rng);
-        }
+        pellet.takenByAntId = this.id;
+        this.carrying = {
+          type: 'food',
+          pelletId: pellet.id,
+          pelletNutrition: pellet.nutrition,
+        };
+        colony.removePelletById(pellet.id);
+        this.state = 'PICKUP';
+      } else {
+        this.state = 'FORAGE_SEARCH';
       }
     }
 
