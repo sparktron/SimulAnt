@@ -59,9 +59,10 @@ export class Ant {
     }
 
     if (this.role === 'worker' && this.carrying?.type === 'food' && entrance) {
-      const distance = Math.hypot(this.x - entrance.x, this.y - entrance.y);
-      if (distance <= (entrance.radius ?? 2)) {
-        colony.depositPellet(this.carrying.pelletNutrition || 0);
+      const dropPoint = colony.getNestFoodDropPoint(entrance);
+      const depositDistance = Math.hypot(this.x - dropPoint.x, this.y - dropPoint.y);
+      if (this.y >= world.nestY + 1 && depositDistance <= 1) {
+        colony.depositPellet(this.carrying.pelletNutrition || 0, this.x, this.y);
         this.carrying = null;
         this.carryingType = 'none';
         this.state = 'DEPOSIT';
@@ -76,10 +77,19 @@ export class Ant {
         const trailScale = Math.min(config.maxFoodTrailScale, 1 + distToNest * config.foodTrailDistanceScale * 0.05);
         const foodDeposit = config.depositFood * trailScale;
         world.toFood[idx] = Math.min(config.pheromoneMaxClamp, world.toFood[idx] + foodDeposit);
-        didMove = entrance
-          ? this.#moveToward(world, entrance.x, entrance.y, rng)
-          : this.#moveByPheromone(world, rng, config, 'home', entrance);
-        if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', entrance);
+
+        if (entrance) {
+          const dropPoint = colony.getNestFoodDropPoint(entrance);
+          const entranceRadius = entrance.radius ?? 2;
+          const closeToEntrance = Math.hypot(this.x - entrance.x, this.y - entrance.y) <= entranceRadius;
+          const shouldDescend = this.y >= entrance.y || closeToEntrance;
+          const targetX = shouldDescend ? dropPoint.x : entrance.x;
+          const targetY = shouldDescend ? dropPoint.y : entrance.y;
+          didMove = this.#moveToward(world, targetX, targetY, rng);
+        } else {
+          didMove = this.#moveByPheromone(world, rng, config, 'home', entrance);
+        }
+
       } else if (this.#needsForage(colony)) {
         const nearEntrance = entrance ? Math.hypot(this.x - entrance.x, this.y - entrance.y) < config.homeDepositMinDistance : false;
         if (!nearEntrance && this.stepCounter % config.homeDepositIntervalTicks === 0) {
@@ -140,7 +150,15 @@ export class Ant {
       world.danger[idx] = Math.min(config.pheromoneMaxClamp, world.danger[idx] + config.dangerDeposit);
     }
 
-    if (!didMove && this.carrying?.type === 'food') {
+    if (!didMove && this.carrying?.type === 'food' && entrance) {
+      const dropPoint = colony.getNestFoodDropPoint(entrance);
+      const entranceRadius = entrance.radius ?? 2;
+      const closeToEntrance = Math.hypot(this.x - entrance.x, this.y - entrance.y) <= entranceRadius;
+      const shouldDescend = this.y >= entrance.y || closeToEntrance;
+      const targetX = shouldDescend ? dropPoint.x : entrance.x;
+      const targetY = shouldDescend ? dropPoint.y : entrance.y;
+      didMove = this.#moveToward(world, targetX, targetY, rng);
+    } else if (!didMove && this.carrying?.type === 'food') {
       didMove = this.#moveByPheromone(world, rng, config, 'home', entrance);
     } else if (!didMove) {
       didMove = this.#moveByPheromone(world, rng, config, 'food', entrance);

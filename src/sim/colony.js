@@ -111,21 +111,34 @@ export class Colony {
     if (amount <= 0 || this.foodStored <= 0) return 0;
     const consumed = Math.min(amount, this.foodStored);
     this.foodStored -= consumed;
-    this.#applyNestCellFoodDelta(-consumed);
+    const dropPoint = this.getNestFoodDropPoint(this.nestEntrances[0] || null);
+    this.#applyNestCellFoodDelta(-consumed, dropPoint.x, dropPoint.y);
     return consumed;
   }
 
-  depositPellet(nutrition) {
+  depositPellet(nutrition, x, y) {
     if (nutrition <= 0) return 0;
     this.foodStored += nutrition;
-    this.#applyNestCellFoodDelta(nutrition);
+    this.#applyNestCellFoodDelta(nutrition, x, y);
     return nutrition;
   }
 
-  #applyNestCellFoodDelta(delta) {
-    const x = this.world.nestX;
-    const y = Math.min(this.world.height - 1, this.world.nestY + 3);
-    const idx = this.world.index(x, y);
+  getNestFoodDropPoint(entrance = null) {
+    const dropX = entrance ? entrance.x : this.world.nestX;
+    const dropY = entrance ? entrance.y + 3 : this.world.nestY + 3;
+    return {
+      x: Math.max(0, Math.min(this.world.width - 1, Math.round(dropX))),
+      y: Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(dropY))),
+    };
+  }
+
+  #applyNestCellFoodDelta(delta, x, y) {
+    const dropPoint = this.getNestFoodDropPoint();
+    const tx = Number.isFinite(x) ? Math.round(x) : dropPoint.x;
+    const ty = Number.isFinite(y) ? Math.round(y) : dropPoint.y;
+    const clampedX = Math.max(0, Math.min(this.world.width - 1, tx));
+    const clampedY = Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, ty));
+    const idx = this.world.index(clampedX, clampedY);
     this.world.nestFood[idx] = Math.max(0, this.world.nestFood[idx] + delta);
   }
 
