@@ -121,9 +121,10 @@ export class World {
   }
 
   updatePheromones(config, tick) {
-    this.#evaporateField(this.toFood, config.evapFood, config.pheromoneMaxClamp);
-    this.#evaporateField(this.toHome, config.evapHome, config.pheromoneMaxClamp);
-    this.#evaporateField(this.danger, config.evapDanger, config.pheromoneMaxClamp);
+    const dt = config.tickSeconds || 1 / 30;
+    this.#evaporateField(this.toFood, config.evapFood, dt, config.pheromoneMaxClamp);
+    this.#evaporateField(this.toHome, config.evapHome, dt, config.pheromoneMaxClamp);
+    this.#evaporateField(this.danger, config.evapDanger, dt, config.pheromoneMaxClamp);
 
     if (tick % config.diffIntervalTicks !== 0) return;
 
@@ -132,8 +133,8 @@ export class World {
     this.#diffuseObstacleAware(this.danger, this._dangerNext, config.diffDanger, config.pheromoneMaxClamp);
   }
 
-  #evaporateField(field, evaporationRate, clampMax) {
-    const keep = Math.max(0, 1 - evaporationRate);
+  #evaporateField(field, evaporationLambda, dt, clampMax) {
+    const keep = Math.exp(-Math.max(0, evaporationLambda) * dt);
     for (let i = 0; i < this.size; i += 1) {
       const v = field[i] * keep;
       field[i] = v <= 0.0001 ? 0 : Math.min(clampMax, v);
@@ -175,7 +176,7 @@ export class World {
         }
 
         const neighborAvg = count > 0 ? sum / count : center;
-        const mixed = center + (neighborAvg - center) * diffusionRate;
+        const mixed = (1 - diffusionRate) * center + diffusionRate * neighborAvg;
         dst[idx] = Math.max(0, Math.min(clampMax, mixed));
       }
     }

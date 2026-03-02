@@ -33,9 +33,9 @@ const state = {
   config: {
     tickSeconds: SIM_DT,
     antCap: 2000,
-    evapFood: 0.02,
-    evapHome: 0.04,
-    evapDanger: 0.02,
+    evapFood: 0.18,
+    evapHome: 0.55,
+    evapDanger: 0.35,
     diffFood: 0.2,
     diffHome: 0.1,
     diffDanger: 0.12,
