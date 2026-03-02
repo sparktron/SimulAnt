@@ -5,8 +5,18 @@ import { normalizeUnhandledRejectionReason, shouldReportFatalWindowError } from 
 test('ignores resource load style window error events', () => {
   const event = {
     error: undefined,
-    message: '',
+    message: 'Script error.',
     target: { tagName: 'LINK' },
+  };
+
+  assert.equal(shouldReportFatalWindowError(event), false);
+});
+
+test('ignores message-only window errors with no runtime error object', () => {
+  const event = {
+    error: undefined,
+    message: 'Script error.',
+    target: globalThis,
   };
 
   assert.equal(shouldReportFatalWindowError(event), false);
