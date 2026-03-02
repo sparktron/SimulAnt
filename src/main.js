@@ -62,6 +62,9 @@ const state = {
     followAlpha: 1.5,
     followBeta: 3.4,
     wanderNoise: 0.06,
+    randomTurnChance: 0.045,
+    momentumBias: 0.3,
+    reversePenalty: 0.9,
     pheromoneMaxClamp: 10,
   },
   casteTargets: {

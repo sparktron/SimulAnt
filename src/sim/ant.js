@@ -44,6 +44,10 @@ export class Ant {
 
     const entrance = colony.nearestEntrance(this.x, this.y);
 
+    if (this.role === 'worker' && rng.chance(config.randomTurnChance)) {
+      this.dir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
+    }
+
     if (this.role === 'worker' && this.carrying?.type === 'food' && entrance) {
       const distance = Math.hypot(this.x - entrance.x, this.y - entrance.y);
       if (distance <= (entrance.radius ?? 2)) {
@@ -127,23 +131,25 @@ export class Ant {
   }
 
   #moveByPheromone(world, rng, config, channel, entrance) {
-    const candidates = [0, 1, 7, 2, 6];
     const field = channel === 'home' ? world.toHome : world.toFood;
     const epsilon = 0.001;
+    const reverseDir = (this.dir + 4) % DIRS.length;
     const weights = [];
     let total = 0;
 
-    for (let i = 0; i < candidates.length; i += 1) {
-      const d = (this.dir + candidates[i]) % DIRS.length;
+    for (let i = 0; i < DIRS.length; i += 1) {
+      const d = i;
       const nx = this.x + DIRS[d][0];
       const ny = this.y + DIRS[d][1];
       if (!world.isPassable(nx, ny)) {
         weights.push({ d, w: 0 });
         continue;
       }
+
       const nidx = world.index(nx, ny);
-      let p = field[nidx];
-      p = Math.pow(p + epsilon, config.followAlpha);
+      const pher = Math.pow(field[nidx] + epsilon, config.followAlpha);
+      const momentum = d === this.dir ? config.momentumBias : 0;
+      const reversePenalty = d === reverseDir ? config.reversePenalty : 0;
 
       let tieBias = 0;
       if (entrance) {
@@ -152,7 +158,7 @@ export class Ant {
       }
 
       const noise = rng.range(0, config.wanderNoise);
-      const weight = Math.max(0, p * config.followBeta + tieBias + noise);
+      const weight = Math.max(0, pher * config.followBeta + momentum + tieBias + noise - reversePenalty);
       weights.push({ d, w: weight });
       total += weight;
     }
