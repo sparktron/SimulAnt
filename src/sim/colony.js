@@ -18,6 +18,7 @@ export class Colony {
     };
 
     this.excavatedTiles = 0;
+    this.onExcavate = null;
 
     for (let i = 0; i < initialAnts; i += 1) {
       this.ants.push(this.#spawnNearNest('worker'));
@@ -80,6 +81,11 @@ export class Colony {
 
   storeFood(amount) {
     this.foodStored += amount;
+  }
+
+  recordExcavation(volume, worldX, depthY) {
+    this.excavatedTiles += volume;
+    if (this.onExcavate) this.onExcavate(volume, worldX, depthY);
   }
 
   serialize() {

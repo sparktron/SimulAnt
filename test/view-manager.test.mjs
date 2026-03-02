@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ViewManager, VIEW } from '../src/ui/ViewManager.js';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
+import { getSurfaceMinZoom, normalizeSurfaceTerrain } from '../src/render/SurfaceRenderer.js';
+import { TERRAIN } from '../src/sim/world.js';
 
 // ── Toggle state machine ────────────────────────────────────────────
 
@@ -116,4 +118,47 @@ test('VIEW enum has exactly SURFACE and NEST', () => {
 
 test('Constructor rejects unknown initial view', () => {
   assert.throws(() => new ViewManager('BOTH'), /Invalid initial view/);
+});
+
+
+test('Excavation adds soil to nearest nest entrance', () => {
+  const sim = new SimulationCore('seed-soil');
+  sim.nestEntrances = [
+    { id: 'left', x: 40, y: sim.world.nestY, excavatedSoilTotal: 0, soilOnSurface: 0 },
+    { id: 'right', x: 200, y: sim.world.nestY, excavatedSoilTotal: 0, soilOnSurface: 0 },
+  ];
+
+  sim.onExcavate(10, 195, sim.world.nestY + 20);
+
+  assert.equal(sim.nestEntrances[0].soilOnSurface, 0);
+  assert.equal(sim.nestEntrances[1].excavatedSoilTotal, 10);
+  assert.equal(sim.nestEntrances[1].soilOnSurface, 7);
+});
+
+test('Nest entrance soil persists through serialization', () => {
+  const sim = new SimulationCore('seed-save-soil');
+  sim.onExcavate(5, sim.world.nestX, sim.world.nestY + 10);
+
+  const serialized = sim.serialize({});
+  const restored = new SimulationCore('other');
+  restored.loadFromSerialized(serialized);
+
+  assert.equal(restored.nestEntrances.length, 1);
+  assert.equal(restored.nestEntrances[0].soilOnSurface, sim.nestEntrances[0].soilOnSurface);
+  assert.equal(restored.nestEntrances[0].x, sim.nestEntrances[0].x);
+});
+
+
+test('Surface terrain normalization maps underground terrain to ground palette', () => {
+  assert.equal(normalizeSurfaceTerrain(TERRAIN.SOIL), TERRAIN.GROUND);
+  assert.equal(normalizeSurfaceTerrain(TERRAIN.TUNNEL), TERRAIN.GROUND);
+  assert.equal(normalizeSurfaceTerrain(TERRAIN.WATER), TERRAIN.WATER);
+  assert.equal(normalizeSurfaceTerrain(TERRAIN.HAZARD), TERRAIN.HAZARD);
+});
+
+
+test('Surface minimum zoom keeps viewport within surface band', () => {
+  const minZoom = getSurfaceMinZoom(642, 128);
+  assert.ok(minZoom > 4.9);
+  assert.ok(minZoom < 5.1);
 });
