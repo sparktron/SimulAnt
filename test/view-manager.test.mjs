@@ -229,3 +229,46 @@ test('Forced chamber creates chamber terrain tiles', () => {
   assert.equal(carved, true);
   assert.ok(chamberTiles > 0);
 });
+
+test('Dig system sanitizes corrupted saved front progress to prevent lockups', () => {
+  const sim = new SimulationCore('seed-corrupt-dig');
+  const cfg = {
+    antCap: 300,
+    evaporationRate: 0.01,
+    diffusionRate: 0.12,
+    pheromoneUpdateTicks: 2,
+    toFoodDeposit: 0.5,
+    toHomeDeposit: 0.4,
+    dangerDeposit: 0.6,
+    hazardDeathChance: 0.02,
+    foodPickupRate: 0.7,
+    digChance: 0.04,
+    digEnergyCost: 8,
+    digHomeBoost: 0.9,
+    queenEggTicks: 20,
+    queenEggFoodCost: 0.8,
+    soldierSpawnChance: 0.2,
+  };
+
+  const save = sim.serialize({});
+  save.digSystem = {
+    autoDig: true,
+    fronts: [
+      {
+        x: sim.world.nestX,
+        y: sim.world.nestY + 6,
+        dir: 0,
+        progress: Infinity,
+        age: 1,
+        stepsSinceChamber: 1,
+        lastAdvanceTick: 1,
+      },
+    ],
+  };
+
+  sim.loadFromSerialized(save);
+  sim.update(cfg);
+
+  assert.equal(Number.isFinite(sim.digSystem.fronts[0].progress), true);
+  assert.ok(sim.tick > 0);
+});

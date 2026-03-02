@@ -39,9 +39,15 @@ export class DigSystem {
       const work = this.autoDig ? 1.4 : 0.7 + this.rng.range(0, 0.5);
       front.progress += work;
 
-      while (front.progress >= 1) {
+      let safetySteps = 0;
+      while (front.progress >= 1 && safetySteps < 8) {
         front.progress -= 1;
         this.#advanceFront(front, config, false);
+        safetySteps += 1;
+      }
+
+      if (!Number.isFinite(front.progress) || front.progress < 0 || safetySteps >= 8) {
+        front.progress = 0;
       }
     }
 
@@ -76,13 +82,13 @@ export class DigSystem {
       ? data.fronts
           .filter((front) => this.world.inBounds(front.x, front.y))
           .map((front) => ({
-            x: front.x,
-            y: front.y,
-            dir: front.dir || 0,
-            progress: front.progress || 0,
-            age: front.age || 0,
-            stepsSinceChamber: front.stepsSinceChamber || 0,
-            lastAdvanceTick: front.lastAdvanceTick || 0,
+            x: Math.max(0, Math.min(this.world.width - 1, Number(front.x) || 0)),
+            y: Math.max(this.world.nestY + 2, Math.min(this.world.height - 1, Number(front.y) || 0)),
+            dir: this.#sanitizeDir(front.dir),
+            progress: this.#sanitizeProgress(front.progress),
+            age: this.#sanitizeCounter(front.age),
+            stepsSinceChamber: this.#sanitizeCounter(front.stepsSinceChamber),
+            lastAdvanceTick: this.#sanitizeCounter(front.lastAdvanceTick),
           }))
       : [];
     if (this.fronts.length === 0) this.#seedInitialFronts();
@@ -245,5 +251,23 @@ export class DigSystem {
       });
       return;
     }
+  }
+
+  #sanitizeDir(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 0;
+    return ((Math.floor(num) % CARDINAL_DIRS.length) + CARDINAL_DIRS.length) % CARDINAL_DIRS.length;
+  }
+
+  #sanitizeProgress(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num < 0) return 0;
+    return Math.min(num, 4);
+  }
+
+  #sanitizeCounter(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num < 0) return 0;
+    return Math.floor(num);
   }
 }
