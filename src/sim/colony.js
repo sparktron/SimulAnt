@@ -1,4 +1,5 @@
 import { Ant } from './ant.js';
+import { TERRAIN } from './world.js';
 
 export class Colony {
   constructor(world, rng, initialAnts = 300) {
@@ -12,6 +13,7 @@ export class Colony {
     this.spawnCost = 12;
     this.surfaceFoodPellets = [];
     this.nestEntrances = [];
+    this.nestFoodPellets = [];
 
     this.queen = {
       alive: true,
@@ -111,25 +113,77 @@ export class Colony {
     if (amount <= 0 || this.foodStored <= 0) return 0;
     const consumed = Math.min(amount, this.foodStored);
     this.foodStored -= consumed;
-    const dropPoint = this.getNestFoodDropPoint(this.nestEntrances[0] || null);
-    this.#applyNestCellFoodDelta(-consumed, dropPoint.x, dropPoint.y);
+    this.#consumeNestFoodPellets(consumed);
     return consumed;
   }
 
-  depositPellet(nutrition, x, y) {
+  depositPellet(nutrition, x, y, entrance = null) {
     if (nutrition <= 0) return 0;
+    const before = this.nestFoodPellets.length;
+    const point = this.getNestFoodDropPoint(entrance);
+    const pelletX = Number.isFinite(x) ? x : point.x;
+    const pelletY = Number.isFinite(y) ? y : point.y;
     this.foodStored += nutrition;
-    this.#applyNestCellFoodDelta(nutrition, x, y);
+    this.nestFoodPellets.push({
+      x: pelletX,
+      y: pelletY,
+      amount: nutrition,
+    });
+    this.#applyNestCellFoodDelta(nutrition, pelletX, pelletY);
+    if (this.nestFoodPellets.length !== before) {
+      console.log('[nest-food] nestFoodPellets.length changed:', this.nestFoodPellets.length);
+    }
     return nutrition;
   }
 
   getNestFoodDropPoint(entrance = null) {
-    const dropX = entrance ? entrance.x : this.world.nestX;
-    const dropY = entrance ? entrance.y + 3 : this.world.nestY + 3;
+    const storageCenterX = entrance ? entrance.x : this.world.nestX;
+    const storageCenterY = Math.max(this.world.nestY + 2, entrance ? entrance.y + 3 : this.world.nestY + 3);
+
+    if (!entrance) {
+      return {
+        x: Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX))),
+        y: Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY))),
+      };
+    }
+
+    const maxAttempts = 24;
+    for (let i = 0; i < maxAttempts; i += 1) {
+      const dx = this.rng.int(9) - 4;
+      const dy = this.rng.int(7) - 1;
+      const x = Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX + dx)));
+      const y = Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY + dy)));
+      const terrain = this.world.terrain[this.world.index(x, y)];
+      if (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER) {
+        return { x, y };
+      }
+    }
+
     return {
-      x: Math.max(0, Math.min(this.world.width - 1, Math.round(dropX))),
-      y: Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(dropY))),
+      x: Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX))),
+      y: Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY))),
     };
+  }
+
+  depositFoodFromAnt(ant, entrance = null) {
+    if (!ant?.carrying || ant.carrying.type !== 'food') return false;
+
+    const nutrition = ant.carrying.pelletNutrition || 0;
+    const dropPoint = this.getNestFoodDropPoint(entrance);
+
+    this.depositPellet(nutrition, dropPoint.x, dropPoint.y, entrance);
+    ant.carrying = null;
+    ant.carryingType = 'none';
+    ant.state = 'FORAGE_SEARCH';
+    ant.hunger = Math.min(ant.hungerMax, ant.hunger + nutrition * 0.15);
+
+    if (this.world.isPassable(dropPoint.x, dropPoint.y)) {
+      ant.x = dropPoint.x;
+      ant.y = dropPoint.y;
+    }
+
+    console.log(`[ant] ${ant.id} deposited food at nest entrance (${entrance?.x ?? this.world.nestX}, ${entrance?.y ?? this.world.nestY})`);
+    return true;
   }
 
   #applyNestCellFoodDelta(delta, x, y) {
@@ -140,6 +194,25 @@ export class Colony {
     const clampedY = Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, ty));
     const idx = this.world.index(clampedX, clampedY);
     this.world.nestFood[idx] = Math.max(0, this.world.nestFood[idx] + delta);
+  }
+
+  #consumeNestFoodPellets(amount) {
+    if (amount <= 0 || this.nestFoodPellets.length === 0) return;
+    const before = this.nestFoodPellets.length;
+    let remaining = amount;
+
+    for (let i = this.nestFoodPellets.length - 1; i >= 0 && remaining > 0; i -= 1) {
+      const pellet = this.nestFoodPellets[i];
+      const consumed = Math.min(remaining, pellet.amount);
+      pellet.amount -= consumed;
+      remaining -= consumed;
+      this.#applyNestCellFoodDelta(-consumed, pellet.x, pellet.y);
+      if (pellet.amount <= 0.0001) this.nestFoodPellets.splice(i, 1);
+    }
+
+    if (this.nestFoodPellets.length !== before) {
+      console.log('[nest-food] nestFoodPellets.length changed:', this.nestFoodPellets.length);
+    }
   }
 
 
@@ -212,6 +285,7 @@ export class Colony {
       deaths: this.deaths,
       queen: this.queen,
       excavatedTiles: this.excavatedTiles,
+      nestFoodPellets: this.nestFoodPellets,
       ants: this.ants.map((ant) => ({
         id: ant.id,
         x: ant.x,
@@ -235,6 +309,11 @@ export class Colony {
     colony.deaths = data.deaths;
     colony.queen = { ...colony.queen, ...(data.queen || {}) };
     colony.excavatedTiles = data.excavatedTiles || 0;
+    colony.nestFoodPellets = Array.isArray(data.nestFoodPellets)
+      ? data.nestFoodPellets
+        .filter((pellet) => Number.isFinite(pellet?.x) && Number.isFinite(pellet?.y) && Number.isFinite(pellet?.amount) && pellet.amount > 0)
+        .map((pellet) => ({ x: pellet.x, y: pellet.y, amount: pellet.amount }))
+      : [];
     colony.ants = data.ants.map((a) => {
       const ant = new Ant(a.x, a.y, rng, a.role || 'worker');
       ant.id = a.id || ant.id;
