@@ -5,6 +5,15 @@ export function normalizeSurfaceTerrain(terrain) {
   return terrain === TERRAIN.SOIL || terrain === TERRAIN.TUNNEL ? TERRAIN.GROUND : terrain;
 }
 
+export function getSurfaceMinZoom(canvasHeight, nestY) {
+  const surfaceHeight = Math.max(1, nestY + 1);
+  return canvasHeight / surfaceHeight;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 /**
  * Surface Renderer -- Top-down 2D view of the ground surface.
  */
@@ -35,15 +44,25 @@ export class SurfaceRenderer {
   }
 
   screenToWorld(sx, sy) {
+    this.#enforceSurfaceViewBounds();
     const viewW = this.canvas.clientWidth / this.zoom;
     const viewH = this.canvas.clientHeight / this.zoom;
     return {
-      x: Math.floor(this.cameraX - viewW * 0.5 + sx / this.zoom),
-      y: Math.floor(this.cameraY - viewH * 0.5 + sy / this.zoom),
+      x: clamp(
+        Math.floor(this.cameraX - viewW * 0.5 + sx / this.zoom),
+        0,
+        this.world.width - 1,
+      ),
+      y: clamp(
+        Math.floor(this.cameraY - viewH * 0.5 + sy / this.zoom),
+        0,
+        this.world.nestY,
+      ),
     };
   }
 
   draw(colony, overlays, nestEntrances, debug = false) {
+    this.#enforceSurfaceViewBounds();
     const { ctx } = this;
     const cw = this.canvas.clientWidth;
     const ch = this.canvas.clientHeight;
@@ -165,6 +184,30 @@ export class SurfaceRenderer {
     for (const entrance of nestEntrances) {
       ctx.strokeRect(entrance.x - 2, entrance.y - 2, 4, 4);
       ctx.fillText(`soil:${entrance.soilOnSurface.toFixed(1)}`, entrance.x + 2.5, entrance.y - 2);
+    }
+  }
+
+  #enforceSurfaceViewBounds() {
+    const minZoom = getSurfaceMinZoom(this.canvas.clientHeight, this.world.nestY);
+    this.zoom = Math.max(this.zoom, minZoom);
+
+    const viewW = this.canvas.clientWidth / this.zoom;
+    const viewH = this.canvas.clientHeight / this.zoom;
+
+    const minX = viewW * 0.5;
+    const maxX = this.world.width - viewW * 0.5;
+    if (minX > maxX) {
+      this.cameraX = this.world.width * 0.5;
+    } else {
+      this.cameraX = clamp(this.cameraX, minX, maxX);
+    }
+
+    const minY = viewH * 0.5;
+    const maxY = this.world.nestY - viewH * 0.5;
+    if (minY > maxY) {
+      this.cameraY = this.world.nestY * 0.5;
+    } else {
+      this.cameraY = clamp(this.cameraY, minY, maxY);
     }
   }
 }

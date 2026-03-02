@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ViewManager, VIEW } from '../src/ui/ViewManager.js';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
-import { normalizeSurfaceTerrain } from '../src/render/SurfaceRenderer.js';
+import { getSurfaceMinZoom, normalizeSurfaceTerrain } from '../src/render/SurfaceRenderer.js';
 import { TERRAIN } from '../src/sim/world.js';
 
 // ── Toggle state machine ────────────────────────────────────────────
@@ -154,4 +154,11 @@ test('Surface terrain normalization maps underground terrain to ground palette',
   assert.equal(normalizeSurfaceTerrain(TERRAIN.TUNNEL), TERRAIN.GROUND);
   assert.equal(normalizeSurfaceTerrain(TERRAIN.WATER), TERRAIN.WATER);
   assert.equal(normalizeSurfaceTerrain(TERRAIN.HAZARD), TERRAIN.HAZARD);
+});
+
+
+test('Surface minimum zoom keeps viewport within surface band', () => {
+  const minZoom = getSurfaceMinZoom(642, 128);
+  assert.ok(minZoom > 4.9);
+  assert.ok(minZoom < 5.1);
 });
