@@ -56,7 +56,7 @@ export class NestRenderer {
     };
   }
 
-  draw(colony) {
+  draw(colony, options = {}) {
     const { ctx } = this;
     const cw = this.canvas.clientWidth;
     const ch = this.canvas.clientHeight;
@@ -70,7 +70,7 @@ export class NestRenderer {
     ctx.translate(-this.cameraX, -this.cameraY);
 
     this.#drawTerrain(ctx);
-    this.#drawAnts(ctx, colony);
+    this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats);
 
     ctx.restore();
   }
@@ -185,7 +185,7 @@ export class NestRenderer {
   /* ------------------------------------------------------------------
    * Entities: underground ants (y >= nestY - 1) + queen marker.
    * ----------------------------------------------------------------*/
-  #drawAnts(ctx, colony) {
+  #drawAnts(ctx, colony, selectedAntId, showDebugStats) {
     const { world } = this;
 
     for (const ant of colony.ants) {
@@ -193,10 +193,23 @@ export class NestRenderer {
       ctx.fillStyle =
         ant.role === 'soldier'
           ? '#ef775f'
-          : ant.carrying > 0
+          : ant.carrying?.type === 'food'
             ? '#f7d55d'
             : '#c8b8a0';
       ctx.fillRect(ant.x, ant.y, 1, 1);
+
+      if (selectedAntId === ant.id) {
+        ctx.strokeStyle = '#ffea00';
+        ctx.lineWidth = 0.25;
+        ctx.strokeRect(ant.x - 0.4, ant.y - 0.4, 1.8, 1.8);
+      }
+
+      if (showDebugStats) {
+        ctx.fillStyle = '#ffffff';
+        const c = ant.carrying?.type === 'food' ? ' C' : '';
+        ctx.font = '2.8px monospace';
+        ctx.fillText(`H:${Math.round(ant.hunger)} HP:${Math.round(ant.health)}${c}`, ant.x + 1.2, ant.y - 0.2);
+      }
     }
 
     if (colony.queen.alive) {
@@ -208,6 +221,13 @@ export class NestRenderer {
       ctx.beginPath();
       ctx.arc(world.nestX + 0.5, world.nestY + 2.5, 1.1, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    if (showDebugStats) {
+      ctx.fillStyle = '#e8f6ff';
+      ctx.font = '3px monospace';
+      ctx.fillText(`FoodStore:${Math.round(colony.foodStored)}`, world.nestX + 4, world.nestY + 8);
+      ctx.fillText(`Queen H:${Math.round(colony.queen.hunger)} HP:${Math.round(colony.queen.health)}`, world.nestX + 4, world.nestY + 11);
     }
   }
 }

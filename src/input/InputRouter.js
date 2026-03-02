@@ -27,8 +27,17 @@ export class InputRouter {
         return;
       }
 
+      const point = this.#pointFromClient(event.clientX, event.clientY);
+      this.#activeHandlers().onPointerWorld?.(point.x, point.y);
+
+      const selected = this.#activeHandlers().selectAnt?.(point.x, point.y);
+      if (selected) {
+        this.painting = false;
+        return;
+      }
+
       this.painting = true;
-      this.#routePaint(event.clientX, event.clientY);
+      this.#activeHandlers().paint(point.x, point.y);
     });
 
     this.canvas.addEventListener('pointermove', (event) => {
@@ -37,14 +46,16 @@ export class InputRouter {
       this.lastX = event.clientX;
       this.lastY = event.clientY;
 
+      const point = this.#pointFromClient(event.clientX, event.clientY);
+      this.#activeHandlers().onPointerWorld?.(point.x, point.y);
+
       if (this.panning) {
-        const active = this.#activeHandlers();
-        active.pan(dx, dy);
+        this.#activeHandlers().pan(dx, dy);
         return;
       }
 
       if (this.painting) {
-        this.#routePaint(event.clientX, event.clientY);
+        this.#activeHandlers().paint(point.x, point.y);
       }
     });
 
@@ -60,16 +71,12 @@ export class InputRouter {
     });
   }
 
-  #routePaint(clientX, clientY) {
+  #pointFromClient(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
-    const active = this.#activeHandlers();
-    const point = active.screenToWorld(clientX - rect.left, clientY - rect.top);
-    active.paint(point.x, point.y);
+    return this.#activeHandlers().screenToWorld(clientX - rect.left, clientY - rect.top);
   }
 
   #activeHandlers() {
-    return this.viewManager.getCurrent() === VIEW.SURFACE
-      ? this.handlers.surface
-      : this.handlers.nest;
+    return this.viewManager.getCurrent() === VIEW.SURFACE ? this.handlers.surface : this.handlers.nest;
   }
 }

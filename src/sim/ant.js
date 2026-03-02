@@ -13,11 +13,22 @@ const DIRS = [
 
 export class Ant {
   constructor(x, y, rng, role = 'worker') {
+    this.id = `ant-${Math.floor(rng.range(0, 1e9))}`;
     this.x = x;
     this.y = y;
     this.dir = rng.int(DIRS.length);
-    this.energy = 400 + rng.int(200);
-    this.carrying = 0;
+    this.hungerMax = 100;
+    this.healthMax = 100;
+    this.hunger = 80 + rng.int(20);
+    this.health = this.healthMax;
+    this.hungerDrainRates = {
+      idle: role === 'soldier' ? 2.2 : 1.8,
+      move: role === 'soldier' ? 4.5 : 3.2,
+      dig: 5.0,
+      fight: 7.0,
+    };
+    this.state = 'IDLE';
+    this.carrying = null;
     this.alive = true;
     this.role = role;
   }
@@ -25,13 +36,42 @@ export class Ant {
   update(world, colony, rng, config) {
     if (!this.alive) return;
 
+    const dt = config.tickSeconds || 1 / 30;
     const idx = world.index(this.x, this.y);
     const nearNest = world.nestInfluence[idx] > 0.94;
+    const inNest = this.y >= world.nestY;
 
-    if (nearNest && this.carrying > 0) {
-      colony.storeFood(this.carrying);
-      this.carrying = 0;
-      this.energy = Math.min(this.energy + 120, 700);
+    if (this.role === 'worker' && this.#tryEatFromNest(colony, inNest, config)) {
+      this.state = 'EAT';
+    }
+
+    if (nearNest && this.carrying?.type === 'food') {
+      const delivered = colony.depositPellet(this.carrying.pelletNutrition || 0);
+      if (delivered > 0) this.carrying = null;
+      this.state = 'DEPOSIT';
+    }
+
+    let didMove = false;
+    if (this.role === 'worker' && this.carrying?.type === 'food') {
+      this.state = 'CARRY_TO_NEST';
+      didMove = this.#moveToward(world, world.nestX, world.nestY, rng);
+    } else if (this.role === 'worker' && this.#needsForage(colony)) {
+      const pellet = colony.findNearestAvailablePellet(this.x, this.y);
+      if (pellet) {
+        if (this.x === pellet.x && this.y === pellet.y && pellet.takenByAntId == null) {
+          pellet.takenByAntId = this.id;
+          this.carrying = {
+            type: 'food',
+            pelletId: pellet.id,
+            pelletNutrition: pellet.nutrition,
+          };
+          colony.removePelletById(pellet.id);
+          this.state = 'PICKUP';
+        } else {
+          this.state = 'GO_TO_FOOD';
+          didMove = this.#moveToward(world, pellet.x, pellet.y, rng);
+        }
+      }
     }
 
     const terrain = world.terrain[idx];
@@ -44,25 +84,68 @@ export class Ant {
       world.danger[idx] += config.dangerDeposit;
     }
 
-    if (this.carrying === 0 && world.food[idx] > 0.01) {
-      const amount = Math.min(config.foodPickupRate, world.food[idx]);
-      world.food[idx] -= amount;
-      this.carrying = amount;
-    }
-
-    if (this.carrying > 0) {
+    if (!didMove && this.carrying?.type === 'food') {
       world.toFood[idx] += config.toFoodDeposit;
       this.stepByGradient(world, rng, world.nestInfluence, world.toHome, world.danger, true);
-    } else {
+      didMove = true;
+    } else if (!didMove) {
       world.toHome[idx] += config.toHomeDeposit;
       this.stepByGradient(world, rng, world.toFood, world.nestInfluence, world.danger, false);
+      didMove = true;
     }
 
-    this.energy -= this.role === 'soldier' ? 1.1 : 1;
-    if (this.energy <= 0) {
+    const drain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
+    this.hunger = Math.max(0, this.hunger - drain * dt);
+    if (this.hunger <= 0) {
+      this.health = Math.max(0, this.health - config.healthDrainRate * dt);
+    } else if (this.health < this.healthMax && this.hunger > this.hungerMax * 0.65) {
+      this.health = Math.min(this.healthMax, this.health + config.healthRegenRate * dt);
+    }
+
+    if (this.health <= 0) {
       this.alive = false;
       colony.deaths += 1;
     }
+  }
+
+  #needsForage(colony) {
+    return this.hunger < this.hungerMax * 0.4 || colony.foodStored < colony.foodStoreTarget;
+  }
+
+  #tryEatFromNest(colony, inNest, config) {
+    if (!inNest || this.hunger >= this.hungerMax * 0.7) return false;
+    const consumed = colony.consumeFromStore(config.workerEatNutrition);
+    if (consumed <= 0) return false;
+    const wasStarving = this.hunger <= 0;
+    this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
+    if (wasStarving) this.health = Math.min(this.healthMax, this.health + config.starvationRecoveryHealth);
+    return true;
+  }
+
+  #moveToward(world, tx, ty, rng) {
+    let bestX = this.x;
+    let bestY = this.y;
+    let bestD = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < DIRS.length; i += 1) {
+      const nx = this.x + DIRS[i][0];
+      const ny = this.y + DIRS[i][1];
+      if (!world.isPassable(nx, ny)) continue;
+      const d = Math.hypot(tx - nx, ty - ny);
+      if (d < bestD || (d === bestD && rng.chance(0.5))) {
+        bestD = d;
+        bestX = nx;
+        bestY = ny;
+      }
+    }
+
+    if (bestX !== this.x || bestY !== this.y) {
+      this.x = bestX;
+      this.y = bestY;
+      return true;
+    }
+
+    return false;
   }
 
   stepByGradient(world, rng, primaryField, secondaryField, dangerField, headingHome) {

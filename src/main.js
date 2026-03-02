@@ -16,17 +16,20 @@ const state = {
   selectedTool: 'food',
   brushRadius: 3,
   seed: 'simant-default',
+  selectedAntId: null,
+  cursor: { surface: null, nest: null },
   overlays: {
-    showFood: false,
     showToFood: false,
     showToHome: false,
     showDanger: false,
   },
   debug: {
     showEntranceInfo: false,
+    showStats: false,
     digStatus: 'AUTO-DIG: OFF',
   },
   config: {
+    tickSeconds: SIM_DT,
     antCap: 2000,
     evaporationRate: 0.01,
     diffusionRate: 0.12,
@@ -41,6 +44,13 @@ const state = {
     digHomeBoost: 0.9,
     queenEggTicks: 20,
     queenEggFoodCost: 0.8,
+    queenHungerDrain: 2.8,
+    queenEatNutrition: 8,
+    queenHealthDrainRate: 7,
+    workerEatNutrition: 25,
+    starvationRecoveryHealth: 5,
+    healthDrainRate: 10,
+    healthRegenRate: 1,
     soldierSpawnChance: 0.2,
   },
   casteTargets: {
@@ -62,6 +72,10 @@ new InputRouter(canvas, viewManager, {
   surface: {
     screenToWorld: (sx, sy) => surfaceRenderer.screenToWorld(sx, sy),
     paint: (x, y) => applyToolIfInBounds(x, y),
+    selectAnt: (x, y) => selectAntNear(x, y),
+    onPointerWorld: (x, y) => {
+      state.cursor.surface = { x, y };
+    },
     pan: (dx, dy) => {
       surfaceRenderer.cameraX -= dx / surfaceRenderer.zoom;
       surfaceRenderer.cameraY -= dy / surfaceRenderer.zoom;
@@ -73,6 +87,10 @@ new InputRouter(canvas, viewManager, {
   nest: {
     screenToWorld: (sx, sy) => nestRenderer.screenToWorld(sx, sy),
     paint: (x, y) => applyToolIfInBounds(x, y),
+    selectAnt: (x, y) => selectAntNear(x, y),
+    onPointerWorld: (x, y) => {
+      state.cursor.nest = { x, y };
+    },
     pan: (dx, dy) => {
       nestRenderer.cameraX -= dx / nestRenderer.zoom;
       nestRenderer.cameraY -= dy / nestRenderer.zoom;
@@ -88,14 +106,28 @@ createControls(state, {
   reset: (seed) => {
     state.seed = seed || state.seed;
     simCore.reset(state.seed);
+    state.selectedAntId = null;
     syncRenderWorld();
   },
   save: () => saveState(),
   load: () => loadState(),
   clearWorld: () => simCore.clearWorld(),
   toggleView: () => viewManager.toggle(),
-  toggleDebugEntrances: () => {
-    state.debug.showEntranceInfo = !state.debug.showEntranceInfo;
+  toggleDebugStats: () => {
+    state.debug.showStats = !state.debug.showStats;
+    state.debug.showEntranceInfo = state.debug.showStats;
+  },
+  spawnFoodAtCursor: () => {
+    if (viewManager.getCurrent() !== VIEW.SURFACE || !state.cursor.surface) return;
+    simCore.spawnFoodCluster(state.cursor.surface.x, state.cursor.surface.y, 8, 12);
+  },
+  starveSelectedAnt: () => {
+    const ant = simCore.findAntById(state.selectedAntId);
+    if (!ant) return;
+    ant.hunger = 5;
+  },
+  addFoodToStore: () => {
+    simCore.addFoodToStore(50);
   },
   toggleAutoDig: () => {
     const enabled = simCore.toggleAutoDig();
@@ -163,11 +195,19 @@ function loop(now) {
 
     const activeView = viewManager.getCurrent();
     if (activeView === VIEW.SURFACE) {
-      surfaceRenderer.draw(simCore.colony, state.overlays, simCore.nestEntrances, state.debug.showEntranceInfo);
+      surfaceRenderer.draw(simCore.colony, state.overlays, simCore.nestEntrances, simCore.foodPellets, {
+        selectedAntId: state.selectedAntId,
+        showDebugStats: state.debug.showStats,
+        showEntranceInfo: state.debug.showEntranceInfo,
+      });
     } else {
-      nestRenderer.draw(simCore.colony);
+      nestRenderer.draw(simCore.colony, {
+        selectedAntId: state.selectedAntId,
+        showDebugStats: state.debug.showStats,
+      });
     }
 
+    const selectedAnt = simCore.findAntById(state.selectedAntId);
     updateHud({
       viewMode: activeView,
       fps,
@@ -177,6 +217,7 @@ function loop(now) {
       soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
       foodStored: simCore.colony.foodStored,
       queenAlive: simCore.colony.queen.alive,
+      selectedAntHealth: selectedAnt ? selectedAnt.health : 0,
       simMs,
       digStatus: state.debug.digStatus,
     });
@@ -185,6 +226,13 @@ function loop(now) {
   } catch (error) {
     reportFatalError(error);
   }
+}
+
+function selectAntNear(x, y) {
+  const ant = simCore.findAntNear(x, y, 2);
+  if (!ant) return false;
+  state.selectedAntId = ant.id;
+  return true;
 }
 
 function applyToolIfInBounds(x, y) {
@@ -200,6 +248,7 @@ function saveState() {
     casteTargets: state.casteTargets,
     selectedTool: state.selectedTool,
     brushRadius: state.brushRadius,
+    selectedAntId: state.selectedAntId,
     viewMode: viewManager.getCurrent(),
     cameras: {
       surface: {
@@ -231,6 +280,7 @@ function loadState() {
   state.simSpeed = data.state?.simSpeed || state.simSpeed;
   state.selectedTool = data.state?.selectedTool || state.selectedTool;
   state.brushRadius = data.state?.brushRadius || state.brushRadius;
+  state.selectedAntId = data.state?.selectedAntId || null;
 
   const surfaceCam = data.state?.cameras?.surface;
   if (surfaceCam) {

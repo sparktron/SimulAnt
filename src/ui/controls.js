@@ -85,20 +85,24 @@ export function createControls(state, actions) {
       if (helpPanel.open) helpPanel.close();
       else helpPanel.showModal();
     } else if (event.key.toLowerCase() === 'f') {
-      state.overlays.showFood = !state.overlays.showFood;
+      if (actions.spawnFoodAtCursor) actions.spawnFoodAtCursor();
+    } else if (event.key.toLowerCase() === 'k') {
+      if (actions.starveSelectedAnt) actions.starveSelectedAnt();
+    } else if (event.key.toLowerCase() === 'o') {
+      if (actions.addFoodToStore) actions.addFoodToStore();
     } else if (event.key.toLowerCase() === 'g') {
       if (actions.toggleAutoDig) actions.toggleAutoDig();
     } else if (event.key.toLowerCase() === 'c') {
       if (actions.forceChamber) actions.forceChamber();
     } else if (event.key.toLowerCase() === 't') {
       state.overlays.showToFood = !state.overlays.showToFood;
-    } else if (event.key.toLowerCase() === 'o') {
+    } else if (event.key.toLowerCase() === 'l') {
       state.overlays.showToHome = !state.overlays.showToHome;
     } else if (event.key.toLowerCase() === 'd') {
       state.overlays.showDanger = !state.overlays.showDanger;
     } else if (event.code === 'F3') {
       event.preventDefault();
-      if (actions.toggleDebugEntrances) actions.toggleDebugEntrances();
+      if (actions.toggleDebugStats) actions.toggleDebugStats();
     } else if (TOOL_BY_KEY[event.key]) {
       state.selectedTool = TOOL_BY_KEY[event.key];
       const radio = document.querySelector(`input[name="tool"][value="${state.selectedTool}"]`);

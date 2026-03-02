@@ -8,8 +8,8 @@ export function updateHud(stats) {
   setText('hudFps', stats.fps.toFixed(1));
   setText('hudDig', stats.digStatus || 'AUTO-DIG: OFF');
 
-  setBar('healthYellow', Math.max(0, Math.min(100, (stats.foodStored / 120) * 100)));
-  setBar('healthBlack', Math.max(0, Math.min(100, (stats.queenAlive ? 100 : 0))));
+  setBar('healthYellow', Math.max(0, Math.min(100, (stats.selectedAntHealth / 100) * 100)));
+  setBar('healthBlack', Math.max(0, Math.min(100, (stats.foodStored / 300) * 100)));
   setBar('healthRed', Math.max(0, Math.min(100, (stats.soldiers / Math.max(1, stats.ants)) * 100)));
 }
 
