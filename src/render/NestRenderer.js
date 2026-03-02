@@ -70,7 +70,7 @@ export class NestRenderer {
     ctx.translate(-this.cameraX, -this.cameraY);
 
     this.#drawTerrain(ctx);
-    this.#drawNestFood(ctx);
+    this.#drawNestFood(ctx, colony);
     this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats);
 
     ctx.restore();
@@ -163,21 +163,16 @@ export class NestRenderer {
   }
 
 
-  #drawNestFood(ctx) {
-    const { world } = this;
-    for (let y = world.nestY + 1; y < world.height; y += 1) {
-      for (let x = 0; x < world.width; x += 1) {
-        const idx = world.index(x, y);
-        const amount = world.nestFood[idx];
-        if (amount <= 0.05) continue;
-        const terrain = world.terrain[idx];
-        if (terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER) continue;
-        const r = Math.max(0.2, Math.min(0.45, 0.18 + Math.sqrt(amount) * 0.08));
-        ctx.fillStyle = '#35d84b';
-        ctx.beginPath();
-        ctx.arc(x + 0.5, y + 0.5, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
+  #drawNestFood(ctx, colony) {
+    const pellets = colony.nestFoodPellets || [];
+    for (let i = 0; i < pellets.length; i += 1) {
+      const pellet = pellets[i];
+      if (pellet.amount <= 0.01) continue;
+      const r = Math.max(0.2, Math.min(0.45, 0.18 + Math.sqrt(pellet.amount) * 0.08));
+      ctx.fillStyle = '#35d84b';
+      ctx.beginPath();
+      ctx.arc(pellet.x + 0.5, pellet.y + 0.5, r, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
@@ -248,6 +243,7 @@ export class NestRenderer {
       ctx.font = '3px monospace';
       ctx.fillText(`FoodStore:${Math.round(colony.foodStored)}`, world.nestX + 4, world.nestY + 8);
       ctx.fillText(`Queen H:${Math.round(colony.queen.hunger)} HP:${Math.round(colony.queen.health)}`, world.nestX + 4, world.nestY + 11);
+      ctx.fillText(`NestPellets:${colony.nestFoodPellets?.length || 0}`, world.nestX + 4, world.nestY + 14);
     }
   }
 }

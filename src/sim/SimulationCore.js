@@ -195,6 +195,7 @@ export class SimulationCore {
     this.world.toFood.fill(0);
     this.world.toHome.fill(0);
     this.world.danger.fill(0);
+    this.colony.nestFoodPellets = [];
     this.foodPellets = [];
   }
 

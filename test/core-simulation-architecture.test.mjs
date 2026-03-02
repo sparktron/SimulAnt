@@ -179,3 +179,36 @@ test('deterministic regression survives unsafe external config inputs via saniti
 
   assert.deepEqual(runA.serialize({}), runB.serialize({}));
 });
+
+
+test('workers deposit carried food into persistent nestFoodPellets at nest entrance', () => {
+  const sim = new SimulationCore('nest-food-deposit-seed');
+  const config = createConfig();
+  const ant = sim.colony.ants[0];
+  const entrance = sim.nestEntrances[0];
+
+  ant.x = entrance.x;
+  ant.y = entrance.y;
+  ant.hunger = ant.hungerMax;
+  ant.carrying = { type: 'food', pelletId: 'test-pellet', pelletNutrition: 3 };
+  ant.carryingType = 'food';
+
+  sim.update(config);
+
+  assert.equal(sim.colony.nestFoodPellets.length > 0, true);
+  assert.equal(sim.colony.foodStored >= 3, true);
+  assert.equal(ant.carrying, null);
+  assert.equal(ant.carryingType, 'none');
+});
+
+test('nestFoodPellets survive serialization/load', () => {
+  const sim = new SimulationCore('nest-food-persist-seed');
+  sim.colony.depositPellet(2.5, sim.world.nestX, sim.world.nestY + 3, sim.nestEntrances[0]);
+
+  const serialized = sim.serialize({});
+  const restored = new SimulationCore('other-seed');
+  restored.loadFromSerialized(serialized);
+
+  assert.equal(restored.colony.nestFoodPellets.length, 1);
+  assert.equal(restored.colony.nestFoodPellets[0].amount, 2.5);
+});
