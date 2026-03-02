@@ -2,7 +2,7 @@ import { TERRAIN } from '../sim/world.js';
 import { drawSoilMound } from './soilMound.js';
 
 export function normalizeSurfaceTerrain(terrain) {
-  return terrain === TERRAIN.SOIL || terrain === TERRAIN.TUNNEL ? TERRAIN.GROUND : terrain;
+  return terrain === TERRAIN.SOIL || terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER ? TERRAIN.GROUND : terrain;
 }
 
 export function getSurfaceMinZoom(canvasHeight, nestY) {

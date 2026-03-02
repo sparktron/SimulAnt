@@ -5,6 +5,7 @@ export const TERRAIN = {
   HAZARD: 3,
   SOIL: 4,
   TUNNEL: 5,
+  CHAMBER: 6,
 };
 
 export class World {
@@ -49,7 +50,8 @@ export class World {
 
   isUnderground(x, y) {
     if (!this.inBounds(x, y)) return false;
-    return this.terrain[this.index(x, y)] === TERRAIN.TUNNEL;
+    const t = this.terrain[this.index(x, y)];
+    return t === TERRAIN.TUNNEL || t === TERRAIN.CHAMBER;
   }
 
   initializeTerrain() {
@@ -72,7 +74,7 @@ export class World {
     this.nestY = Math.max(0, Math.min(this.height - 1, y));
     this.recomputeNestInfluence();
     this.paintCircle(this.nestX, this.nestY + 2, this.nestRadius, (idx, _cx, cy) => {
-      if (cy >= this.nestY - 1) this.terrain[idx] = TERRAIN.TUNNEL;
+      if (cy >= this.nestY - 1) this.terrain[idx] = TERRAIN.CHAMBER;
     });
   }
 

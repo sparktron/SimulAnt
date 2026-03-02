@@ -1,6 +1,7 @@
 import { World, TERRAIN } from './world.js';
 import { Colony } from './colony.js';
 import { SeededRng } from './rng.js';
+import { DigSystem } from './DigSystem.js';
 
 const SURFACE_DEPOSIT_RATIO = 0.7;
 
@@ -28,6 +29,7 @@ export class SimulationCore {
 
     this.world.setNest(this.world.nestX, this.world.nestY);
     this.colony = new Colony(this.world, this.rng, 320);
+    this.digSystem = new DigSystem(this.world, this.rng);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.nestEntrances = [
       {
@@ -44,6 +46,7 @@ export class SimulationCore {
   update(config) {
     this.tick += 1;
     this.colony.update(config);
+    this.digSystem.update(this.colony);
     if (this.tick % config.pheromoneUpdateTicks === 0) {
       this.world.diffuseAndEvaporate(config.diffusionRate, config.evaporationRate, true);
     }
@@ -105,6 +108,14 @@ export class SimulationCore {
           this.world.danger[idx] = 0;
         });
         break;
+      case 'carve':
+        this.world.paintCircle(worldX, worldY, Math.max(1, radius), (idx, x, y) => {
+          if (y > this.world.nestY && this.world.terrain[idx] === TERRAIN.SOIL) {
+            this.world.terrain[idx] = TERRAIN.TUNNEL;
+            this.colony.recordExcavation(1, x, y);
+          }
+        });
+        break;
       case 'nest':
         this.world.setNest(worldX, worldY);
         if (this.nestEntrances.length === 0) {
@@ -125,12 +136,22 @@ export class SimulationCore {
     }
   }
 
+
+  toggleAutoDig() {
+    return this.digSystem.toggleAutoDig();
+  }
+
+  forceChamber() {
+    return this.digSystem.forceChamber();
+  }
+
   clearWorld() {
     this.world.initializeTerrain();
     this.world.food.fill(0);
     this.world.toFood.fill(0);
     this.world.toHome.fill(0);
     this.world.danger.fill(0);
+    this.digSystem.setWorld(this.world, this.rng);
   }
 
   serialize(state) {
@@ -140,6 +161,7 @@ export class SimulationCore {
       colony: this.colony.serialize(),
       tick: this.tick,
       nestEntrances: this.nestEntrances,
+      digSystem: { autoDig: this.digSystem.autoDig },
       state,
     };
   }
@@ -149,8 +171,13 @@ export class SimulationCore {
     this.rng = new SeededRng(this.seed);
     this.world = World.fromSerialized(data.world);
     this.colony = Colony.fromSerialized(this.world, this.rng, data.colony);
+    this.digSystem = new DigSystem(this.world, this.rng);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.tick = data.tick || 0;
+
+    if (data.digSystem) {
+      this.digSystem.autoDig = !!data.digSystem.autoDig;
+    }
 
     if (Array.isArray(data.nestEntrances) && data.nestEntrances.length > 0) {
       this.nestEntrances = data.nestEntrances.map((entry, index) => ({

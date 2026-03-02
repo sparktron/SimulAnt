@@ -7,9 +7,12 @@ export function updateHud(stats) {
   setText('hudFood', stats.foodStored.toFixed(1));
   setText('hudFps', stats.fps.toFixed(1));
 
-  setBar('healthYellow', Math.max(0, Math.min(100, (stats.foodStored / 120) * 100)));
-  setBar('healthBlack', Math.max(0, Math.min(100, (stats.queenAlive ? 100 : 0))));
-  setBar('healthRed', Math.max(0, Math.min(100, (stats.soldiers / Math.max(1, stats.ants)) * 100)));
+  setBar('healthYellow', 0);
+  setText('healthYellowLabel', '(no ant selected)');
+  setBar('healthBlack', Math.max(0, Math.min(100, (stats.foodStored / 120) * 100)));
+  setText('healthBlackLabel', `food ${stats.foodStored.toFixed(1)}`);
+  setBar('healthRed', 0);
+  setText('healthRedLabel', 'not implemented');
 }
 
 function setText(id, value) {

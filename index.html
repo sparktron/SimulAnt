@@ -5,231 +5,72 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SimAnt Web App</title>
     <style>
-      :root {
-        --bg: #2872a8;
-        --panel: #c0c0c0;
-        --panel-border: #333;
-        --text: #111;
-      }
-
+      :root { --bg: #2872a8; --panel: #c0c0c0; --text: #111; }
       * { box-sizing: border-box; }
-
-      html, body {
-        width: 100%; height: 100%; margin: 0;
-        image-rendering: pixelated;
-        background: var(--bg);
-        color: var(--text);
-        font-family: 'Courier New', monospace;
-        overflow: hidden;
-      }
-
-      .screen {
-        height: 100vh;
-        display: grid;
-        grid-template-rows: 26px 1fr 80px;
-        gap: 4px;
-        padding: 4px;
-      }
-
-      .menu-bar {
-        background: #d0d0d0;
-        border: 2px outset #eee;
-        font-weight: bold;
-        text-align: center;
-        line-height: 22px;
-        font-size: 13px;
-      }
-
-      .frame {
-        display: grid;
-        grid-template-columns: 140px 1fr 172px;
-        gap: 4px;
-        min-height: 0;
-        overflow: hidden;
-      }
-
-      .left-palette,
-      .right-panel {
-        background: var(--panel);
-        border: 2px outset #ddd;
-        padding: 4px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        overflow-y: auto;
-        overflow-x: hidden;
-        min-height: 0;
-      }
-
-      .palette-btn {
-        width: 100%;
-        border: 2px outset #ccc;
-        background: #e4e4e4;
-        padding: 3px 2px;
-        font-family: inherit;
-        font-size: 11px;
-        font-weight: bold;
-        cursor: pointer;
-        flex-shrink: 0;
-      }
+      html, body { width: 100%; height: 100%; margin: 0; image-rendering: pixelated; background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; overflow: hidden; }
+      .screen { height: 100vh; display: grid; grid-template-rows: 26px 1fr 80px; gap: 4px; padding: 4px; }
+      .menu-bar { background: #d0d0d0; border: 2px outset #eee; font-weight: bold; text-align: center; line-height: 22px; font-size: 13px; }
+      .frame { display: grid; grid-template-columns: 150px 1fr 172px; gap: 4px; min-height: 0; overflow: hidden; }
+      .left-palette, .right-panel { background: var(--panel); border: 2px outset #ddd; padding: 4px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; min-height: 0; }
+      .toolbar-stack { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+      .palette-btn { width: 100%; border: 2px outset #ccc; background: #e4e4e4; padding: 3px 2px; font-family: inherit; font-size: 11px; font-weight: bold; cursor: pointer; }
+      .palette-btn:disabled { opacity: 0.5; cursor: not-allowed; }
       .palette-btn:active { border-style: inset; }
-
-      .tool-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 2px;
-        font-size: 10px;
-        flex-shrink: 0;
-      }
-      .tool-grid label { cursor: pointer; }
-
-      .health-block {
-        border: 2px inset #aaa;
-        padding: 3px;
-        flex-shrink: 0;
-      }
-      .health-block h3 { margin: 0 0 3px; font-size: 11px; }
-
+      .health-block { border: 2px inset #aaa; padding: 3px; }
       .health-bars { display: flex; gap: 4px; }
-
-      .bar-wrap {
-        width: 14px; height: 64px;
-        border: 1px solid #111;
-        background: #efefef;
-        display: flex;
-        flex-direction: column-reverse;
-      }
-      .bar { width: 100%; height: 0; }
-      .bar.yellow { background: #e8d600; }
-      .bar.black { background: #111; }
-      .bar.red { background: #d41a1a; }
-
-      .button-column { display: grid; gap: 3px; flex-shrink: 0; }
-
-      .left-palette label,
-      .caste-sliders label {
-        font-size: 10px;
-        display: grid;
-        gap: 1px;
-      }
-      input[type='text'],
-      input[type='range'] { width: 100%; }
-
-      .playfield {
-        position: relative;
-        border: 2px solid #c8ca70;
-        background: #111;
-        min-height: 0;
-        overflow: hidden;
-      }
-
-      .mode-banner {
-        position: absolute;
-        top: 0; left: 0; right: 0;
-        z-index: 1;
-        height: 20px;
-        text-align: center;
-        line-height: 18px;
-        background: rgba(180, 180, 180, 0.92);
-        border-bottom: 2px solid #2d2d2d;
-        font-weight: bold;
-        font-size: 12px;
-      }
-
-      #simCanvas {
-        width: 100%; height: 100%;
-        display: block;
-        cursor: crosshair;
-      }
-
-      .minimap {
-        border: 2px inset #aaa;
-        height: 140px;
-        background: #9a9a9a;
-        text-align: center;
-        padding-top: 6px;
-        font-weight: bold;
-        font-size: 11px;
-        flex-shrink: 0;
-      }
-
-      .stat-lines {
-        border: 2px inset #aaa;
-        padding: 3px;
-        background: #e4e4e4;
-        font-size: 11px;
-      }
+      .bar-col { display: grid; justify-items: center; gap: 2px; font-size: 8px; }
+      .bar-wrap { width: 14px; height: 64px; border: 1px solid #111; background: #efefef; display: flex; flex-direction: column-reverse; }
+      .bar { width: 100%; height: 0; } .bar.yellow { background: #e8d600; } .bar.black { background: #111; } .bar.red { background: #d41a1a; }
+      .left-palette label, .caste-sliders label { font-size: 10px; display: grid; gap: 1px; }
+      input[type='text'], input[type='range'] { width: 100%; }
+      .playfield { position: relative; border: 2px solid #c8ca70; background: #111; min-height: 0; overflow: hidden; }
+      .mode-banner { position: absolute; top: 0; left: 0; right: 0; z-index: 1; height: 20px; text-align: center; line-height: 18px; background: rgba(180, 180, 180, 0.92); border-bottom: 2px solid #2d2d2d; font-weight: bold; font-size: 12px; }
+      #simCanvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+      .minimap { border: 2px inset #aaa; height: 140px; background: #9a9a9a; text-align: center; padding-top: 6px; font-weight: bold; font-size: 11px; }
+      .stat-lines { border: 2px inset #aaa; padding: 3px; background: #e4e4e4; font-size: 11px; }
       .stat-lines p { margin: 2px 0; }
-
-      .caste-sliders {
-        background: var(--panel);
-        border: 2px outset #ddd;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        padding: 8px;
-        align-content: center;
-      }
-
-      #helpPanel {
-        border: 2px outset #ccc;
-        background: #dcdcdc;
-        font-family: 'Courier New', monospace;
-        font-size: 12px;
-      }
-      kbd {
-        border: 1px solid #333;
-        padding: 1px 4px;
-        background: #fff;
-        font-size: 11px;
-      }
+      .caste-sliders { background: var(--panel); border: 2px outset #ddd; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px; align-content: center; }
+      #mapEditorOverlay { border: 2px inset #999; padding: 4px; font-size: 10px; background: #d5d5d5; }
+      #toastContainer { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); display: grid; gap: 6px; z-index: 9; }
+      .toast { background: rgba(20,20,20,0.9); color: #fff; border: 1px solid #ddd; padding: 5px 8px; font-size: 11px; }
     </style>
   </head>
   <body>
     <div class="screen">
       <header class="menu-bar">SimAnt - Two View Colony</header>
-
       <div class="frame">
         <aside class="left-palette">
-          <button id="viewToggleBtn" class="palette-btn">VIEW: SURFACE</button>
-          <button id="startPauseBtn" class="palette-btn">PAUSE</button>
-          <button id="stepBtn" class="palette-btn">STEP</button>
+          <div id="leftToolbarButtons" class="toolbar-stack"></div>
 
-          <div class="tool-grid">
-            <label><input type="radio" name="tool" value="food" checked />MAP</label>
-            <label><input type="radio" name="tool" value="wall" />WALL</label>
-            <label><input type="radio" name="tool" value="water" />WATER</label>
-            <label><input type="radio" name="tool" value="hazard" />DANGER</label>
-            <label><input type="radio" name="tool" value="erase" />ERASE</label>
-            <label><input type="radio" name="tool" value="nest" />NEST</label>
+          <div id="mapEditorOverlay" hidden>
+            <strong>EDITOR</strong>
+            <label>Mode
+              <select id="editorModeSelect">
+                <option value="dig">Dig</option>
+                <option value="food">Food</option>
+                <option value="pheromone">Pheromone</option>
+              </select>
+            </label>
           </div>
 
           <div class="health-block">
             <h3>HEALTH</h3>
             <div class="health-bars">
-              <div class="bar-wrap"><div id="healthYellow" class="bar yellow"></div></div>
-              <div class="bar-wrap"><div id="healthBlack" class="bar black"></div></div>
-              <div class="bar-wrap"><div id="healthRed" class="bar red"></div></div>
+              <div class="bar-col"><div class="bar-wrap"><div id="healthYellow" class="bar yellow"></div></div><span>Y</span><span id="healthYellowLabel"></span></div>
+              <div class="bar-col"><div class="bar-wrap"><div id="healthBlack" class="bar black"></div></div><span>B</span><span id="healthBlackLabel"></span></div>
+              <div class="bar-col"><div class="bar-wrap"><div id="healthRed" class="bar red"></div></div><span>R</span><span id="healthRedLabel"></span></div>
             </div>
           </div>
 
+          <button id="stepBtn" class="palette-btn">STEP</button>
           <label>Seed <input id="seedInput" type="text" value="simant-default" /></label>
-          <label>Brush <span id="brushLabel">3</span>
-            <input id="brushSlider" type="range" min="1" max="12" step="1" value="3" />
-          </label>
-          <label>Speed <span id="speedLabel">1.0x</span>
-            <input id="speedSlider" type="range" min="0.5" max="10" step="0.5" value="1" />
-          </label>
-          <label>Ant cap <span id="antCapLabel">2000</span>
-            <input id="antCapSlider" type="range" min="100" max="5000" step="100" value="2000" />
-          </label>
-
-          <div class="button-column">
-            <button id="resetBtn" class="palette-btn">RESET</button>
-            <button id="saveBtn" class="palette-btn">SAVE</button>
-            <button id="loadBtn" class="palette-btn">LOAD</button>
-            <button id="clearBtn" class="palette-btn">CLEAR</button>
-          </div>
+          <label>Brush <span id="brushLabel">3</span><input id="brushSlider" type="range" min="1" max="12" step="1" value="3" /></label>
+          <label>Speed <span id="speedLabel">1.0x</span><input id="speedSlider" type="range" min="0.5" max="10" step="0.5" value="1" /></label>
+          <label>Ant cap <span id="antCapLabel">2000</span><input id="antCapSlider" type="range" min="100" max="5000" step="100" value="2000" /></label>
+          <button id="resetBtn" class="palette-btn">RESET</button>
+          <button id="saveBtn" class="palette-btn">SAVE</button>
+          <button id="loadBtn" class="palette-btn">LOAD</button>
+          <button id="clearBtn" class="palette-btn">CLEAR</button>
         </aside>
 
         <main class="playfield">
@@ -238,46 +79,29 @@
         </main>
 
         <aside class="right-panel">
-          <div class="minimap">MINI MAP<br /><small>(active view only)</small></div>
+          <div id="minimap" class="minimap" hidden>MINI MAP<br /><small>(surface only)</small></div>
           <div class="stat-lines">
-            <p>TICK: <span id="hudTick">0</span></p>
-            <p>ANTS: <span id="hudAnts">0</span></p>
-            <p>WORKERS: <span id="hudWorkers">0</span></p>
-            <p>SOLDIERS: <span id="hudSoldiers">0</span></p>
-            <p>FOOD: <span id="hudFood">0</span></p>
-            <p>FPS: <span id="hudFps">0</span></p>
+            <p>TICK: <span id="hudTick">0</span></p><p>ANTS: <span id="hudAnts">0</span></p><p>WORKERS: <span id="hudWorkers">0</span></p><p>SOLDIERS: <span id="hudSoldiers">0</span></p><p>FOOD: <span id="hudFood">0</span></p><p>FPS: <span id="hudFps">0</span></p>
           </div>
         </aside>
       </div>
 
       <footer class="caste-sliders">
-        <label>WORKERS <span id="workerPct">70%</span>
-          <input id="workerSlider" type="range" min="0" max="100" step="1" value="70" />
-        </label>
-        <label>SOLDIERS <span id="soldierPct">30%</span>
-          <input id="soldierSlider" type="range" min="0" max="100" step="1" value="30" />
-        </label>
+        <label>WORKERS <span id="workerPct">70%</span><input id="workerSlider" type="range" min="0" max="100" step="1" value="70" /></label>
+        <label>SOLDIERS <span id="soldierPct">30%</span><input id="soldierSlider" type="range" min="0" max="100" step="1" value="30" /></label>
       </footer>
     </div>
 
     <dialog id="helpPanel">
-      <h2>How to Play</h2>
+      <h2>Help</h2>
       <ul>
-        <li><kbd>TAB</kbd>: Toggle SURFACE / NEST view</li>
-        <li><kbd>Space</kbd>: Pause/Resume</li>
-        <li><kbd>N</kbd>: Step one tick</li>
-        <li><kbd>R</kbd>: Reset simulation</li>
-        <li><kbd>F</kbd>: Toggle food overlay</li>
-        <li><kbd>G</kbd>: Toggle to-food pheromone overlay</li>
-        <li><kbd>O</kbd>: Toggle to-home pheromone overlay</li>
-        <li><kbd>D</kbd>: Toggle danger pheromone overlay</li>
-        <li>Left drag: paint tool</li>
-        <li>Right drag / Shift+drag: pan camera (active view only)</li>
-        <li>Wheel: zoom camera (active view only)</li>
+        <li>M map, H help, E editor, 1 surface, 2 black nest, P pause, V scent</li>
+        <li>G toggle auto-dig, C force chamber at active front</li>
       </ul>
       <button id="closeHelpBtn">Close</button>
     </dialog>
 
+    <div id="toastContainer"></div>
     <script type="module" src="src/main.js"></script>
   </body>
 </html>

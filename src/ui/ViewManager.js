@@ -1,18 +1,9 @@
 export const VIEW = Object.freeze({
   SURFACE: 'SURFACE',
-  NEST: 'NEST',
+  BLACK_NEST: 'BLACK_NEST',
+  RED_NEST: 'RED_NEST',
 });
 
-/**
- * View state architecture:
- * - Exactly two states exist: SURFACE and NEST.
- * - Simulation data is shared (world + colony), so toggling never resets entities/resources.
- * - View-specific state is isolated per mode (camera transform and input mapping).
- *
- * Coordinate mapping:
- * - SURFACE renderer/input use top-down (x, y) world coordinates on the full map.
- * - NEST renderer/input use side-view framing of underground depth, where y is interpreted as depth.
- */
 export class ViewManager {
   constructor(initialView = VIEW.SURFACE) {
     if (!Object.values(VIEW).includes(initialView)) {
@@ -27,7 +18,7 @@ export class ViewManager {
   }
 
   toggle() {
-    this.setView(this.current === VIEW.SURFACE ? VIEW.NEST : VIEW.SURFACE);
+    this.setView(this.current === VIEW.SURFACE ? VIEW.BLACK_NEST : VIEW.SURFACE);
   }
 
   setView(nextView) {

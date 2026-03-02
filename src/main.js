@@ -3,8 +3,13 @@ import { updateHud } from './ui/hud.js';
 import { SurfaceRenderer } from './render/SurfaceRenderer.js';
 import { NestRenderer } from './render/NestRenderer.js';
 import { SimulationCore } from './sim/SimulationCore.js';
+import { TERRAIN } from './sim/world.js';
 import { ViewManager, VIEW } from './ui/ViewManager.js';
 import { InputRouter } from './input/InputRouter.js';
+import { createLeftToolbar } from './ui/LeftToolbar.js';
+import { HelpModal } from './ui/HelpModal.js';
+import { Toast } from './ui/Toast.js';
+import { createMapEditorOverlay } from './ui/MapEditorOverlay.js';
 
 const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
@@ -13,6 +18,9 @@ const state = {
   paused: false,
   simSpeed: 1,
   selectedTool: 'food',
+  editorMode: 'dig',
+  mapEditorActive: false,
+  showMinimap: false,
   brushRadius: 3,
   seed: 'simant-default',
   overlays: {
@@ -34,9 +42,6 @@ const state = {
     dangerDeposit: 0.6,
     hazardDeathChance: 0.02,
     foodPickupRate: 0.7,
-    digChance: 0.04,
-    digEnergyCost: 8,
-    digHomeBoost: 0.9,
     queenEggTicks: 20,
     queenEggFoodCost: 0.8,
     soldierSpawnChance: 0.2,
@@ -48,10 +53,16 @@ const state = {
 };
 
 const canvas = mustById('simCanvas');
+const toast = new Toast();
+const helpModal = new HelpModal();
 const simCore = new SimulationCore(state.seed);
 const viewManager = new ViewManager(VIEW.SURFACE);
 const surfaceRenderer = new SurfaceRenderer(canvas, simCore.world);
 const nestRenderer = new NestRenderer(canvas, simCore.world);
+
+const mapEditor = createMapEditorOverlay((mode) => {
+  state.editorMode = mode;
+});
 
 surfaceRenderer.resize();
 nestRenderer.resize();
@@ -91,9 +102,50 @@ createControls(state, {
   save: () => saveState(),
   load: () => loadState(),
   clearWorld: () => simCore.clearWorld(),
-  toggleView: () => viewManager.toggle(),
-  toggleDebugEntrances: () => {
-    state.debug.showEntranceInfo = !state.debug.showEntranceInfo;
+});
+
+createLeftToolbar({
+  state,
+  viewManager,
+  toast,
+  actions: {
+    toggleMinimap: () => {
+      state.showMinimap = !state.showMinimap;
+      mustById('minimap').hidden = !state.showMinimap;
+    },
+    toggleHelp: () => helpModal.toggle(),
+    toggleEditor: () => {
+      state.mapEditorActive = !state.mapEditorActive;
+      mapEditor.setActive(state.mapEditorActive);
+    },
+    centerSelectedAnt: () => toast.show('No ant selected.'),
+    centerBlackQueen: () => {
+      const qx = simCore.world.nestX;
+      const qy = simCore.world.nestY + 2;
+      if (viewManager.getCurrent() === VIEW.SURFACE) {
+        surfaceRenderer.cameraX = qx;
+        surfaceRenderer.cameraY = Math.min(simCore.world.nestY - 8, qy);
+      } else {
+        nestRenderer.cameraX = qx;
+        nestRenderer.cameraY = qy;
+      }
+    },
+    togglePause: () => {
+      state.paused = !state.paused;
+      toast.show(state.paused ? 'Paused' : 'Running');
+    },
+    toggleScent: () => {
+      state.overlays.showToFood = !state.overlays.showToFood;
+      state.overlays.showToHome = state.overlays.showToFood;
+      state.overlays.showDanger = state.overlays.showToFood;
+    },
+    toggleAutoDig: () => {
+      const on = simCore.toggleAutoDig();
+      toast.show(`Auto-dig ${on ? 'ON' : 'OFF'}`);
+    },
+    forceChamber: () => {
+      if (simCore.forceChamber()) toast.show('Forced chamber at dig front');
+    },
   },
 });
 
@@ -103,7 +155,6 @@ window.addEventListener('resize', () => {
 });
 
 viewManager.onChange((mode) => {
-  mustById('viewToggleBtn').textContent = mode === VIEW.SURFACE ? 'VIEW: SURFACE' : 'VIEW: NEST';
   mustById('modeIndicator').textContent = mode;
 });
 
@@ -112,7 +163,6 @@ let lastTime = performance.now();
 let fps = 60;
 let fpsTimer = 0;
 let frameCount = 0;
-let simMs = 0;
 
 requestAnimationFrame(loop);
 
@@ -130,12 +180,10 @@ function loop(now) {
 
   if (!state.paused) {
     accumulator += elapsed * state.simSpeed;
-    const start = performance.now();
     while (accumulator >= SIM_DT) {
       simCore.update(state.config);
       accumulator -= SIM_DT;
     }
-    simMs = performance.now() - start;
   }
 
   const activeView = viewManager.getCurrent();
@@ -143,6 +191,7 @@ function loop(now) {
     surfaceRenderer.draw(simCore.colony, state.overlays, simCore.nestEntrances, state.debug.showEntranceInfo);
   } else {
     nestRenderer.draw(simCore.colony);
+    if (activeView === VIEW.RED_NEST) drawOverlayText('Red colony not implemented');
   }
 
   updateHud({
@@ -153,16 +202,38 @@ function loop(now) {
     workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
     soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
     foodStored: simCore.colony.foodStored,
-    queenAlive: simCore.colony.queen.alive,
-    simMs,
   });
 
   requestAnimationFrame(loop);
 }
 
+function drawOverlayText(msg) {
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, 0, canvas.clientWidth, 28);
+  ctx.fillStyle = '#ffd0d0';
+  ctx.font = 'bold 14px monospace';
+  ctx.fillText(msg, 12, 19);
+  ctx.restore();
+}
+
 function applyToolIfInBounds(x, y) {
   if (!simCore.world.inBounds(x, y)) return;
-  simCore.applyTool(state.selectedTool, x, y, state.brushRadius);
+  if (!state.mapEditorActive) return;
+
+  if (state.editorMode === 'dig') {
+    if (viewManager.getCurrent() === VIEW.SURFACE) simCore.applyTool('erase', x, y, 1);
+    else {
+      const idx = simCore.world.index(x, y);
+      if (simCore.world.terrain[idx] === TERRAIN.SOIL) simCore.applyTool('carve', x, y, 1);
+    }
+  } else if (state.editorMode === 'food' && viewManager.getCurrent() === VIEW.SURFACE) {
+    simCore.applyTool('food', x, y, 1);
+  } else if (state.editorMode === 'pheromone' && viewManager.getCurrent() === VIEW.SURFACE) {
+    const idx = simCore.world.index(x, y);
+    simCore.world.toFood[idx] += 3;
+  }
 }
 
 function saveState() {
@@ -171,21 +242,8 @@ function saveState() {
     config: state.config,
     overlays: state.overlays,
     casteTargets: state.casteTargets,
-    selectedTool: state.selectedTool,
     brushRadius: state.brushRadius,
     viewMode: viewManager.getCurrent(),
-    cameras: {
-      surface: {
-        x: surfaceRenderer.cameraX,
-        y: surfaceRenderer.cameraY,
-        zoom: surfaceRenderer.zoom,
-      },
-      nest: {
-        x: nestRenderer.cameraX,
-        y: nestRenderer.cameraY,
-        zoom: nestRenderer.zoom,
-      },
-    },
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
 }
@@ -194,32 +252,8 @@ function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return;
   const data = JSON.parse(raw);
-
   simCore.loadFromSerialized(data);
   syncRenderWorld();
-
-  Object.assign(state.config, data.state?.config || {});
-  Object.assign(state.overlays, data.state?.overlays || {});
-  Object.assign(state.casteTargets, data.state?.casteTargets || {});
-  state.simSpeed = data.state?.simSpeed || state.simSpeed;
-  state.selectedTool = data.state?.selectedTool || state.selectedTool;
-  state.brushRadius = data.state?.brushRadius || state.brushRadius;
-
-  const surfaceCam = data.state?.cameras?.surface;
-  if (surfaceCam) {
-    surfaceRenderer.cameraX = surfaceCam.x;
-    surfaceRenderer.cameraY = surfaceCam.y;
-    surfaceRenderer.zoom = surfaceCam.zoom;
-  }
-  const nestCam = data.state?.cameras?.nest;
-  if (nestCam) {
-    nestRenderer.cameraX = nestCam.x;
-    nestRenderer.cameraY = nestCam.y;
-    nestRenderer.zoom = nestCam.zoom;
-  }
-
-  const mode = data.state?.viewMode;
-  if (mode === VIEW.SURFACE || mode === VIEW.NEST) viewManager.setView(mode);
 }
 
 function syncRenderWorld() {
@@ -229,6 +263,6 @@ function syncRenderWorld() {
 
 function mustById(id) {
   const el = document.getElementById(id);
-  if (!el) throw new Error(`Missing required element: ${id}`);
+  if (!el) throw new Error(`Missing required element #${id}`);
   return el;
 }
