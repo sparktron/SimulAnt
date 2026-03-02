@@ -37,104 +37,143 @@ export class Ant {
   update(world, colony, rng, config) {
     if (!this.alive) return;
 
+    const context = this.#sense(world, colony, config);
+
+    this.#applyPreMoveDecisions(colony, rng, config, context);
+
+    let didMove = this.#decideAndMove(world, colony, rng, config, context);
+
+    if (this.#resolveHazard(world, colony, rng, config, context.idx)) return;
+
+    didMove = this.#applyFallbackMovement(world, rng, config, context.entrance, didMove);
+    this.#applyVitals(colony, config, context.dt, didMove);
+  }
+
+  #sense(world, colony, config) {
     const dt = config.tickSeconds || 1 / 30;
     const idx = world.index(this.x, this.y);
     const inNest = this.y >= world.nestY;
-
-    if (this.role === 'worker' && this.#tryEatFromNest(colony, inNest, config)) this.state = 'EAT';
-
     const entrance = colony.nearestEntrance(this.x, this.y);
+
     this.stepCounter += 1;
+
+    return { dt, idx, inNest, entrance };
+  }
+
+  #applyPreMoveDecisions(colony, rng, config, context) {
+    if (this.role === 'worker' && this.#tryEatFromNest(colony, context.inNest, config)) {
+      this.state = 'EAT';
+    }
 
     if (this.role === 'worker' && !this.carrying?.type && rng.chance(config.randomTurnChance)) {
       this.dir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
     }
 
-    if (this.role === 'worker' && this.carrying?.type === 'food' && entrance) {
-      const distance = Math.hypot(this.x - entrance.x, this.y - entrance.y);
-      if (distance <= (entrance.radius ?? 2)) {
+    if (this.role === 'worker' && this.carrying?.type === 'food' && context.entrance) {
+      const distance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
+      if (distance <= (context.entrance.radius ?? 2)) {
         colony.depositPellet(this.carrying.pelletNutrition || 0);
         this.carrying = null;
         this.state = 'DEPOSIT';
       }
     }
+  }
 
+  #decideAndMove(world, colony, rng, config, context) {
     let didMove = false;
-    if (this.role === 'worker') {
-      if (this.carrying?.type === 'food') {
-        this.state = 'RETURN_HOME';
-        const distToNest = entrance ? Math.hypot(this.x - entrance.x, this.y - entrance.y) : 0;
-        const trailScale = Math.min(config.maxFoodTrailScale, 1 + distToNest * config.foodTrailDistanceScale * 0.05);
-        const foodDeposit = config.depositFood * trailScale;
-        world.toFood[idx] = Math.min(config.pheromoneMaxClamp, world.toFood[idx] + foodDeposit);
-        didMove = entrance
-          ? this.#moveToward(world, entrance.x, entrance.y, rng)
-          : this.#moveByPheromone(world, rng, config, 'home', entrance);
-        if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', entrance);
-      } else if (this.#needsForage(colony)) {
-        const nearEntrance = entrance ? Math.hypot(this.x - entrance.x, this.y - entrance.y) < config.homeDepositMinDistance : false;
-        if (!nearEntrance && this.stepCounter % config.homeDepositIntervalTicks === 0) {
-          world.toHome[idx] = Math.min(config.pheromoneMaxClamp, world.toHome[idx] + config.depositHome);
-        }
+    if (this.role !== 'worker') return didMove;
 
-        const visible = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
-        if (visible) {
-          if (this.x === visible.x && this.y === visible.y) {
-            visible.takenByAntId = this.id;
-            this.carrying = {
-              type: 'food',
-              pelletId: visible.id,
-              pelletNutrition: visible.nutrition,
-            };
-            colony.removePelletById(visible.id);
-            this.state = 'PICKUP';
-          } else {
-            this.state = 'GO_TO_FOOD';
-            didMove = this.#moveToward(world, visible.x, visible.y, rng);
-          }
-        } else {
-          const onPellet = colony.findAvailablePelletAt(this.x, this.y);
-          if (onPellet) {
-            onPellet.takenByAntId = this.id;
-            this.carrying = {
-              type: 'food',
-              pelletId: onPellet.id,
-              pelletNutrition: onPellet.nutrition,
-            };
-            colony.removePelletById(onPellet.id);
-            this.state = 'PICKUP';
-          } else {
-            this.state = 'FORAGE_SEARCH';
-            const nearEntrance = entrance
-              ? Math.hypot(this.x - entrance.x, this.y - entrance.y) < config.nearEntranceScatterRadius
-              : false;
-            if (nearEntrance && entrance) {
-              const ax = this.x + (this.x - entrance.x);
-              const ay = this.y + (this.y - entrance.y);
-              didMove = this.#moveToward(world, ax, ay, rng);
-            }
-            if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'food', entrance);
-          }
-        }
-      }
+    if (this.carrying?.type === 'food') {
+      this.state = 'RETURN_HOME';
+      const distToNest = context.entrance ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) : 0;
+      const trailScale = Math.min(config.maxFoodTrailScale, 1 + distToNest * config.foodTrailDistanceScale * 0.05);
+      const foodDeposit = config.depositFood * trailScale;
+      world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, world.toFood[context.idx] + foodDeposit);
+      didMove = context.entrance
+        ? this.#moveToward(world, context.entrance.x, context.entrance.y, rng)
+        : this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+      if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+      return didMove;
     }
 
+    if (!this.#needsForage(colony)) return didMove;
+
+    const nearEntrance = context.entrance
+      ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.homeDepositMinDistance
+      : false;
+    if (!nearEntrance && this.stepCounter % config.homeDepositIntervalTicks === 0) {
+      world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
+    }
+
+    const visible = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
+    if (visible) {
+      if (this.x === visible.x && this.y === visible.y) {
+        visible.takenByAntId = this.id;
+        this.carrying = {
+          type: 'food',
+          pelletId: visible.id,
+          pelletNutrition: visible.nutrition,
+        };
+        colony.removePelletById(visible.id);
+        this.state = 'PICKUP';
+      } else {
+        this.state = 'GO_TO_FOOD';
+        didMove = this.#moveToward(world, visible.x, visible.y, rng);
+      }
+      return didMove;
+    }
+
+    const onPellet = colony.findAvailablePelletAt(this.x, this.y);
+    if (onPellet) {
+      onPellet.takenByAntId = this.id;
+      this.carrying = {
+        type: 'food',
+        pelletId: onPellet.id,
+        pelletNutrition: onPellet.nutrition,
+      };
+      colony.removePelletById(onPellet.id);
+      this.state = 'PICKUP';
+      return didMove;
+    }
+
+    this.state = 'FORAGE_SEARCH';
+    const nearEntranceScatter = context.entrance
+      ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.nearEntranceScatterRadius
+      : false;
+    if (nearEntranceScatter && context.entrance) {
+      const ax = this.x + (this.x - context.entrance.x);
+      const ay = this.y + (this.y - context.entrance.y);
+      didMove = this.#moveToward(world, ax, ay, rng);
+    }
+    if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+    return didMove;
+  }
+
+  #resolveHazard(world, colony, rng, config, idx) {
     const terrain = world.terrain[idx];
-    if (terrain === TERRAIN.HAZARD) {
-      if (rng.chance(config.hazardDeathChance)) {
-        this.alive = false;
-        colony.deaths += 1;
-        return;
-      }
-      world.danger[idx] = Math.min(config.pheromoneMaxClamp, world.danger[idx] + config.dangerDeposit);
+    if (terrain !== TERRAIN.HAZARD) return false;
+
+    if (rng.chance(config.hazardDeathChance)) {
+      this.alive = false;
+      colony.deaths += 1;
+      return true;
     }
 
+    world.danger[idx] = Math.min(config.pheromoneMaxClamp, world.danger[idx] + config.dangerDeposit);
+    return false;
+  }
+
+  #applyFallbackMovement(world, rng, config, entrance, didMove) {
     if (!didMove && this.carrying?.type === 'food') {
-      didMove = this.#moveByPheromone(world, rng, config, 'home', entrance);
-    } else if (!didMove) {
-      didMove = this.#moveByPheromone(world, rng, config, 'food', entrance);
+      return this.#moveByPheromone(world, rng, config, 'home', entrance);
     }
+    if (!didMove) {
+      return this.#moveByPheromone(world, rng, config, 'food', entrance);
+    }
+    return didMove;
+  }
 
+  #applyVitals(colony, config, dt, didMove) {
     const drain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
     this.hunger = Math.max(0, this.hunger - drain * dt);
     if (this.hunger <= 0) {

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
+import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 
 function createConfig() {
   return {
@@ -127,4 +128,54 @@ test('macro load sanitizes malformed saved territories and restores home territo
   assert.equal(enemy.owner, '123');
   assert.equal(enemy.centerX, sim.world.nestX);
   assert.equal(enemy.centerY, sim.world.nestY);
+});
+
+
+test('tick config sanitization clamps ant and colony safety-critical knobs', () => {
+  const unsafe = {
+    tickSeconds: -1,
+    antCap: -5,
+    diffIntervalTicks: 0,
+    homeDepositIntervalTicks: 0,
+    hazardDeathChance: 5,
+    randomTurnChance: -0.1,
+    queenEggTicks: 0,
+    workerEatNutrition: -12,
+    healthDrainRate: -1,
+    soldierSpawnChance: 2,
+    foodVisionRadius: 0,
+  };
+
+  const safe = sanitizeTickConfig(unsafe);
+
+  assert.equal(safe.tickSeconds, 1 / 30);
+  assert.equal(safe.antCap, 2000);
+  assert.equal(safe.diffIntervalTicks, 1);
+  assert.equal(safe.homeDepositIntervalTicks, 1);
+  assert.equal(safe.hazardDeathChance, 1);
+  assert.equal(safe.randomTurnChance, 0);
+  assert.equal(safe.queenEggTicks, 1);
+  assert.equal(safe.workerEatNutrition, 0);
+  assert.equal(safe.healthDrainRate, 0);
+  assert.equal(safe.soldierSpawnChance, 1);
+  assert.equal(safe.foodVisionRadius, 1);
+});
+
+test('deterministic regression survives unsafe external config inputs via sanitizer', () => {
+  const unsafeConfig = createConfig();
+  unsafeConfig.diffIntervalTicks = 0;
+  unsafeConfig.homeDepositIntervalTicks = 0;
+  unsafeConfig.hazardDeathChance = 9;
+  unsafeConfig.randomTurnChance = -5;
+  unsafeConfig.soldierSpawnChance = 7;
+
+  const runA = new SimulationCore('determinism-unsafe-seed');
+  const runB = new SimulationCore('determinism-unsafe-seed');
+
+  for (let i = 0; i < 30; i += 1) {
+    runA.update(unsafeConfig);
+    runB.update(unsafeConfig);
+  }
+
+  assert.deepEqual(runA.serialize({}), runB.serialize({}));
 });

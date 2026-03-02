@@ -28,23 +28,66 @@ function clampNonNegativeNumber(value, fallback) {
   return value;
 }
 
+function clamp01(value, fallback) {
+  return Math.max(0, Math.min(1, clampNonNegativeNumber(value, fallback)));
+}
+
+function clampPositiveInt(value, fallback, min = 1) {
+  return Math.max(min, Math.floor(clampNonNegativeNumber(value, fallback)));
+}
+
 /**
  * Deterministic tick config sanitizer.
  * Invalid values are clamped or replaced so simulation steps never run with undefined behavior.
  */
 export function sanitizeTickConfig(config = {}) {
-  const safeDiffInterval = Math.max(1, Math.floor(clampNonNegativeNumber(config.diffIntervalTicks, 1)));
   return {
     ...config,
     tickSeconds: clampNonNegativeNumber(config.tickSeconds, 1 / 30),
-    diffIntervalTicks: safeDiffInterval,
+    antCap: clampPositiveInt(config.antCap, 2000),
+
+    diffIntervalTicks: clampPositiveInt(config.diffIntervalTicks, 1),
+    homeDepositIntervalTicks: clampPositiveInt(config.homeDepositIntervalTicks, 1),
+
     pheromoneMaxClamp: Math.max(1, clampNonNegativeNumber(config.pheromoneMaxClamp, 10)),
+
     evapFood: clampNonNegativeNumber(config.evapFood, 0),
     evapHome: clampNonNegativeNumber(config.evapHome, 0),
     evapDanger: clampNonNegativeNumber(config.evapDanger, 0),
-    diffFood: clampNonNegativeNumber(config.diffFood, 0),
-    diffHome: clampNonNegativeNumber(config.diffHome, 0),
-    diffDanger: clampNonNegativeNumber(config.diffDanger, 0),
+    diffFood: clamp01(config.diffFood, 0),
+    diffHome: clamp01(config.diffHome, 0),
+    diffDanger: clamp01(config.diffDanger, 0),
+
+    depositFood: clampNonNegativeNumber(config.depositFood, 0),
+    depositHome: clampNonNegativeNumber(config.depositHome, 0),
+    dangerDeposit: clampNonNegativeNumber(config.dangerDeposit, 0),
+    hazardDeathChance: clamp01(config.hazardDeathChance, 0),
+
+    randomTurnChance: clamp01(config.randomTurnChance, 0),
+    wanderNoise: clampNonNegativeNumber(config.wanderNoise, 0),
+
+    queenEggTicks: clampPositiveInt(config.queenEggTicks, 1),
+    queenEggFoodCost: clampNonNegativeNumber(config.queenEggFoodCost, 0),
+    queenHungerDrain: clampNonNegativeNumber(config.queenHungerDrain, 0),
+    queenEatNutrition: clampNonNegativeNumber(config.queenEatNutrition, 0),
+    queenHealthDrainRate: clampNonNegativeNumber(config.queenHealthDrainRate, 0),
+
+    workerEatNutrition: clampNonNegativeNumber(config.workerEatNutrition, 0),
+    starvationRecoveryHealth: clampNonNegativeNumber(config.starvationRecoveryHealth, 0),
+    healthDrainRate: clampNonNegativeNumber(config.healthDrainRate, 0),
+    healthRegenRate: clampNonNegativeNumber(config.healthRegenRate, 0),
+
+    soldierSpawnChance: clamp01(config.soldierSpawnChance, 0),
+    foodVisionRadius: clampPositiveInt(config.foodVisionRadius, 1),
+    homeDepositMinDistance: clampNonNegativeNumber(config.homeDepositMinDistance, 0),
+    nearEntranceScatterRadius: clampNonNegativeNumber(config.nearEntranceScatterRadius, 0),
+    foodTrailDistanceScale: clampNonNegativeNumber(config.foodTrailDistanceScale, 0),
+    maxFoodTrailScale: Math.max(1, clampNonNegativeNumber(config.maxFoodTrailScale, 1)),
+
+    followAlpha: clampNonNegativeNumber(config.followAlpha, 0),
+    followBeta: clampNonNegativeNumber(config.followBeta, 0),
+    momentumBias: clampNonNegativeNumber(config.momentumBias, 0),
+    reversePenalty: clampNonNegativeNumber(config.reversePenalty, 0),
   };
 }
 
