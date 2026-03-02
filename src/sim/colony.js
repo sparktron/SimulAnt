@@ -6,15 +6,22 @@ export class Colony {
     this.rng = rng;
     this.ants = [];
     this.foodStored = 0;
+    this.foodStoreTarget = 200;
     this.births = initialAnts;
     this.deaths = 0;
-    this.spawnCost = 4;
+    this.spawnCost = 12;
+    this.surfaceFoodPellets = [];
+    this.nestEntrances = [];
 
     this.queen = {
       alive: true,
       eggProgress: 0,
       eggsLaid: 0,
       brood: 0,
+      hunger: 100,
+      hungerMax: 100,
+      health: 100,
+      healthMax: 100,
     };
 
     this.excavatedTiles = 0;
@@ -37,6 +44,7 @@ export class Colony {
   }
 
   update(config) {
+    this.#updateQueenSurvival(config);
     if (this.queen.alive) {
       this.#updateQueenAndBrood(config);
     }
@@ -54,16 +62,18 @@ export class Colony {
     }
     this.ants.length = write;
 
-    while (this.foodStored >= this.spawnCost && this.ants.length < config.antCap) {
-      this.foodStored -= this.spawnCost;
-      this.queen.brood += 1;
-    }
+    if (this.queen.alive) {
+      while (this.foodStored >= this.spawnCost && this.ants.length < config.antCap) {
+        this.foodStored -= this.spawnCost;
+        this.queen.brood += 1;
+      }
 
-    while (this.queen.brood >= 1 && this.ants.length < config.antCap) {
-      this.queen.brood -= 1;
-      const role = this.rng.chance(config.soldierSpawnChance) ? 'soldier' : 'worker';
-      this.ants.push(this.#spawnNearNest(role));
-      this.births += 1;
+      while (this.queen.brood >= 1 && this.ants.length < config.antCap) {
+        this.queen.brood -= 1;
+        const role = this.rng.chance(config.soldierSpawnChance) ? 'soldier' : 'worker';
+        this.ants.push(this.#spawnNearNest(role));
+        this.births += 1;
+      }
     }
   }
 
@@ -79,8 +89,93 @@ export class Colony {
     this.queen.brood += 1;
   }
 
+  #updateQueenSurvival(config) {
+    if (!this.queen.alive) return;
+    const dt = config.tickSeconds || 1 / 30;
+    this.queen.hunger = Math.max(0, this.queen.hunger - config.queenHungerDrain * dt);
+
+    if (this.queen.hunger < this.queen.hungerMax * 0.9) {
+      const consumed = this.consumeFromStore(config.queenEatNutrition * dt);
+      this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + consumed);
+    }
+
+    if (this.queen.hunger <= 0) {
+      this.queen.health = Math.max(0, this.queen.health - config.queenHealthDrainRate * dt);
+      if (this.queen.health <= 0) {
+        this.queen.alive = false;
+      }
+    }
+  }
+
+  consumeFromStore(amount) {
+    if (amount <= 0 || this.foodStored <= 0) return 0;
+    const consumed = Math.min(amount, this.foodStored);
+    this.foodStored -= consumed;
+    return consumed;
+  }
+
+  depositPellet(nutrition) {
+    if (nutrition <= 0) return 0;
+    this.foodStored += nutrition;
+    return nutrition;
+  }
+
+
   storeFood(amount) {
-    this.foodStored += amount;
+    this.depositPellet(amount);
+  }
+  setSurfaceFoodPellets(pellets) {
+    this.surfaceFoodPellets = pellets;
+  }
+
+  setNestEntrances(nestEntrances) {
+    this.nestEntrances = nestEntrances;
+  }
+
+  nearestEntrance(x, y) {
+    if (this.nestEntrances.length === 0) return null;
+    let nearest = this.nestEntrances[0];
+    let best = Math.hypot(nearest.x - x, nearest.y - y);
+    for (let i = 1; i < this.nestEntrances.length; i += 1) {
+      const entry = this.nestEntrances[i];
+      const d = Math.hypot(entry.x - x, entry.y - y);
+      if (d < best) {
+        best = d;
+        nearest = entry;
+      }
+    }
+    return nearest;
+  }
+
+  findVisiblePellet(x, y, radius = 6) {
+    const r2 = radius * radius;
+    let best = null;
+    let bestD2 = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < this.surfaceFoodPellets.length; i += 1) {
+      const pellet = this.surfaceFoodPellets[i];
+      if (pellet.takenByAntId != null) continue;
+      const dx = pellet.x - x;
+      const dy = pellet.y - y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > r2 || d2 >= bestD2) continue;
+      bestD2 = d2;
+      best = pellet;
+    }
+    return best;
+  }
+
+  findAvailablePelletAt(x, y) {
+    for (let i = 0; i < this.surfaceFoodPellets.length; i += 1) {
+      const pellet = this.surfaceFoodPellets[i];
+      if (pellet.takenByAntId != null) continue;
+      if (pellet.x === x && pellet.y === y) return pellet;
+    }
+    return null;
+  }
+
+  removePelletById(pelletId) {
+    const index = this.surfaceFoodPellets.findIndex((pellet) => pellet.id === pelletId);
+    if (index >= 0) this.surfaceFoodPellets.splice(index, 1);
   }
 
   recordExcavation(volume, worldX, depthY) {
@@ -96,12 +191,15 @@ export class Colony {
       queen: this.queen,
       excavatedTiles: this.excavatedTiles,
       ants: this.ants.map((ant) => ({
+        id: ant.id,
         x: ant.x,
         y: ant.y,
         dir: ant.dir,
-        energy: ant.energy,
+        hunger: ant.hunger,
+        health: ant.health,
         carrying: ant.carrying,
         role: ant.role,
+        state: ant.state,
       })),
     };
   }
@@ -115,9 +213,12 @@ export class Colony {
     colony.excavatedTiles = data.excavatedTiles || 0;
     colony.ants = data.ants.map((a) => {
       const ant = new Ant(a.x, a.y, rng, a.role || 'worker');
+      ant.id = a.id || ant.id;
       ant.dir = a.dir;
-      ant.energy = a.energy;
+      ant.hunger = a.hunger ?? ant.hunger;
+      ant.health = a.health ?? ant.health;
       ant.carrying = a.carrying;
+      ant.state = a.state || ant.state;
       return ant;
     });
     return colony;

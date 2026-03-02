@@ -14,9 +14,6 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-/**
- * Surface Renderer -- Top-down 2D view of the ground surface.
- */
 export class SurfaceRenderer {
   constructor(canvas, world) {
     this.canvas = canvas;
@@ -48,20 +45,12 @@ export class SurfaceRenderer {
     const viewW = this.canvas.clientWidth / this.zoom;
     const viewH = this.canvas.clientHeight / this.zoom;
     return {
-      x: clamp(
-        Math.floor(this.cameraX - viewW * 0.5 + sx / this.zoom),
-        0,
-        this.world.width - 1,
-      ),
-      y: clamp(
-        Math.floor(this.cameraY - viewH * 0.5 + sy / this.zoom),
-        0,
-        this.world.nestY,
-      ),
+      x: clamp(Math.floor(this.cameraX - viewW * 0.5 + sx / this.zoom), 0, this.world.width - 1),
+      y: clamp(Math.floor(this.cameraY - viewH * 0.5 + sy / this.zoom), 0, this.world.nestY),
     };
   }
 
-  draw(colony, overlays, nestEntrances, debug = false) {
+  draw(colony, overlays, nestEntrances, foodPellets, options = {}) {
     this.#enforceSurfaceViewBounds();
     const { ctx } = this;
     const cw = this.canvas.clientWidth;
@@ -76,9 +65,11 @@ export class SurfaceRenderer {
     ctx.translate(-this.cameraX, -this.cameraY);
 
     this.#drawTerrain(ctx, overlays);
+    this.#drawFoodPellets(ctx, foodPellets);
     this.#drawEntranceMounds(ctx, nestEntrances);
-    this.#drawAnts(ctx, colony);
-    if (debug) this.#drawEntranceDebug(ctx, nestEntrances);
+    this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats);
+    if (options.showDebugStats && options.cursor) this.#drawCursorDebug(ctx, options.cursor);
+    if (options.showEntranceInfo) this.#drawEntranceDebug(ctx, nestEntrances);
 
     ctx.restore();
   }
@@ -121,22 +112,17 @@ export class SurfaceRenderer {
           b = 46;
         }
 
-        const food = world.food[idx];
-        if (food > 0.1) {
-          const t = Math.min(1, food / 8);
-          r = Math.floor(r * (1 - t) + 46 * t);
-          g = Math.floor(g * (1 - t) + 205 * t);
-          b = Math.floor(b * (1 - t) + 46 * t);
+        if (overlays.showToFood || overlays.showScent) {
+          const scentFood = Math.min(1, Math.sqrt(world.toFood[idx] / 6));
+          r = Math.floor(r * (1 - scentFood) + 40 * scentFood);
+          g = Math.floor(g * (1 - scentFood) + 220 * scentFood);
+          b = Math.floor(b * (1 - scentFood) + 70 * scentFood);
         }
-
-        if (overlays.showFood && food > 0.01) {
-          g = Math.min(255, g + Math.floor(food * 22));
-        }
-        if (overlays.showToFood) {
-          r = Math.min(255, r + Math.floor(world.toFood[idx] * 60));
-        }
-        if (overlays.showToHome) {
-          b = Math.min(255, b + Math.floor(world.toHome[idx] * 60));
+        if (overlays.showToHome || overlays.showScent) {
+          const scentHome = Math.min(1, Math.sqrt(world.toHome[idx] / 6));
+          r = Math.floor(r * (1 - scentHome) + 55 * scentHome);
+          g = Math.floor(g * (1 - scentHome) + 110 * scentHome);
+          b = Math.floor(b * (1 - scentHome) + 245 * scentHome);
         }
         if (overlays.showDanger) {
           r = Math.min(255, r + Math.floor(world.danger[idx] * 100));
@@ -155,24 +141,58 @@ export class SurfaceRenderer {
     ctx.drawImage(this._off, 0, 0);
   }
 
-  #drawEntranceMounds(ctx, nestEntrances) {
-    for (const entrance of nestEntrances) {
-      drawSoilMound(ctx, entrance);
+  #drawFoodPellets(ctx, foodPellets) {
+    ctx.fillStyle = '#35d84b';
+    for (const pellet of foodPellets) {
+      ctx.fillRect(pellet.x, pellet.y, 1, 1);
     }
   }
 
-  #drawAnts(ctx, colony) {
+  #drawEntranceMounds(ctx, nestEntrances) {
+    for (const entrance of nestEntrances) drawSoilMound(ctx, entrance);
+  }
+
+  #drawAnts(ctx, colony, selectedAntId, showDebugStats) {
     const { world } = this;
+    ctx.font = '2.8px monospace';
     for (const ant of colony.ants) {
       if (ant.y > world.nestY + 1) continue;
-      ctx.fillStyle =
-        ant.role === 'soldier'
-          ? '#d93828'
-          : ant.carrying > 0
-            ? '#e8c840'
-            : '#1a1208';
+      ctx.fillStyle = ant.role === 'soldier' ? '#d93828' : (ant.state === 'RETURN_HOME' ? '#2e78ff' : '#1a1208');
       ctx.fillRect(ant.x, ant.y, 1, 1);
+
+      if (ant.carrying?.type === 'food') {
+        ctx.fillStyle = '#35d84b';
+        ctx.fillRect(ant.x + 0.7, ant.y, 0.6, 0.6);
+      }
+
+      if (selectedAntId === ant.id) {
+        ctx.strokeStyle = '#ffea00';
+        ctx.lineWidth = 0.25;
+        ctx.strokeRect(ant.x - 0.4, ant.y - 0.4, 1.8, 1.8);
+      }
+
+      if (showDebugStats) {
+        ctx.fillStyle = '#ffffff';
+        const c = ant.carrying?.type === 'food' ? ' C' : '';
+        ctx.fillText(`H:${Math.round(ant.hunger)} HP:${Math.round(ant.health)}${c}`, ant.x + 1.2, ant.y - 0.2);
+      }
     }
+
+    if (showDebugStats) {
+      ctx.fillStyle = '#e8f6ff';
+      ctx.font = '3px monospace';
+      ctx.fillText(`FoodStore:${Math.round(colony.foodStored)}`, world.nestX + 3, Math.max(4, world.nestY - 4));
+    }
+  }
+
+
+  #drawCursorDebug(ctx, cursor) {
+    const idx = this.world.index(cursor.x, cursor.y);
+    const scentFood = this.world.toFood[idx] || 0;
+    const scentHome = this.world.toHome[idx] || 0;
+    ctx.fillStyle = '#b0fff0';
+    ctx.font = '3px monospace';
+    ctx.fillText(`Food:${scentFood.toFixed(2)} Home:${scentHome.toFixed(2)}`, cursor.x + 2, cursor.y + 2);
   }
 
   #drawEntranceDebug(ctx, nestEntrances) {
@@ -196,18 +216,10 @@ export class SurfaceRenderer {
 
     const minX = viewW * 0.5;
     const maxX = this.world.width - viewW * 0.5;
-    if (minX > maxX) {
-      this.cameraX = this.world.width * 0.5;
-    } else {
-      this.cameraX = clamp(this.cameraX, minX, maxX);
-    }
+    this.cameraX = minX > maxX ? this.world.width * 0.5 : clamp(this.cameraX, minX, maxX);
 
     const minY = viewH * 0.5;
     const maxY = this.world.nestY - viewH * 0.5;
-    if (minY > maxY) {
-      this.cameraY = this.world.nestY * 0.5;
-    } else {
-      this.cameraY = clamp(this.cameraY, minY, maxY);
-    }
+    this.cameraY = minY > maxY ? this.world.nestY * 0.5 : clamp(this.cameraY, minY, maxY);
   }
 }

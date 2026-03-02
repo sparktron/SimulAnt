@@ -60,7 +60,6 @@ export class World {
   }
 
   initializeTerrain() {
-    // Surface (top half) is open ground, lower half is compact soil to dig through.
     for (let y = 0; y < this.height; y += 1) {
       for (let x = 0; x < this.width; x += 1) {
         const idx = this.index(x, y);
@@ -121,44 +120,95 @@ export class World {
     }
   }
 
-  diffuseAndEvaporate(diffusionRate, evaporationRate, includeDanger = true) {
-    this.#diffuseOne(this.toFood, this._toFoodNext, diffusionRate, evaporationRate);
-    this.#diffuseOne(this.toHome, this._toHomeNext, diffusionRate, evaporationRate);
-    if (includeDanger) {
-      this.#diffuseOne(this.danger, this._dangerNext, diffusionRate * 0.8, evaporationRate * 0.7);
+  updatePheromones(config, tick) {
+    const dt = config.tickSeconds || 1 / 30;
+    this.#evaporateField(this.toFood, config.evapFood, dt, config.pheromoneMaxClamp);
+    this.#evaporateField(this.toHome, config.evapHome, dt, config.pheromoneMaxClamp);
+    this.#evaporateField(this.danger, config.evapDanger, dt, config.pheromoneMaxClamp);
+
+    if (tick % config.diffIntervalTicks !== 0) return;
+
+    this.#diffuseObstacleAware(this.toFood, this._toFoodNext, config.diffFood, config.pheromoneMaxClamp);
+    this.#diffuseObstacleAware(this.toHome, this._toHomeNext, config.diffHome, config.pheromoneMaxClamp);
+    this.#diffuseObstacleAware(this.danger, this._dangerNext, config.diffDanger, config.pheromoneMaxClamp);
+  }
+
+  #evaporateField(field, evaporationLambda, dt, clampMax) {
+    const keep = Math.exp(-Math.max(0, evaporationLambda) * dt);
+    for (let i = 0; i < this.size; i += 1) {
+      const v = field[i] * keep;
+      field[i] = v <= 0.0001 ? 0 : Math.min(clampMax, v);
     }
   }
 
-  #diffuseOne(src, dst, diffusionRate, evaporationRate) {
+  #diffuseObstacleAware(src, dst, diffusionRate, clampMax) {
     const w = this.width;
     const h = this.height;
 
-    for (let y = 1; y < h - 1; y += 1) {
+    for (let y = 0; y < h; y += 1) {
       const row = y * w;
-      for (let x = 1; x < w - 1; x += 1) {
+      for (let x = 0; x < w; x += 1) {
         const idx = row + x;
+        if (!this.isPassable(x, y)) {
+          dst[idx] = 0;
+          continue;
+        }
+
         const center = src[idx];
-        const neighborAvg = (src[idx - 1] + src[idx + 1] + src[idx - w] + src[idx + w]) * 0.25;
-        const mixed = center + (neighborAvg - center) * diffusionRate;
-        dst[idx] = mixed * (1 - evaporationRate);
+        let sum = 0;
+        let count = 0;
+
+        if (x > 0 && this.isPassable(x - 1, y)) {
+          sum += src[idx - 1];
+          count += 1;
+        }
+        if (x < w - 1 && this.isPassable(x + 1, y)) {
+          sum += src[idx + 1];
+          count += 1;
+        }
+        if (y > 0 && this.isPassable(x, y - 1)) {
+          sum += src[idx - w];
+          count += 1;
+        }
+        if (y < h - 1 && this.isPassable(x, y + 1)) {
+          sum += src[idx + w];
+          count += 1;
+        }
+
+        const neighborAvg = count > 0 ? sum / count : center;
+        const mixed = (1 - diffusionRate) * center + diffusionRate * neighborAvg;
+        dst[idx] = Math.max(0, Math.min(clampMax, mixed));
       }
     }
 
-    // Borders evaporate in place for stability.
-    for (let x = 0; x < w; x += 1) {
-      const top = x;
-      const bot = (h - 1) * w + x;
-      dst[top] = src[top] * (1 - evaporationRate);
-      dst[bot] = src[bot] * (1 - evaporationRate);
-    }
-    for (let y = 0; y < h; y += 1) {
-      const left = y * w;
-      const right = y * w + (w - 1);
-      dst[left] = src[left] * (1 - evaporationRate);
-      dst[right] = src[right] * (1 - evaporationRate);
+    src.set(dst);
+  }
+
+  getPheromoneStats() {
+    let maxFood = 0;
+    let maxHome = 0;
+    let sumFood = 0;
+    let sumHome = 0;
+    let passable = 0;
+
+    for (let i = 0; i < this.size; i += 1) {
+      if (this.terrain[i] === TERRAIN.WALL || this.terrain[i] === TERRAIN.WATER || this.terrain[i] === TERRAIN.SOIL) continue;
+      passable += 1;
+      const food = this.toFood[i];
+      const home = this.toHome[i];
+      if (food > maxFood) maxFood = food;
+      if (home > maxHome) maxHome = home;
+      sumFood += food;
+      sumHome += home;
     }
 
-    src.set(dst);
+    const denom = Math.max(1, passable);
+    return {
+      maxFood,
+      maxHome,
+      avgFood: sumFood / denom,
+      avgHome: sumHome / denom,
+    };
   }
 
   serialize() {
