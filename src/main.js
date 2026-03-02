@@ -5,6 +5,7 @@ import { NestRenderer } from './render/NestRenderer.js';
 import { SimulationCore } from './sim/SimulationCore.js';
 import { ViewManager, VIEW } from './ui/ViewManager.js';
 import { InputRouter } from './input/InputRouter.js';
+import { normalizeUnhandledRejectionReason, shouldReportFatalWindowError } from './ui/runtimeErrorGate.js';
 
 const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
@@ -125,11 +126,12 @@ let simMs = 0;
 let hasFatalError = false;
 
 window.addEventListener('error', (event) => {
+  if (!shouldReportFatalWindowError(event)) return;
   reportFatalError(event.error || event.message || 'Unknown window error');
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  reportFatalError(event.reason || 'Unhandled promise rejection');
+  reportFatalError(normalizeUnhandledRejectionReason(event.reason));
 });
 
 requestAnimationFrame(loop);
