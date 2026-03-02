@@ -28,16 +28,19 @@ export class InputRouter {
       }
 
       const point = this.#pointFromClient(event.clientX, event.clientY);
-      this.#activeHandlers().onPointerWorld?.(point.x, point.y);
+      if (!point) return;
 
-      const selected = this.#activeHandlers().selectAnt?.(point.x, point.y);
+      const activeHandlers = this.#activeHandlers();
+      activeHandlers.onPointerWorld?.(point.x, point.y);
+
+      const selected = activeHandlers.selectAnt?.(point.x, point.y);
       if (selected) {
         this.painting = false;
         return;
       }
 
       this.painting = true;
-      this.#activeHandlers().paint(point.x, point.y);
+      activeHandlers.paint?.(point.x, point.y);
     });
 
     this.canvas.addEventListener('pointermove', (event) => {
@@ -47,15 +50,17 @@ export class InputRouter {
       this.lastY = event.clientY;
 
       const point = this.#pointFromClient(event.clientX, event.clientY);
-      this.#activeHandlers().onPointerWorld?.(point.x, point.y);
+      const activeHandlers = this.#activeHandlers();
+      if (!point) return;
+      activeHandlers.onPointerWorld?.(point.x, point.y);
 
       if (this.panning) {
-        this.#activeHandlers().pan(dx, dy);
+        activeHandlers.pan?.(dx, dy);
         return;
       }
 
       if (this.painting) {
-        this.#activeHandlers().paint(point.x, point.y);
+        activeHandlers.paint?.(point.x, point.y);
       }
     });
 
@@ -67,13 +72,18 @@ export class InputRouter {
     this.canvas.addEventListener('wheel', (event) => {
       event.preventDefault();
       const zoomDelta = event.deltaY < 0 ? 1.1 : 0.9;
-      this.#activeHandlers().zoom(zoomDelta);
+      this.#activeHandlers().zoom?.(zoomDelta);
     });
   }
 
   #pointFromClient(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
-    return this.#activeHandlers().screenToWorld(clientX - rect.left, clientY - rect.top);
+    const handlers = this.#activeHandlers();
+    if (!handlers?.screenToWorld) return null;
+
+    const point = handlers.screenToWorld(clientX - rect.left, clientY - rect.top);
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return null;
+    return point;
   }
 
   #activeHandlers() {
