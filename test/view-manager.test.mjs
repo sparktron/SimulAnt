@@ -272,3 +272,30 @@ test('Dig system sanitizes corrupted saved front progress to prevent lockups', (
   assert.equal(Number.isFinite(sim.digSystem.fronts[0].progress), true);
   assert.ok(sim.tick > 0);
 });
+
+
+test('Ant base color and carrying type persist through serialization', () => {
+  const sim = new SimulationCore('seed-ant-color');
+  const ant = sim.colony.ants[0];
+  ant.baseColor = '#ffcc00';
+  ant.carryingType = 'dirt';
+
+  const serialized = sim.serialize({});
+  const restored = new SimulationCore('other');
+  restored.loadFromSerialized(serialized);
+
+  assert.equal(restored.colony.ants[0].baseColor, '#ffcc00');
+  assert.equal(restored.colony.ants[0].carryingType, 'dirt');
+});
+
+test('Depositing and consuming food updates nest food cell storage', () => {
+  const sim = new SimulationCore('seed-nest-food');
+  const idx = sim.world.index(sim.world.nestX, sim.world.nestY + 3);
+  const before = sim.world.nestFood[idx];
+
+  sim.colony.depositPellet(5);
+  assert.equal(sim.world.nestFood[idx], before + 5);
+
+  sim.colony.consumeFromStore(2);
+  assert.equal(sim.world.nestFood[idx], before + 3);
+});

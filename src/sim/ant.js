@@ -29,6 +29,8 @@ export class Ant {
     };
     this.state = 'IDLE';
     this.carrying = null;
+    this.carryingType = 'none';
+    this.baseColor = role === 'soldier' ? '#d93828' : '#1a1208';
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;
@@ -36,6 +38,12 @@ export class Ant {
 
   update(world, colony, rng, config) {
     if (!this.alive) return;
+
+    if (this.carrying?.type === 'food') {
+      this.carryingType = 'food';
+    } else if (this.carryingType === 'food') {
+      this.carryingType = 'none';
+    }
 
     const dt = config.tickSeconds || 1 / 30;
     const idx = world.index(this.x, this.y);
@@ -55,6 +63,7 @@ export class Ant {
       if (distance <= (entrance.radius ?? 2)) {
         colony.depositPellet(this.carrying.pelletNutrition || 0);
         this.carrying = null;
+        this.carryingType = 'none';
         this.state = 'DEPOSIT';
       }
     }
@@ -86,6 +95,7 @@ export class Ant {
               pelletId: visible.id,
               pelletNutrition: visible.nutrition,
             };
+            this.carryingType = 'food';
             colony.removePelletById(visible.id);
             this.state = 'PICKUP';
           } else {
@@ -101,6 +111,7 @@ export class Ant {
               pelletId: onPellet.id,
               pelletNutrition: onPellet.nutrition,
             };
+            this.carryingType = 'food';
             colony.removePelletById(onPellet.id);
             this.state = 'PICKUP';
           } else {

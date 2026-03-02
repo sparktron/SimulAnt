@@ -175,6 +175,7 @@ export class SimulationCore {
     this.world.initializeTerrain();
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.world.food.fill(0);
+    this.world.nestFood.fill(0);
     this.world.toFood.fill(0);
     this.world.toHome.fill(0);
     this.world.danger.fill(0);

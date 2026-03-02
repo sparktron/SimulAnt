@@ -70,6 +70,7 @@ export class NestRenderer {
     ctx.translate(-this.cameraX, -this.cameraY);
 
     this.#drawTerrain(ctx);
+    this.#drawNestFood(ctx);
     this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats);
 
     ctx.restore();
@@ -162,6 +163,24 @@ export class NestRenderer {
   }
 
 
+  #drawNestFood(ctx) {
+    const { world } = this;
+    for (let y = world.nestY + 1; y < world.height; y += 1) {
+      for (let x = 0; x < world.width; x += 1) {
+        const idx = world.index(x, y);
+        const amount = world.nestFood[idx];
+        if (amount <= 0.05) continue;
+        const terrain = world.terrain[idx];
+        if (terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER) continue;
+        const r = Math.max(0.2, Math.min(0.45, 0.18 + Math.sqrt(amount) * 0.08));
+        ctx.fillStyle = '#35d84b';
+        ctx.beginPath();
+        ctx.arc(x + 0.5, y + 0.5, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
   #isTunnelEdge(x, y) {
     const { world } = this;
     const neighbors = [
@@ -190,13 +209,14 @@ export class NestRenderer {
 
     for (const ant of colony.ants) {
       if (ant.y < world.nestY - 1) continue;
-      ctx.fillStyle =
-        ant.role === 'soldier'
-          ? '#ef775f'
-          : ant.carrying?.type === 'food'
-            ? '#f7d55d'
-            : '#c8b8a0';
+      ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
+
+      const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');
+      if (carryingType === 'food' || carryingType === 'dirt') {
+        ctx.fillStyle = carryingType === 'food' ? '#35d84b' : '#7a4b22';
+        ctx.fillRect(ant.x + 0.7, ant.y, 0.6, 0.6);
+      }
 
       if (selectedAntId === ant.id) {
         ctx.strokeStyle = '#ffea00';
@@ -206,18 +226,10 @@ export class NestRenderer {
 
       if (showDebugStats) {
         ctx.fillStyle = '#ffffff';
-        const c = ant.carrying?.type === 'food' ? ' C' : '';
+        const c = ant.carryingType && ant.carryingType !== 'none' ? ` ${ant.carryingType[0].toUpperCase()}` : '';
         ctx.font = '2.8px monospace';
         ctx.fillText(`H:${Math.round(ant.hunger)} HP:${Math.round(ant.health)}${c}`, ant.x + 1.2, ant.y - 0.2);
       }
-    }
-
-    const pileR = Math.max(1.2, Math.min(5, Math.sqrt(Math.max(0, colony.foodStored)) * 0.18));
-    if (colony.foodStored > 0.1) {
-      ctx.fillStyle = '#35d84b';
-      ctx.beginPath();
-      ctx.arc(world.nestX - 5, world.nestY + 4, pileR, 0, Math.PI * 2);
-      ctx.fill();
     }
 
     if (colony.queen.alive) {

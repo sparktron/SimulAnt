@@ -111,13 +111,22 @@ export class Colony {
     if (amount <= 0 || this.foodStored <= 0) return 0;
     const consumed = Math.min(amount, this.foodStored);
     this.foodStored -= consumed;
+    this.#applyNestCellFoodDelta(-consumed);
     return consumed;
   }
 
   depositPellet(nutrition) {
     if (nutrition <= 0) return 0;
     this.foodStored += nutrition;
+    this.#applyNestCellFoodDelta(nutrition);
     return nutrition;
+  }
+
+  #applyNestCellFoodDelta(delta) {
+    const x = this.world.nestX;
+    const y = Math.min(this.world.height - 1, this.world.nestY + 3);
+    const idx = this.world.index(x, y);
+    this.world.nestFood[idx] = Math.max(0, this.world.nestFood[idx] + delta);
   }
 
 
@@ -198,6 +207,8 @@ export class Colony {
         hunger: ant.hunger,
         health: ant.health,
         carrying: ant.carrying,
+        carryingType: ant.carryingType,
+        baseColor: ant.baseColor,
         role: ant.role,
         state: ant.state,
       })),
@@ -218,6 +229,8 @@ export class Colony {
       ant.hunger = a.hunger ?? ant.hunger;
       ant.health = a.health ?? ant.health;
       ant.carrying = a.carrying;
+      ant.carryingType = a.carryingType || (a.carrying?.type === 'food' ? 'food' : 'none');
+      ant.baseColor = a.baseColor || ant.baseColor;
       ant.state = a.state || ant.state;
       return ant;
     });
