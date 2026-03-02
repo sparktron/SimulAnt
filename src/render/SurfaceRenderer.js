@@ -73,9 +73,10 @@ export class SurfaceRenderer {
 
     for (let y = 0; y < H; y += 1) {
       for (let x = 0; x < W; x += 1) {
-        const idx = y * W + x;
+        const sampleY = y % (world.nestY + 1);
+        const idx = sampleY * W + x;
         const terrain = world.terrain[idx];
-        const o = idx * 4;
+        const o = (y * W + x) * 4;
 
         const noise = ((x * 7 + y * 13) % 11) - 5;
         let r = 96 + noise;
@@ -137,7 +138,9 @@ export class SurfaceRenderer {
   }
 
   #drawAnts(ctx, colony) {
+    const { world } = this;
     for (const ant of colony.ants) {
+      if (ant.y > world.nestY + 1) continue;
       ctx.fillStyle =
         ant.role === 'soldier'
           ? '#d93828'
