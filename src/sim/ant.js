@@ -50,10 +50,6 @@ export class Ant {
       this.carrying = amount;
     }
 
-    if (this.role === 'worker' && this.carrying === 0) {
-      this.tryDigTunnel(world, colony, rng, config);
-    }
-
     if (this.carrying > 0) {
       world.toFood[idx] += config.toFoodDeposit;
       this.stepByGradient(world, rng, world.nestInfluence, world.toHome, world.danger, true);
@@ -66,28 +62,6 @@ export class Ant {
     if (this.energy <= 0) {
       this.alive = false;
       colony.deaths += 1;
-    }
-  }
-
-  tryDigTunnel(world, colony, rng, config) {
-    const hereIdx = world.index(this.x, this.y);
-    if (world.terrain[hereIdx] !== TERRAIN.TUNNEL) return;
-    if (!rng.chance(config.digChance)) return;
-
-    for (let i = 0; i < DIRS.length; i += 1) {
-      const d = (this.dir + i) % DIRS.length;
-      const nx = this.x + DIRS[d][0];
-      const ny = this.y + DIRS[d][1];
-      if (!world.inBounds(nx, ny)) continue;
-      const nidx = world.index(nx, ny);
-
-      if (world.terrain[nidx] === TERRAIN.SOIL) {
-        world.terrain[nidx] = TERRAIN.TUNNEL;
-        colony.recordExcavation(1, nx, ny);
-        world.toHome[nidx] += config.digHomeBoost;
-        this.energy = Math.max(0, this.energy - config.digEnergyCost);
-        return;
-      }
     }
   }
 

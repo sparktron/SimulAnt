@@ -162,3 +162,113 @@ test('Surface minimum zoom keeps viewport within surface band', () => {
   assert.ok(minZoom > 4.9);
   assert.ok(minZoom < 5.1);
 });
+
+test('Auto-dig grows tunnels and soil mound over time', () => {
+  const sim = new SimulationCore('seed-auto-dig');
+  const cfg = {
+    antCap: 300,
+    evaporationRate: 0.01,
+    diffusionRate: 0.12,
+    pheromoneUpdateTicks: 2,
+    toFoodDeposit: 0.5,
+    toHomeDeposit: 0.4,
+    dangerDeposit: 0.6,
+    hazardDeathChance: 0.02,
+    foodPickupRate: 0.7,
+    digChance: 0.04,
+    digEnergyCost: 8,
+    digHomeBoost: 0.9,
+    queenEggTicks: 20,
+    queenEggFoodCost: 0.8,
+    soldierSpawnChance: 0.2,
+  };
+
+  sim.toggleAutoDig();
+
+  const beforeExcavated = sim.colony.excavatedTiles;
+  const beforeSoil = sim.nestEntrances[0].soilOnSurface;
+
+  for (let i = 0; i < 300; i += 1) sim.update(cfg);
+
+  assert.ok(sim.colony.excavatedTiles > beforeExcavated);
+  assert.ok(sim.nestEntrances[0].soilOnSurface > beforeSoil);
+});
+
+test('Forced chamber creates chamber terrain tiles', () => {
+  const sim = new SimulationCore('seed-chamber');
+  const cfg = {
+    antCap: 300,
+    evaporationRate: 0.01,
+    diffusionRate: 0.12,
+    pheromoneUpdateTicks: 2,
+    toFoodDeposit: 0.5,
+    toHomeDeposit: 0.4,
+    dangerDeposit: 0.6,
+    hazardDeathChance: 0.02,
+    foodPickupRate: 0.7,
+    digChance: 0.04,
+    digEnergyCost: 8,
+    digHomeBoost: 0.9,
+    queenEggTicks: 20,
+    queenEggFoodCost: 0.8,
+    soldierSpawnChance: 0.2,
+  };
+
+  sim.toggleAutoDig();
+  for (let i = 0; i < 20; i += 1) sim.update(cfg);
+
+  let carved = false;
+  for (let i = 0; i < 5; i += 1) {
+    carved = sim.forceChamberAtDigFront(cfg) || carved;
+    if (carved) break;
+    sim.update(cfg);
+  }
+
+  const chamberTiles = sim.world.terrain.reduce((count, tile) => count + (tile === TERRAIN.CHAMBER ? 1 : 0), 0);
+
+  assert.equal(carved, true);
+  assert.ok(chamberTiles > 0);
+});
+
+test('Dig system sanitizes corrupted saved front progress to prevent lockups', () => {
+  const sim = new SimulationCore('seed-corrupt-dig');
+  const cfg = {
+    antCap: 300,
+    evaporationRate: 0.01,
+    diffusionRate: 0.12,
+    pheromoneUpdateTicks: 2,
+    toFoodDeposit: 0.5,
+    toHomeDeposit: 0.4,
+    dangerDeposit: 0.6,
+    hazardDeathChance: 0.02,
+    foodPickupRate: 0.7,
+    digChance: 0.04,
+    digEnergyCost: 8,
+    digHomeBoost: 0.9,
+    queenEggTicks: 20,
+    queenEggFoodCost: 0.8,
+    soldierSpawnChance: 0.2,
+  };
+
+  const save = sim.serialize({});
+  save.digSystem = {
+    autoDig: true,
+    fronts: [
+      {
+        x: sim.world.nestX,
+        y: sim.world.nestY + 6,
+        dir: 0,
+        progress: Infinity,
+        age: 1,
+        stepsSinceChamber: 1,
+        lastAdvanceTick: 1,
+      },
+    ],
+  };
+
+  sim.loadFromSerialized(save);
+  sim.update(cfg);
+
+  assert.equal(Number.isFinite(sim.digSystem.fronts[0].progress), true);
+  assert.ok(sim.tick > 0);
+});

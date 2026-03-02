@@ -5,6 +5,7 @@ export const TERRAIN = {
   HAZARD: 3,
   SOIL: 4,
   TUNNEL: 5,
+  CHAMBER: 6,
 };
 
 export class World {
@@ -44,12 +45,18 @@ export class World {
   isPassable(x, y) {
     if (!this.inBounds(x, y)) return false;
     const terrain = this.terrain[this.index(x, y)];
-    return terrain !== TERRAIN.WALL && terrain !== TERRAIN.WATER && terrain !== TERRAIN.SOIL;
+    return (
+      terrain !== TERRAIN.WALL &&
+      terrain !== TERRAIN.WATER &&
+      terrain !== TERRAIN.SOIL &&
+      terrain !== TERRAIN.HAZARD
+    );
   }
 
   isUnderground(x, y) {
     if (!this.inBounds(x, y)) return false;
-    return this.terrain[this.index(x, y)] === TERRAIN.TUNNEL;
+    const terrain = this.terrain[this.index(x, y)];
+    return terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER;
   }
 
   initializeTerrain() {
@@ -61,19 +68,14 @@ export class World {
       }
     }
 
-    // Starter nest chamber around queen spawn point.
-    this.paintCircle(this.nestX, this.nestY + 2, this.nestRadius, (idx, _x, y) => {
-      if (y >= this.nestY - 1) this.terrain[idx] = TERRAIN.TUNNEL;
-    });
+    this.#carveStarterNest();
   }
 
   setNest(x, y) {
     this.nestX = Math.max(0, Math.min(this.width - 1, x));
     this.nestY = Math.max(0, Math.min(this.height - 1, y));
     this.recomputeNestInfluence();
-    this.paintCircle(this.nestX, this.nestY + 2, this.nestRadius, (idx, _cx, cy) => {
-      if (cy >= this.nestY - 1) this.terrain[idx] = TERRAIN.TUNNEL;
-    });
+    this.#carveStarterNest();
   }
 
   recomputeNestInfluence() {
@@ -101,6 +103,20 @@ export class World {
         if (dx * dx + dy * dy <= r2) {
           fn(this.index(x, y), x, y);
         }
+      }
+    }
+  }
+
+  #carveStarterNest() {
+    this.paintCircle(this.nestX, this.nestY + 3, 4, (idx, _x, y) => {
+      if (y >= this.nestY) this.terrain[idx] = TERRAIN.CHAMBER;
+    });
+
+    for (let y = this.nestY; y <= this.nestY + 14; y += 1) {
+      if (!this.inBounds(this.nestX, y)) continue;
+      this.terrain[this.index(this.nestX, y)] = TERRAIN.TUNNEL;
+      if (y > this.nestY + 1 && y % 4 === 0 && this.inBounds(this.nestX + 1, y)) {
+        this.terrain[this.index(this.nestX + 1, y)] = TERRAIN.TUNNEL;
       }
     }
   }

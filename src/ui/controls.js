@@ -87,6 +87,10 @@ export function createControls(state, actions) {
     } else if (event.key.toLowerCase() === 'f') {
       state.overlays.showFood = !state.overlays.showFood;
     } else if (event.key.toLowerCase() === 'g') {
+      if (actions.toggleAutoDig) actions.toggleAutoDig();
+    } else if (event.key.toLowerCase() === 'c') {
+      if (actions.forceChamber) actions.forceChamber();
+    } else if (event.key.toLowerCase() === 't') {
       state.overlays.showToFood = !state.overlays.showToFood;
     } else if (event.key.toLowerCase() === 'o') {
       state.overlays.showToHome = !state.overlays.showToHome;

@@ -5,6 +5,7 @@ import { NestRenderer } from './render/NestRenderer.js';
 import { SimulationCore } from './sim/SimulationCore.js';
 import { ViewManager, VIEW } from './ui/ViewManager.js';
 import { InputRouter } from './input/InputRouter.js';
+import { normalizeUnhandledRejectionReason, shouldReportFatalWindowError } from './ui/runtimeErrorGate.js';
 
 const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
@@ -23,6 +24,7 @@ const state = {
   },
   debug: {
     showEntranceInfo: false,
+    digStatus: 'AUTO-DIG: OFF',
   },
   config: {
     antCap: 2000,
@@ -95,6 +97,14 @@ createControls(state, {
   toggleDebugEntrances: () => {
     state.debug.showEntranceInfo = !state.debug.showEntranceInfo;
   },
+  toggleAutoDig: () => {
+    const enabled = simCore.toggleAutoDig();
+    state.debug.digStatus = enabled ? 'AUTO-DIG: ON' : 'AUTO-DIG: OFF';
+  },
+  forceChamber: () => {
+    const carved = simCore.forceChamberAtDigFront(state.config);
+    state.debug.digStatus = carved ? 'AUTO-DIG: CHAMBER CARVED' : 'AUTO-DIG: CHAMBER FAILED';
+  },
 });
 
 window.addEventListener('resize', () => {
@@ -113,51 +123,68 @@ let fps = 60;
 let fpsTimer = 0;
 let frameCount = 0;
 let simMs = 0;
+let hasFatalError = false;
+
+window.addEventListener('error', (event) => {
+  if (!shouldReportFatalWindowError(event)) return;
+  reportFatalError(event.error || event.message || 'Unknown window error');
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  reportFatalError(normalizeUnhandledRejectionReason(event.reason));
+});
 
 requestAnimationFrame(loop);
 
 function loop(now) {
-  const elapsed = Math.min(0.25, (now - lastTime) / 1000);
-  lastTime = now;
+  if (hasFatalError) return;
 
-  fpsTimer += elapsed;
-  frameCount += 1;
-  if (fpsTimer >= 0.5) {
-    fps = frameCount / fpsTimer;
-    fpsTimer = 0;
-    frameCount = 0;
-  }
+  try {
+    const elapsed = Math.min(0.25, (now - lastTime) / 1000);
+    lastTime = now;
 
-  if (!state.paused) {
-    accumulator += elapsed * state.simSpeed;
-    const start = performance.now();
-    while (accumulator >= SIM_DT) {
-      simCore.update(state.config);
-      accumulator -= SIM_DT;
+    fpsTimer += elapsed;
+    frameCount += 1;
+    if (fpsTimer >= 0.5) {
+      fps = frameCount / fpsTimer;
+      fpsTimer = 0;
+      frameCount = 0;
     }
-    simMs = performance.now() - start;
+
+    if (!state.paused) {
+      accumulator += elapsed * state.simSpeed;
+      const start = performance.now();
+      while (accumulator >= SIM_DT) {
+        simCore.update(state.config);
+        accumulator -= SIM_DT;
+      }
+      simMs = performance.now() - start;
+    }
+
+    const activeView = viewManager.getCurrent();
+    if (activeView === VIEW.SURFACE) {
+      surfaceRenderer.draw(simCore.colony, state.overlays, simCore.nestEntrances, state.debug.showEntranceInfo);
+    } else {
+      nestRenderer.draw(simCore.colony);
+    }
+
+    updateHud({
+      viewMode: activeView,
+      fps,
+      tick: simCore.tick,
+      ants: simCore.colony.ants.length,
+      workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
+      soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
+      foodStored: simCore.colony.foodStored,
+      queenAlive: simCore.colony.queen.alive,
+      simMs,
+      digStatus: state.debug.digStatus,
+    });
+
+    requestAnimationFrame(loop);
+  } catch (error) {
+    reportFatalError(error);
   }
-
-  const activeView = viewManager.getCurrent();
-  if (activeView === VIEW.SURFACE) {
-    surfaceRenderer.draw(simCore.colony, state.overlays, simCore.nestEntrances, state.debug.showEntranceInfo);
-  } else {
-    nestRenderer.draw(simCore.colony);
-  }
-
-  updateHud({
-    viewMode: activeView,
-    fps,
-    tick: simCore.tick,
-    ants: simCore.colony.ants.length,
-    workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
-    soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
-    foodStored: simCore.colony.foodStored,
-    queenAlive: simCore.colony.queen.alive,
-    simMs,
-  });
-
-  requestAnimationFrame(loop);
 }
 
 function applyToolIfInBounds(x, y) {
@@ -231,4 +258,11 @@ function mustById(id) {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing required element: ${id}`);
   return el;
+}
+
+function reportFatalError(error) {
+  if (hasFatalError) return;
+  hasFatalError = true;
+  state.paused = true;
+  console.error('[SimAnt] Fatal runtime error:', error);
 }
