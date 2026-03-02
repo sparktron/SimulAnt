@@ -92,6 +92,9 @@ export function createControls(state, actions) {
       state.overlays.showToHome = !state.overlays.showToHome;
     } else if (event.key.toLowerCase() === 'd') {
       state.overlays.showDanger = !state.overlays.showDanger;
+    } else if (event.code === 'F3') {
+      event.preventDefault();
+      if (actions.toggleDebugEntrances) actions.toggleDebugEntrances();
     } else if (TOOL_BY_KEY[event.key]) {
       state.selectedTool = TOOL_BY_KEY[event.key];
       const radio = document.querySelector(`input[name="tool"][value="${state.selectedTool}"]`);

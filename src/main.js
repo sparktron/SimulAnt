@@ -21,6 +21,9 @@ const state = {
     showToHome: false,
     showDanger: false,
   },
+  debug: {
+    showEntranceInfo: false,
+  },
   config: {
     antCap: 2000,
     evaporationRate: 0.01,
@@ -89,6 +92,9 @@ createControls(state, {
   load: () => loadState(),
   clearWorld: () => simCore.clearWorld(),
   toggleView: () => viewManager.toggle(),
+  toggleDebugEntrances: () => {
+    state.debug.showEntranceInfo = !state.debug.showEntranceInfo;
+  },
 });
 
 window.addEventListener('resize', () => {
@@ -134,7 +140,7 @@ function loop(now) {
 
   const activeView = viewManager.getCurrent();
   if (activeView === VIEW.SURFACE) {
-    surfaceRenderer.draw(simCore.colony, state.overlays);
+    surfaceRenderer.draw(simCore.colony, state.overlays, simCore.nestEntrances, state.debug.showEntranceInfo);
   } else {
     nestRenderer.draw(simCore.colony);
   }

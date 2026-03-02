@@ -83,7 +83,7 @@ export class Ant {
 
       if (world.terrain[nidx] === TERRAIN.SOIL) {
         world.terrain[nidx] = TERRAIN.TUNNEL;
-        colony.excavatedTiles += 1;
+        colony.recordExcavation(1, nx, ny);
         world.toHome[nidx] += config.digHomeBoost;
         this.energy = Math.max(0, this.energy - config.digEnergyCost);
         return;

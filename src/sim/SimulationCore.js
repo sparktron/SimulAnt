@@ -2,9 +2,12 @@ import { World, TERRAIN } from './world.js';
 import { Colony } from './colony.js';
 import { SeededRng } from './rng.js';
 
+const SURFACE_DEPOSIT_RATIO = 0.7;
+
 export class SimulationCore {
   constructor(seed = 'simant-default') {
     this.tick = 0;
+    this.nestEntrances = [];
     this.reset(seed);
   }
 
@@ -25,6 +28,16 @@ export class SimulationCore {
 
     this.world.setNest(this.world.nestX, this.world.nestY);
     this.colony = new Colony(this.world, this.rng, 320);
+    this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
+    this.nestEntrances = [
+      {
+        id: 'entrance-main',
+        x: this.world.nestX,
+        y: this.world.nestY,
+        excavatedSoilTotal: 0,
+        soilOnSurface: 0,
+      },
+    ];
     this.tick = 0;
   }
 
@@ -34,6 +47,30 @@ export class SimulationCore {
     if (this.tick % config.pheromoneUpdateTicks === 0) {
       this.world.diffuseAndEvaporate(config.diffusionRate, config.evaporationRate, true);
     }
+  }
+
+  onExcavate(volume, worldX, _depthY) {
+    const entrance = this.#nearestEntrance(worldX);
+    if (!entrance) return;
+    entrance.excavatedSoilTotal += volume;
+    entrance.soilOnSurface += volume * SURFACE_DEPOSIT_RATIO;
+  }
+
+  #nearestEntrance(worldX) {
+    if (this.nestEntrances.length === 0) return null;
+    let nearest = this.nestEntrances[0];
+    let bestDistance = Math.abs(worldX - nearest.x);
+
+    for (let i = 1; i < this.nestEntrances.length; i += 1) {
+      const candidate = this.nestEntrances[i];
+      const distance = Math.abs(worldX - candidate.x);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        nearest = candidate;
+      }
+    }
+
+    return nearest;
   }
 
   applyTool(tool, worldX, worldY, radius) {
@@ -70,6 +107,18 @@ export class SimulationCore {
         break;
       case 'nest':
         this.world.setNest(worldX, worldY);
+        if (this.nestEntrances.length === 0) {
+          this.nestEntrances.push({
+            id: 'entrance-main',
+            x: worldX,
+            y: worldY,
+            excavatedSoilTotal: 0,
+            soilOnSurface: 0,
+          });
+        } else {
+          this.nestEntrances[0].x = worldX;
+          this.nestEntrances[0].y = worldY;
+        }
         break;
       default:
         break;
@@ -90,6 +139,7 @@ export class SimulationCore {
       world: this.world.serialize(),
       colony: this.colony.serialize(),
       tick: this.tick,
+      nestEntrances: this.nestEntrances,
       state,
     };
   }
@@ -99,6 +149,27 @@ export class SimulationCore {
     this.rng = new SeededRng(this.seed);
     this.world = World.fromSerialized(data.world);
     this.colony = Colony.fromSerialized(this.world, this.rng, data.colony);
+    this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.tick = data.tick || 0;
+
+    if (Array.isArray(data.nestEntrances) && data.nestEntrances.length > 0) {
+      this.nestEntrances = data.nestEntrances.map((entry, index) => ({
+        id: entry.id || `entrance-${index}`,
+        x: entry.x,
+        y: entry.y,
+        excavatedSoilTotal: entry.excavatedSoilTotal || 0,
+        soilOnSurface: entry.soilOnSurface || 0,
+      }));
+    } else {
+      this.nestEntrances = [
+        {
+          id: 'entrance-main',
+          x: this.world.nestX,
+          y: this.world.nestY,
+          excavatedSoilTotal: 0,
+          soilOnSurface: 0,
+        },
+      ];
+    }
   }
 }
