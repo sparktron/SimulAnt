@@ -41,7 +41,6 @@ Works on GitHub Pages, Netlify static deploy, Cloudflare Pages, or personal web 
 - Paint water
 - Paint spider zone (hazard)
 - Erase terrain/food/pheromones
-- Move nest
 - Workers automatically dig tunnels into soil from existing chambers
 
 ### Mouse
@@ -53,7 +52,7 @@ Works on GitHub Pages, Netlify static deploy, Cloudflare Pages, or personal web 
 - `Space`: pause/resume
 - `N`: single-step
 - `R`: reset from seed
-- `1..6`: tool select
+- `1..5`: tool select
 - `F`: toggle to-food pheromone overlay
 - `G`: toggle auto-dig
 - `C`: force a small chamber at active dig front

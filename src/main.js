@@ -12,6 +12,7 @@ const SIM_DT = 1 / 30;
 const BASE_SIM_SPEED_SCALE = 0.4;
 const DEBUG_UI = false;
 const DEBUG_RENDER = false;
+const EDIT_TOOLS = new Set(['food', 'wall', 'water', 'hazard', 'erase']);
 
 const state = {
   paused: false,
@@ -301,9 +302,8 @@ function applyToolIfInBounds(x, y) {
 
   if (!simCore.world.inBounds(worldX, worldY)) return;
 
-  if (state.selectedTool === 'nest' && activeView === VIEW.NEST) {
-    // Side-view depth click should never relocate the global nest origin.
-    if (DEBUG_UI) console.debug('[SimAnt UI] Ignored NEST tool click in NEST view to avoid invalid nest relocation.');
+  if (!EDIT_TOOLS.has(state.selectedTool)) {
+    if (DEBUG_UI) console.debug('[SimAnt UI] Ignored unsupported tool selection.', state.selectedTool);
     return;
   }
 
@@ -358,36 +358,6 @@ function recoverFromRenderError(error) {
   }
 }
 
-runNestClickRegressionHarness();
-
-function runNestClickRegressionHarness() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('devReproNestClick') !== '1') return;
-
-  const previousTool = state.selectedTool;
-  const previousView = getSafeViewMode();
-
-  try {
-    state.selectedTool = 'nest';
-    viewManager.setView(VIEW.NEST);
-    applyToolIfInBounds(simCore.world.nestX, simCore.world.nestY + 20);
-
-    nestRenderer.draw(simCore.colony, {
-      selectedAntId: state.selectedAntId,
-      showDebugStats: false,
-    });
-
-    const px = nestRenderer.ctx.getImageData(Math.floor(canvas.clientWidth * 0.5), Math.floor(canvas.clientHeight * 0.5), 1, 1).data;
-    const isBlack = px[0] === 0 && px[1] === 0 && px[2] === 0;
-    if (isBlack) throw new Error('devReproNestClick failed: center pixel rendered as black');
-
-    console.info('[SimAnt dev harness] NEST click regression check passed.', { pixel: Array.from(px) });
-  } finally {
-    state.selectedTool = previousTool;
-    viewManager.setView(previousView);
-  }
-}
-
 function saveState() {
   const save = simCore.serialize({
     simSpeed: state.simSpeed,
@@ -426,7 +396,8 @@ function loadState() {
   Object.assign(state.overlays, data.state?.overlays || {});
   Object.assign(state.casteTargets, data.state?.casteTargets || {});
   state.simSpeed = data.state?.simSpeed || state.simSpeed;
-  state.selectedTool = data.state?.selectedTool || state.selectedTool;
+  const savedTool = data.state?.selectedTool;
+  state.selectedTool = EDIT_TOOLS.has(savedTool) ? savedTool : 'food';
   state.brushRadius = data.state?.brushRadius || state.brushRadius;
   state.selectedAntId = data.state?.selectedAntId || null;
 
