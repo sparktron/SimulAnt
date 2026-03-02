@@ -9,6 +9,7 @@ import { normalizeUnhandledRejectionReason, shouldReportFatalWindowError } from 
 
 const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
+const BASE_SIM_SPEED_SCALE = 0.4;
 
 const state = {
   paused: false,
@@ -184,7 +185,7 @@ function loop(now) {
     }
 
     if (!state.paused) {
-      accumulator += elapsed * state.simSpeed;
+      accumulator += elapsed * state.simSpeed * BASE_SIM_SPEED_SCALE;
       const start = performance.now();
       while (accumulator >= SIM_DT) {
         simCore.update(state.config);
