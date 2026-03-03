@@ -75,6 +75,17 @@ const state = {
     nearEntranceScatterRadius: 9,
     foodTrailDistanceScale: 1.1,
     maxFoodTrailScale: 3.2,
+    homeScentBaseWeight: 0.35,
+    homeScentSearchStateScale: 0.3,
+    homeScentReturnStateScale: 1.15,
+    homeScentFalloffStartDist: 10,
+    homeScentFalloffEndDist: 80,
+    homeScentMinFalloff: 0.2,
+    homeScentMaxContributionPerStep: 1.2,
+    homeTieBiasScale: 0.003,
+    foodTieBiasScale: 0.01,
+    debugSteeringContributions: false,
+    debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 10,
   },
   casteTargets: {
@@ -270,32 +281,33 @@ function loop(now) {
       followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
     });
 
+    maybeLogSteeringDebug(selectedAnt);
+
     requestAnimationFrame(loop);
   } catch (error) {
     reportFatalError(error);
   }
 }
 
-function getAntHealthStats(ants) {
-  if (!Array.isArray(ants) || ants.length === 0) {
-    return { min: 0, avg: 0, max: 0 };
-  }
+function maybeLogSteeringDebug(selectedAnt) {
+  if (!state.config.debugSteeringContributions || !state.debug.showStats) return;
+  const interval = Math.max(1, Math.floor(state.config.debugSteeringLogIntervalTicks || 1));
+  if (simCore.tick % interval !== 0) return;
 
-  let min = 100;
-  let max = 0;
-  let total = 0;
-  for (const ant of ants) {
-    const health = Math.max(0, Math.min(100, ant.health ?? 0));
-    min = Math.min(min, health);
-    max = Math.max(max, health);
-    total += health;
-  }
+  const sample = selectedAnt || simCore.colony.ants.find((ant) => ant.role === 'worker');
+  if (!sample?.lastSteeringDebug) return;
 
-  return {
-    min,
-    avg: total / ants.length,
-    max,
-  };
+  console.debug('[SimAnt Steering Debug]', {
+    tick: simCore.tick,
+    antId: sample.id,
+    state: sample.state,
+    carrying: sample.carrying?.type || 'none',
+    channel: sample.lastSteeringDebug.channel,
+    chosenDir: sample.lastSteeringDebug.chosenDir,
+    components: sample.lastSteeringDebug.components,
+    distanceToEntrance: sample.lastSteeringDebug.distanceToEntrance,
+    homeScentWeight: sample.lastSteeringDebug.homeScentWeight,
+  });
 }
 
 function selectAntNear(x, y) {

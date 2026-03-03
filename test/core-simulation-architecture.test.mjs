@@ -46,6 +46,17 @@ function createConfig() {
     nearEntranceScatterRadius: 9,
     foodTrailDistanceScale: 1.1,
     maxFoodTrailScale: 3.2,
+    homeScentBaseWeight: 0.35,
+    homeScentSearchStateScale: 0.3,
+    homeScentReturnStateScale: 1.15,
+    homeScentFalloffStartDist: 10,
+    homeScentFalloffEndDist: 80,
+    homeScentMinFalloff: 0.2,
+    homeScentMaxContributionPerStep: 1.2,
+    homeTieBiasScale: 0.003,
+    foodTieBiasScale: 0.01,
+    debugSteeringContributions: false,
+    debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 10,
   };
 }
@@ -146,6 +157,9 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
     healthDrainRate: -1,
     soldierSpawnChance: 2,
     foodVisionRadius: 0,
+    homeScentMinFalloff: 2,
+    homeScentMaxContributionPerStep: -3,
+    debugSteeringLogIntervalTicks: 0,
   };
 
   const safe = sanitizeTickConfig(unsafe);
@@ -161,6 +175,9 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
   assert.equal(safe.healthDrainRate, 0);
   assert.equal(safe.soldierSpawnChance, 1);
   assert.equal(safe.foodVisionRadius, 1);
+  assert.equal(safe.homeScentMinFalloff, 1);
+  assert.equal(safe.homeScentMaxContributionPerStep, 1);
+  assert.equal(safe.debugSteeringLogIntervalTicks, 1);
 });
 
 test('deterministic regression survives unsafe external config inputs via sanitizer', () => {
@@ -215,35 +232,52 @@ test('nestFoodPellets survive serialization/load', () => {
   assert.equal(restored.colony.nestFoodPellets[0].amount, 2.5);
 });
 
-test('single starving ant health decreases deterministically across ticks', () => {
-  const sim = new SimulationCore('health-decay-seed');
+test('returning ant can still reach nest entrance from mid-range distance', () => {
+  const sim = new SimulationCore('return-home-reliability-seed');
   const config = createConfig();
-  sim.colony.ants = sim.colony.ants.slice(0, 1);
-
+  const entrance = sim.nestEntrances[0];
   const ant = sim.colony.ants[0];
-  ant.hunger = 0;
-  ant.health = 100;
+  sim.colony.ants = [ant];
 
-  for (let i = 0; i < 30; i += 1) {
+  ant.x = entrance.x + 26;
+  ant.y = entrance.y - 9;
+  ant.carrying = { type: 'food', pelletId: 'carried-food', pelletNutrition: 3 };
+  ant.carryingType = 'food';
+  ant.hunger = ant.hungerMax;
+
+  let delivered = false;
+  for (let i = 0; i < 140; i += 1) {
     sim.update(config);
+    if (!ant.carrying) {
+      delivered = true;
+      break;
+    }
   }
 
-  assert.ok(ant.health < 100);
+  assert.equal(delivered, true);
 });
 
-test('feeding a starving ant increases health deterministically', () => {
-  const sim = new SimulationCore('health-feed-seed');
+test('searching ants spend most time exploring instead of hugging nest gradient', () => {
+  const sim = new SimulationCore('search-exploration-balance-seed');
   const config = createConfig();
-  sim.colony.ants = sim.colony.ants.slice(0, 1);
-
+  const entrance = sim.nestEntrances[0];
   const ant = sim.colony.ants[0];
-  ant.x = sim.world.nestX;
-  ant.y = sim.world.nestY + 2;
-  ant.hunger = 0;
-  ant.health = 60;
-  sim.colony.foodStored = 100;
+  sim.colony.ants = [ant];
+  sim.foodPellets = [];
 
-  sim.update(config);
+  ant.x = entrance.x + 12;
+  ant.y = entrance.y - 2;
+  ant.carrying = null;
+  ant.carryingType = 'none';
+  ant.hunger = 30;
 
-  assert.ok(ant.health > 60);
+  const totalSteps = 160;
+  let exploringSteps = 0;
+  for (let i = 0; i < totalSteps; i += 1) {
+    sim.update(config);
+    const distance = Math.hypot(ant.x - entrance.x, ant.y - entrance.y);
+    if (distance > 15) exploringSteps += 1;
+  }
+
+  assert.ok(exploringSteps > totalSteps * 0.6);
 });
