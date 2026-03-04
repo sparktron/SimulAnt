@@ -12,6 +12,10 @@ const DIRS = [
 ];
 
 export class Ant {
+  static getDefaultBaseColor(role = 'worker') {
+    return role === 'soldier' ? '#d93828' : '#1a1208';
+  }
+
   constructor(x, y, rng, role = 'worker') {
     this.id = `ant-${Math.floor(rng.range(0, 1e9))}`;
     this.x = x;
@@ -30,7 +34,7 @@ export class Ant {
     this.state = 'IDLE';
     this.carrying = null;
     this.carryingType = 'none';
-    this.baseColor = role === 'soldier' ? '#d93828' : '#1a1208';
+    this.baseColor = Ant.getDefaultBaseColor(role);
     this.originalBaseColor = this.baseColor;
     this.alive = true;
     this.role = role;

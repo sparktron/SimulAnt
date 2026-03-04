@@ -290,6 +290,24 @@ test('Ant base color and carrying type persist through serialization', () => {
   assert.equal(restored.colony.ants[0].carryingType, 'dirt');
 });
 
+test('Worker ant color migrates from stale soldier-red save data', () => {
+  const sim = new SimulationCore('seed-worker-color-migration');
+  const ant = sim.colony.ants.find((candidate) => candidate.role === 'worker');
+  assert.ok(ant);
+
+  ant.baseColor = '#d93828';
+  ant.originalBaseColor = '#d93828';
+
+  const serialized = sim.serialize({});
+  const restored = new SimulationCore('other-worker-color-migration');
+  restored.loadFromSerialized(serialized);
+
+  const restoredAnt = restored.colony.ants.find((candidate) => candidate.id === ant.id);
+  assert.equal(restoredAnt.role, 'worker');
+  assert.equal(restoredAnt.originalBaseColor, '#1a1208');
+  assert.equal(restoredAnt.baseColor, '#1a1208');
+});
+
 test('Depositing and consuming food updates nest food cell storage', () => {
   const sim = new SimulationCore('seed-nest-food');
   const idx = sim.world.index(sim.world.nestX, sim.world.nestY + 3);

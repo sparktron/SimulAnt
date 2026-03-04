@@ -488,8 +488,22 @@ export class Colony {
       ant.health = a.health ?? ant.health;
       ant.carrying = a.carrying;
       ant.carryingType = a.carryingType || (a.carrying?.type === 'food' ? 'food' : 'none');
-      ant.baseColor = a.baseColor || ant.baseColor;
-      ant.originalBaseColor = a.originalBaseColor || ant.baseColor;
+      const defaultBaseColor = Ant.getDefaultBaseColor(ant.role);
+      const soldierBaseColor = Ant.getDefaultBaseColor('soldier');
+      const serializedBaseColor = typeof a.baseColor === 'string' ? a.baseColor : null;
+      const serializedOriginalBaseColor = typeof a.originalBaseColor === 'string' ? a.originalBaseColor : null;
+
+      ant.originalBaseColor = serializedOriginalBaseColor || defaultBaseColor;
+      ant.baseColor = serializedBaseColor || ant.originalBaseColor;
+
+      // Migration guard: older saves could persist worker ants in soldier-red after food drop-off.
+      if (ant.role === 'worker' && ant.originalBaseColor === soldierBaseColor) {
+        ant.originalBaseColor = defaultBaseColor;
+      }
+      if (ant.role === 'worker' && ant.baseColor === soldierBaseColor) {
+        ant.baseColor = ant.originalBaseColor;
+      }
+
       ant.state = a.state || ant.state;
       return ant;
     });
