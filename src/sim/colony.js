@@ -562,11 +562,11 @@ export class Colony {
       ant.originalBaseColor = serializedOriginalBaseColor || defaultBaseColor;
       ant.baseColor = serializedBaseColor || ant.originalBaseColor;
 
-      // Migration guard: older saves could persist worker ants in soldier-red after food drop-off.
-      if (ant.role === 'worker' && ant.originalBaseColor === soldierBaseColor) {
+      // Migration guard: older saves could persist legacy soldier-red despite canonical colony color.
+      if (ant.originalBaseColor === soldierBaseColor) {
         ant.originalBaseColor = defaultBaseColor;
       }
-      if (ant.role === 'worker' && ant.baseColor === soldierBaseColor) {
+      if (ant.baseColor === soldierBaseColor) {
         ant.baseColor = ant.originalBaseColor;
       }
 
