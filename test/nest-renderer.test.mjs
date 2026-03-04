@@ -1,0 +1,107 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { NestRenderer } from '../src/render/NestRenderer.js';
+import { TERRAIN } from '../src/sim/world.js';
+
+function createFakeCanvasContext() {
+  return {
+    arcCalls: 0,
+    fillStyle: '#000000',
+    lineWidth: 1,
+    font: '10px sans-serif',
+    setTransform() {},
+    fillRect() {},
+    save() {},
+    restore() {},
+    translate() {},
+    scale() {},
+    drawImage() {},
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    stroke() {},
+    fill() {},
+    fillText() {},
+    strokeRect() {},
+    arc() { this.arcCalls += 1; },
+  };
+}
+
+function createOffscreenContext(width, height) {
+  return {
+    createImageData(w, h) {
+      return { data: new Uint8ClampedArray(w * h * 4) };
+    },
+    putImageData() {},
+  };
+}
+
+function createWorld() {
+  const width = 8;
+  const height = 8;
+  const terrain = new Uint8Array(width * height).fill(TERRAIN.GROUND);
+  return {
+    width,
+    height,
+    nestX: 4,
+    nestY: 3,
+    terrain,
+    inBounds(x, y) {
+      return x >= 0 && y >= 0 && x < width && y < height;
+    },
+    index(x, y) {
+      return y * width + x;
+    },
+  };
+}
+
+test('NestRenderer hides queen marker by default and shows it only when enabled', () => {
+  const world = createWorld();
+  const mainCtx = createFakeCanvasContext();
+  const offscreenCtx = createOffscreenContext(world.width, world.height);
+
+  const fakeDocument = {
+    createElement(tag) {
+      assert.equal(tag, 'canvas');
+      return {
+        width: world.width,
+        height: world.height,
+        getContext() {
+          return offscreenCtx;
+        },
+      };
+    },
+  };
+
+  const oldDocument = globalThis.document;
+  globalThis.document = fakeDocument;
+
+  try {
+    const canvas = {
+      clientWidth: 320,
+      clientHeight: 200,
+      getContext() {
+        return mainCtx;
+      },
+      getBoundingClientRect() {
+        return { width: this.clientWidth, height: this.clientHeight };
+      },
+    };
+
+    const renderer = new NestRenderer(canvas, world);
+    const colony = {
+      ants: [],
+      nestFoodPellets: [],
+      foodStored: 0,
+      queen: { alive: true, hunger: 100, health: 100, x: world.nestX, y: world.nestY + 2 },
+    };
+
+    renderer.draw(colony, { showDebugStats: false });
+    assert.equal(mainCtx.arcCalls, 0, 'queen marker should not render by default');
+
+    renderer.draw(colony, { showDebugStats: false, showQueenMarker: true });
+    assert.equal(mainCtx.arcCalls, 2, 'queen marker should render as two circles when enabled');
+  } finally {
+    globalThis.document = oldDocument;
+  }
+});

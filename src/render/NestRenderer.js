@@ -71,7 +71,7 @@ export class NestRenderer {
 
     this.#drawTerrain(ctx);
     this.#drawNestFood(ctx, colony);
-    this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats);
+    this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats, options.showQueenMarker);
 
     ctx.restore();
   }
@@ -199,7 +199,7 @@ export class NestRenderer {
   /* ------------------------------------------------------------------
    * Entities: underground ants (y >= nestY - 1) + queen marker.
    * ----------------------------------------------------------------*/
-  #drawAnts(ctx, colony, selectedAntId, showDebugStats) {
+  #drawAnts(ctx, colony, selectedAntId, showDebugStats, showQueenMarker = false) {
     const { world } = this;
 
     for (const ant of colony.ants) {
@@ -227,7 +227,7 @@ export class NestRenderer {
       }
     }
 
-    if (colony.queen.alive) {
+    if (colony.queen.alive && showQueenMarker) {
       const queenX = Number.isFinite(colony.queen.x) ? colony.queen.x : world.nestX;
       const queenY = Number.isFinite(colony.queen.y) ? colony.queen.y : world.nestY + 6;
 
