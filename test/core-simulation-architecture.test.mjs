@@ -368,6 +368,8 @@ test('critical-health ant returns to nest and recovers from stored food', () => 
 
   assert.ok(ant.health > healthBefore);
   assert.ok(ant.y >= sim.world.nestY - 1);
+});
+
 test('returning ant can still reach nest entrance from mid-range distance', () => {
   const sim = new SimulationCore('return-home-reliability-seed');
   const config = createConfig();
