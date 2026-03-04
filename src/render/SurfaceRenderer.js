@@ -154,8 +154,16 @@ export class SurfaceRenderer {
 
   #drawAnts(ctx, colony, selectedAntId, showDebugStats) {
     const { world } = this;
+    const halfViewW = this.canvas.clientWidth / this.zoom * 0.5;
+    const halfViewH = this.canvas.clientHeight / this.zoom * 0.5;
+    const minX = this.cameraX - halfViewW - 1;
+    const maxX = this.cameraX + halfViewW + 1;
+    const minY = this.cameraY - halfViewH - 1;
+    const maxY = this.cameraY + halfViewH + 1;
+
     ctx.font = '2.8px monospace';
     for (const ant of colony.ants) {
+      if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
 
