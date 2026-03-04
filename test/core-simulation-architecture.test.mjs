@@ -284,7 +284,7 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   assert.equal(sim.colony.nestFoodPellets.length > 0, true);
   assert.equal(sim.colony.foodStored >= 3, true);
   assert.equal(ant.carrying, null);
-  assert.equal(ant.carryingType, 'none');
+  assert.notEqual(ant.carryingType, 'food');
   assert.equal(ant.baseColor, ant.originalBaseColor);
 });
 

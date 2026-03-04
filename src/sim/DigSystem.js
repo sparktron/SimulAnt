@@ -8,6 +8,7 @@ const CARDINAL_DIRS = [
 ];
 
 const TURN_OPTIONS = [0, -1, 1];
+const DIGGER_ASSIGNMENT_RADIUS2 = 36;
 
 export class DigSystem {
   constructor(world, colony, rng) {
@@ -45,11 +46,17 @@ export class DigSystem {
       const work = this.autoDig ? 1.4 : 0.7 + this.rng.range(0, 0.5);
       front.progress += work;
 
+      const beforeAdvanceTick = front.lastAdvanceTick;
       let safetySteps = 0;
       while (front.progress >= 1 && safetySteps < 8) {
         front.progress -= 1;
         this.#advanceFront(front, config, false);
         safetySteps += 1;
+      }
+
+      const didExcavate = front.lastAdvanceTick > beforeAdvanceTick;
+      if (didExcavate && !digger.carrying?.type) {
+        digger.carrying = { type: 'dirt', amount: 1 };
       }
 
       if (!Number.isFinite(front.progress) || front.progress < 0 || safetySteps >= 8) {
@@ -73,6 +80,8 @@ export class DigSystem {
       if (!ant.alive || ant.role !== 'worker') continue;
       if (ant.carrying?.type === 'food') {
         ant.carryingType = 'food';
+      } else if (ant.carrying?.type === 'dirt') {
+        ant.carryingType = 'dirt';
       } else {
         ant.carryingType = 'none';
       }
@@ -89,12 +98,12 @@ export class DigSystem {
   #findNearestAvailableWorker(front, unavailableIds) {
     const ants = this.colony.ants;
     let nearest = null;
-    let nearestDist2 = 121;
+    let nearestDist2 = DIGGER_ASSIGNMENT_RADIUS2;
 
     for (let i = 0; i < ants.length; i += 1) {
       const ant = ants[i];
       if (!ant.alive || ant.role !== 'worker') continue;
-      if (ant.carrying?.type === 'food') continue;
+      if (ant.carrying?.type) continue;
       if (ant.y < this.world.nestY + 1) continue;
       if (unavailableIds.has(ant.id)) continue;
 

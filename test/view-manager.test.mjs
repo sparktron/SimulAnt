@@ -123,7 +123,7 @@ test('Constructor rejects unknown initial view', () => {
 });
 
 
-test('Excavation adds soil to nearest nest entrance', () => {
+test('Excavation tracks nearest entrance while dirt deposition controls surface mound', () => {
   const sim = new SimulationCore('seed-soil');
   sim.nestEntrances = [
     { id: 'left', x: 40, y: sim.world.nestY, excavatedSoilTotal: 0, soilOnSurface: 0 },
@@ -134,18 +134,23 @@ test('Excavation adds soil to nearest nest entrance', () => {
 
   assert.equal(sim.nestEntrances[0].soilOnSurface, 0);
   assert.equal(sim.nestEntrances[1].excavatedSoilTotal, 10);
+  assert.equal(sim.nestEntrances[1].soilOnSurface, 0);
+
+  sim.onDepositDirt(10, 195, sim.world.nestY);
   assert.equal(sim.nestEntrances[1].soilOnSurface, 7);
 });
 
-test('Nest entrance soil persists through serialization', () => {
+test('Nest entrance soil and excavation totals persist through serialization', () => {
   const sim = new SimulationCore('seed-save-soil');
   sim.onExcavate(5, sim.world.nestX, sim.world.nestY + 10);
+  sim.onDepositDirt(3, sim.world.nestX, sim.world.nestY);
 
   const serialized = sim.serialize({});
   const restored = new SimulationCore('other');
   restored.loadFromSerialized(serialized);
 
   assert.equal(restored.nestEntrances.length, 1);
+  assert.equal(restored.nestEntrances[0].excavatedSoilTotal, sim.nestEntrances[0].excavatedSoilTotal);
   assert.equal(restored.nestEntrances[0].soilOnSurface, sim.nestEntrances[0].soilOnSurface);
   assert.equal(restored.nestEntrances[0].x, sim.nestEntrances[0].x);
 });
@@ -233,6 +238,41 @@ test('Auto-dig does not excavate when no worker is near any dig front', () => {
     sim.colony.ants.some((ant) => ant.carryingType === 'dirt'),
     false,
   );
+});
+
+
+
+test('Auto-dig workers carry dirt and increase surface soil via entrance deposit', () => {
+  const sim = new SimulationCore('seed-auto-dig-haul');
+  const cfg = {
+    antCap: 300,
+    evaporationRate: 0.01,
+    diffusionRate: 0.12,
+    pheromoneUpdateTicks: 2,
+    toFoodDeposit: 0.5,
+    toHomeDeposit: 0.4,
+    dangerDeposit: 0.6,
+    hazardDeathChance: 0.02,
+    foodPickupRate: 0.7,
+    digChance: 0.04,
+    digEnergyCost: 8,
+    digHomeBoost: 0.9,
+    queenEggTicks: 20,
+    queenEggFoodCost: 0.8,
+    soldierSpawnChance: 0.2,
+  };
+
+  sim.toggleAutoDig();
+  const beforeSoil = sim.nestEntrances[0].soilOnSurface;
+
+  let sawDirtCarrier = false;
+  for (let i = 0; i < 400; i += 1) {
+    sim.update(cfg);
+    if (sim.colony.ants.some((ant) => ant.carryingType === 'dirt')) sawDirtCarrier = true;
+  }
+
+  assert.equal(sawDirtCarrier, true);
+  assert.ok(sim.nestEntrances[0].soilOnSurface > beforeSoil);
 });
 
 test('Forced chamber creates chamber terrain tiles', () => {

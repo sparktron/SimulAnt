@@ -31,6 +31,7 @@ export class SimulationCore {
     this.colony = new Colony(this.world, this.rng, 320);
     this.colony.syncQueenPositionToNest(this.world.nestX, this.world.nestY);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
+    this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.reset();
@@ -111,6 +112,11 @@ export class SimulationCore {
     const entrance = this.#nearestEntrance(worldX);
     if (!entrance) return;
     entrance.excavatedSoilTotal += volume;
+  }
+
+  onDepositDirt(volume, worldX, _depthY) {
+    const entrance = this.#nearestEntrance(worldX);
+    if (!entrance) return;
     entrance.soilOnSurface += volume * SURFACE_DEPOSIT_RATIO;
   }
 
@@ -222,6 +228,7 @@ export class SimulationCore {
     this.world = World.fromSerialized(data.world);
     this.colony = Colony.fromSerialized(this.world, this.rng, data.colony);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
+    this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.digSystem.loadFromSerialized(data.digSystem);
     this.macroEngine = new MacroEngine(this.world);

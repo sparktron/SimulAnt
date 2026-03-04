@@ -92,6 +92,26 @@ export class Ant {
     let didMove = false;
     if (this.role !== 'worker') return didMove;
 
+    if (this.carrying?.type === 'dirt') {
+      this.state = 'HAUL_DIRT';
+      if (context.entrance) {
+        const distanceToEntrance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
+        const entranceRadius = Math.max(1, context.entrance.radius ?? 1);
+        if (distanceToEntrance <= entranceRadius + 0.5) {
+          colony.recordDirtDeposit(this.carrying.amount ?? 1, context.entrance.x, context.entrance.y);
+          this.carrying = null;
+          this.carryingType = 'none';
+          return didMove;
+        }
+
+        didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+        return didMove;
+      }
+
+      return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+    }
+
     if (this.carrying?.type === 'food') {
       this.state = 'RETURN_HOME';
       if (context.inNest) {
@@ -233,7 +253,7 @@ export class Ant {
   }
 
   #applyFallbackMovement(world, rng, config, entrance, didMove) {
-    if (!didMove && this.carrying?.type === 'food') {
+    if (!didMove && this.carrying?.type) {
       return this.#moveByPheromone(world, rng, config, 'home', entrance);
     }
     if (!didMove) {
@@ -244,12 +264,12 @@ export class Ant {
 
   #applyVitals(colony, config, dt, didMove) {
     const hungerDrain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
-    const carryingHungerCost = this.carrying?.type === 'food' ? (config.carryingHungerDrainRate ?? 0) : 0;
+    const carryingHungerCost = this.carrying?.type ? (config.carryingHungerDrainRate ?? 0) : 0;
     const fightHungerCost = this.state === 'FIGHT' ? (config.fightingHungerDrainRate ?? 0) : 0;
     this.hunger = Math.max(0, this.hunger - (hungerDrain + carryingHungerCost + fightHungerCost) * dt);
 
     const healthWorkDrain = (didMove ? (config.healthWorkMoveDrainRate ?? 0) : (config.healthWorkIdleDrainRate ?? 0))
-      + (this.carrying?.type === 'food' ? (config.healthWorkCarryDrainRate ?? 0) : 0)
+      + (this.carrying?.type ? (config.healthWorkCarryDrainRate ?? 0) : 0)
       + (this.state === 'FIGHT' ? (config.healthWorkFightDrainRate ?? 0) : 0);
     this.health = Math.max(0, this.health - healthWorkDrain * dt);
 

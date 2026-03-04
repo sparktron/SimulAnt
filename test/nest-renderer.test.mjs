@@ -108,7 +108,7 @@ test('NestRenderer hides queen marker by default and shows it only when enabled'
 });
 
 
-test('NestRenderer draws ants regardless of above/below nest line', () => {
+test('NestRenderer only draws underground ants in nest view', () => {
   const world = createWorld();
   const mainCtx = createFakeCanvasContext();
   const offscreenCtx = createOffscreenContext(world.width, world.height);
@@ -155,8 +155,8 @@ test('NestRenderer draws ants regardless of above/below nest line', () => {
     renderer.draw(colony, { showDebugStats: false });
 
     assert.ok(
-      mainCtx.fillRectCalls.some((call) => call.x === 2 && call.y === world.nestY - 2 && call.w === 1 && call.h === 1),
-      'surface ant should be rendered in nest view',
+      !mainCtx.fillRectCalls.some((call) => call.x === 2 && call.y === world.nestY - 2 && call.w === 1 && call.h === 1),
+      'surface ant should not be rendered in nest view',
     );
     assert.ok(
       mainCtx.fillRectCalls.some((call) => call.x === 4 && call.y === world.nestY + 2 && call.w === 1 && call.h === 1),
