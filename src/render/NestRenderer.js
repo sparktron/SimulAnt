@@ -209,12 +209,9 @@ export class NestRenderer {
     const maxY = this.cameraY + halfViewH + 1;
 
     for (const ant of colony.ants) {
-<<<<<<< codex/make-ants-always-visible
       if (ant.y <= world.nestY) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
-=======
-      const drawY = ant.y < world.nestY ? world.nestY : ant.y;
->>>>>>> master
+      const drawY = ant.y;
       ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, drawY, 1, 1);
 
