@@ -32,6 +32,7 @@ const state = {
   debug: {
     showEntranceInfo: false,
     showStats: false,
+    showQueenMarker: true,
     digStatus: 'AUTO-DIG: OFF',
   },
   config: {
@@ -61,6 +62,14 @@ const state = {
     starvationRecoveryHealth: 5,
     healthDrainRate: 10,
     healthRegenRate: 1,
+    healthWorkIdleDrainRate: 0.2,
+    healthWorkMoveDrainRate: 0.5,
+    healthWorkCarryDrainRate: 0.3,
+    healthWorkFightDrainRate: 1.2,
+    healthEatRecoveryRate: 0.45,
+    workerEmergencyEatNutrition: 35,
+    carryingHungerDrainRate: 1.5,
+    fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.2,
     foodVisionRadius: 7,
     followAlpha: 1.5,
@@ -159,6 +168,9 @@ createControls(state, {
   },
   toggleScentOverlay: () => {
     state.overlays.showScent = !state.overlays.showScent;
+  },
+  toggleQueenMarker: () => {
+    state.debug.showQueenMarker = !state.debug.showQueenMarker;
   },
   spawnFoodAtCursor: () => {
     if (viewManager.getCurrent() !== VIEW.SURFACE || !state.cursor.surface) return;
@@ -290,6 +302,7 @@ function loop(now) {
         nestRenderer.draw(simCore.colony, {
           selectedAntId: state.selectedAntId,
           showDebugStats: state.debug.showStats,
+          showQueenMarker: state.debug.showQueenMarker,
         });
       }
       captureLastGoodRenderState(activeView);
@@ -298,22 +311,28 @@ function loop(now) {
     }
 
     const selectedAnt = simCore.findAntById(state.selectedAntId);
-    updateHud({
-      viewMode: activeView,
-      fps,
-      tick: simCore.tick,
-      ants: simCore.colony.ants.length,
-      workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
-      soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
-      foodStored: simCore.colony.foodStored,
-      queenAlive: simCore.colony.queen.alive,
-      selectedAntHealth: selectedAnt ? selectedAnt.health : 0,
-      simMs,
-      digStatus: state.debug.digStatus,
-      pherStats: simCore.world.getPheromoneStats(),
-      followingFood: simCore.colony.ants.filter((ant) => ant.state === 'FORAGE_SEARCH' || ant.state === 'GO_TO_FOOD').length,
-      followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
-    });
+    const antHealthStats = getAntHealthStats(simCore.colony.ants);
+    try {
+      updateHud({
+        viewMode: activeView,
+        fps,
+        tick: simCore.tick,
+        ants: simCore.colony.ants.length,
+        workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
+        soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
+        foodStored: simCore.colony.foodStored,
+        queenAlive: simCore.colony.queen.alive,
+        selectedAntHealth: selectedAnt ? selectedAnt.health : null,
+        antHealthStats,
+        simMs,
+        digStatus: state.debug.digStatus,
+        pherStats: simCore.world.getPheromoneStats(),
+        followingFood: simCore.colony.ants.filter((ant) => ant.state === 'FORAGE_SEARCH' || ant.state === 'GO_TO_FOOD').length,
+        followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
+      });
+    } catch (hudError) {
+      console.error('[SimAnt] HUD update failed (continuing simulation loop):', hudError);
+    }
 
     maybeLogSteeringDebug(selectedAnt);
 
@@ -323,6 +342,26 @@ function loop(now) {
   }
 }
 
+function getAntHealthStats(ants) {
+  if (!Array.isArray(ants) || ants.length === 0) {
+    return { min: 0, avg: 0, max: 0 };
+  }
+
+  let min = 100;
+  let max = 0;
+  let total = 0;
+  for (const ant of ants) {
+    const health = Math.max(0, Math.min(100, ant.health ?? 0));
+    min = Math.min(min, health);
+    max = Math.max(max, health);
+    total += health;
+  }
+
+  return {
+    min,
+    avg: total / ants.length,
+    max,
+  };
 function maybeLogSteeringDebug(selectedAnt) {
   if (!state.config.debugSteeringContributions || !state.debug.showStats) return;
   const interval = Math.max(1, Math.floor(state.config.debugSteeringLogIntervalTicks || 1));
