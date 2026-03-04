@@ -310,13 +310,24 @@ export class Colony {
     const storageCenterX = entrance ? entrance.x : this.world.nestX;
     const storageCenterY = Math.max(this.world.nestY + 2, entrance ? entrance.y + 3 : this.world.nestY + 3);
 
+    const minDistanceFromEntrance = entrance ? Math.max(4, (entrance.radius ?? 2) + 3) : 0;
+    const isFarEnoughFromEntrance = (x, y) => {
+      if (!entrance) return true;
+      return Math.hypot(x - entrance.x, y - entrance.y) >= minDistanceFromEntrance;
+    };
+
     const preferredTileX = Number.isFinite(preferredX)
       ? Math.max(0, Math.min(this.world.width - 1, Math.round(preferredX)))
       : null;
     const preferredTileY = Number.isFinite(preferredY)
       ? Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(preferredY)))
       : null;
-    if (preferredTileX != null && preferredTileY != null && this.#isNestFoodTileClear(preferredTileX, preferredTileY)) {
+    if (
+      preferredTileX != null
+      && preferredTileY != null
+      && this.#isNestFoodTileClear(preferredTileX, preferredTileY)
+      && isFarEnoughFromEntrance(preferredTileX, preferredTileY)
+    ) {
       return { x: preferredTileX, y: preferredTileY };
     }
 
@@ -324,13 +335,17 @@ export class Colony {
     const centerY = Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY)));
     const maxRadius = 8;
     const randomAttempts = 20;
+    const isValidCandidate = (x, y) => {
+      if (!this.#isNestFoodTileClear(x, y)) return false;
+      return isFarEnoughFromEntrance(x, y);
+    };
 
     for (let i = 0; i < randomAttempts; i += 1) {
       const dx = this.rng.int(maxRadius * 2 + 1) - maxRadius;
       const dy = this.rng.int(maxRadius * 2 + 1) - maxRadius;
       const x = centerX + dx;
       const y = centerY + dy;
-      if (this.#isNestFoodTileClear(x, y)) return { x, y };
+      if (isValidCandidate(x, y)) return { x, y };
     }
 
     for (let radius = 0; radius <= maxRadius; radius += 1) {
@@ -339,7 +354,7 @@ export class Colony {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
           const x = centerX + dx;
           const y = centerY + dy;
-          if (this.#isNestFoodTileClear(x, y)) {
+          if (isValidCandidate(x, y)) {
             return { x, y };
           }
         }

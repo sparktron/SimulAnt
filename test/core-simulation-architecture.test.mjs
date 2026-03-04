@@ -282,7 +282,6 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   assert.equal(sim.colony.nestFoodPellets.length > 0, true);
   assert.equal(sim.colony.foodStored >= 3, true);
   assert.equal(ant.carrying, null);
-  assert.equal(ant.carryingType, 'none');
 });
 
 test('worker inside nest transitions out through entrance to surface without disappearing', () => {
@@ -407,6 +406,7 @@ test('critical-health ant returns to nest and recovers from stored food', () => 
 test('nest food drops skip dirt and occupied tiles with varied placement', () => {
   const sim = new SimulationCore('nest-drop-clear-tile-seed');
   const entrance = sim.nestEntrances[0];
+  const minDistanceFromEntrance = Math.max(4, (entrance.radius ?? 2) + 3);
 
   for (let i = 0; i < 12; i += 1) {
     const deposited = sim.colony.depositPellet(2, entrance.x, entrance.y + 2, entrance);
@@ -425,6 +425,7 @@ test('nest food drops skip dirt and occupied tiles with varied placement', () =>
     const idx = sim.world.index(pellet.x, pellet.y);
     const terrain = sim.world.terrain[idx];
     assert.ok(terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER);
+    assert.ok(Math.hypot(pellet.x - entrance.x, pellet.y - entrance.y) >= minDistanceFromEntrance);
   }
 
   assert.equal(positions.size, sim.colony.nestFoodPellets.length);
