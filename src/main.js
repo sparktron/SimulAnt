@@ -31,7 +31,7 @@ const state = {
   debug: {
     showEntranceInfo: false,
     showStats: false,
-    showQueenMarker: false,
+    showQueenMarker: true,
     digStatus: 'AUTO-DIG: OFF',
   },
   config: {
