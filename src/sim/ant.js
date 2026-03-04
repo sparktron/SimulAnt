@@ -126,6 +126,20 @@ export class Ant {
 
     if (!this.#needsForage(colony) && !this.#isLowHealth()) return didMove;
 
+    if (context.inNest && context.entrance) {
+      const distanceToEntrance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
+      if (distanceToEntrance > (context.entrance.radius ?? 1)) {
+        this.state = 'EXIT_NEST';
+        return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      }
+
+      this.state = 'EXIT_NEST';
+      const exitTargetY = context.entrance.y - 1;
+      if (world.isPassable(context.entrance.x, exitTargetY)) {
+        return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
+      }
+    }
+
     const nearEntrance = context.entrance
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.homeDepositMinDistance
       : false;
@@ -181,7 +195,9 @@ export class Ant {
     if (nearEntranceScatter && context.entrance) {
       const ax = this.x + (this.x - context.entrance.x);
       const ay = this.y + (this.y - context.entrance.y);
-      didMove = this.#moveToward(world, ax, ay, rng);
+      didMove = context.inNest
+        ? this.#moveToward(world, context.entrance.x, context.entrance.y, rng)
+        : this.#moveToward(world, ax, ay, rng);
     }
     if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance);
     return didMove;

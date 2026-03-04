@@ -282,6 +282,34 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   assert.equal(ant.carryingType, 'none');
 });
 
+test('worker inside nest transitions out through entrance to surface without disappearing', () => {
+  const sim = new SimulationCore('nest-exit-transition-seed');
+  const config = createConfig();
+  const entrance = sim.nestEntrances[0];
+  sim.colony.ants = sim.colony.ants.slice(0, 1);
+  const ant = sim.colony.ants[0];
+
+  ant.x = entrance.x;
+  ant.y = entrance.y + 6;
+  ant.hunger = ant.hungerMax;
+  ant.health = ant.healthMax;
+  ant.carrying = null;
+  ant.carryingType = 'none';
+
+  let reachedSurface = false;
+  for (let i = 0; i < 16; i += 1) {
+    sim.update(config);
+    if (ant.y < sim.world.nestY) {
+      reachedSurface = true;
+      break;
+    }
+  }
+
+  assert.ok(reachedSurface);
+  assert.ok(sim.colony.ants.some((a) => a.id === ant.id));
+  assert.ok(ant.alive);
+});
+
 test('nestFoodPellets survive serialization/load', () => {
   const sim = new SimulationCore('nest-food-persist-seed');
   sim.colony.depositPellet(2.5, sim.world.nestX, sim.world.nestY + 3, sim.nestEntrances[0]);
@@ -362,10 +390,13 @@ test('critical-health ant returns to nest and recovers from stored food', () => 
   sim.colony.foodStored = 200;
 
   const healthBefore = ant.health;
+  let enteredNest = false;
   for (let i = 0; i < 6; i += 1) {
     sim.update(config);
+    if (ant.y >= sim.world.nestY) enteredNest = true;
   }
 
+  assert.ok(enteredNest);
   assert.ok(ant.health > healthBefore);
   assert.ok(ant.y >= sim.world.nestY - 1);
 });
