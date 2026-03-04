@@ -278,6 +278,7 @@ test('Ant base color and carrying type persist through serialization', () => {
   const sim = new SimulationCore('seed-ant-color');
   const ant = sim.colony.ants[0];
   ant.baseColor = '#ffcc00';
+  ant.originalBaseColor = '#ffcc00';
   ant.carryingType = 'dirt';
 
   const serialized = sim.serialize({});
@@ -285,6 +286,7 @@ test('Ant base color and carrying type persist through serialization', () => {
   restored.loadFromSerialized(serialized);
 
   assert.equal(restored.colony.ants[0].baseColor, '#ffcc00');
+  assert.equal(restored.colony.ants[0].originalBaseColor, '#ffcc00');
   assert.equal(restored.colony.ants[0].carryingType, 'dirt');
 });
 

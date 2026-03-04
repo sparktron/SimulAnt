@@ -320,6 +320,7 @@ export class Colony {
     this.depositPellet(nutrition, dropPoint.x, dropPoint.y, entrance);
     ant.carrying = null;
     ant.carryingType = 'none';
+    ant.baseColor = ant.originalBaseColor || ant.baseColor;
     ant.state = 'FORAGE_SEARCH';
     ant.hunger = Math.min(ant.hungerMax, ant.hunger + nutrition * 0.15);
 
@@ -454,6 +455,7 @@ export class Colony {
         carrying: ant.carrying,
         carryingType: ant.carryingType,
         baseColor: ant.baseColor,
+        originalBaseColor: ant.originalBaseColor,
         role: ant.role,
         state: ant.state,
       })),
@@ -487,6 +489,7 @@ export class Colony {
       ant.carrying = a.carrying;
       ant.carryingType = a.carryingType || (a.carrying?.type === 'food' ? 'food' : 'none');
       ant.baseColor = a.baseColor || ant.baseColor;
+      ant.originalBaseColor = a.originalBaseColor || ant.baseColor;
       ant.state = a.state || ant.state;
       return ant;
     });
