@@ -226,7 +226,7 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   assert.equal(ant.carryingType, 'none');
 });
 
-test('worker inside nest steers toward entrance while foraging so it can transition back to surface', () => {
+test('worker inside nest transitions out through entrance to surface without disappearing', () => {
   const sim = new SimulationCore('nest-exit-transition-seed');
   const config = createConfig();
   const entrance = sim.nestEntrances[0];
@@ -240,12 +240,18 @@ test('worker inside nest steers toward entrance while foraging so it can transit
   ant.carrying = null;
   ant.carryingType = 'none';
 
-  const distanceBefore = Math.hypot(ant.x - entrance.x, ant.y - entrance.y);
-  sim.update(config);
-  const distanceAfter = Math.hypot(ant.x - entrance.x, ant.y - entrance.y);
+  let reachedSurface = false;
+  for (let i = 0; i < 16; i += 1) {
+    sim.update(config);
+    if (ant.y < sim.world.nestY) {
+      reachedSurface = true;
+      break;
+    }
+  }
 
-  assert.ok(distanceAfter < distanceBefore);
-  assert.ok(ant.y < entrance.y + 6);
+  assert.ok(reachedSurface);
+  assert.ok(sim.colony.ants.some((a) => a.id === ant.id));
+  assert.ok(ant.alive);
 });
 
 test('nestFoodPellets survive serialization/load', () => {
