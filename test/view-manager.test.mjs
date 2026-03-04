@@ -290,14 +290,14 @@ test('Ant base color and carrying type persist through serialization', () => {
 
 test('Depositing and consuming food updates nest food cell storage', () => {
   const sim = new SimulationCore('seed-nest-food');
-  const idx = sim.world.index(sim.world.nestX, sim.world.nestY + 3);
-  const before = sim.world.nestFood[idx];
+  const totalNestFood = () => sim.world.nestFood.reduce((sum, value) => sum + value, 0);
+  const before = totalNestFood();
 
   sim.colony.depositPellet(5);
-  assert.equal(sim.world.nestFood[idx], before + 5);
+  assert.equal(totalNestFood(), before + 5);
 
   sim.colony.consumeFromStore(2);
-  assert.equal(sim.world.nestFood[idx], before + 3);
+  assert.equal(totalNestFood(), before + 3);
 });
 
 

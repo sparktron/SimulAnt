@@ -404,25 +404,33 @@ test('critical-health ant returns to nest and recovers from stored food', () => 
   assert.ok(ant.y >= sim.world.nestY - 3);
 });
 
-test('nest food drops skip dirt and occupied tiles', () => {
+test('nest food drops skip dirt and occupied tiles with varied placement', () => {
   const sim = new SimulationCore('nest-drop-clear-tile-seed');
   const entrance = sim.nestEntrances[0];
 
-  const first = sim.colony.depositPellet(2, entrance.x, entrance.y + 2, entrance);
-  const second = sim.colony.depositPellet(2, entrance.x, entrance.y + 2, entrance);
+  for (let i = 0; i < 12; i += 1) {
+    const deposited = sim.colony.depositPellet(2, entrance.x, entrance.y + 2, entrance);
+    assert.equal(deposited, 2);
+  }
 
-  assert.equal(first, 2);
-  assert.equal(second, 2);
-  assert.equal(sim.colony.nestFoodPellets.length, 2);
-
-  const [a, b] = sim.colony.nestFoodPellets;
-  assert.notEqual(`${a.x},${a.y}`, `${b.x},${b.y}`);
+  const positions = new Set();
+  const uniqueX = new Set();
+  const uniqueY = new Set();
 
   for (const pellet of sim.colony.nestFoodPellets) {
+    positions.add(`${pellet.x},${pellet.y}`);
+    uniqueX.add(pellet.x);
+    uniqueY.add(pellet.y);
+
     const idx = sim.world.index(pellet.x, pellet.y);
     const terrain = sim.world.terrain[idx];
     assert.ok(terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER);
   }
+
+  assert.equal(positions.size, sim.colony.nestFoodPellets.length);
+  assert.ok(positions.size >= 4);
+  assert.ok(uniqueX.size >= 2);
+  assert.ok(uniqueY.size >= 2);
 });
 
 test('returning ant can still reach nest entrance from mid-range distance', () => {

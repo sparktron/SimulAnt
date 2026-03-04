@@ -323,6 +323,15 @@ export class Colony {
     const centerX = Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX)));
     const centerY = Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY)));
     const maxRadius = 8;
+    const randomAttempts = 20;
+
+    for (let i = 0; i < randomAttempts; i += 1) {
+      const dx = this.rng.int(maxRadius * 2 + 1) - maxRadius;
+      const dy = this.rng.int(maxRadius * 2 + 1) - maxRadius;
+      const x = centerX + dx;
+      const y = centerY + dy;
+      if (this.#isNestFoodTileClear(x, y)) return { x, y };
+    }
 
     for (let radius = 0; radius <= maxRadius; radius += 1) {
       for (let dy = -radius; dy <= radius; dy += 1) {
