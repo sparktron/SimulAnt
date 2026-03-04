@@ -440,3 +440,21 @@ test('food pickup overrides stale dirt carryingType so renderer markers stay cor
   assert.equal(ant.carrying?.type, 'food');
   assert.equal(ant.carryingType, 'food');
 });
+
+test('zero soldier spawn chance hatches only worker-colored ants', () => {
+  const sim = new SimulationCore('worker-only-hatch-seed');
+  const config = createConfig();
+
+  config.soldierSpawnChance = 0;
+  config.queenEggTicks = 1;
+  config.queenEggFoodCost = 0;
+
+  sim.colony.foodStored = 200;
+  const beforeCount = sim.colony.ants.length;
+  for (let i = 0; i < 5; i += 1) sim.update(config);
+
+  const hatched = sim.colony.ants.slice(beforeCount);
+  assert.ok(hatched.length > 0);
+  assert.equal(hatched.every((ant) => ant.role === 'worker'), true);
+  assert.equal(hatched.every((ant) => ant.baseColor === '#1a1208'), true);
+});

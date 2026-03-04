@@ -70,7 +70,7 @@ const state = {
     workerEmergencyEatNutrition: 35,
     carryingHungerDrainRate: 1.5,
     fightingHungerDrainRate: 3,
-    soldierSpawnChance: 0.2,
+    soldierSpawnChance: 0,
     foodVisionRadius: 7,
     followAlpha: 1.5,
     followBeta: 3.4,
@@ -97,12 +97,12 @@ const state = {
     pheromoneMaxClamp: 10,
   },
   casteTargets: {
-    workers: 70,
-    soldiers: 30,
+    workers: 100,
+    soldiers: 0,
   },
   colonyStatus: {
     workAllocation: { forage: 55, dig: 20, nurse: 25 },
-    casteAllocation: { workers: 70, soldiers: 25, breeders: 5 },
+    casteAllocation: { workers: 100, soldiers: 0, breeders: 0 },
   },
 };
 
