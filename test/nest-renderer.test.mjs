@@ -107,8 +107,12 @@ test('NestRenderer hides queen marker by default and shows it only when enabled'
   }
 });
 
+<<<<<<< codex/make-ants-always-visible
 
 test('NestRenderer only draws underground ants in nest view', () => {
+=======
+test('NestRenderer clamps surface ants to ground transition line instead of sky', () => {
+>>>>>>> master
   const world = createWorld();
   const mainCtx = createFakeCanvasContext();
   const offscreenCtx = createOffscreenContext(world.width, world.height);
@@ -142,6 +146,7 @@ test('NestRenderer only draws underground ants in nest view', () => {
     };
 
     const renderer = new NestRenderer(canvas, world);
+<<<<<<< codex/make-ants-always-visible
     const colony = {
       ants: [
         { id: 'surface-ant', x: 2, y: world.nestY - 2, baseColor: '#111111', carryingType: 'none', hunger: 80, health: 90 },
@@ -169,6 +174,21 @@ test('NestRenderer only draws underground ants in nest view', () => {
       mainCtx.fillRectCalls.some((call) => call.x === 4 && call.y === world.nestY + 2 && call.w === 1 && call.h === 1),
       'nest ant should be rendered in nest view',
     );
+=======
+    const skyAnt = { id: 'a1', x: 2, y: 0, baseColor: '#1a1208', carryingType: 'none', hunger: 100, health: 100 };
+    const colony = {
+      ants: [skyAnt],
+      nestFoodPellets: [],
+      foodStored: 0,
+      queen: { alive: true, hunger: 100, health: 100, x: world.nestX, y: world.nestY + 2 },
+    };
+
+    renderer.draw(colony, { showDebugStats: false, showQueenMarker: false });
+
+    const antDraw = mainCtx.fillRectCalls.find((call) => call.fillStyle === '#1a1208' && call.w === 1 && call.h === 1);
+    assert.ok(antDraw, 'ant body should be rendered');
+    assert.equal(antDraw.y, world.nestY, 'surface ant should render on transition line in nest view');
+>>>>>>> master
   } finally {
     globalThis.document = oldDocument;
   }

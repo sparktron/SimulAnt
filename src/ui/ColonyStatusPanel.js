@@ -1,17 +1,33 @@
 import { TriangleControl } from './TriangleControl.js';
 
 function byId(id) {
-  const el = document.getElementById(id);
-  if (!el) throw new Error(`Missing UI element: ${id}`);
-  return el;
+  return document.getElementById(id);
 }
 
 export class ColonyStatusPanel {
   constructor({ initialState, onWorkChange, onCasteChange }) {
+    this.enabled = false;
+
     this.openButton = byId('colonyStatusBtn');
     this.dialog = byId('statusPanel');
     const workContainer = byId('workTriangleContainer');
     const casteContainer = byId('casteTriangleContainer');
+
+    const missing = [
+      ['colonyStatusBtn', this.openButton],
+      ['statusPanel', this.dialog],
+      ['workTriangleContainer', workContainer],
+      ['casteTriangleContainer', casteContainer],
+    ]
+      .filter(([, element]) => !element)
+      .map(([id]) => id);
+
+    if (missing.length > 0) {
+      console.warn('[SimAnt] ColonyStatusPanel disabled. Missing UI elements:', missing.join(', '));
+      return;
+    }
+
+    this.enabled = true;
 
     this.workTriangle = new TriangleControl({
       container: workContainer,
@@ -50,6 +66,7 @@ export class ColonyStatusPanel {
   }
 
   sync(state) {
+    if (!this.enabled) return;
     this.workTriangle.setWeights({
       wA: state.work.forage / 100,
       wB: state.work.dig / 100,
