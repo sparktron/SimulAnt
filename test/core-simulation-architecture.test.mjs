@@ -272,6 +272,8 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   ant.x = entrance.x;
   ant.y = entrance.y;
   ant.hunger = ant.hungerMax;
+  ant.originalBaseColor = '#1a1208';
+  ant.baseColor = '#d93828';
   ant.carrying = { type: 'food', pelletId: 'test-pellet', pelletNutrition: 3 };
   ant.carryingType = 'food';
 
@@ -282,6 +284,8 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   assert.equal(sim.colony.nestFoodPellets.length > 0, true);
   assert.equal(sim.colony.foodStored >= 3, true);
   assert.equal(ant.carrying, null);
+  assert.equal(ant.carryingType, 'none');
+  assert.equal(ant.baseColor, ant.originalBaseColor);
 });
 
 test('worker inside nest transitions out through entrance to surface without disappearing', () => {
