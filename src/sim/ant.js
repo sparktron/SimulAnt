@@ -32,7 +32,7 @@ export class Ant {
     this.state = 'IDLE';
     this.carrying = null;
     this.carryingType = 'none';
-    this.baseColor = role === 'soldier' ? '#d93828' : '#1a1208';
+    this.baseColor = role === 'soldier' ? '#3a2a1f' : '#1a1208';
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;
