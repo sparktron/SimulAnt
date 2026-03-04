@@ -34,6 +34,7 @@ export class Ant {
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;
+    this.workFocus = 'forage';
     this.lastSteeringDebug = null;
   }
 
@@ -104,6 +105,19 @@ export class Ant {
       return didMove;
     }
 
+    if (this.workFocus === 'nurse' && !this.#needsForage(colony)) {
+      this.state = 'NURSE';
+      if (context.entrance) return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+    }
+
+    if (this.workFocus === 'dig' && !this.#needsForage(colony)) {
+      this.state = 'DIG_SUPPORT';
+      world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome * 1.4);
+      return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+    }
+
+    if (!this.#needsForage(colony)) return didMove;
     if (this.#isCriticalHealth()) {
       this.state = 'RETURN_TO_NEST_HEAL';
       if (context.entrance) didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);

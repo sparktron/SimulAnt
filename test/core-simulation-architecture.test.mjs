@@ -67,6 +67,22 @@ function createConfig() {
   };
 }
 
+function getLowerHalfStartY(world) {
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (let y = world.nestY + 1; y < world.height; y += 1) {
+    for (let x = 0; x < world.width; x += 1) {
+      if (!world.isPassable(x, y)) continue;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return world.nestY + 1;
+  return minY + Math.floor((maxY - minY + 1) / 2);
+}
+
 test('deterministic regression: same seed + config yields identical snapshot', () => {
   const config = createConfig();
   const runA = new SimulationCore('determinism-seed');
@@ -129,6 +145,46 @@ test('macro home territory follows nest tool relocation', () => {
   assert.ok(home);
   assert.equal(home.centerX, targetX);
   assert.equal(home.centerY, targetY);
+});
+
+test('nest relocation also repositions queen marker state away from entrance', () => {
+  const sim = new SimulationCore('queen-marker-sync-seed');
+  const targetX = sim.world.nestX - 8;
+  const targetY = sim.world.nestY + 1;
+
+  sim.applyTool('nest', targetX, targetY, 2);
+
+  const lowerHalfStartY = getLowerHalfStartY(sim.world);
+
+  assert.equal(sim.colony.queen.x, targetX);
+  assert.ok(sim.colony.queen.y >= lowerHalfStartY);
+  assert.equal(sim.nestEntrances[0].x, targetX);
+  assert.equal(sim.nestEntrances[0].y, targetY);
+});
+
+test('queen movement remains in lower nest half and is capped at 10% ant speed', () => {
+  const sim = new SimulationCore('queen-safety-speed-seed');
+  const config = createConfig();
+
+  sim.colony.ants = [];
+  sim.colony.queen.x = sim.world.nestX;
+  sim.colony.queen.y = sim.world.nestY + 2;
+  sim.colony.queen.moveProgress = 0;
+
+  const lowerHalfStartY = getLowerHalfStartY(sim.world);
+  const startX = sim.colony.queen.x;
+  const startY = sim.colony.queen.y;
+
+  for (let i = 0; i < 9; i += 1) sim.update(config);
+  assert.equal(sim.colony.queen.x, startX);
+  assert.equal(sim.colony.queen.y, startY);
+
+  sim.update(config);
+  const movedDistance = Math.hypot(sim.colony.queen.x - startX, sim.colony.queen.y - startY);
+  assert.ok(movedDistance <= Math.SQRT2);
+
+  for (let i = 0; i < 120; i += 1) sim.update(config);
+  assert.ok(sim.colony.queen.y >= lowerHalfStartY);
 });
 
 test('macro load sanitizes malformed saved territories and restores home territory', () => {
@@ -342,6 +398,7 @@ test('critical-health ant returns to nest and recovers from stored food', () => 
 
   assert.ok(enteredNest);
   assert.ok(ant.health > healthBefore);
+  assert.ok(ant.y >= sim.world.nestY - 1);
 });
 
 test('returning ant can still reach nest entrance from mid-range distance', () => {

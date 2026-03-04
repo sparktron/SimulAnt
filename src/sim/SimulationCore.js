@@ -29,6 +29,7 @@ export class SimulationCore {
 
     this.world.setNest(this.world.nestX, this.world.nestY);
     this.colony = new Colony(this.world, this.rng, 320);
+    this.colony.syncQueenPositionToNest(this.world.nestX, this.world.nestY);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.macroEngine = new MacroEngine(this.world);
@@ -176,6 +177,7 @@ export class SimulationCore {
           this.nestEntrances[0].y = worldY;
           this.nestEntrances[0].radius = this.nestEntrances[0].radius || 2;
         }
+        this.colony.syncQueenPositionToNest(worldX, worldY);
         this.digSystem = new DigSystem(this.world, this.colony, this.rng);
         this.#syncMacroHomeTerritory();
         this.#rebuildTickPipeline();

@@ -177,6 +177,23 @@
         font-family: 'Courier New', monospace;
         font-size: 12px;
       }
+
+      #statusPanel {
+        border: 2px outset #ccc;
+        background: #dcdcdc;
+        width: 420px;
+        max-width: calc(100vw - 24px);
+        font-family: 'Courier New', monospace;
+      }
+
+      .status-title { margin: 0 0 8px; font-size: 18px; }
+      .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .triangle-control h3 { margin: 0 0 4px; font-size: 11px; }
+      .triangle-svg { width: 100%; max-width: 180px; touch-action: none; }
+      .triangle-shape { fill: #ececec; stroke: #222; stroke-width: 2; }
+      .triangle-marker { fill: #d41a1a; stroke: #111; stroke-width: 1; }
+      .triangle-corner { margin: 2px 0; font-size: 10px; }
+
       kbd {
         border: 1px solid #333;
         padding: 1px 4px;
@@ -192,6 +209,7 @@
       <div class="frame">
         <aside class="left-palette">
           <button id="viewToggleBtn" class="palette-btn">VIEW: SURFACE</button>
+          <button id="colonyStatusBtn" class="palette-btn">COLONY STATUS</button>
           <button id="startPauseBtn" class="palette-btn">PAUSE</button>
           <button id="stepBtn" class="palette-btn">STEP</button>
 
@@ -287,6 +305,15 @@
         <li>Wheel: zoom camera (active view only)</li>
       </ul>
       <button id="closeHelpBtn">Close</button>
+    </dialog>
+
+
+    <dialog id="statusPanel">
+      <h2 class="status-title">STATUS</h2>
+      <div class="status-grid">
+        <div id="workTriangleContainer"></div>
+        <div id="casteTriangleContainer"></div>
+      </div>
     </dialog>
 
     <script type="module" src="src/main.js"></script>
