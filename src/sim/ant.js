@@ -1,5 +1,7 @@
 import { TERRAIN } from './world.js';
 
+const DEBUG_ANT_FLOW_LOGS = false;
+
 const DIRS = [
   [1, 0],
   [1, 1],
@@ -38,6 +40,12 @@ export class Ant {
     this.lastSteeringDebug = null;
   }
 
+  /**
+   * Executes one ant behavior tick.
+   *
+   * Called by Colony.update for each living ant. Reads world/colony context,
+   * updates movement + behavior state machine, and mutates hunger/health.
+   */
   update(world, colony, rng, config) {
     if (!this.alive) return;
 
@@ -53,6 +61,12 @@ export class Ant {
     this.#applyVitals(colony, config, context.dt, didMove);
   }
 
+  /**
+   * Collects frequently reused per-tick local context.
+   *
+   * Returns derived values used by decision and movement phases so downstream
+   * logic stays deterministic and avoids recomputing index/entrance lookups.
+   */
   #sense(world, colony, config) {
     const dt = config.tickSeconds || 1 / 30;
     const idx = world.index(this.x, this.y);
@@ -64,6 +78,12 @@ export class Ant {
     return { dt, idx, inNest, entrance };
   }
 
+  /**
+   * Handles pre-movement state transitions.
+   *
+   * Runs immediate actions like eating/depositing before path decisions.
+   * Side effects include changing ant state and optionally depositing food.
+   */
   #applyPreMoveDecisions(colony, rng, config, context) {
     if (this.role === 'worker' && this.#tryEatFromNest(colony, context.inNest, config)) {
       this.state = 'EAT';
@@ -80,7 +100,9 @@ export class Ant {
     if (this.role === 'worker' && this.carrying?.type === 'food' && context.entrance) {
       const distance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
       if (distance <= (context.entrance.radius ?? 2) && context.inNest) {
-        console.log(`[ant] ${this.id} reached nest entrance (${context.entrance.x}, ${context.entrance.y}) carrying food`);
+        if (DEBUG_ANT_FLOW_LOGS) {
+          console.log(`[ant] ${this.id} reached nest entrance (${context.entrance.x}, ${context.entrance.y}) carrying food`);
+        }
         if (colony.depositFoodFromAnt(this, context.entrance)) {
           this.state = 'FORAGE_SEARCH';
         }
@@ -88,6 +110,12 @@ export class Ant {
     }
   }
 
+  /**
+   * Chooses movement intent and executes one step when possible.
+   *
+   * Encodes worker foraging/return heuristics and pheromone-driven steering.
+   * Returns whether movement occurred this tick.
+   */
   #decideAndMove(world, colony, rng, config, context) {
     let didMove = false;
     if (this.role !== 'worker') return didMove;

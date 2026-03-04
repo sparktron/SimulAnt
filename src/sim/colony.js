@@ -3,6 +3,7 @@ import { TERRAIN } from './world.js';
 
 const QUEEN_SPEED_RATIO = 0.1;
 const BASE_TICK_SECONDS = 1 / 30;
+const DEBUG_NEST_FOOD_LOGS = false;
 
 export class Colony {
   constructor(world, rng, initialAnts = 300) {
@@ -56,6 +57,12 @@ export class Colony {
     );
   }
 
+  /**
+   * Advances colony-level simulation by one tick.
+   *
+   * Called from micro simulation engine. Updates queen survival/reproduction,
+   * ticks each ant, compacts dead ants, and hatches brood into ant instances.
+   */
   update(config) {
     this.#updateQueenSurvival(config);
     if (this.queen.alive) {
@@ -263,6 +270,12 @@ export class Colony {
     return consumed;
   }
 
+  /**
+   * Deposits nutrition into nest storage and records a visual pellet marker.
+   *
+   * Called when workers return food. Side effects update aggregate stored food,
+   * nest pellet list, and per-cell `world.nestFood` cache.
+   */
   depositPellet(nutrition, x, y, entrance = null) {
     if (nutrition <= 0) return 0;
     const before = this.nestFoodPellets.length;
@@ -276,7 +289,7 @@ export class Colony {
       amount: nutrition,
     });
     this.#applyNestCellFoodDelta(nutrition, pelletX, pelletY);
-    if (this.nestFoodPellets.length !== before) {
+    if (DEBUG_NEST_FOOD_LOGS && this.nestFoodPellets.length !== before) {
       console.log('[nest-food] nestFoodPellets.length changed:', this.nestFoodPellets.length);
     }
     return nutrition;
@@ -328,7 +341,9 @@ export class Colony {
       ant.y = dropPoint.y;
     }
 
-    console.log(`[ant] ${ant.id} deposited food at nest entrance (${entrance?.x ?? this.world.nestX}, ${entrance?.y ?? this.world.nestY})`);
+    if (DEBUG_NEST_FOOD_LOGS) {
+      console.log(`[ant] ${ant.id} deposited food at nest entrance (${entrance?.x ?? this.world.nestX}, ${entrance?.y ?? this.world.nestY})`);
+    }
     return true;
   }
 
@@ -356,7 +371,7 @@ export class Colony {
       if (pellet.amount <= 0.0001) this.nestFoodPellets.splice(i, 1);
     }
 
-    if (this.nestFoodPellets.length !== before) {
+    if (DEBUG_NEST_FOOD_LOGS && this.nestFoodPellets.length !== before) {
       console.log('[nest-food] nestFoodPellets.length changed:', this.nestFoodPellets.length);
     }
   }

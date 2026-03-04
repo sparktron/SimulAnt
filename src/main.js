@@ -264,6 +264,13 @@ window.addEventListener('unhandledrejection', (event) => {
 
 requestAnimationFrame(loop);
 
+/**
+ * Main browser frame loop.
+ *
+ * Called by requestAnimationFrame; drives fixed-step simulation updates,
+ * rendering, and HUD refresh. Side effects include mutating global `state`,
+ * stepping `simCore`, and drawing to canvas.
+ */
 function loop(now) {
   if (hasFatalError) return;
 
@@ -385,6 +392,12 @@ function maybeLogSteeringDebug(selectedAnt) {
   });
 }
 
+/**
+ * Selects the closest ant to a world-space point.
+ *
+ * Used by pointer input handlers in both views. Returns true when selection
+ * succeeds and updates `state.selectedAntId`.
+ */
 function selectAntNear(x, y) {
   const ant = simCore.findAntNear(x, y, 2);
   if (!ant) return false;
@@ -392,6 +405,12 @@ function selectAntNear(x, y) {
   return true;
 }
 
+/**
+ * Applies the currently selected paint tool to a world-space point.
+ *
+ * Called by pointer drag/paint input. Floors coordinates to grid cells,
+ * validates bounds and tool support, then mutates simulation world state.
+ */
 function applyToolIfInBounds(x, y) {
   if (!Number.isFinite(x) || !Number.isFinite(y) || !simCore?.world) return;
 
@@ -423,6 +442,12 @@ function applyToolIfInBounds(x, y) {
   simCore.applyTool(state.selectedTool, worldX, worldY, state.brushRadius);
 }
 
+/**
+ * Returns a validated active view mode.
+ *
+ * Guards against invalid enum values from external callers and restores
+ * SURFACE mode when corruption is detected.
+ */
 function getSafeViewMode() {
   const mode = viewManager.getCurrent();
   if (mode === VIEW.SURFACE || mode === VIEW.NEST) return mode;
@@ -431,6 +456,12 @@ function getSafeViewMode() {
   return VIEW.SURFACE;
 }
 
+/**
+ * Stores camera/view data from the last successful render.
+ *
+ * Called after each successful draw so render recovery can restore a known
+ * good camera state when an exception occurs.
+ */
 function captureLastGoodRenderState(view) {
   lastGoodRenderState.view = view;
   lastGoodRenderState.surfaceCam = {
@@ -445,6 +476,12 @@ function captureLastGoodRenderState(view) {
   };
 }
 
+/**
+ * Performs best-effort recovery after renderer exceptions.
+ *
+ * Resets view/camera values to last valid values (or safe defaults) and
+ * triggers renderer resize to reinitialize projection state.
+ */
 function recoverFromRenderError(error) {
   console.error('[SimAnt] Render error. Recovering safely:', error);
   const fallbackView = lastGoodRenderState.view === VIEW.NEST ? VIEW.NEST : VIEW.SURFACE;
@@ -471,6 +508,11 @@ function recoverFromRenderError(error) {
   }
 }
 
+/**
+ * Serializes simulation and UI state into localStorage.
+ *
+ * Called by the Save control. Side effect: writes JSON under STORAGE_KEY.
+ */
 function saveState() {
   const save = simCore.serialize({
     simSpeed: state.simSpeed,
@@ -498,10 +540,22 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
 }
 
+/**
+ * Loads simulation and UI state from localStorage.
+ *
+ * Called by the Load control. This function validates/normalizes stored data
+ * before mutating runtime state to avoid fatal crashes from corrupted saves.
+ */
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return;
-  const data = JSON.parse(raw);
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (error) {
+    console.error('[SimAnt] Ignoring invalid saved JSON payload:', error);
+    return;
+  }
 
   simCore.loadFromSerialized(data);
   syncRenderWorld();
@@ -526,13 +580,13 @@ function loadState() {
   state.selectedAntId = data.state?.selectedAntId || null;
 
   const surfaceCam = data.state?.cameras?.surface;
-  if (surfaceCam) {
+  if (surfaceCam && Number.isFinite(surfaceCam.x) && Number.isFinite(surfaceCam.y) && Number.isFinite(surfaceCam.zoom)) {
     surfaceRenderer.cameraX = surfaceCam.x;
     surfaceRenderer.cameraY = surfaceCam.y;
     surfaceRenderer.zoom = surfaceCam.zoom;
   }
   const nestCam = data.state?.cameras?.nest;
-  if (nestCam) {
+  if (nestCam && Number.isFinite(nestCam.x) && Number.isFinite(nestCam.y) && Number.isFinite(nestCam.zoom)) {
     nestRenderer.cameraX = nestCam.x;
     nestRenderer.cameraY = nestCam.y;
     nestRenderer.zoom = nestCam.zoom;
@@ -543,6 +597,12 @@ function loadState() {
 }
 
 
+/**
+ * Applies colony status allocation state into runtime config.
+ *
+ * Keeps caste sliders and spawn chance consistent. Side effect: mutates
+ * `state.config` and colony caste allocation.
+ */
 function applyColonyStatusToConfig() {
   const caste = state.colonyStatus.casteAllocation;
   const workerSoldierTotal = Math.max(1, caste.workers + caste.soldiers);
@@ -550,17 +610,33 @@ function applyColonyStatusToConfig() {
   simCore.colony.setCasteAllocation(caste);
 }
 
+/**
+ * Rebinds renderers to the latest world instance.
+ *
+ * Required after reset/load because SimulationCore replaces world objects.
+ */
 function syncRenderWorld() {
   surfaceRenderer.setWorld(simCore.world);
   nestRenderer.setWorld(simCore.world);
 }
 
+/**
+ * Retrieves a required DOM element or throws.
+ *
+ * Used during startup to fail fast when required controls are missing.
+ */
 function mustById(id) {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing required element: ${id}`);
   return el;
 }
 
+/**
+ * Switches runtime into fatal-error mode.
+ *
+ * Called by global error listeners and top-level loop catch; prevents further
+ * simulation frames after unrecoverable exceptions.
+ */
 function reportFatalError(error) {
   if (hasFatalError) return;
   hasFatalError = true;
