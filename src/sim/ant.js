@@ -48,7 +48,7 @@ export class Ant {
 
     if (this.#resolveHazard(world, colony, rng, config, context.idx)) return;
 
-    didMove = this.#applyFallbackMovement(world, rng, config, context.entrance, didMove);
+    didMove = this.#applyFallbackMovement(world, rng, config, context.entrance, context.inNest, didMove);
     this.#applyVitals(colony, config, context.dt, didMove);
   }
 
@@ -99,8 +99,8 @@ export class Ant {
       world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, world.toFood[context.idx] + foodDeposit);
       didMove = context.entrance
         ? this.#moveToward(world, context.entrance.x, context.entrance.y, rng)
-        : this.#moveByPheromone(world, rng, config, 'home', context.entrance);
-      if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+        : this.#moveByPheromone(world, rng, config, 'home', context.entrance, context.inNest);
+      if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance, context.inNest);
       return didMove;
     }
 
@@ -167,9 +167,11 @@ export class Ant {
     if (nearEntranceScatter && context.entrance) {
       const ax = this.x + (this.x - context.entrance.x);
       const ay = this.y + (this.y - context.entrance.y);
-      didMove = this.#moveToward(world, ax, ay, rng);
+      didMove = context.inNest
+        ? this.#moveToward(world, context.entrance.x, context.entrance.y, rng)
+        : this.#moveToward(world, ax, ay, rng);
     }
-    if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+    if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance, context.inNest);
     return didMove;
   }
 
@@ -187,12 +189,12 @@ export class Ant {
     return false;
   }
 
-  #applyFallbackMovement(world, rng, config, entrance, didMove) {
+  #applyFallbackMovement(world, rng, config, entrance, inNest, didMove) {
     if (!didMove && this.carrying?.type === 'food') {
-      return this.#moveByPheromone(world, rng, config, 'home', entrance);
+      return this.#moveByPheromone(world, rng, config, 'home', entrance, inNest);
     }
     if (!didMove) {
-      return this.#moveByPheromone(world, rng, config, 'food', entrance);
+      return this.#moveByPheromone(world, rng, config, 'food', entrance, inNest);
     }
     return didMove;
   }
@@ -218,7 +220,7 @@ export class Ant {
     }
   }
 
-  #moveByPheromone(world, rng, config, channel, entrance) {
+  #moveByPheromone(world, rng, config, channel, entrance, inNest = false) {
     const field = channel === 'home' ? world.toHome : world.toFood;
     const epsilon = 0.001;
     const reverseDir = (this.dir + 4) % DIRS.length;
@@ -248,7 +250,12 @@ export class Ant {
       let tieBias = 0;
       if (entrance) {
         const dist = Math.hypot(nx - entrance.x, ny - entrance.y);
-        tieBias = channel === 'home' ? -dist * config.homeTieBiasScale : dist * config.foodTieBiasScale;
+        if (channel === 'home') {
+          tieBias = -dist * config.homeTieBiasScale;
+        } else {
+          const towardEntrance = inNest ? -1 : 1;
+          tieBias = towardEntrance * dist * config.foodTieBiasScale;
+        }
       }
 
       const noise = rng.range(0, config.wanderNoise);
