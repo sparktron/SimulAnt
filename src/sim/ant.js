@@ -86,15 +86,6 @@ export class Ant {
       this.dir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
     }
 
-    if (this.role === 'worker' && this.carrying?.type === 'food' && context.entrance) {
-      const distance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
-      if (distance <= (context.entrance.radius ?? 2) && context.inNest) {
-        console.log(`[ant] ${this.id} reached nest entrance (${context.entrance.x}, ${context.entrance.y}) carrying food`);
-        if (colony.depositFoodFromAnt(this, context.entrance)) {
-          this.state = 'FORAGE_SEARCH';
-        }
-      }
-    }
   }
 
   #decideAndMove(world, colony, rng, config, context) {
@@ -103,6 +94,21 @@ export class Ant {
 
     if (this.carrying?.type === 'food') {
       this.state = 'RETURN_HOME';
+      if (context.inNest) {
+        const dropPoint = colony.findNestFoodDropPoint(context.entrance, this.x, this.y);
+        if (dropPoint) {
+          if (this.x === dropPoint.x && this.y === dropPoint.y) {
+            colony.depositFoodFromAnt(this, context.entrance, dropPoint);
+            return didMove;
+          }
+
+          this.state = 'STORE_FOOD_IN_NEST';
+          didMove = this.#moveToward(world, dropPoint.x, dropPoint.y, rng);
+          if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+          return didMove;
+        }
+      }
+
       const distToNest = context.entrance ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) : 0;
       const trailScale = Math.min(config.maxFoodTrailScale, 1 + distToNest * config.foodTrailDistanceScale * 0.05);
       const foodDeposit = config.depositFood * trailScale;

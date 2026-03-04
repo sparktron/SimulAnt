@@ -323,14 +323,14 @@ test('All ant roles use the same colony base color', () => {
 
 test('Depositing and consuming food updates nest food cell storage', () => {
   const sim = new SimulationCore('seed-nest-food');
-  const idx = sim.world.index(sim.world.nestX, sim.world.nestY + 3);
-  const before = sim.world.nestFood[idx];
+  const totalNestFood = () => sim.world.nestFood.reduce((sum, value) => sum + value, 0);
+  const before = totalNestFood();
 
   sim.colony.depositPellet(5);
-  assert.equal(sim.world.nestFood[idx], before + 5);
+  assert.equal(totalNestFood(), before + 5);
 
   sim.colony.consumeFromStore(2);
-  assert.equal(sim.world.nestFood[idx], before + 3);
+  assert.equal(totalNestFood(), before + 3);
 });
 
 
@@ -374,14 +374,16 @@ test('Food-carrying ants must enter nest before depositing pellets', () => {
   ant.update(sim.world, sim.colony, sim.rng, cfg);
   assert.notEqual(ant.carrying, null);
 
+  let enteredNestBeforeDrop = false;
   for (let i = 0; i < 200 && ant.carrying; i += 1) {
     ant.update(sim.world, sim.colony, sim.rng, cfg);
+    if (ant.y >= sim.world.nestY + 1) enteredNestBeforeDrop = true;
   }
 
   let nestFoodTotal = 0;
   for (let i = 0; i < sim.world.nestFood.length; i += 1) nestFoodTotal += sim.world.nestFood[i];
 
   assert.equal(ant.carrying, null);
-  assert.ok(ant.y >= sim.world.nestY + 1);
+  assert.ok(enteredNestBeforeDrop);
   assert.ok(nestFoodTotal > 0);
 });

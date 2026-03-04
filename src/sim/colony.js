@@ -266,9 +266,10 @@ export class Colony {
   depositPellet(nutrition, x, y, entrance = null) {
     if (nutrition <= 0) return 0;
     const before = this.nestFoodPellets.length;
-    const point = this.getNestFoodDropPoint(entrance);
-    const pelletX = Number.isFinite(x) ? x : point.x;
-    const pelletY = Number.isFinite(y) ? y : point.y;
+    const point = this.findNestFoodDropPoint(entrance, x, y);
+    if (!point) return 0;
+    const pelletX = point.x;
+    const pelletY = point.y;
     this.foodStored += nutrition;
     this.nestFoodPellets.push({
       x: pelletX,
@@ -283,51 +284,116 @@ export class Colony {
   }
 
   getNestFoodDropPoint(entrance = null) {
-    const storageCenterX = entrance ? entrance.x : this.world.nestX;
-    const storageCenterY = Math.max(this.world.nestY + 2, entrance ? entrance.y + 3 : this.world.nestY + 3);
-
-    if (!entrance) {
-      return {
-        x: Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX))),
-        y: Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY))),
-      };
-    }
-
-    const maxAttempts = 24;
-    for (let i = 0; i < maxAttempts; i += 1) {
-      const dx = this.rng.int(9) - 4;
-      const dy = this.rng.int(7) - 1;
-      const x = Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX + dx)));
-      const y = Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY + dy)));
-      const terrain = this.world.terrain[this.world.index(x, y)];
-      if (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER) {
-        return { x, y };
-      }
-    }
-
-    return {
-      x: Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX))),
-      y: Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY))),
+    return this.findNestFoodDropPoint(entrance) || {
+      x: Math.max(0, Math.min(this.world.width - 1, Math.round(entrance ? entrance.x : this.world.nestX))),
+      y: Math.max(
+        this.world.nestY + 1,
+        Math.min(this.world.height - 1, Math.round(entrance ? entrance.y + 3 : this.world.nestY + 3)),
+      ),
     };
   }
 
-  depositFoodFromAnt(ant, entrance = null) {
+  #isNestFoodTileClear(x, y) {
+    if (!this.world.inBounds(x, y) || y < this.world.nestY + 1) return false;
+    const terrain = this.world.terrain[this.world.index(x, y)];
+    if (terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER) return false;
+
+    for (let i = 0; i < this.nestFoodPellets.length; i += 1) {
+      const pellet = this.nestFoodPellets[i];
+      if (pellet.amount <= 0.0001) continue;
+      if (Math.round(pellet.x) === x && Math.round(pellet.y) === y) return false;
+    }
+    return true;
+  }
+
+  #findDeepNestStorageY(anchorX) {
+    const xRadius = 12;
+    const minX = Math.max(0, Math.round(anchorX) - xRadius);
+    const maxX = Math.min(this.world.width - 1, Math.round(anchorX) + xRadius);
+
+    for (let y = this.world.height - 1; y >= this.world.nestY + 1; y -= 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        const terrain = this.world.terrain[this.world.index(x, y)];
+        if (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER) return y;
+      }
+    }
+
+    return this.world.nestY + 3;
+  }
+
+  findNestFoodDropPoint(entrance = null, preferredX = null, preferredY = null) {
+    const storageCenterX = entrance ? entrance.x : this.world.nestX;
+    const deepestStorageY = this.#findDeepNestStorageY(storageCenterX);
+    const storageCenterY = Math.max(this.world.nestY + 3, deepestStorageY - 2);
+
+    const minDistanceFromEntrance = entrance ? Math.max(4, (entrance.radius ?? 2) + 3) : 0;
+    const isFarEnoughFromEntrance = (x, y) => {
+      if (!entrance) return true;
+      return Math.hypot(x - entrance.x, y - entrance.y) >= minDistanceFromEntrance;
+    };
+
+    const preferredTileX = Number.isFinite(preferredX)
+      ? Math.max(0, Math.min(this.world.width - 1, Math.round(preferredX)))
+      : null;
+    const preferredTileY = Number.isFinite(preferredY)
+      ? Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(preferredY)))
+      : null;
+    if (
+      preferredTileX != null
+      && preferredTileY != null
+      && this.#isNestFoodTileClear(preferredTileX, preferredTileY)
+      && isFarEnoughFromEntrance(preferredTileX, preferredTileY)
+    ) {
+      return { x: preferredTileX, y: preferredTileY };
+    }
+
+    const centerX = Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX)));
+    const centerY = Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY)));
+    const maxRadius = 8;
+    const randomAttempts = 20;
+    const isValidCandidate = (x, y) => {
+      if (!this.#isNestFoodTileClear(x, y)) return false;
+      return isFarEnoughFromEntrance(x, y);
+    };
+
+    for (let i = 0; i < randomAttempts; i += 1) {
+      const dx = this.rng.int(maxRadius * 2 + 1) - maxRadius;
+      const dy = this.rng.int(maxRadius * 2 + 1) - maxRadius;
+      const x = centerX + dx;
+      const y = centerY + dy;
+      if (isValidCandidate(x, y)) return { x, y };
+    }
+
+    for (let radius = 0; radius <= maxRadius; radius += 1) {
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+          const x = centerX + dx;
+          const y = centerY + dy;
+          if (isValidCandidate(x, y)) {
+            return { x, y };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  depositFoodFromAnt(ant, entrance = null, dropPoint = null) {
     if (!ant?.carrying || ant.carrying.type !== 'food') return false;
 
     const nutrition = ant.carrying.pelletNutrition || 0;
-    const dropPoint = this.getNestFoodDropPoint(entrance);
+    const targetDropPoint = dropPoint || this.findNestFoodDropPoint(entrance, ant.x, ant.y);
+    if (!targetDropPoint) return false;
+    if (ant.x !== targetDropPoint.x || ant.y !== targetDropPoint.y) return false;
 
-    this.depositPellet(nutrition, dropPoint.x, dropPoint.y, entrance);
+    this.depositPellet(nutrition, targetDropPoint.x, targetDropPoint.y, entrance);
     ant.carrying = null;
     ant.carryingType = 'none';
     ant.baseColor = ant.originalBaseColor || ant.baseColor;
     ant.state = 'FORAGE_SEARCH';
     ant.hunger = Math.min(ant.hungerMax, ant.hunger + nutrition * 0.15);
-
-    if (this.world.isPassable(dropPoint.x, dropPoint.y)) {
-      ant.x = dropPoint.x;
-      ant.y = dropPoint.y;
-    }
 
     console.log(`[ant] ${ant.id} deposited food at nest entrance (${entrance?.x ?? this.world.nestX}, ${entrance?.y ?? this.world.nestY})`);
     return true;
