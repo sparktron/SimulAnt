@@ -6,12 +6,33 @@ A browser-playable, static-host ant colony simulation inspired by SimAnt, includ
 
 No build step required.
 
+### Python compatibility
+
+This project is compatible with **CPython 3.8+** (including current Python 3.x releases on Windows 10, macOS, and Linux) when using the built-in `http.server` module for local static hosting.
+
+### Start a local server
+
+From the repository root:
+
+**macOS / Linux**
+
 ```bash
-cd /path/to/SimAntWebApp
 python3 -m http.server 8000
 ```
 
-Open <http://localhost:8000> in a modern browser.
+**Windows 10 (PowerShell or Command Prompt)**
+
+```powershell
+py -3 -m http.server 8000
+```
+
+If `py` is unavailable, use:
+
+```powershell
+python -m http.server 8000
+```
+
+Then open <http://localhost:8000> in a modern browser.
 
 ## Deploy as static files
 
