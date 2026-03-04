@@ -99,6 +99,8 @@ export class Colony {
         this.births += 1;
       }
     }
+
+    this.rebalanceWorkerFocuses();
   }
 
 
@@ -127,19 +129,110 @@ export class Colony {
   }
 
   chooseWorkFocus() {
-    const roll = this.rng.range(0, 100);
-    if (roll < this.workAllocation.forage) return 'forage';
-    if (roll < this.workAllocation.forage + this.workAllocation.dig) return 'dig';
-    return 'nurse';
+    const workerCounts = {
+      forage: 0,
+      dig: 0,
+      nurse: 0,
+    };
+
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive || ant.role !== 'worker') continue;
+      if (ant.workFocus === 'dig') {
+        workerCounts.dig += 1;
+      } else if (ant.workFocus === 'nurse') {
+        workerCounts.nurse += 1;
+      } else {
+        workerCounts.forage += 1;
+      }
+    }
+
+    return this.#chooseWeightedDeficit(
+      {
+        forage: this.workAllocation.forage,
+        dig: this.workAllocation.dig,
+        nurse: this.workAllocation.nurse,
+      },
+      workerCounts,
+    );
   }
 
-  selectHatchRole(config) {
-    const workerSoldierTotal = Math.max(0.0001, this.casteAllocation.workers + this.casteAllocation.soldiers);
-    const casteDrivenSoldierChance = this.casteAllocation.soldiers / workerSoldierTotal;
-    const soldierChance = Number.isFinite(config.soldierSpawnChance)
-      ? Math.max(0, Math.min(1, config.soldierSpawnChance))
-      : casteDrivenSoldierChance;
-    return this.rng.chance(soldierChance) ? 'soldier' : 'worker';
+  selectHatchRole(_config) {
+    const roleCounts = {
+      worker: 0,
+      soldier: 0,
+      breeder: 0,
+    };
+
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive) continue;
+      if (ant.role === 'soldier') {
+        roleCounts.soldier += 1;
+      } else if (ant.role === 'breeder') {
+        roleCounts.breeder += 1;
+      } else {
+        roleCounts.worker += 1;
+      }
+    }
+
+    return this.#chooseWeightedDeficit(
+      {
+        worker: this.casteAllocation.workers,
+        soldier: this.casteAllocation.soldiers,
+        breeder: this.casteAllocation.breeders,
+      },
+      roleCounts,
+    );
+  }
+
+  rebalanceWorkerFocuses() {
+    const workers = [];
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive || ant.role !== 'worker') continue;
+      workers.push(ant);
+    }
+
+    if (workers.length === 0) return;
+
+    const forageTarget = Math.round((this.workAllocation.forage / 100) * workers.length);
+    const digTarget = Math.round((this.workAllocation.dig / 100) * workers.length);
+    const nurseTarget = Math.max(0, workers.length - forageTarget - digTarget);
+
+    const desiredFocuses = [];
+    for (let i = 0; i < forageTarget; i += 1) desiredFocuses.push('forage');
+    for (let i = 0; i < digTarget; i += 1) desiredFocuses.push('dig');
+    for (let i = 0; i < nurseTarget; i += 1) desiredFocuses.push('nurse');
+
+    while (desiredFocuses.length < workers.length) desiredFocuses.push('forage');
+    if (desiredFocuses.length > workers.length) desiredFocuses.length = workers.length;
+
+    for (let i = 0; i < workers.length; i += 1) {
+      workers[i].workFocus = desiredFocuses[i];
+    }
+  }
+
+  #chooseWeightedDeficit(targetWeights, currentCounts) {
+    const keys = Object.keys(targetWeights);
+    const totalCount = keys.reduce((sum, key) => sum + (currentCounts[key] || 0), 0);
+    const nextTotal = totalCount + 1;
+
+    let bestKey = keys[0];
+    let bestGap = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      const targetShare = Math.max(0, Number(targetWeights[key]) || 0) / 100;
+      const targetCount = targetShare * nextTotal;
+      const currentCount = currentCounts[key] || 0;
+      const gap = targetCount - currentCount;
+      if (gap > bestGap) {
+        bestGap = gap;
+        bestKey = key;
+      }
+    }
+
+    return bestKey;
   }
 
   #updateQueenAndBrood(config) {
