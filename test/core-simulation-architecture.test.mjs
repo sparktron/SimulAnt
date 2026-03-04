@@ -419,3 +419,24 @@ test('searching ants spend most time exploring instead of hugging nest gradient'
 
   assert.ok(exploringSteps > totalSteps * 0.6);
 });
+
+test('food pickup overrides stale dirt carryingType so renderer markers stay correct', () => {
+  const sim = new SimulationCore('carry-type-food-override-seed');
+  const config = createConfig();
+  const ant = sim.colony.ants[0];
+  sim.colony.ants = [ant];
+
+  ant.carrying = null;
+  ant.carryingType = 'dirt';
+  ant.health = ant.healthMax;
+  ant.hunger = ant.hungerMax;
+
+  const pellet = sim.foodPellets[0];
+  ant.x = pellet.x;
+  ant.y = pellet.y;
+
+  sim.update(config);
+
+  assert.equal(ant.carrying?.type, 'food');
+  assert.equal(ant.carryingType, 'food');
+});

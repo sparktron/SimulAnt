@@ -49,6 +49,12 @@ export class Ant {
   update(world, colony, rng, config) {
     if (!this.alive) return;
 
+    if (this.carrying?.type === 'food') {
+      this.carryingType = 'food';
+    } else if (this.carryingType === 'food') {
+      this.carryingType = 'none';
+    }
+
     const context = this.#sense(world, colony, config);
 
     this.#applyPreMoveDecisions(colony, rng, config, context);
@@ -174,6 +180,7 @@ export class Ant {
             pelletId: visible.id,
             pelletNutrition: visible.nutrition,
           };
+          this.carryingType = 'food';
           colony.removePelletById(visible.id);
           this.state = 'PICKUP';
         }
@@ -196,6 +203,7 @@ export class Ant {
           pelletId: onPellet.id,
           pelletNutrition: onPellet.nutrition,
         };
+        this.carryingType = 'food';
         colony.removePelletById(onPellet.id);
         this.state = 'PICKUP';
       }
