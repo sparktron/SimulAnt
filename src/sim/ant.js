@@ -68,6 +68,10 @@ export class Ant {
       this.state = 'EAT';
     }
 
+    if (this.role === 'worker' && this.#tryEatNearbyPellet(colony, config)) {
+      this.state = 'EAT';
+    }
+
     if (this.role === 'worker' && !this.carrying?.type && rng.chance(config.randomTurnChance)) {
       this.dir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
     }
@@ -100,7 +104,13 @@ export class Ant {
       return didMove;
     }
 
-    if (!this.#needsForage(colony)) return didMove;
+    if (this.#isCriticalHealth()) {
+      this.state = 'RETURN_TO_NEST_HEAL';
+      if (context.entrance) didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      return didMove;
+    }
+
+    if (!this.#needsForage(colony) && !this.#isLowHealth()) return didMove;
 
     const nearEntrance = context.entrance
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.homeDepositMinDistance
@@ -112,16 +122,21 @@ export class Ant {
     const visible = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
     if (visible) {
       if (this.x === visible.x && this.y === visible.y) {
-        visible.takenByAntId = this.id;
-        this.carrying = {
-          type: 'food',
-          pelletId: visible.id,
-          pelletNutrition: visible.nutrition,
-        };
-        colony.removePelletById(visible.id);
-        this.state = 'PICKUP';
+        if (this.#isLowHealth()) {
+          this.#consumePelletForHealth(colony, visible, config);
+          this.state = 'EAT';
+        } else {
+          visible.takenByAntId = this.id;
+          this.carrying = {
+            type: 'food',
+            pelletId: visible.id,
+            pelletNutrition: visible.nutrition,
+          };
+          colony.removePelletById(visible.id);
+          this.state = 'PICKUP';
+        }
       } else {
-        this.state = 'GO_TO_FOOD';
+        this.state = this.#isLowHealth() ? 'SEEK_FOOD_HEAL' : 'GO_TO_FOOD';
         didMove = this.#moveToward(world, visible.x, visible.y, rng);
       }
       return didMove;
@@ -129,14 +144,19 @@ export class Ant {
 
     const onPellet = colony.findAvailablePelletAt(this.x, this.y);
     if (onPellet) {
-      onPellet.takenByAntId = this.id;
-      this.carrying = {
-        type: 'food',
-        pelletId: onPellet.id,
-        pelletNutrition: onPellet.nutrition,
-      };
-      colony.removePelletById(onPellet.id);
-      this.state = 'PICKUP';
+      if (this.#isLowHealth()) {
+        this.#consumePelletForHealth(colony, onPellet, config);
+        this.state = 'EAT';
+      } else {
+        onPellet.takenByAntId = this.id;
+        this.carrying = {
+          type: 'food',
+          pelletId: onPellet.id,
+          pelletNutrition: onPellet.nutrition,
+        };
+        colony.removePelletById(onPellet.id);
+        this.state = 'PICKUP';
+      }
       return didMove;
     }
 
@@ -178,12 +198,18 @@ export class Ant {
   }
 
   #applyVitals(colony, config, dt, didMove) {
-    const drain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
-    this.hunger = Math.max(0, this.hunger - drain * dt);
+    const hungerDrain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
+    const carryingHungerCost = this.carrying?.type === 'food' ? (config.carryingHungerDrainRate ?? 0) : 0;
+    const fightHungerCost = this.state === 'FIGHT' ? (config.fightingHungerDrainRate ?? 0) : 0;
+    this.hunger = Math.max(0, this.hunger - (hungerDrain + carryingHungerCost + fightHungerCost) * dt);
+
+    const healthWorkDrain = (didMove ? (config.healthWorkMoveDrainRate ?? 0) : (config.healthWorkIdleDrainRate ?? 0))
+      + (this.carrying?.type === 'food' ? (config.healthWorkCarryDrainRate ?? 0) : 0)
+      + (this.state === 'FIGHT' ? (config.healthWorkFightDrainRate ?? 0) : 0);
+    this.health = Math.max(0, this.health - healthWorkDrain * dt);
+
     if (this.hunger <= 0) {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
-    } else if (this.health < this.healthMax && this.hunger > this.hungerMax * 0.65) {
-      this.health = Math.min(this.healthMax, this.health + config.healthRegenRate * dt);
     }
 
     if (this.health <= 0) {
@@ -295,13 +321,46 @@ export class Ant {
   }
 
   #tryEatFromNest(colony, inNest, config) {
-    if (!inNest || this.hunger >= this.hungerMax * 0.7) return false;
-    const consumed = colony.consumeFromStore(config.workerEatNutrition);
+    if (!inNest) return false;
+
+    const critical = this.#isCriticalHealth();
+    const needsFood = this.hunger < this.hungerMax * 0.7;
+    const needsHealth = this.#isLowHealth();
+    if (!critical && !needsFood && !needsHealth) return false;
+
+    const requested = critical
+      ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
+      : config.workerEatNutrition;
+    const consumed = colony.consumeFromStore(requested);
     if (consumed <= 0) return false;
-    const wasStarving = this.hunger <= 0;
+
     this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
-    if (wasStarving) this.health = Math.min(this.healthMax, this.health + config.starvationRecoveryHealth);
+    const healthGain = consumed * (config.healthEatRecoveryRate ?? 0);
+    this.health = Math.min(this.healthMax, this.health + healthGain + (critical ? config.starvationRecoveryHealth : 0));
     return true;
+  }
+
+  #tryEatNearbyPellet(colony, config) {
+    if (!this.#isLowHealth()) return false;
+    const pellet = colony.findAvailablePelletAt(this.x, this.y);
+    if (!pellet) return false;
+    this.#consumePelletForHealth(colony, pellet, config);
+    return true;
+  }
+
+  #consumePelletForHealth(colony, pellet, config) {
+    const nutrition = Math.max(0, pellet?.nutrition || 0);
+    colony.removePelletById(pellet.id);
+    this.hunger = Math.min(this.hungerMax, this.hunger + nutrition);
+    this.health = Math.min(this.healthMax, this.health + nutrition * (config.healthEatRecoveryRate ?? 0));
+  }
+
+  #isLowHealth() {
+    return this.health < this.healthMax * 0.5;
+  }
+
+  #isCriticalHealth() {
+    return this.health < this.healthMax * 0.25;
   }
 
   #moveToward(world, tx, ty, rng) {
