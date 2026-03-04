@@ -327,14 +327,19 @@ function loop(now) {
 
     const selectedAnt = simCore.findAntById(state.selectedAntId);
     const antHealthStats = getAntHealthStats(simCore.colony.ants);
+    const hudCounts = getHudAntCounts(simCore.colony.ants);
     try {
       updateHud({
         viewMode: activeView,
         fps,
         tick: simCore.tick,
         ants: simCore.colony.ants.length,
-        workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
-        soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
+        workers: hudCounts.workers,
+        soldiers: hudCounts.soldiers,
+        nurses: hudCounts.nurses,
+        jobsForage: hudCounts.jobsForage,
+        jobsDig: hudCounts.jobsDig,
+        jobsNurse: hudCounts.jobsNurse,
         foodStored: simCore.colony.foodStored,
         queenAlive: simCore.colony.queen.alive,
         selectedAntHealth: selectedAnt ? selectedAnt.health : null,
@@ -355,6 +360,40 @@ function loop(now) {
   } catch (error) {
     reportFatalError(error);
   }
+}
+
+
+function getHudAntCounts(ants) {
+  const counts = {
+    workers: 0,
+    soldiers: 0,
+    nurses: 0,
+    jobsForage: 0,
+    jobsDig: 0,
+    jobsNurse: 0,
+  };
+
+  if (!Array.isArray(ants)) return counts;
+
+  for (const ant of ants) {
+    if (!ant?.alive) continue;
+
+    if (ant.role === 'worker') {
+      counts.workers += 1;
+      if (ant.workFocus === 'dig') counts.jobsDig += 1;
+      else if (ant.workFocus === 'nurse') {
+        counts.jobsNurse += 1;
+        counts.nurses += 1;
+      } else {
+        counts.jobsForage += 1;
+      }
+      continue;
+    }
+
+    if (ant.role === 'soldier') counts.soldiers += 1;
+  }
+
+  return counts;
 }
 
 function getAntHealthStats(ants) {
