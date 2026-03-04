@@ -1,5 +1,21 @@
 import { TriangleControl } from './TriangleControl.js';
 
+export function supportsNativeDialog(dialog) {
+  return Boolean(dialog && typeof dialog.showModal === 'function' && typeof dialog.close === 'function');
+}
+
+export function tryOpenNativeDialog(dialog) {
+  if (!supportsNativeDialog(dialog)) return false;
+
+  try {
+    if (!dialog.open) dialog.showModal();
+  } catch {
+    return false;
+  }
+
+  return Boolean(dialog.open);
+}
+
 export class ColonyStatusPanel {
   constructor(options) {
     this.dialog = options.dialog;
@@ -10,7 +26,7 @@ export class ColonyStatusPanel {
     this.triangles = [];
     this.#build(options.initialWork, options.initialCaste);
 
-    this.hasNativeDialog = typeof this.dialog.showModal === 'function' && typeof this.dialog.close === 'function';
+    this.hasNativeDialog = supportsNativeDialog(this.dialog);
 
     this.dialog.addEventListener('click', (event) => {
       if (!this.isOpen()) return;
@@ -56,18 +72,18 @@ export class ColonyStatusPanel {
   }
 
   open() {
-    if (this.hasNativeDialog) {
-      if (!this.dialog.open) this.dialog.showModal();
-      return;
-    }
+    if (this.hasNativeDialog && tryOpenNativeDialog(this.dialog)) return;
     this.dialog.classList.add('is-open');
     this.dialog.setAttribute('open', 'open');
   }
 
   close() {
     if (this.hasNativeDialog) {
-      if (this.dialog.open) this.dialog.close();
-      return;
+      try {
+        if (this.dialog.open) this.dialog.close();
+      } catch {
+        // fall through to non-native close path
+      }
     }
     this.dialog.classList.remove('is-open');
     this.dialog.removeAttribute('open');
