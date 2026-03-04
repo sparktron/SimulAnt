@@ -45,6 +45,24 @@ export class Colony {
     );
   }
 
+
+  #pickHatchRole(config) {
+    const allocation = config.casteAllocation || {};
+    const workerWeight = Math.max(0, allocation.workers ?? 60);
+    const soldierWeight = Math.max(0, allocation.soldiers ?? 30);
+    const breederWeight = Math.max(0, allocation.breeders ?? 10);
+    const total = workerWeight + soldierWeight + breederWeight;
+
+    if (total <= 0) {
+      return this.rng.chance(config.soldierSpawnChance) ? 'soldier' : 'worker';
+    }
+
+    let pick = this.rng.range(0, total);
+    if ((pick -= workerWeight) <= 0) return 'worker';
+    if ((pick -= soldierWeight) <= 0) return 'soldier';
+    return 'breeder';
+  }
+
   update(config) {
     this.#updateQueenSurvival(config);
     if (this.queen.alive) {
@@ -72,8 +90,9 @@ export class Colony {
 
       while (this.queen.brood >= 1 && this.ants.length < config.antCap) {
         this.queen.brood -= 1;
-        const role = this.rng.chance(config.soldierSpawnChance) ? 'soldier' : 'worker';
-        this.ants.push(this.#spawnNearNest(role));
+        const role = this.#pickHatchRole(config);
+        const spawnedRole = role === 'breeder' ? 'worker' : role;
+        this.ants.push(this.#spawnNearNest(spawnedRole));
         this.births += 1;
       }
     }

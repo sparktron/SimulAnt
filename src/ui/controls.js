@@ -1,3 +1,5 @@
+import { ColonyStatusPanel } from './ColonyStatusPanel.js';
+
 const TOOL_BY_KEY = {
   '1': 'food',
   '2': 'wall',
@@ -11,6 +13,7 @@ export function createControls(state, actions) {
   const stepBtn = byId('stepBtn');
   const resetBtn = byId('resetBtn');
   const viewToggleBtn = byId('viewToggleBtn');
+  const colonyStatusBtn = byId('colonyStatusBtn');
 
   const seedInput = byId('seedInput');
   const speedSlider = byId('speedSlider');
@@ -25,6 +28,21 @@ export function createControls(state, actions) {
   const scentBtn = byId('scentBtn');
   const helpPanel = byId('helpPanel');
 
+  const statusPanel = new ColonyStatusPanel({
+    dialog: byId('colonyStatusPanel'),
+    mountNode: byId('statusTriangles'),
+    initialWork: state.workAllocation,
+    initialCaste: state.casteAllocation,
+    onWorkChange: (workAllocation) => {
+      Object.assign(state.workAllocation, workAllocation);
+      if (actions.onColonyStatusChange) actions.onColonyStatusChange(state.workAllocation, state.casteAllocation);
+    },
+    onCasteChange: (casteAllocation) => {
+      Object.assign(state.casteAllocation, casteAllocation);
+      if (actions.onColonyStatusChange) actions.onColonyStatusChange(state.workAllocation, state.casteAllocation);
+    },
+  });
+
   startPauseBtn.addEventListener('click', () => {
     state.paused = !state.paused;
     syncPauseButton(startPauseBtn, state.paused);
@@ -32,6 +50,7 @@ export function createControls(state, actions) {
   stepBtn.addEventListener('click', () => actions.stepOnce());
   resetBtn.addEventListener('click', () => actions.reset(seedInput.value));
   viewToggleBtn.addEventListener('click', () => actions.toggleView());
+  colonyStatusBtn.addEventListener('click', () => statusPanel.toggle());
 
   speedSlider.addEventListener('input', () => {
     state.simSpeed = Number(speedSlider.value);
@@ -80,6 +99,8 @@ export function createControls(state, actions) {
     } else if (event.code === 'Tab') {
       event.preventDefault();
       actions.toggleView();
+    } else if (event.code === 'Escape' && statusPanel.dialog.open) {
+      statusPanel.close();
     } else if (event.key.toLowerCase() === 'n') {
       actions.stepOnce();
     } else if (event.key.toLowerCase() === 'r') {

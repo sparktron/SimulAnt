@@ -177,6 +177,55 @@
         font-family: 'Courier New', monospace;
         font-size: 12px;
       }
+      .status-dialog {
+        border: 2px outset #ccc;
+        background: #dcdcdc;
+        padding: 0;
+      }
+      .status-dialog::backdrop {
+        background: rgba(0, 0, 0, 0.35);
+      }
+      .status-panel {
+        min-width: 520px;
+        padding: 10px;
+      }
+      .status-panel h2 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+      .status-triangle-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .triangle-control {
+        border: 2px inset #aaa;
+        background: #e4e4e4;
+        padding: 6px;
+      }
+      .triangle-control h3 {
+        margin: 0 0 4px;
+        font-size: 11px;
+      }
+      .triangle-wrap {
+        position: relative;
+        width: 220px;
+        height: 190px;
+      }
+      .triangle-canvas {
+        width: 220px;
+        height: 190px;
+        cursor: crosshair;
+      }
+      .triangle-corner {
+        position: absolute;
+        font-size: 10px;
+        font-weight: bold;
+        text-shadow: 1px 1px 0 #fff;
+      }
+      .triangle-corner-0 { left: 3px; bottom: 12px; }
+      .triangle-corner-1 { right: 3px; bottom: 12px; text-align: right; }
+      .triangle-corner-2 { left: 50%; transform: translateX(-50%); top: 0; text-align: center; }
       kbd {
         border: 1px solid #333;
         padding: 1px 4px;
@@ -194,6 +243,7 @@
           <button id="viewToggleBtn" class="palette-btn">VIEW: SURFACE</button>
           <button id="startPauseBtn" class="palette-btn">PAUSE</button>
           <button id="stepBtn" class="palette-btn">STEP</button>
+          <button id="colonyStatusBtn" class="palette-btn">COLONY STATUS</button>
 
           <div class="tool-grid">
             <label><input type="radio" name="tool" value="food" checked />MAP</label>
@@ -286,6 +336,13 @@
         <li>Wheel: zoom camera (active view only)</li>
       </ul>
       <button id="closeHelpBtn">Close</button>
+    </dialog>
+
+    <dialog id="colonyStatusPanel" class="status-dialog">
+      <div class="status-panel">
+        <h2>STATUS</h2>
+        <div id="statusTriangles" class="status-triangle-grid"></div>
+      </div>
     </dialog>
 
     <script type="module" src="src/main.js"></script>

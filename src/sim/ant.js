@@ -99,7 +99,10 @@ export class Ant {
       return didMove;
     }
 
-    if (!this.#needsForage(colony)) return didMove;
+    if (!this.#needsForage(colony, config, rng)) {
+      this.state = 'NEST_DUTY';
+      return didMove;
+    }
 
     const nearEntrance = context.entrance
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.homeDepositMinDistance
@@ -167,6 +170,9 @@ export class Ant {
   }
 
   #applyFallbackMovement(world, rng, config, entrance, didMove) {
+    if (!didMove && this.state === 'NEST_DUTY' && entrance) {
+      return this.#moveToward(world, entrance.x, entrance.y, rng);
+    }
     if (!didMove && this.carrying?.type === 'food') {
       return this.#moveByPheromone(world, rng, config, 'home', entrance);
     }
@@ -249,8 +255,13 @@ export class Ant {
     return true;
   }
 
-  #needsForage(colony) {
-    return this.hunger < this.hungerMax * 0.4 || colony.foodStored < colony.foodStoreTarget;
+  #needsForage(colony, config, rng) {
+    if (this.hunger < this.hungerMax * 0.4 || colony.foodStored < colony.foodStoreTarget) return true;
+
+    const work = config.workAllocation || {};
+    const forageWeight = Math.max(0, Math.min(100, work.forage ?? 50));
+    const opportunisticForageChance = (forageWeight / 100) * 0.25;
+    return rng.chance(opportunisticForageChance);
   }
 
   #tryEatFromNest(colony, inNest, config) {

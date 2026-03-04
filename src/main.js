@@ -79,6 +79,16 @@ const state = {
     workers: 70,
     soldiers: 30,
   },
+  workAllocation: {
+    Forage: 50,
+    Dig: 25,
+    Nurse: 25,
+  },
+  casteAllocation: {
+    Workers: 60,
+    Soldiers: 30,
+    Breeders: 10,
+  },
 };
 
 const canvas = mustById('simCanvas');
@@ -162,7 +172,23 @@ createControls(state, {
     const carved = simCore.forceChamberAtDigFront(state.config);
     state.debug.digStatus = carved ? 'AUTO-DIG: CHAMBER CARVED' : 'AUTO-DIG: CHAMBER FAILED';
   },
+
+  onColonyStatusChange: (workAllocation, casteAllocation) => {
+    state.config.workAllocation = {
+      forage: workAllocation.Forage,
+      dig: workAllocation.Dig,
+      nurse: workAllocation.Nurse,
+    };
+    state.config.casteAllocation = {
+      workers: casteAllocation.Workers,
+      soldiers: casteAllocation.Soldiers,
+      breeders: casteAllocation.Breeders,
+    };
+  },
 });
+
+state.config.workAllocation = { forage: state.workAllocation.Forage, dig: state.workAllocation.Dig, nurse: state.workAllocation.Nurse };
+state.config.casteAllocation = { workers: state.casteAllocation.Workers, soldiers: state.casteAllocation.Soldiers, breeders: state.casteAllocation.Breeders };
 
 window.addEventListener('resize', () => {
   surfaceRenderer.resize();
@@ -364,6 +390,8 @@ function saveState() {
     config: state.config,
     overlays: state.overlays,
     casteTargets: state.casteTargets,
+    workAllocation: state.workAllocation,
+    casteAllocation: state.casteAllocation,
     selectedTool: state.selectedTool,
     brushRadius: state.brushRadius,
     selectedAntId: state.selectedAntId,
@@ -395,6 +423,10 @@ function loadState() {
   Object.assign(state.config, data.state?.config || {});
   Object.assign(state.overlays, data.state?.overlays || {});
   Object.assign(state.casteTargets, data.state?.casteTargets || {});
+  Object.assign(state.workAllocation, data.state?.workAllocation || {});
+  Object.assign(state.casteAllocation, data.state?.casteAllocation || {});
+  state.config.workAllocation = { forage: state.workAllocation.Forage, dig: state.workAllocation.Dig, nurse: state.workAllocation.Nurse };
+  state.config.casteAllocation = { workers: state.casteAllocation.Workers, soldiers: state.casteAllocation.Soldiers, breeders: state.casteAllocation.Breeders };
   state.simSpeed = data.state?.simSpeed || state.simSpeed;
   const savedTool = data.state?.selectedTool;
   state.selectedTool = EDIT_TOOLS.has(savedTool) ? savedTool : 'food';
