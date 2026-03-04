@@ -489,7 +489,7 @@ export class Colony {
       ant.carrying = a.carrying;
       ant.carryingType = a.carryingType || (a.carrying?.type === 'food' ? 'food' : 'none');
       const defaultBaseColor = Ant.getDefaultBaseColor(ant.role);
-      const soldierBaseColor = Ant.getDefaultBaseColor('soldier');
+      const soldierBaseColor = Ant.getLegacySoldierBaseColor();
       const serializedBaseColor = typeof a.baseColor === 'string' ? a.baseColor : null;
       const serializedOriginalBaseColor = typeof a.originalBaseColor === 'string' ? a.originalBaseColor : null;
 

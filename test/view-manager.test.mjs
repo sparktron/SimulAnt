@@ -4,6 +4,8 @@ import { ViewManager, VIEW } from '../src/ui/ViewManager.js';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
 import { getSurfaceMinZoom, normalizeSurfaceTerrain } from '../src/render/SurfaceRenderer.js';
 import { TERRAIN } from '../src/sim/world.js';
+import { Ant } from '../src/sim/ant.js';
+import { SeededRng } from '../src/sim/rng.js';
 
 // ── Toggle state machine ────────────────────────────────────────────
 
@@ -306,6 +308,17 @@ test('Worker ant color migrates from stale soldier-red save data', () => {
   assert.equal(restoredAnt.role, 'worker');
   assert.equal(restoredAnt.originalBaseColor, '#1a1208');
   assert.equal(restoredAnt.baseColor, '#1a1208');
+});
+
+test('All ant roles use the same colony base color', () => {
+  const rng = new SeededRng('seed-role-color-consistency');
+  const worker = new Ant(0, 0, rng, 'worker');
+  const soldier = new Ant(0, 0, rng, 'soldier');
+  const breeder = new Ant(0, 0, rng, 'breeder');
+
+  assert.equal(worker.baseColor, '#1a1208');
+  assert.equal(soldier.baseColor, '#1a1208');
+  assert.equal(breeder.baseColor, '#1a1208');
 });
 
 test('Depositing and consuming food updates nest food cell storage', () => {
