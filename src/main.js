@@ -319,6 +319,8 @@ function getAntHealthStats(ants) {
     avg: total / ants.length,
     max,
   };
+}
+
 function maybeLogSteeringDebug(selectedAnt) {
   if (!state.config.debugSteeringContributions || !state.debug.showStats) return;
   const interval = Math.max(1, Math.floor(state.config.debugSteeringLogIntervalTicks || 1));
