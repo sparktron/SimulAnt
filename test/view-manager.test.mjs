@@ -196,6 +196,45 @@ test('Auto-dig grows tunnels and soil mound over time', () => {
   assert.ok(sim.nestEntrances[0].soilOnSurface > beforeSoil);
 });
 
+
+
+test('Auto-dig does not excavate when no worker is near any dig front', () => {
+  const sim = new SimulationCore('seed-auto-dig-nearby-workers');
+  const cfg = {
+    antCap: 300,
+    evaporationRate: 0.01,
+    diffusionRate: 0.12,
+    pheromoneUpdateTicks: 2,
+    toFoodDeposit: 0.5,
+    toHomeDeposit: 0.4,
+    dangerDeposit: 0.6,
+    hazardDeathChance: 0.02,
+    foodPickupRate: 0.7,
+    digChance: 0.04,
+    digEnergyCost: 8,
+    digHomeBoost: 0.9,
+    queenEggTicks: 20,
+    queenEggFoodCost: 0.8,
+    soldierSpawnChance: 0.2,
+  };
+
+  for (const ant of sim.colony.ants) {
+    ant.x = sim.world.width - 2;
+    ant.y = sim.world.nestY + 2;
+  }
+
+  sim.toggleAutoDig();
+  const beforeExcavated = sim.colony.excavatedTiles;
+
+  for (let i = 0; i < 120; i += 1) sim.update(cfg);
+
+  assert.equal(sim.colony.excavatedTiles, beforeExcavated);
+  assert.equal(
+    sim.colony.ants.some((ant) => ant.carryingType === 'dirt'),
+    false,
+  );
+});
+
 test('Forced chamber creates chamber terrain tiles', () => {
   const sim = new SimulationCore('seed-chamber');
   const cfg = {
