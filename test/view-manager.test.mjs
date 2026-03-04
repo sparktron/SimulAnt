@@ -310,6 +310,25 @@ test('Worker ant color migrates from stale soldier-red save data', () => {
   assert.equal(restoredAnt.baseColor, '#1a1208');
 });
 
+test('Soldier ant color migrates from stale soldier-red save data', () => {
+  const sim = new SimulationCore('seed-soldier-color-migration');
+  const ant = sim.colony.ants.find((candidate) => candidate.role === 'worker');
+  assert.ok(ant);
+
+  ant.role = 'soldier';
+  ant.baseColor = '#d93828';
+  ant.originalBaseColor = '#d93828';
+
+  const serialized = sim.serialize({});
+  const restored = new SimulationCore('other-soldier-color-migration');
+  restored.loadFromSerialized(serialized);
+
+  const restoredAnt = restored.colony.ants.find((candidate) => candidate.id === ant.id);
+  assert.equal(restoredAnt.role, 'soldier');
+  assert.equal(restoredAnt.originalBaseColor, '#1a1208');
+  assert.equal(restoredAnt.baseColor, '#1a1208');
+});
+
 test('All ant roles use the same colony base color', () => {
   const rng = new SeededRng('seed-role-color-consistency');
   const worker = new Ant(0, 0, rng, 'worker');
