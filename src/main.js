@@ -6,6 +6,7 @@ import { SimulationCore } from './sim/SimulationCore.js';
 import { ViewManager, VIEW } from './ui/ViewManager.js';
 import { InputRouter } from './input/InputRouter.js';
 import { normalizeUnhandledRejectionReason, shouldReportFatalWindowError } from './ui/runtimeErrorGate.js';
+import { ColonyStatusPanel } from './ui/ColonyStatusPanel.js';
 
 const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
@@ -99,6 +100,10 @@ const state = {
     workers: 70,
     soldiers: 30,
   },
+  colonyStatus: {
+    workAllocation: { forage: 55, dig: 20, nurse: 25 },
+    casteAllocation: { workers: 70, soldiers: 25, breeders: 5 },
+  },
 };
 
 const canvas = mustById('simCanvas');
@@ -109,6 +114,8 @@ const nestRenderer = new NestRenderer(canvas, simCore.world);
 
 surfaceRenderer.resize();
 nestRenderer.resize();
+
+applyColonyStatusToConfig();
 
 new InputRouter(canvas, viewManager, {
   surface: {
@@ -184,6 +191,37 @@ createControls(state, {
   forceChamber: () => {
     const carved = simCore.forceChamberAtDigFront(state.config);
     state.debug.digStatus = carved ? 'AUTO-DIG: CHAMBER CARVED' : 'AUTO-DIG: CHAMBER FAILED';
+  },
+});
+
+const colonyStatusPanel = new ColonyStatusPanel({
+  initialState: {
+    work: {
+      wA: state.colonyStatus.workAllocation.forage / 100,
+      wB: state.colonyStatus.workAllocation.dig / 100,
+      wC: state.colonyStatus.workAllocation.nurse / 100,
+    },
+    caste: {
+      wA: state.colonyStatus.casteAllocation.workers / 100,
+      wB: state.colonyStatus.casteAllocation.soldiers / 100,
+      wC: state.colonyStatus.casteAllocation.breeders / 100,
+    },
+  },
+  onWorkChange: (percentages) => {
+    state.colonyStatus.workAllocation = {
+      forage: percentages.a,
+      dig: percentages.b,
+      nurse: percentages.c,
+    };
+    simCore.colony.setWorkAllocation(state.colonyStatus.workAllocation);
+  },
+  onCasteChange: (percentages) => {
+    state.colonyStatus.casteAllocation = {
+      workers: percentages.a,
+      soldiers: percentages.b,
+      breeders: percentages.c,
+    };
+    applyColonyStatusToConfig();
   },
 });
 
@@ -437,6 +475,7 @@ function saveState() {
     config: state.config,
     overlays: state.overlays,
     casteTargets: state.casteTargets,
+    colonyStatus: state.colonyStatus,
     selectedTool: state.selectedTool,
     brushRadius: state.brushRadius,
     selectedAntId: state.selectedAntId,
@@ -468,6 +507,16 @@ function loadState() {
   Object.assign(state.config, data.state?.config || {});
   Object.assign(state.overlays, data.state?.overlays || {});
   Object.assign(state.casteTargets, data.state?.casteTargets || {});
+  if (data.state?.colonyStatus) {
+    Object.assign(state.colonyStatus.workAllocation, data.state.colonyStatus.workAllocation || {});
+    Object.assign(state.colonyStatus.casteAllocation, data.state.colonyStatus.casteAllocation || {});
+  }
+  simCore.colony.setWorkAllocation(state.colonyStatus.workAllocation);
+  applyColonyStatusToConfig();
+  colonyStatusPanel.sync({
+    work: state.colonyStatus.workAllocation,
+    caste: state.colonyStatus.casteAllocation,
+  });
   state.simSpeed = data.state?.simSpeed || state.simSpeed;
   const savedTool = data.state?.selectedTool;
   state.selectedTool = EDIT_TOOLS.has(savedTool) ? savedTool : 'food';
@@ -489,6 +538,14 @@ function loadState() {
 
   const mode = data.state?.viewMode;
   if (mode === VIEW.SURFACE || mode === VIEW.NEST) viewManager.setView(mode);
+}
+
+
+function applyColonyStatusToConfig() {
+  const caste = state.colonyStatus.casteAllocation;
+  const workerSoldierTotal = Math.max(1, caste.workers + caste.soldiers);
+  state.config.soldierSpawnChance = caste.soldiers / workerSoldierTotal;
+  simCore.colony.setCasteAllocation(caste);
 }
 
 function syncRenderWorld() {

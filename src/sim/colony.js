@@ -18,6 +18,9 @@ export class Colony {
     this.nestEntrances = [];
     this.nestFoodPellets = [];
 
+    this.workAllocation = { forage: 55, dig: 20, nurse: 25 };
+    this.casteAllocation = { workers: 70, soldiers: 25, breeders: 5 };
+
     this.queen = {
       alive: true,
       eggProgress: 0,
@@ -84,11 +87,52 @@ export class Colony {
 
       while (this.queen.brood >= 1 && this.ants.length < config.antCap) {
         this.queen.brood -= 1;
-        const role = this.rng.chance(config.soldierSpawnChance) ? 'soldier' : 'worker';
+        const role = this.selectHatchRole(config);
         this.ants.push(this.#spawnNearNest(role));
         this.births += 1;
       }
     }
+  }
+
+
+  setWorkAllocation(allocation = {}) {
+    const forage = Number.isFinite(allocation.forage) ? allocation.forage : this.workAllocation.forage;
+    const dig = Number.isFinite(allocation.dig) ? allocation.dig : this.workAllocation.dig;
+    const nurse = Number.isFinite(allocation.nurse) ? allocation.nurse : this.workAllocation.nurse;
+    const total = Math.max(1, forage + dig + nurse);
+    this.workAllocation = {
+      forage: Math.max(0, (forage / total) * 100),
+      dig: Math.max(0, (dig / total) * 100),
+      nurse: Math.max(0, (nurse / total) * 100),
+    };
+  }
+
+  setCasteAllocation(allocation = {}) {
+    const workers = Number.isFinite(allocation.workers) ? allocation.workers : this.casteAllocation.workers;
+    const soldiers = Number.isFinite(allocation.soldiers) ? allocation.soldiers : this.casteAllocation.soldiers;
+    const breeders = Number.isFinite(allocation.breeders) ? allocation.breeders : this.casteAllocation.breeders;
+    const total = Math.max(1, workers + soldiers + breeders);
+    this.casteAllocation = {
+      workers: Math.max(0, (workers / total) * 100),
+      soldiers: Math.max(0, (soldiers / total) * 100),
+      breeders: Math.max(0, (breeders / total) * 100),
+    };
+  }
+
+  chooseWorkFocus() {
+    const roll = this.rng.range(0, 100);
+    if (roll < this.workAllocation.forage) return 'forage';
+    if (roll < this.workAllocation.forage + this.workAllocation.dig) return 'dig';
+    return 'nurse';
+  }
+
+  selectHatchRole(config) {
+    const workerSoldierTotal = Math.max(0.0001, this.casteAllocation.workers + this.casteAllocation.soldiers);
+    const casteDrivenSoldierChance = this.casteAllocation.soldiers / workerSoldierTotal;
+    const soldierChance = Number.isFinite(config.soldierSpawnChance)
+      ? Math.max(0, Math.min(1, config.soldierSpawnChance))
+      : casteDrivenSoldierChance;
+    return this.rng.chance(soldierChance) ? 'soldier' : 'worker';
   }
 
   #updateQueenAndBrood(config) {
@@ -398,6 +442,8 @@ export class Colony {
       queen: this.queen,
       excavatedTiles: this.excavatedTiles,
       nestFoodPellets: this.nestFoodPellets,
+      workAllocation: this.workAllocation,
+      casteAllocation: this.casteAllocation,
       ants: this.ants.map((ant) => ({
         id: ant.id,
         x: ant.x,
@@ -430,6 +476,8 @@ export class Colony {
         .filter((pellet) => Number.isFinite(pellet?.x) && Number.isFinite(pellet?.y) && Number.isFinite(pellet?.amount) && pellet.amount > 0)
         .map((pellet) => ({ x: pellet.x, y: pellet.y, amount: pellet.amount }))
       : [];
+    colony.setWorkAllocation(data.workAllocation || colony.workAllocation);
+    colony.setCasteAllocation(data.casteAllocation || colony.casteAllocation);
     colony.ants = data.ants.map((a) => {
       const ant = new Ant(a.x, a.y, rng, a.role || 'worker');
       ant.id = a.id || ant.id;
