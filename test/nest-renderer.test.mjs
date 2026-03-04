@@ -6,11 +6,12 @@ import { TERRAIN } from '../src/sim/world.js';
 function createFakeCanvasContext() {
   return {
     arcCalls: 0,
+    fillRectCalls: [],
     fillStyle: '#000000',
     lineWidth: 1,
     font: '10px sans-serif',
     setTransform() {},
-    fillRect() {},
+    fillRect(x, y, w, h) { this.fillRectCalls.push({ x, y, w, h, fillStyle: this.fillStyle }); },
     save() {},
     restore() {},
     translate() {},
@@ -101,6 +102,66 @@ test('NestRenderer hides queen marker by default and shows it only when enabled'
 
     renderer.draw(colony, { showDebugStats: false, showQueenMarker: true });
     assert.equal(mainCtx.arcCalls, 2, 'queen marker should render as two circles when enabled');
+  } finally {
+    globalThis.document = oldDocument;
+  }
+});
+
+
+test('NestRenderer draws ants regardless of above/below nest line', () => {
+  const world = createWorld();
+  const mainCtx = createFakeCanvasContext();
+  const offscreenCtx = createOffscreenContext(world.width, world.height);
+
+  const fakeDocument = {
+    createElement(tag) {
+      assert.equal(tag, 'canvas');
+      return {
+        width: world.width,
+        height: world.height,
+        getContext() {
+          return offscreenCtx;
+        },
+      };
+    },
+  };
+
+  const oldDocument = globalThis.document;
+  globalThis.document = fakeDocument;
+
+  try {
+    const canvas = {
+      clientWidth: 320,
+      clientHeight: 200,
+      getContext() {
+        return mainCtx;
+      },
+      getBoundingClientRect() {
+        return { width: this.clientWidth, height: this.clientHeight };
+      },
+    };
+
+    const renderer = new NestRenderer(canvas, world);
+    const colony = {
+      ants: [
+        { id: 'surface-ant', x: 2, y: world.nestY - 2, baseColor: '#111111', carryingType: 'none', hunger: 80, health: 90 },
+        { id: 'nest-ant', x: 4, y: world.nestY + 2, baseColor: '#222222', carryingType: 'none', hunger: 70, health: 85 },
+      ],
+      nestFoodPellets: [],
+      foodStored: 0,
+      queen: { alive: false, hunger: 100, health: 100, x: world.nestX, y: world.nestY + 2 },
+    };
+
+    renderer.draw(colony, { showDebugStats: false });
+
+    assert.ok(
+      mainCtx.fillRectCalls.some((call) => call.x === 2 && call.y === world.nestY - 2 && call.w === 1 && call.h === 1),
+      'surface ant should be rendered in nest view',
+    );
+    assert.ok(
+      mainCtx.fillRectCalls.some((call) => call.x === 4 && call.y === world.nestY + 2 && call.w === 1 && call.h === 1),
+      'nest ant should be rendered in nest view',
+    );
   } finally {
     globalThis.document = oldDocument;
   }

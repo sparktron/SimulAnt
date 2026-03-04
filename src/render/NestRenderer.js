@@ -197,13 +197,12 @@ export class NestRenderer {
   }
 
   /* ------------------------------------------------------------------
-   * Entities: underground ants (y >= nestY - 1) + queen marker.
+   * Entities: all ants + optional queen marker.
    * ----------------------------------------------------------------*/
   #drawAnts(ctx, colony, selectedAntId, showDebugStats, showQueenMarker = false) {
     const { world } = this;
 
     for (const ant of colony.ants) {
-      if (ant.y < world.nestY - 1) continue;
       ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
 

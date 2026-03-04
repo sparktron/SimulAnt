@@ -156,7 +156,6 @@ export class SurfaceRenderer {
     const { world } = this;
     ctx.font = '2.8px monospace';
     for (const ant of colony.ants) {
-      if (ant.y > world.nestY + 1) continue;
       ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
 
