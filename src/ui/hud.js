@@ -4,6 +4,8 @@ export function updateHud(stats) {
   setText('hudAnts', `${stats.ants}`);
   setText('hudWorkers', `${stats.workers}`);
   setText('hudSoldiers', `${stats.soldiers}`);
+  setText('hudNurses', `${stats.nurses || 0}`);
+  setText('hudJobs', `${stats.jobsForage || 0} / ${stats.jobsDig || 0} / ${stats.jobsNurse || 0}`);
   setText('hudFood', stats.foodStored.toFixed(1));
   setText('hudFps', stats.fps.toFixed(1));
   setText('hudDig', stats.digStatus || 'AUTO-DIG: OFF');

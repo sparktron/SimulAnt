@@ -26,6 +26,10 @@ test('HUD health bars bind to selected health and aggregate health stats', () =>
     ants: 10,
     workers: 7,
     soldiers: 3,
+    nurses: 2,
+    jobsForage: 4,
+    jobsDig: 1,
+    jobsNurse: 2,
     foodStored: 20,
     fps: 60,
     digStatus: 'AUTO-DIG: OFF',
@@ -40,6 +44,8 @@ test('HUD health bars bind to selected health and aggregate health stats', () =>
   assert.equal(elements.get('healthBlack').style.height, '20%');
   assert.equal(elements.get('healthRed').style.height, '90%');
   assert.equal(elements.get('hudHealthStats').textContent, 'MIN:20.0 AVG:55.0 MAX:90.0');
+  assert.equal(elements.get('hudNurses').textContent, '2');
+  assert.equal(elements.get('hudJobs').textContent, '4 / 1 / 2');
 });
 
 test('HUD health bars fall back to aggregate average when no selected ant', () => {
@@ -51,6 +57,10 @@ test('HUD health bars fall back to aggregate average when no selected ant', () =
     ants: 4,
     workers: 4,
     soldiers: 0,
+    nurses: 1,
+    jobsForage: 2,
+    jobsDig: 1,
+    jobsNurse: 1,
     foodStored: 0,
     fps: 60,
     digStatus: 'AUTO-DIG: OFF',
@@ -62,6 +72,8 @@ test('HUD health bars fall back to aggregate average when no selected ant', () =
   });
 
   assert.equal(elements.get('healthYellow').style.height, '35%');
+  assert.equal(elements.get('hudNurses').textContent, '1');
+  assert.equal(elements.get('hudJobs').textContent, '2 / 1 / 1');
 });
 
 
@@ -75,6 +87,10 @@ test('HUD health stats tolerate partial/malformed aggregate payloads', () => {
       ants: 1,
       workers: 1,
       soldiers: 0,
+      nurses: 0,
+      jobsForage: 1,
+      jobsDig: 0,
+      jobsNurse: 0,
       foodStored: 0,
       fps: 60,
       digStatus: 'AUTO-DIG: OFF',
