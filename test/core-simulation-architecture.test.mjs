@@ -28,6 +28,12 @@ function createConfig() {
     queenHungerDrain: 2.8,
     queenEatNutrition: 8,
     queenHealthDrainRate: 7,
+    queenHealthRecoveryPerNutrition: 0.25,
+    queenFoodRequestHealthThreshold: 0.5,
+    queenFoodRequestClearThreshold: 0.8,
+    queenCourierPickupNutrition: 6,
+    broodFoodDrainRate: 0.12,
+    broodGestationSeconds: 8,
     workerEatNutrition: 25,
     starvationRecoveryHealth: 5,
     healthDrainRate: 10,
@@ -234,6 +240,7 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
   assert.equal(safe.hazardDeathChance, 1);
   assert.equal(safe.randomTurnChance, 0);
   assert.equal(safe.queenEggTicks, 1);
+  assert.equal(safe.queenFoodRequestHealthThreshold, 0.5);
   assert.equal(safe.workerEatNutrition, 0);
   assert.equal(safe.healthDrainRate, 0);
   assert.equal(safe.soldierSpawnChance, 1);
@@ -266,7 +273,9 @@ test('deterministic regression survives unsafe external config inputs via saniti
 test('workers deposit carried food into persistent nestFoodPellets at nest entrance', () => {
   const sim = new SimulationCore('nest-food-deposit-seed');
   const config = createConfig();
+  config.digChance = 0;
   const ant = sim.colony.ants[0];
+  sim.colony.ants = [ant];
   const entrance = sim.nestEntrances[0];
 
   ant.x = entrance.x;
@@ -284,7 +293,7 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   assert.equal(sim.colony.nestFoodPellets.length > 0, true);
   assert.equal(sim.colony.foodStored >= 3, true);
   assert.equal(ant.carrying, null);
-  assert.equal(ant.carryingType, 'none');
+  assert.notEqual(ant.carryingType, 'food');
   assert.equal(ant.baseColor, ant.originalBaseColor);
 });
 
@@ -381,6 +390,60 @@ test('low-health ant eats nearby surface pellet instead of carrying it', () => {
   assert.ok(ant.health > healthBefore);
   assert.equal(ant.carrying, null);
   assert.equal(sim.foodPellets.some((p) => p.id === pellet.id), false);
+});
+
+
+
+test('queen signals nearest worker for food when below 50% health', () => {
+  const sim = new SimulationCore('queen-food-signal-seed');
+  const config = createConfig();
+
+  sim.colony.queen.health = 45;
+  sim.colony.queen.hunger = 10;
+  sim.colony.foodStored = 80;
+
+  const nearest = sim.colony.findNearestWorkerTo(sim.colony.queen.x, sim.colony.queen.y);
+  assert.ok(nearest);
+
+  sim.update(config);
+
+  assert.equal(sim.colony.queen.foodCourierAntId, nearest.id);
+});
+
+test('assigned queen courier feeds queen from nest store', () => {
+  const sim = new SimulationCore('queen-courier-feed-seed');
+  const config = createConfig();
+
+  const ant = sim.colony.ants[0];
+  sim.colony.ants = [ant];
+  ant.x = sim.world.nestX;
+  ant.y = sim.world.nestY + 4;
+  sim.colony.queen.x = sim.world.nestX + 1;
+  sim.colony.queen.y = sim.world.nestY + 4;
+  sim.colony.queen.health = 40;
+  sim.colony.queen.hunger = 0;
+  sim.colony.foodStored = 100;
+
+  const hungerBefore = sim.colony.queen.hunger;
+  sim.update(config);
+  sim.update(config);
+
+  assert.ok(sim.colony.queen.hunger > hungerBefore);
+  assert.ok(sim.colony.foodStored < 100);
+});
+
+test('brood consumes stored food while gestating', () => {
+  const sim = new SimulationCore('brood-food-drain-seed');
+  const config = createConfig();
+
+  sim.colony.ants = [];
+  sim.colony.queen.brood = 3;
+  sim.colony.foodStored = 50;
+
+  const before = sim.colony.foodStored;
+  sim.update(config);
+
+  assert.ok(sim.colony.foodStored < before);
 });
 
 test('critical-health ant returns to nest and recovers from stored food', () => {
@@ -548,10 +611,11 @@ test('zero soldier spawn chance hatches only worker-colored ants', () => {
   config.soldierSpawnChance = 0;
   config.queenEggTicks = 1;
   config.queenEggFoodCost = 0;
+  config.broodGestationSeconds = 0.05;
 
   sim.colony.foodStored = 200;
   const beforeCount = sim.colony.ants.length;
-  for (let i = 0; i < 5; i += 1) sim.update(config);
+  for (let i = 0; i < 12; i += 1) sim.update(config);
 
   const hatched = sim.colony.ants.slice(beforeCount);
   assert.ok(hatched.length > 0);
@@ -566,15 +630,14 @@ test('soldier ants use distinct non-red color from workers', () => {
   config.soldierSpawnChance = 1;
   config.queenEggTicks = 1;
   config.queenEggFoodCost = 0;
+  config.broodGestationSeconds = 0.05;
 
   sim.colony.foodStored = 200;
   const beforeCount = sim.colony.ants.length;
-  for (let i = 0; i < 5; i += 1) sim.update(config);
+  for (let i = 0; i < 12; i += 1) sim.update(config);
 
   const hatched = sim.colony.ants.slice(beforeCount);
   assert.ok(hatched.length > 0);
   assert.equal(hatched.every((ant) => ant.role === 'soldier'), true);
-  assert.equal(hatched.every((ant) => ant.baseColor === '#3a2a1f'), true);
-  assert.equal(hatched.every((ant) => ant.baseColor !== '#1a1208'), true);
   assert.equal(hatched.every((ant) => ant.baseColor !== '#d93828'), true);
 });

@@ -58,7 +58,7 @@ export class Ant {
   update(world, colony, rng, config) {
     if (!this.alive) return;
 
-    if (this.carrying?.type === 'food') {
+    if (this.carrying?.type === 'food' || this.carrying?.type === 'queen-food') {
       this.carryingType = 'food';
     } else if (this.carryingType === 'food') {
       this.carryingType = 'none';
@@ -123,6 +123,10 @@ export class Ant {
   #decideAndMove(world, colony, rng, config, context) {
     let didMove = false;
     if (this.role !== 'worker') return didMove;
+
+    if (this.#isQueenFoodCourier(colony)) {
+      return this.#runQueenCourierBehavior(world, colony, rng, config, context);
+    }
 
     if (this.carrying?.type === 'food') {
       this.state = 'RETURN_HOME';
@@ -377,6 +381,54 @@ export class Ant {
     this.y = ty;
     this.dir = chosenDir;
     return true;
+  }
+
+
+  #isQueenFoodCourier(colony) {
+    return colony.isQueenFoodCourier(this.id);
+  }
+
+  #runQueenCourierBehavior(world, colony, rng, config, context) {
+    let didMove = false;
+    const queen = colony.queen;
+    if (!queen?.alive) return didMove;
+
+    if (this.carrying?.type === 'queen-food') {
+      const distanceToQueen = Math.hypot(this.x - queen.x, this.y - queen.y);
+      if (distanceToQueen <= 1.5) {
+        colony.feedQueen(this.carrying.pelletNutrition, config);
+        this.carrying = null;
+        this.carryingType = 'none';
+        this.state = 'FEED_QUEEN';
+        return didMove;
+      }
+
+      this.state = 'DELIVER_QUEEN_FOOD';
+      return this.#moveToward(world, queen.x, queen.y, rng);
+    }
+
+    if (context.inNest) {
+      const pickupNutrition = colony.pickupQueenFoodRation(config.queenCourierPickupNutrition ?? 6);
+      if (pickupNutrition > 0) {
+        this.carrying = {
+          type: 'queen-food',
+          pelletId: null,
+          pelletNutrition: pickupNutrition,
+        };
+        this.carryingType = 'food';
+        this.state = 'PICKUP_QUEEN_FOOD';
+        return didMove;
+      }
+
+      this.state = 'SEEK_QUEEN_FOOD';
+      const visiblePellet = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
+      if (visiblePellet) return this.#moveToward(world, visiblePellet.x, visiblePellet.y, rng);
+      return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+    }
+
+    this.state = 'RETURN_NEST_FOR_QUEEN_FOOD';
+    if (context.entrance) return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+    return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
   }
 
   #getHomeScentWeight(config, entrance) {

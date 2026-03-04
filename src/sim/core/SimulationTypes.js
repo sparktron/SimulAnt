@@ -71,6 +71,12 @@ export function sanitizeTickConfig(config = {}) {
     queenHungerDrain: clampNonNegativeNumber(config.queenHungerDrain, 0),
     queenEatNutrition: clampNonNegativeNumber(config.queenEatNutrition, 0),
     queenHealthDrainRate: clampNonNegativeNumber(config.queenHealthDrainRate, 0),
+    queenHealthRecoveryPerNutrition: clampNonNegativeNumber(config.queenHealthRecoveryPerNutrition, 0),
+    queenFoodRequestHealthThreshold: clamp01(config.queenFoodRequestHealthThreshold, 0.5),
+    queenFoodRequestClearThreshold: clamp01(config.queenFoodRequestClearThreshold, 0.8),
+    queenCourierPickupNutrition: clampNonNegativeNumber(config.queenCourierPickupNutrition, 0),
+    broodFoodDrainRate: clampNonNegativeNumber(config.broodFoodDrainRate, 0),
+    broodGestationSeconds: clampNonNegativeNumber(config.broodGestationSeconds, 1),
 
     workerEatNutrition: clampNonNegativeNumber(config.workerEatNutrition, 0),
     starvationRecoveryHealth: clampNonNegativeNumber(config.starvationRecoveryHealth, 0),
