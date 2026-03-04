@@ -145,6 +145,7 @@ test('NestRenderer only draws underground ants in nest view', () => {
     const colony = {
       ants: [
         { id: 'surface-ant', x: 2, y: world.nestY - 2, baseColor: '#111111', carryingType: 'none', hunger: 80, health: 90 },
+        { id: 'horizon-ant', x: 3, y: world.nestY, baseColor: '#333333', carryingType: 'none', hunger: 75, health: 88 },
         { id: 'nest-ant', x: 4, y: world.nestY + 2, baseColor: '#222222', carryingType: 'none', hunger: 70, health: 85 },
       ],
       nestFoodPellets: [],
@@ -158,6 +159,12 @@ test('NestRenderer only draws underground ants in nest view', () => {
       !mainCtx.fillRectCalls.some((call) => call.x === 2 && call.y === world.nestY - 2 && call.w === 1 && call.h === 1),
       'surface ant should not be rendered in nest view',
     );
+
+    assert.ok(
+      !mainCtx.fillRectCalls.some((call) => call.x === 3 && call.y === world.nestY && call.w === 1 && call.h === 1),
+      'horizon ant should not be rendered in nest view',
+    );
+
     assert.ok(
       mainCtx.fillRectCalls.some((call) => call.x === 4 && call.y === world.nestY + 2 && call.w === 1 && call.h === 1),
       'nest ant should be rendered in nest view',

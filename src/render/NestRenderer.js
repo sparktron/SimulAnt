@@ -209,7 +209,7 @@ export class NestRenderer {
     const maxY = this.cameraY + halfViewH + 1;
 
     for (const ant of colony.ants) {
-      if (ant.y < world.nestY - 1) continue;
+      if (ant.y <= world.nestY) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);

@@ -242,6 +242,42 @@ test('Auto-dig does not excavate when no worker is near any dig front', () => {
 
 
 
+
+
+test('Dirt-carrying ant deposits at surface near entrance', () => {
+  const sim = new SimulationCore('seed-dirt-surface-deposit');
+  const ant = sim.colony.ants[0];
+  const entrance = sim.nestEntrances[0];
+  const cfg = {
+    antCap: 300,
+    evaporationRate: 0.01,
+    diffusionRate: 0.12,
+    pheromoneUpdateTicks: 2,
+    toFoodDeposit: 0.5,
+    toHomeDeposit: 0.4,
+    dangerDeposit: 0.6,
+    hazardDeathChance: 0.02,
+    foodPickupRate: 0.7,
+    digChance: 0.04,
+    digEnergyCost: 8,
+    digHomeBoost: 0.9,
+    queenEggTicks: 20,
+    queenEggFoodCost: 0.8,
+    soldierSpawnChance: 0.2,
+  };
+
+  ant.x = entrance.x;
+  ant.y = entrance.y - 1;
+  ant.carrying = { type: 'dirt', amount: 2 };
+  ant.carryingType = 'dirt';
+
+  const beforeSoil = sim.nestEntrances[0].soilOnSurface;
+  sim.update(cfg);
+
+  assert.equal(ant.carrying, null);
+  assert.equal(sim.nestEntrances[0].soilOnSurface > beforeSoil, true);
+});
+
 test('Auto-dig workers carry dirt and increase surface soil via entrance deposit', () => {
   const sim = new SimulationCore('seed-auto-dig-haul');
   const cfg = {

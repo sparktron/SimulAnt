@@ -95,16 +95,22 @@ export class Ant {
     if (this.carrying?.type === 'dirt') {
       this.state = 'HAUL_DIRT';
       if (context.entrance) {
-        const distanceToEntrance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
         const entranceRadius = Math.max(1, context.entrance.radius ?? 1);
-        if (distanceToEntrance <= entranceRadius + 0.5) {
+        const nearEntranceX = Math.abs(this.x - context.entrance.x) <= entranceRadius + 1;
+        const reachedSurface = this.y <= context.entrance.y;
+
+        if (reachedSurface && nearEntranceX) {
           colony.recordDirtDeposit(this.carrying.amount ?? 1, context.entrance.x, context.entrance.y);
           this.carrying = null;
           this.carryingType = 'none';
           return didMove;
         }
 
-        didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        const targetY = context.inNest ? context.entrance.y - 1 : Math.min(this.y, context.entrance.y - 1);
+        if (world.isPassable(context.entrance.x, targetY)) {
+          didMove = this.#moveToward(world, context.entrance.x, targetY, rng);
+        }
+        if (!didMove) didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
         if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
         return didMove;
       }
