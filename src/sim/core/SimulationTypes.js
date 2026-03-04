@@ -76,6 +76,12 @@ export function sanitizeTickConfig(config = {}) {
     starvationRecoveryHealth: clampNonNegativeNumber(config.starvationRecoveryHealth, 0),
     healthDrainRate: clampNonNegativeNumber(config.healthDrainRate, 0),
     healthRegenRate: clampNonNegativeNumber(config.healthRegenRate, 0),
+    healthWorkIdleDrainRate: clampNonNegativeNumber(config.healthWorkIdleDrainRate, 0),
+    healthWorkMoveDrainRate: clampNonNegativeNumber(config.healthWorkMoveDrainRate, 0),
+    healthWorkCarryDrainRate: clampNonNegativeNumber(config.healthWorkCarryDrainRate, 0),
+    healthWorkFightDrainRate: clampNonNegativeNumber(config.healthWorkFightDrainRate, 0),
+    healthEatRecoveryRate: clampNonNegativeNumber(config.healthEatRecoveryRate, 0),
+    workerEmergencyEatNutrition: clampNonNegativeNumber(config.workerEmergencyEatNutrition, 0),
     carryingHungerDrainRate: clampNonNegativeNumber(config.carryingHungerDrainRate, 0),
     fightingHungerDrainRate: clampNonNegativeNumber(config.fightingHungerDrainRate, 0),
 

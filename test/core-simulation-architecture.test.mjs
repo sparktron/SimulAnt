@@ -31,6 +31,12 @@ function createConfig() {
     starvationRecoveryHealth: 5,
     healthDrainRate: 10,
     healthRegenRate: 1,
+    healthWorkIdleDrainRate: 0.2,
+    healthWorkMoveDrainRate: 0.5,
+    healthWorkCarryDrainRate: 0.3,
+    healthWorkFightDrainRate: 1.2,
+    healthEatRecoveryRate: 0.45,
+    workerEmergencyEatNutrition: 35,
     carryingHungerDrainRate: 1.5,
     fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.2,
@@ -246,4 +252,47 @@ test('feeding a starving ant increases health deterministically', () => {
   sim.update(config);
 
   assert.ok(ant.health > 60);
+});
+
+
+test('low-health ant eats nearby surface pellet instead of carrying it', () => {
+  const sim = new SimulationCore('health-nearby-pellet-seed');
+  const config = createConfig();
+  sim.colony.ants = sim.colony.ants.slice(0, 1);
+
+  const ant = sim.colony.ants[0];
+  ant.health = 40;
+  ant.hunger = 20;
+
+  const pellet = sim.foodPellets[0];
+  ant.x = pellet.x;
+  ant.y = pellet.y;
+
+  const healthBefore = ant.health;
+  sim.update(config);
+
+  assert.ok(ant.health > healthBefore);
+  assert.equal(ant.carrying, null);
+  assert.equal(sim.foodPellets.some((p) => p.id === pellet.id), false);
+});
+
+test('critical-health ant returns to nest and recovers from stored food', () => {
+  const sim = new SimulationCore('health-critical-return-seed');
+  const config = createConfig();
+  sim.colony.ants = sim.colony.ants.slice(0, 1);
+
+  const ant = sim.colony.ants[0];
+  ant.x = sim.world.nestX;
+  ant.y = sim.world.nestY - 3;
+  ant.health = 20;
+  ant.hunger = 10;
+  sim.colony.foodStored = 200;
+
+  const healthBefore = ant.health;
+  for (let i = 0; i < 6; i += 1) {
+    sim.update(config);
+  }
+
+  assert.ok(ant.health > healthBefore);
+  assert.ok(ant.y >= sim.world.nestY - 1);
 });
