@@ -10,9 +10,13 @@ export class ColonyStatusPanel {
     this.triangles = [];
     this.#build(options.initialWork, options.initialCaste);
 
+    this.hasNativeDialog = typeof this.dialog.showModal === 'function' && typeof this.dialog.close === 'function';
+
     this.dialog.addEventListener('click', (event) => {
+      if (!this.isOpen()) return;
       const panel = this.dialog.querySelector('.status-panel');
-      if (!panel.contains(event.target)) this.close();
+      const clickedBackdrop = event.target === this.dialog;
+      if (clickedBackdrop && panel) this.close();
     });
   }
 
@@ -42,16 +46,30 @@ export class ColonyStatusPanel {
     }));
   }
 
+  isOpen() {
+    return Boolean(this.dialog.open || this.dialog.classList.contains('is-open'));
+  }
+
   toggle() {
-    if (this.dialog.open) this.close();
+    if (this.isOpen()) this.close();
     else this.open();
   }
 
   open() {
-    this.dialog.showModal();
+    if (this.hasNativeDialog) {
+      if (!this.dialog.open) this.dialog.showModal();
+      return;
+    }
+    this.dialog.classList.add('is-open');
+    this.dialog.setAttribute('open', 'open');
   }
 
   close() {
-    this.dialog.close();
+    if (this.hasNativeDialog) {
+      if (this.dialog.open) this.dialog.close();
+      return;
+    }
+    this.dialog.classList.remove('is-open');
+    this.dialog.removeAttribute('open');
   }
 }

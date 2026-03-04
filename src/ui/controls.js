@@ -99,7 +99,7 @@ export function createControls(state, actions) {
     } else if (event.code === 'Tab') {
       event.preventDefault();
       actions.toggleView();
-    } else if (event.code === 'Escape' && statusPanel.dialog.open) {
+    } else if (event.code === 'Escape' && statusPanel.isOpen()) {
       statusPanel.close();
     } else if (event.key.toLowerCase() === 'n') {
       actions.stepOnce();
