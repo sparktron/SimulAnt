@@ -1,6 +1,12 @@
 import { VIEW } from '../ui/ViewManager.js';
 
 export class InputRouter {
+  /**
+   * Routes pointer/wheel input to the active view's handlers.
+   *
+   * Inputs are raw canvas events; outputs are delegated handler callbacks that
+   * mutate camera position, paint tools, and selection state.
+   */
   constructor(canvas, viewManager, handlers) {
     this.canvas = canvas;
     this.viewManager = viewManager;
@@ -64,10 +70,14 @@ export class InputRouter {
       }
     });
 
-    this.canvas.addEventListener('pointerup', () => {
+    const endPointerInteraction = () => {
       this.painting = false;
       this.panning = false;
-    });
+    };
+
+    this.canvas.addEventListener('pointerup', endPointerInteraction);
+    this.canvas.addEventListener('pointercancel', endPointerInteraction);
+    this.canvas.addEventListener('lostpointercapture', endPointerInteraction);
 
     this.canvas.addEventListener('wheel', (event) => {
       event.preventDefault();
