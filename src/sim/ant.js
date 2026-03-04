@@ -40,12 +40,8 @@ export class Ant {
     this.state = 'IDLE';
     this.carrying = null;
     this.carryingType = 'none';
-<<<<<<< codex/perform-full-codebase-diagnostic-and-upgrades
-    this.baseColor = role === 'soldier' ? '#3a2a1f' : '#1a1208';
-=======
     this.baseColor = Ant.getDefaultBaseColor(role);
     this.originalBaseColor = this.baseColor;
->>>>>>> master
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;
@@ -116,20 +112,6 @@ export class Ant {
       this.dir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
     }
 
-<<<<<<< codex/perform-full-codebase-diagnostic-and-upgrades
-    if (this.role === 'worker' && this.carrying?.type === 'food' && context.entrance) {
-      const distance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
-      if (distance <= (context.entrance.radius ?? 2) && context.inNest) {
-        if (DEBUG_ANT_FLOW_LOGS) {
-          console.log(`[ant] ${this.id} reached nest entrance (${context.entrance.x}, ${context.entrance.y}) carrying food`);
-        }
-        if (colony.depositFoodFromAnt(this, context.entrance)) {
-          this.state = 'FORAGE_SEARCH';
-        }
-      }
-    }
-=======
->>>>>>> master
   }
 
   /**
