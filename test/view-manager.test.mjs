@@ -4,6 +4,8 @@ import { ViewManager, VIEW } from '../src/ui/ViewManager.js';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
 import { getSurfaceMinZoom, normalizeSurfaceTerrain } from '../src/render/SurfaceRenderer.js';
 import { TERRAIN } from '../src/sim/world.js';
+import { Ant } from '../src/sim/ant.js';
+import { SeededRng } from '../src/sim/rng.js';
 
 // ── Toggle state machine ────────────────────────────────────────────
 
@@ -278,6 +280,7 @@ test('Ant base color and carrying type persist through serialization', () => {
   const sim = new SimulationCore('seed-ant-color');
   const ant = sim.colony.ants[0];
   ant.baseColor = '#ffcc00';
+  ant.originalBaseColor = '#ffcc00';
   ant.carryingType = 'dirt';
 
   const serialized = sim.serialize({});
@@ -285,19 +288,68 @@ test('Ant base color and carrying type persist through serialization', () => {
   restored.loadFromSerialized(serialized);
 
   assert.equal(restored.colony.ants[0].baseColor, '#ffcc00');
+  assert.equal(restored.colony.ants[0].originalBaseColor, '#ffcc00');
   assert.equal(restored.colony.ants[0].carryingType, 'dirt');
+});
+
+test('Worker ant color migrates from stale soldier-red save data', () => {
+  const sim = new SimulationCore('seed-worker-color-migration');
+  const ant = sim.colony.ants.find((candidate) => candidate.role === 'worker');
+  assert.ok(ant);
+
+  ant.baseColor = '#d93828';
+  ant.originalBaseColor = '#d93828';
+
+  const serialized = sim.serialize({});
+  const restored = new SimulationCore('other-worker-color-migration');
+  restored.loadFromSerialized(serialized);
+
+  const restoredAnt = restored.colony.ants.find((candidate) => candidate.id === ant.id);
+  assert.equal(restoredAnt.role, 'worker');
+  assert.equal(restoredAnt.originalBaseColor, '#1a1208');
+  assert.equal(restoredAnt.baseColor, '#1a1208');
+});
+
+test('Soldier ant color migrates from stale soldier-red save data', () => {
+  const sim = new SimulationCore('seed-soldier-color-migration');
+  const ant = sim.colony.ants.find((candidate) => candidate.role === 'worker');
+  assert.ok(ant);
+
+  ant.role = 'soldier';
+  ant.baseColor = '#d93828';
+  ant.originalBaseColor = '#d93828';
+
+  const serialized = sim.serialize({});
+  const restored = new SimulationCore('other-soldier-color-migration');
+  restored.loadFromSerialized(serialized);
+
+  const restoredAnt = restored.colony.ants.find((candidate) => candidate.id === ant.id);
+  assert.equal(restoredAnt.role, 'soldier');
+  assert.equal(restoredAnt.originalBaseColor, '#1a1208');
+  assert.equal(restoredAnt.baseColor, '#1a1208');
+});
+
+test('All ant roles use the same colony base color', () => {
+  const rng = new SeededRng('seed-role-color-consistency');
+  const worker = new Ant(0, 0, rng, 'worker');
+  const soldier = new Ant(0, 0, rng, 'soldier');
+  const breeder = new Ant(0, 0, rng, 'breeder');
+
+  assert.equal(worker.baseColor, '#1a1208');
+  assert.equal(soldier.baseColor, '#1a1208');
+  assert.equal(breeder.baseColor, '#1a1208');
 });
 
 test('Depositing and consuming food updates nest food cell storage', () => {
   const sim = new SimulationCore('seed-nest-food');
-  const idx = sim.world.index(sim.world.nestX, sim.world.nestY + 3);
-  const before = sim.world.nestFood[idx];
+  const totalNestFood = () => sim.world.nestFood.reduce((sum, value) => sum + value, 0);
+  const before = totalNestFood();
 
   sim.colony.depositPellet(5);
-  assert.equal(sim.world.nestFood[idx], before + 5);
+  assert.equal(totalNestFood(), before + 5);
 
   sim.colony.consumeFromStore(2);
-  assert.equal(sim.world.nestFood[idx], before + 3);
+  assert.equal(totalNestFood(), before + 3);
 });
 
 
@@ -341,14 +393,16 @@ test('Food-carrying ants must enter nest before depositing pellets', () => {
   ant.update(sim.world, sim.colony, sim.rng, cfg);
   assert.notEqual(ant.carrying, null);
 
+  let enteredNestBeforeDrop = false;
   for (let i = 0; i < 200 && ant.carrying; i += 1) {
     ant.update(sim.world, sim.colony, sim.rng, cfg);
+    if (ant.y >= sim.world.nestY + 1) enteredNestBeforeDrop = true;
   }
 
   let nestFoodTotal = 0;
   for (let i = 0; i < sim.world.nestFood.length; i += 1) nestFoodTotal += sim.world.nestFood[i];
 
   assert.equal(ant.carrying, null);
-  assert.ok(ant.y >= sim.world.nestY + 1);
+  assert.ok(enteredNestBeforeDrop);
   assert.ok(nestFoodTotal > 0);
 });

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
+import { TERRAIN } from '../src/sim/world.js';
 import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 
 function createConfig() {
@@ -271,15 +272,48 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   ant.x = entrance.x;
   ant.y = entrance.y;
   ant.hunger = ant.hungerMax;
+  ant.originalBaseColor = '#1a1208';
+  ant.baseColor = '#d93828';
   ant.carrying = { type: 'food', pelletId: 'test-pellet', pelletNutrition: 3 };
   ant.carryingType = 'food';
 
-  sim.update(config);
+  for (let i = 0; i < 80 && ant.carrying; i += 1) {
+    sim.update(config);
+  }
 
   assert.equal(sim.colony.nestFoodPellets.length > 0, true);
   assert.equal(sim.colony.foodStored >= 3, true);
   assert.equal(ant.carrying, null);
   assert.equal(ant.carryingType, 'none');
+  assert.equal(ant.baseColor, ant.originalBaseColor);
+});
+
+test('worker inside nest transitions out through entrance to surface without disappearing', () => {
+  const sim = new SimulationCore('nest-exit-transition-seed');
+  const config = createConfig();
+  const entrance = sim.nestEntrances[0];
+  sim.colony.ants = sim.colony.ants.slice(0, 1);
+  const ant = sim.colony.ants[0];
+
+  ant.x = entrance.x;
+  ant.y = entrance.y + 6;
+  ant.hunger = ant.hungerMax;
+  ant.health = ant.healthMax;
+  ant.carrying = null;
+  ant.carryingType = 'none';
+
+  let reachedSurface = false;
+  for (let i = 0; i < 16; i += 1) {
+    sim.update(config);
+    if (ant.y < sim.world.nestY) {
+      reachedSurface = true;
+      break;
+    }
+  }
+
+  assert.ok(reachedSurface);
+  assert.ok(sim.colony.ants.some((a) => a.id === ant.id));
+  assert.ok(ant.alive);
 });
 
 test('nestFoodPellets survive serialization/load', () => {
@@ -362,12 +396,78 @@ test('critical-health ant returns to nest and recovers from stored food', () => 
   sim.colony.foodStored = 200;
 
   const healthBefore = ant.health;
+  let enteredNest = false;
   for (let i = 0; i < 6; i += 1) {
     sim.update(config);
+    if (ant.y >= sim.world.nestY) enteredNest = true;
   }
 
+  assert.ok(enteredNest);
   assert.ok(ant.health > healthBefore);
-  assert.ok(ant.y >= sim.world.nestY - 1);
+  assert.ok(ant.y >= sim.world.nestY - 3);
+});
+
+test('nest food drops skip dirt and occupied tiles with varied placement', () => {
+  const sim = new SimulationCore('nest-drop-clear-tile-seed');
+  const entrance = sim.nestEntrances[0];
+  const minDistanceFromEntrance = Math.max(4, (entrance.radius ?? 2) + 3);
+
+  for (let i = 0; i < 12; i += 1) {
+    const deposited = sim.colony.depositPellet(2, entrance.x, entrance.y + 2, entrance);
+    assert.equal(deposited, 2);
+  }
+
+  const positions = new Set();
+  const uniqueX = new Set();
+  const uniqueY = new Set();
+
+  for (const pellet of sim.colony.nestFoodPellets) {
+    positions.add(`${pellet.x},${pellet.y}`);
+    uniqueX.add(pellet.x);
+    uniqueY.add(pellet.y);
+
+    const idx = sim.world.index(pellet.x, pellet.y);
+    const terrain = sim.world.terrain[idx];
+    assert.ok(terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER);
+    assert.ok(Math.hypot(pellet.x - entrance.x, pellet.y - entrance.y) >= minDistanceFromEntrance);
+  }
+
+  assert.equal(positions.size, sim.colony.nestFoodPellets.length);
+  assert.ok(positions.size >= 4);
+  assert.ok(uniqueX.size >= 2);
+  assert.ok(uniqueY.size >= 2);
+});
+
+
+test('nest food drop depth increases when deeper nest space is available', () => {
+  const sim = new SimulationCore('nest-food-depth-growth-seed');
+  const entrance = sim.nestEntrances[0];
+
+  const sampleAvgDropY = (count) => {
+    const ys = [];
+    for (let i = 0; i < count; i += 1) {
+      const before = sim.colony.nestFoodPellets.length;
+      const deposited = sim.colony.depositPellet(1, entrance.x, entrance.y + 2, entrance);
+      assert.equal(deposited, 1);
+      assert.equal(sim.colony.nestFoodPellets.length, before + 1);
+      ys.push(sim.colony.nestFoodPellets[sim.colony.nestFoodPellets.length - 1].y);
+    }
+    return ys.reduce((sum, y) => sum + y, 0) / ys.length;
+  };
+
+  const shallowAvgY = sampleAvgDropY(5);
+
+  sim.colony.nestFoodPellets = [];
+  sim.world.nestFood.fill(0);
+
+  const deepY = Math.min(sim.world.height - 2, sim.world.nestY + 40);
+  for (let x = entrance.x - 2; x <= entrance.x + 2; x += 1) {
+    if (!sim.world.inBounds(x, deepY)) continue;
+    sim.world.terrain[sim.world.index(x, deepY)] = TERRAIN.CHAMBER;
+  }
+
+  const deepAvgY = sampleAvgDropY(5);
+  assert.ok(deepAvgY > shallowAvgY + 8);
 });
 
 test('returning ant can still reach nest entrance from mid-range distance', () => {

@@ -14,6 +14,14 @@ const DIRS = [
 ];
 
 export class Ant {
+  static getDefaultBaseColor(_role = 'worker') {
+    return '#1a1208';
+  }
+
+  static getLegacySoldierBaseColor() {
+    return '#d93828';
+  }
+
   constructor(x, y, rng, role = 'worker') {
     this.id = `ant-${Math.floor(rng.range(0, 1e9))}`;
     this.x = x;
@@ -32,7 +40,12 @@ export class Ant {
     this.state = 'IDLE';
     this.carrying = null;
     this.carryingType = 'none';
+<<<<<<< codex/perform-full-codebase-diagnostic-and-upgrades
     this.baseColor = role === 'soldier' ? '#3a2a1f' : '#1a1208';
+=======
+    this.baseColor = Ant.getDefaultBaseColor(role);
+    this.originalBaseColor = this.baseColor;
+>>>>>>> master
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;
@@ -103,6 +116,7 @@ export class Ant {
       this.dir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
     }
 
+<<<<<<< codex/perform-full-codebase-diagnostic-and-upgrades
     if (this.role === 'worker' && this.carrying?.type === 'food' && context.entrance) {
       const distance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
       if (distance <= (context.entrance.radius ?? 2) && context.inNest) {
@@ -114,6 +128,8 @@ export class Ant {
         }
       }
     }
+=======
+>>>>>>> master
   }
 
   /**
@@ -128,6 +144,21 @@ export class Ant {
 
     if (this.carrying?.type === 'food') {
       this.state = 'RETURN_HOME';
+      if (context.inNest) {
+        const dropPoint = colony.findNestFoodDropPoint(context.entrance, this.x, this.y);
+        if (dropPoint) {
+          if (this.x === dropPoint.x && this.y === dropPoint.y) {
+            colony.depositFoodFromAnt(this, context.entrance, dropPoint);
+            return didMove;
+          }
+
+          this.state = 'STORE_FOOD_IN_NEST';
+          didMove = this.#moveToward(world, dropPoint.x, dropPoint.y, rng);
+          if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+          return didMove;
+        }
+      }
+
       const distToNest = context.entrance ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) : 0;
       const trailScale = Math.min(config.maxFoodTrailScale, 1 + distToNest * config.foodTrailDistanceScale * 0.05);
       const foodDeposit = config.depositFood * trailScale;
@@ -159,6 +190,20 @@ export class Ant {
     }
 
     if (!this.#needsForage(colony) && !this.#isLowHealth()) return didMove;
+
+    if (context.inNest && context.entrance) {
+      const distanceToEntrance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
+      if (distanceToEntrance > (context.entrance.radius ?? 1)) {
+        this.state = 'EXIT_NEST';
+        return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      }
+
+      this.state = 'EXIT_NEST';
+      const exitTargetY = context.entrance.y - 1;
+      if (world.isPassable(context.entrance.x, exitTargetY)) {
+        return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
+      }
+    }
 
     const nearEntrance = context.entrance
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.homeDepositMinDistance
@@ -217,7 +262,9 @@ export class Ant {
     if (nearEntranceScatter && context.entrance) {
       const ax = this.x + (this.x - context.entrance.x);
       const ay = this.y + (this.y - context.entrance.y);
-      didMove = this.#moveToward(world, ax, ay, rng);
+      didMove = context.inNest
+        ? this.#moveToward(world, context.entrance.x, context.entrance.y, rng)
+        : this.#moveToward(world, ax, ay, rng);
     }
     if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance);
     return didMove;
