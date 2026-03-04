@@ -31,6 +31,7 @@ const state = {
   debug: {
     showEntranceInfo: false,
     showStats: false,
+    showQueenMarker: true,
     digStatus: 'AUTO-DIG: OFF',
   },
   config: {
@@ -161,6 +162,9 @@ createControls(state, {
   toggleScentOverlay: () => {
     state.overlays.showScent = !state.overlays.showScent;
   },
+  toggleQueenMarker: () => {
+    state.debug.showQueenMarker = !state.debug.showQueenMarker;
+  },
   spawnFoodAtCursor: () => {
     if (viewManager.getCurrent() !== VIEW.SURFACE || !state.cursor.surface) return;
     simCore.spawnFoodCluster(state.cursor.surface.x, state.cursor.surface.y, 8, 12);
@@ -260,6 +264,7 @@ function loop(now) {
         nestRenderer.draw(simCore.colony, {
           selectedAntId: state.selectedAntId,
           showDebugStats: state.debug.showStats,
+          showQueenMarker: state.debug.showQueenMarker,
         });
       }
       captureLastGoodRenderState(activeView);
