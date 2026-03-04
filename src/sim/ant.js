@@ -34,6 +34,7 @@ export class Ant {
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;
+    this.lastSteeringDebug = null;
   }
 
   update(world, colony, rng, config) {
@@ -221,6 +222,7 @@ export class Ant {
     const field = channel === 'home' ? world.toHome : world.toFood;
     const epsilon = 0.001;
     const reverseDir = (this.dir + 4) % DIRS.length;
+    const homeScentWeight = this.#getHomeScentWeight(config, entrance);
     const weights = [];
     let total = 0;
 
@@ -234,19 +236,34 @@ export class Ant {
       }
 
       const nidx = world.index(nx, ny);
-      const pher = Math.pow(field[nidx] + epsilon, config.followAlpha);
+      const rawPher = Math.pow(field[nidx] + epsilon, config.followAlpha);
+      const scentScale = channel === 'home' ? homeScentWeight : 1;
+      const uncappedPherContribution = rawPher * config.followBeta * scentScale;
+      const pherContribution = channel === 'home'
+        ? Math.min(uncappedPherContribution, config.homeScentMaxContributionPerStep)
+        : uncappedPherContribution;
       const momentum = d === this.dir ? config.momentumBias : 0;
       const reversePenalty = d === reverseDir ? config.reversePenalty : 0;
 
       let tieBias = 0;
       if (entrance) {
         const dist = Math.hypot(nx - entrance.x, ny - entrance.y);
-        tieBias = channel === 'home' ? -dist * 0.01 : dist * 0.01;
+        tieBias = channel === 'home' ? -dist * config.homeTieBiasScale : dist * config.foodTieBiasScale;
       }
 
       const noise = rng.range(0, config.wanderNoise);
-      const weight = Math.max(0, pher * config.followBeta + momentum + tieBias + noise - reversePenalty);
-      weights.push({ d, w: weight });
+      const weight = Math.max(0, pherContribution + momentum + tieBias + noise - reversePenalty);
+      weights.push({
+        d,
+        w: weight,
+        components: {
+          pheromone: pherContribution,
+          momentum,
+          tieBias,
+          noise,
+          reversePenalty,
+        },
+      });
       total += weight;
     }
 
@@ -269,10 +286,34 @@ export class Ant {
     const tx = this.x + DIRS[chosenDir][0];
     const ty = this.y + DIRS[chosenDir][1];
     if (!world.isPassable(tx, ty)) return false;
+    const chosenWeight = weights.find((weight) => weight.d === chosenDir);
+    this.lastSteeringDebug = {
+      channel,
+      chosenDir,
+      components: chosenWeight?.components || null,
+      homeScentWeight: channel === 'home' ? homeScentWeight : 0,
+      distanceToEntrance: entrance ? Math.hypot(this.x - entrance.x, this.y - entrance.y) : null,
+    };
     this.x = tx;
     this.y = ty;
     this.dir = chosenDir;
     return true;
+  }
+
+  #getHomeScentWeight(config, entrance) {
+    if (!entrance) return config.homeScentBaseWeight;
+
+    const distance = Math.hypot(this.x - entrance.x, this.y - entrance.y);
+    const falloffStart = Math.max(0, config.homeScentFalloffStartDist);
+    const falloffEnd = Math.max(falloffStart + 0.0001, config.homeScentFalloffEndDist);
+    const minFalloff = Math.min(1, Math.max(0, config.homeScentMinFalloff));
+    const t = Math.min(1, Math.max(0, (distance - falloffStart) / (falloffEnd - falloffStart)));
+    const distanceFalloff = 1 - (1 - minFalloff) * t;
+
+    const returningToNest = this.carrying?.type === 'food' || this.state === 'RETURN_HOME';
+    const stateScale = returningToNest ? config.homeScentReturnStateScale : config.homeScentSearchStateScale;
+
+    return config.homeScentBaseWeight * distanceFalloff * stateScale;
   }
 
   #needsForage(colony) {
