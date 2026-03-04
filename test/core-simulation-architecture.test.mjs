@@ -434,6 +434,38 @@ test('nest food drops skip dirt and occupied tiles with varied placement', () =>
   assert.ok(uniqueY.size >= 2);
 });
 
+
+test('nest food drop depth increases when deeper nest space is available', () => {
+  const sim = new SimulationCore('nest-food-depth-growth-seed');
+  const entrance = sim.nestEntrances[0];
+
+  const sampleAvgDropY = (count) => {
+    const ys = [];
+    for (let i = 0; i < count; i += 1) {
+      const before = sim.colony.nestFoodPellets.length;
+      const deposited = sim.colony.depositPellet(1, entrance.x, entrance.y + 2, entrance);
+      assert.equal(deposited, 1);
+      assert.equal(sim.colony.nestFoodPellets.length, before + 1);
+      ys.push(sim.colony.nestFoodPellets[sim.colony.nestFoodPellets.length - 1].y);
+    }
+    return ys.reduce((sum, y) => sum + y, 0) / ys.length;
+  };
+
+  const shallowAvgY = sampleAvgDropY(5);
+
+  sim.colony.nestFoodPellets = [];
+  sim.world.nestFood.fill(0);
+
+  const deepY = Math.min(sim.world.height - 2, sim.world.nestY + 40);
+  for (let x = entrance.x - 2; x <= entrance.x + 2; x += 1) {
+    if (!sim.world.inBounds(x, deepY)) continue;
+    sim.world.terrain[sim.world.index(x, deepY)] = TERRAIN.CHAMBER;
+  }
+
+  const deepAvgY = sampleAvgDropY(5);
+  assert.ok(deepAvgY > shallowAvgY + 8);
+});
+
 test('returning ant can still reach nest entrance from mid-range distance', () => {
   const sim = new SimulationCore('return-home-reliability-seed');
   const config = createConfig();

@@ -306,9 +306,25 @@ export class Colony {
     return true;
   }
 
+  #findDeepNestStorageY(anchorX) {
+    const xRadius = 12;
+    const minX = Math.max(0, Math.round(anchorX) - xRadius);
+    const maxX = Math.min(this.world.width - 1, Math.round(anchorX) + xRadius);
+
+    for (let y = this.world.height - 1; y >= this.world.nestY + 1; y -= 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        const terrain = this.world.terrain[this.world.index(x, y)];
+        if (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER) return y;
+      }
+    }
+
+    return this.world.nestY + 3;
+  }
+
   findNestFoodDropPoint(entrance = null, preferredX = null, preferredY = null) {
     const storageCenterX = entrance ? entrance.x : this.world.nestX;
-    const storageCenterY = Math.max(this.world.nestY + 2, entrance ? entrance.y + 3 : this.world.nestY + 3);
+    const deepestStorageY = this.#findDeepNestStorageY(storageCenterX);
+    const storageCenterY = Math.max(this.world.nestY + 3, deepestStorageY - 2);
 
     const minDistanceFromEntrance = entrance ? Math.max(4, (entrance.radius ?? 2) + 3) : 0;
     const isFarEnoughFromEntrance = (x, y) => {
