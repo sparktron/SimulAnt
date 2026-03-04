@@ -4,6 +4,8 @@ import { ViewManager, VIEW } from '../src/ui/ViewManager.js';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
 import { getSurfaceMinZoom, normalizeSurfaceTerrain } from '../src/render/SurfaceRenderer.js';
 import { TERRAIN } from '../src/sim/world.js';
+import { Ant } from '../src/sim/ant.js';
+import { SeededRng } from '../src/sim/rng.js';
 
 // ── Toggle state machine ────────────────────────────────────────────
 
@@ -278,6 +280,7 @@ test('Ant base color and carrying type persist through serialization', () => {
   const sim = new SimulationCore('seed-ant-color');
   const ant = sim.colony.ants[0];
   ant.baseColor = '#ffcc00';
+  ant.originalBaseColor = '#ffcc00';
   ant.carryingType = 'dirt';
 
   const serialized = sim.serialize({});
@@ -285,7 +288,37 @@ test('Ant base color and carrying type persist through serialization', () => {
   restored.loadFromSerialized(serialized);
 
   assert.equal(restored.colony.ants[0].baseColor, '#ffcc00');
+  assert.equal(restored.colony.ants[0].originalBaseColor, '#ffcc00');
   assert.equal(restored.colony.ants[0].carryingType, 'dirt');
+});
+
+test('Worker ant color migrates from stale soldier-red save data', () => {
+  const sim = new SimulationCore('seed-worker-color-migration');
+  const ant = sim.colony.ants.find((candidate) => candidate.role === 'worker');
+  assert.ok(ant);
+
+  ant.baseColor = '#d93828';
+  ant.originalBaseColor = '#d93828';
+
+  const serialized = sim.serialize({});
+  const restored = new SimulationCore('other-worker-color-migration');
+  restored.loadFromSerialized(serialized);
+
+  const restoredAnt = restored.colony.ants.find((candidate) => candidate.id === ant.id);
+  assert.equal(restoredAnt.role, 'worker');
+  assert.equal(restoredAnt.originalBaseColor, '#1a1208');
+  assert.equal(restoredAnt.baseColor, '#1a1208');
+});
+
+test('All ant roles use the same colony base color', () => {
+  const rng = new SeededRng('seed-role-color-consistency');
+  const worker = new Ant(0, 0, rng, 'worker');
+  const soldier = new Ant(0, 0, rng, 'soldier');
+  const breeder = new Ant(0, 0, rng, 'breeder');
+
+  assert.equal(worker.baseColor, '#1a1208');
+  assert.equal(soldier.baseColor, '#1a1208');
+  assert.equal(breeder.baseColor, '#1a1208');
 });
 
 test('Depositing and consuming food updates nest food cell storage', () => {
