@@ -178,7 +178,10 @@ export class Ant {
 
   #applyVitals(colony, config, dt, didMove) {
     const drain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
-    this.hunger = Math.max(0, this.hunger - drain * dt);
+    const carryingCost = this.carrying?.type === 'food' ? (config.carryingHungerDrainRate ?? 0) : 0;
+    const stateCost = this.state === 'FIGHT' ? (config.fightingHungerDrainRate ?? 0) : 0;
+    const totalDrain = drain + carryingCost + stateCost;
+    this.hunger = Math.max(0, this.hunger - totalDrain * dt);
     if (this.hunger <= 0) {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
     } else if (this.health < this.healthMax && this.hunger > this.hungerMax * 0.65) {

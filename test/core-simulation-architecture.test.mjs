@@ -31,6 +31,8 @@ function createConfig() {
     starvationRecoveryHealth: 5,
     healthDrainRate: 10,
     healthRegenRate: 1,
+    carryingHungerDrainRate: 1.5,
+    fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.2,
     foodVisionRadius: 7,
     followAlpha: 1.5,
@@ -211,4 +213,37 @@ test('nestFoodPellets survive serialization/load', () => {
 
   assert.equal(restored.colony.nestFoodPellets.length, 1);
   assert.equal(restored.colony.nestFoodPellets[0].amount, 2.5);
+});
+
+test('single starving ant health decreases deterministically across ticks', () => {
+  const sim = new SimulationCore('health-decay-seed');
+  const config = createConfig();
+  sim.colony.ants = sim.colony.ants.slice(0, 1);
+
+  const ant = sim.colony.ants[0];
+  ant.hunger = 0;
+  ant.health = 100;
+
+  for (let i = 0; i < 30; i += 1) {
+    sim.update(config);
+  }
+
+  assert.ok(ant.health < 100);
+});
+
+test('feeding a starving ant increases health deterministically', () => {
+  const sim = new SimulationCore('health-feed-seed');
+  const config = createConfig();
+  sim.colony.ants = sim.colony.ants.slice(0, 1);
+
+  const ant = sim.colony.ants[0];
+  ant.x = sim.world.nestX;
+  ant.y = sim.world.nestY + 2;
+  ant.hunger = 0;
+  ant.health = 60;
+  sim.colony.foodStored = 100;
+
+  sim.update(config);
+
+  assert.ok(ant.health > 60);
 });

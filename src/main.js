@@ -60,6 +60,8 @@ const state = {
     starvationRecoveryHealth: 5,
     healthDrainRate: 10,
     healthRegenRate: 1,
+    carryingHungerDrainRate: 1.5,
+    fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.2,
     foodVisionRadius: 7,
     followAlpha: 1.5,
@@ -249,27 +251,55 @@ function loop(now) {
     }
 
     const selectedAnt = simCore.findAntById(state.selectedAntId);
-    updateHud({
-      viewMode: activeView,
-      fps,
-      tick: simCore.tick,
-      ants: simCore.colony.ants.length,
-      workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
-      soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
-      foodStored: simCore.colony.foodStored,
-      queenAlive: simCore.colony.queen.alive,
-      selectedAntHealth: selectedAnt ? selectedAnt.health : 0,
-      simMs,
-      digStatus: state.debug.digStatus,
-      pherStats: simCore.world.getPheromoneStats(),
-      followingFood: simCore.colony.ants.filter((ant) => ant.state === 'FORAGE_SEARCH' || ant.state === 'GO_TO_FOOD').length,
-      followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
-    });
+    const antHealthStats = getAntHealthStats(simCore.colony.ants);
+    try {
+      updateHud({
+        viewMode: activeView,
+        fps,
+        tick: simCore.tick,
+        ants: simCore.colony.ants.length,
+        workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
+        soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
+        foodStored: simCore.colony.foodStored,
+        queenAlive: simCore.colony.queen.alive,
+        selectedAntHealth: selectedAnt ? selectedAnt.health : null,
+        antHealthStats,
+        simMs,
+        digStatus: state.debug.digStatus,
+        pherStats: simCore.world.getPheromoneStats(),
+        followingFood: simCore.colony.ants.filter((ant) => ant.state === 'FORAGE_SEARCH' || ant.state === 'GO_TO_FOOD').length,
+        followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
+      });
+    } catch (hudError) {
+      console.error('[SimAnt] HUD update failed (continuing simulation loop):', hudError);
+    }
 
     requestAnimationFrame(loop);
   } catch (error) {
     reportFatalError(error);
   }
+}
+
+function getAntHealthStats(ants) {
+  if (!Array.isArray(ants) || ants.length === 0) {
+    return { min: 0, avg: 0, max: 0 };
+  }
+
+  let min = 100;
+  let max = 0;
+  let total = 0;
+  for (const ant of ants) {
+    const health = Math.max(0, Math.min(100, ant.health ?? 0));
+    min = Math.min(min, health);
+    max = Math.max(max, health);
+    total += health;
+  }
+
+  return {
+    min,
+    avg: total / ants.length,
+    max,
+  };
 }
 
 function selectAntNear(x, y) {
