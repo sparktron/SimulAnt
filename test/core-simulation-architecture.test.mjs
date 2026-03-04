@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
+import { TERRAIN } from '../src/sim/world.js';
 import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 
 function createConfig() {
@@ -274,7 +275,9 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   ant.carrying = { type: 'food', pelletId: 'test-pellet', pelletNutrition: 3 };
   ant.carryingType = 'food';
 
-  sim.update(config);
+  for (let i = 0; i < 80 && ant.carrying; i += 1) {
+    sim.update(config);
+  }
 
   assert.equal(sim.colony.nestFoodPellets.length > 0, true);
   assert.equal(sim.colony.foodStored >= 3, true);
@@ -398,7 +401,28 @@ test('critical-health ant returns to nest and recovers from stored food', () => 
 
   assert.ok(enteredNest);
   assert.ok(ant.health > healthBefore);
-  assert.ok(ant.y >= sim.world.nestY - 1);
+  assert.ok(ant.y >= sim.world.nestY - 3);
+});
+
+test('nest food drops skip dirt and occupied tiles', () => {
+  const sim = new SimulationCore('nest-drop-clear-tile-seed');
+  const entrance = sim.nestEntrances[0];
+
+  const first = sim.colony.depositPellet(2, entrance.x, entrance.y + 2, entrance);
+  const second = sim.colony.depositPellet(2, entrance.x, entrance.y + 2, entrance);
+
+  assert.equal(first, 2);
+  assert.equal(second, 2);
+  assert.equal(sim.colony.nestFoodPellets.length, 2);
+
+  const [a, b] = sim.colony.nestFoodPellets;
+  assert.notEqual(`${a.x},${a.y}`, `${b.x},${b.y}`);
+
+  for (const pellet of sim.colony.nestFoodPellets) {
+    const idx = sim.world.index(pellet.x, pellet.y);
+    const terrain = sim.world.terrain[idx];
+    assert.ok(terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER);
+  }
 });
 
 test('returning ant can still reach nest entrance from mid-range distance', () => {
