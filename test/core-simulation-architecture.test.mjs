@@ -378,7 +378,7 @@ test('low-health ant eats nearby surface pellet instead of carrying it', () => {
 
   const ant = sim.colony.ants[0];
   ant.health = 40;
-  ant.hunger = 20;
+  ant.hunger = 15;
 
   const pellet = sim.foodPellets[0];
   ant.x = pellet.x;
@@ -444,6 +444,48 @@ test('brood consumes stored food while gestating', () => {
   sim.update(config);
 
   assert.ok(sim.colony.foodStored < before);
+});
+
+
+
+test('hungry worker with no surface food returns to nest to eat and resumes foraging', () => {
+  const sim = new SimulationCore('return-nest-eat-resume-seed');
+  const config = createConfig();
+
+  const ant = sim.colony.ants[0];
+  sim.colony.ants = [ant];
+  sim.foodPellets = [];
+
+  const entrance = sim.nestEntrances[0];
+  ant.workFocus = 'forage';
+  ant.x = entrance.x + 24;
+  ant.y = Math.max(0, entrance.y - 6);
+  ant.hunger = 20;
+  ant.health = ant.healthMax;
+
+  sim.colony.depositPellet(40, entrance.x, entrance.y + 3, entrance);
+
+  let enteredNest = false;
+  let ateInNest = false;
+  for (let i = 0; i < 120; i += 1) {
+    sim.update(config);
+    if (ant.y >= sim.world.nestY) enteredNest = true;
+    if (ant.hunger > 20) ateInNest = true;
+  }
+
+  assert.ok(enteredNest);
+  assert.ok(ateInNest);
+
+  let returnedToSurface = false;
+  for (let i = 0; i < 60; i += 1) {
+    sim.update(config);
+    if (ant.y < sim.world.nestY) {
+      returnedToSurface = true;
+      break;
+    }
+  }
+
+  assert.ok(returnedToSurface);
 });
 
 test('critical-health ant returns to nest and recovers from stored food', () => {
@@ -570,7 +612,7 @@ test('searching ants spend most time exploring instead of hugging nest gradient'
   ant.y = entrance.y - 2;
   ant.carrying = null;
   ant.carryingType = 'none';
-  ant.hunger = 30;
+  ant.hunger = 90;
 
   const totalSteps = 160;
   let exploringSteps = 0;

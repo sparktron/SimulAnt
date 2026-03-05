@@ -168,7 +168,17 @@ export class Ant {
       return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
     }
 
-    if (!this.#needsForage(colony)) return didMove;
+    if (!this.#needsForage(colony)) {
+      if (this.workFocus === 'forage' && context.inNest && context.entrance) {
+        this.state = 'EXIT_NEST';
+        const exitTargetY = context.entrance.y - 1;
+        if (world.isPassable(context.entrance.x, exitTargetY)) {
+          return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
+        }
+        return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      }
+      return didMove;
+    }
     if (this.#isCriticalHealth()) {
       this.state = 'RETURN_TO_NEST_HEAL';
       if (context.entrance) didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
@@ -239,6 +249,11 @@ export class Ant {
         this.state = 'PICKUP';
       }
       return didMove;
+    }
+
+    if (!context.inNest && this.hunger < this.hungerMax * 0.25 && context.entrance) {
+      this.state = 'RETURN_NEST_TO_EAT';
+      return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
     }
 
     this.state = 'FORAGE_SEARCH';
