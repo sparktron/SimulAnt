@@ -637,6 +637,8 @@ export class Colony {
         originalBaseColor: ant.originalBaseColor,
         role: ant.role,
         state: ant.state,
+        alive: ant.alive,
+        workFocus: ant.workFocus,
       })),
     };
   }
@@ -684,6 +686,10 @@ export class Colony {
       }
 
       ant.state = a.state || ant.state;
+      ant.alive = typeof a.alive === 'boolean' ? a.alive : ant.alive;
+      ant.workFocus = (a.workFocus === 'dig' || a.workFocus === 'nurse' || a.workFocus === 'forage')
+        ? a.workFocus
+        : ant.workFocus;
       return ant;
     });
     return colony;

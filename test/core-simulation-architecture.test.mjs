@@ -624,3 +624,20 @@ test('worker workFocus distribution is rebalanced to work allocation ratios', ()
   assert.equal(counts.dig, expectedDig);
   assert.equal(counts.nurse, expectedNurse);
 });
+
+test('serialization preserves worker workFocus and alive flags for HUD/job accounting', () => {
+  const sim = new SimulationCore('workfocus-serialize-seed');
+  const worker = sim.colony.ants.find((ant) => ant.role === 'worker');
+  assert.ok(worker);
+
+  worker.workFocus = 'dig';
+  worker.alive = false;
+
+  const restored = new SimulationCore('workfocus-serialize-seed-2');
+  restored.loadFromSerialized(sim.serialize({}));
+
+  const restoredWorker = restored.colony.ants.find((ant) => ant.id === worker.id);
+  assert.ok(restoredWorker);
+  assert.equal(restoredWorker.workFocus, 'dig');
+  assert.equal(restoredWorker.alive, false);
+});

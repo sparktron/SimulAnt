@@ -332,7 +332,8 @@ function loop(now) {
         jobsForage: hudCounts.jobsForage,
         jobsDig: hudCounts.jobsDig,
         jobsNurse: hudCounts.jobsNurse,
-        foodStored: simCore.colony.foodStored,
+        foodStored: getHudFoodTotal(simCore.colony),
+        queenHealth: simCore.colony.queen.health,
         queenAlive: simCore.colony.queen.alive,
         selectedAntHealth: selectedAnt ? selectedAnt.health : null,
         antHealthStats,
@@ -386,6 +387,15 @@ function getHudAntCounts(ants) {
   }
 
   return counts;
+}
+
+
+function getHudFoodTotal(colony) {
+  const stored = Number.isFinite(colony?.foodStored) ? colony.foodStored : 0;
+  const pelletFood = Array.isArray(colony?.nestFoodPellets)
+    ? colony.nestFoodPellets.reduce((sum, pellet) => sum + (Number.isFinite(pellet?.amount) ? pellet.amount : 0), 0)
+    : 0;
+  return stored + pelletFood;
 }
 
 function getAntHealthStats(ants) {

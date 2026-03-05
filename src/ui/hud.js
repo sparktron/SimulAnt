@@ -4,9 +4,17 @@ export function updateHud(stats) {
   setText('hudAnts', `${stats.ants}`);
   setText('hudWorkers', `${stats.workers}`);
   setText('hudSoldiers', `${stats.soldiers}`);
-  setText('hudNurses', `${stats.nurses || 0}`);
-  setText('hudJobs', `${stats.jobsForage || 0} / ${stats.jobsDig || 0} / ${stats.jobsNurse || 0}`);
-  setText('hudFood', stats.foodStored.toFixed(1));
+
+  const workers = asNonNegativeInt(stats.workers);
+  const jobsForage = Number.isFinite(stats.jobsForage) ? asNonNegativeInt(stats.jobsForage) : workers;
+  const jobsDig = Number.isFinite(stats.jobsDig) ? asNonNegativeInt(stats.jobsDig) : 0;
+  const jobsNurse = Number.isFinite(stats.jobsNurse) ? asNonNegativeInt(stats.jobsNurse) : 0;
+  const nurses = Number.isFinite(stats.nurses) ? asNonNegativeInt(stats.nurses) : jobsNurse;
+
+  setText('hudNurses', `${nurses}`);
+  setText('hudJobs', `${jobsForage} / ${jobsDig} / ${jobsNurse}`);
+  setText('hudFood', formatNumber(stats.foodStored));
+  setText('hudQueenHealth', formatNumber(stats.queenHealth));
   setText('hudFps', stats.fps.toFixed(1));
   setText('hudDig', stats.digStatus || 'AUTO-DIG: OFF');
 
@@ -32,6 +40,15 @@ function normalizeHealthStats(value) {
   const avg = Number.isFinite(value?.avg) ? value.avg : 0;
   const max = Number.isFinite(value?.max) ? value.max : 0;
   return { min, avg, max };
+}
+
+function asNonNegativeInt(value) {
+  return Math.max(0, Math.floor(Number(value) || 0));
+}
+
+function formatNumber(value) {
+  const number = Number.isFinite(value) ? value : 0;
+  return number.toFixed(1);
 }
 
 function setText(id, value) {
