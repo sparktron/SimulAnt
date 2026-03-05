@@ -156,6 +156,12 @@ export class Ant {
       return didMove;
     }
 
+    if (this.#isLowHealth() && !context.inNest) {
+      this.state = 'RETURN_TO_NEST_HEAL';
+      if (context.entrance) return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+    }
+
     if (this.workFocus === 'nurse' && !this.#needsForage(colony)) {
       this.state = 'NURSE';
       if (context.entrance) return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
@@ -184,8 +190,6 @@ export class Ant {
       if (context.entrance) didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
       return didMove;
     }
-
-    if (!this.#needsForage(colony) && !this.#isLowHealth()) return didMove;
 
     if (context.inNest && context.entrance) {
       const distanceToEntrance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);

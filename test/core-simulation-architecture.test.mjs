@@ -488,6 +488,43 @@ test('hungry worker with no surface food returns to nest to eat and resumes fora
   assert.ok(returnedToSurface);
 });
 
+
+
+test('low-health worker with full hunger still returns to nest and eats from storage', () => {
+  const sim = new SimulationCore('low-health-full-hunger-nest-heal-seed');
+  const config = createConfig();
+
+  const ant = sim.colony.ants[0];
+  sim.colony.ants = [ant];
+  sim.foodPellets = [];
+  sim.colony.queen.alive = false;
+  sim.colony.queen.brood = 0;
+
+  const entrance = sim.nestEntrances[0];
+  ant.x = entrance.x + 10;
+  ant.y = Math.max(0, entrance.y - 2);
+  ant.hunger = ant.hungerMax;
+  ant.health = 45;
+
+  sim.colony.depositPellet(60, entrance.x, entrance.y + 3, entrance);
+  const foodBefore = sim.colony.foodStored;
+
+  let reachedNest = false;
+  let consumedNestFood = false;
+
+  for (let i = 0; i < 140; i += 1) {
+    sim.update(config);
+    if (ant.y >= sim.world.nestY) reachedNest = true;
+    if (sim.colony.foodStored < foodBefore) {
+      consumedNestFood = true;
+      break;
+    }
+  }
+
+  assert.ok(reachedNest);
+  assert.ok(consumedNestFood);
+});
+
 test('critical-health ant returns to nest and recovers from stored food', () => {
   const sim = new SimulationCore('health-critical-return-seed');
   const config = createConfig();
