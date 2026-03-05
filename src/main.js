@@ -78,6 +78,8 @@ const state = {
     fightingHungerDrainRate: 3,
     soldierSpawnChance: 0,
     foodVisionRadius: 7,
+    surfaceFoodSearchMaxMissTicks: 90,
+    surfaceReturnToNestHungerThreshold: 0.65,
     followAlpha: 1.5,
     followBeta: 3.4,
     wanderNoise: 0.06,

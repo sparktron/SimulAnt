@@ -93,6 +93,8 @@ export function sanitizeTickConfig(config = {}) {
 
     soldierSpawnChance: clamp01(config.soldierSpawnChance, 0),
     foodVisionRadius: clampPositiveInt(config.foodVisionRadius, 1),
+    surfaceFoodSearchMaxMissTicks: clampPositiveInt(config.surfaceFoodSearchMaxMissTicks, 90),
+    surfaceReturnToNestHungerThreshold: clamp01(config.surfaceReturnToNestHungerThreshold, 0.65),
     homeDepositMinDistance: clampNonNegativeNumber(config.homeDepositMinDistance, 0),
     nearEntranceScatterRadius: clampNonNegativeNumber(config.nearEntranceScatterRadius, 0),
     foodTrailDistanceScale: clampNonNegativeNumber(config.foodTrailDistanceScale, 0),

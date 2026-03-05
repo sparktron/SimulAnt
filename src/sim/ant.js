@@ -46,6 +46,7 @@ export class Ant {
     this.role = role;
     this.stepCounter = 0;
     this.workFocus = 'forage';
+    this.failedSurfaceFoodSearchTicks = 0;
     this.lastSteeringDebug = null;
   }
 
@@ -88,6 +89,7 @@ export class Ant {
     const inNest = this.y >= world.nestY;
     const entrance = colony.nearestEntrance(this.x, this.y);
 
+    if (inNest) this.failedSurfaceFoodSearchTicks = 0;
     this.stepCounter += 1;
 
     return { dt, idx, inNest, entrance };
@@ -129,6 +131,7 @@ export class Ant {
     }
 
     if (this.carrying?.type === 'food') {
+      this.failedSurfaceFoodSearchTicks = 0;
       this.state = 'RETURN_HOME';
       if (context.inNest) {
         const dropPoint = colony.findNestFoodDropPoint(context.entrance, this.x, this.y);
@@ -214,6 +217,7 @@ export class Ant {
 
     const visible = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
     if (visible) {
+      this.failedSurfaceFoodSearchTicks = 0;
       if (this.x === visible.x && this.y === visible.y) {
         if (this.#isLowHealth()) {
           this.#consumePelletForHealth(colony, visible, config);
@@ -238,6 +242,7 @@ export class Ant {
 
     const onPellet = colony.findAvailablePelletAt(this.x, this.y);
     if (onPellet) {
+      this.failedSurfaceFoodSearchTicks = 0;
       if (this.#isLowHealth()) {
         this.#consumePelletForHealth(colony, onPellet, config);
         this.state = 'EAT';
@@ -255,9 +260,22 @@ export class Ant {
       return didMove;
     }
 
-    if (!context.inNest && this.hunger < this.hungerMax * 0.25 && context.entrance) {
-      this.state = 'RETURN_NEST_TO_EAT';
-      return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+    if (!context.inNest) {
+      this.failedSurfaceFoodSearchTicks += 1;
+      const maxMissTicks = Math.max(1, config.surfaceFoodSearchMaxMissTicks ?? 90);
+      const returnHungerThreshold = Math.max(0, Math.min(1, config.surfaceReturnToNestHungerThreshold ?? 0.65));
+      const shouldReturnToNestForFood = colony.foodStored > 0 && (
+        this.hunger < this.hungerMax * 0.25
+        || (
+          this.failedSurfaceFoodSearchTicks >= maxMissTicks
+          && this.hunger < this.hungerMax * returnHungerThreshold
+        )
+      );
+
+      if (shouldReturnToNestForFood && context.entrance) {
+        this.state = 'RETURN_NEST_TO_EAT';
+        return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      }
     }
 
     this.state = 'FORAGE_SEARCH';

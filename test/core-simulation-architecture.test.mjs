@@ -48,6 +48,8 @@ function createConfig() {
     fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.2,
     foodVisionRadius: 7,
+    surfaceFoodSearchMaxMissTicks: 90,
+    surfaceReturnToNestHungerThreshold: 0.65,
     followAlpha: 1.5,
     followBeta: 3.4,
     wanderNoise: 0.06,
@@ -523,6 +525,45 @@ test('low-health worker with full hunger still returns to nest and eats from sto
 
   assert.ok(reachedNest);
   assert.ok(consumedNestFood);
+});
+
+
+
+test('worker that repeatedly fails to find surface food falls back to nest storage', () => {
+  const sim = new SimulationCore('surface-miss-fallback-seed');
+  const config = createConfig();
+  config.surfaceFoodSearchMaxMissTicks = 20;
+  config.surfaceReturnToNestHungerThreshold = 0.7;
+
+  const ant = sim.colony.ants[0];
+  sim.colony.ants = [ant];
+  sim.foodPellets = [];
+  sim.colony.queen.alive = false;
+  sim.colony.queen.brood = 0;
+
+  const entrance = sim.nestEntrances[0];
+  ant.x = entrance.x + 18;
+  ant.y = Math.max(0, entrance.y - 4);
+  ant.hunger = 55;
+  ant.health = ant.healthMax;
+
+  sim.colony.depositPellet(50, entrance.x, entrance.y + 3, entrance);
+  const foodBefore = sim.colony.foodStored;
+
+  let reachedNest = false;
+  let consumedStoredFood = false;
+
+  for (let i = 0; i < 140; i += 1) {
+    sim.update(config);
+    if (ant.y >= sim.world.nestY) reachedNest = true;
+    if (sim.colony.foodStored < foodBefore) {
+      consumedStoredFood = true;
+      break;
+    }
+  }
+
+  assert.ok(reachedNest);
+  assert.ok(consumedStoredFood);
 });
 
 test('critical-health ant returns to nest and recovers from stored food', () => {
