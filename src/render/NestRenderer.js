@@ -197,13 +197,21 @@ export class NestRenderer {
   }
 
   /* ------------------------------------------------------------------
-   * Entities: underground ants (y >= nestY - 1) + queen marker.
+   * Entities: underground ants + optional queen marker.
    * ----------------------------------------------------------------*/
   #drawAnts(ctx, colony, selectedAntId, showDebugStats, showQueenMarker = false) {
     const { world } = this;
+    const halfViewW = this.canvas.clientWidth / this.zoom * 0.5;
+    const halfViewH = this.canvas.clientHeight / this.zoom * 0.5;
+    const minX = this.cameraX - halfViewW - 1;
+    const maxX = this.cameraX + halfViewW + 1;
+    const minY = this.cameraY - halfViewH - 1;
+    const maxY = this.cameraY + halfViewH + 1;
 
     for (const ant of colony.ants) {
-      const drawY = ant.y < world.nestY ? world.nestY : ant.y;
+      if (ant.y <= world.nestY) continue;
+      if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
+      const drawY = ant.y;
       ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, drawY, 1, 1);
 
