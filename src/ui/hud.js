@@ -6,10 +6,18 @@ export function updateHud(stats) {
   setText('hudSoldiers', `${stats.soldiers}`);
 
   const workers = asNonNegativeInt(stats.workers);
-  const jobsForage = Number.isFinite(stats.jobsForage) ? asNonNegativeInt(stats.jobsForage) : workers;
-  const jobsDig = Number.isFinite(stats.jobsDig) ? asNonNegativeInt(stats.jobsDig) : 0;
-  const jobsNurse = Number.isFinite(stats.jobsNurse) ? asNonNegativeInt(stats.jobsNurse) : 0;
-  const nurses = Number.isFinite(stats.nurses) ? asNonNegativeInt(stats.nurses) : jobsNurse;
+  let jobsForage = Number.isFinite(stats.jobsForage) ? asNonNegativeInt(stats.jobsForage) : workers;
+  let jobsDig = Number.isFinite(stats.jobsDig) ? asNonNegativeInt(stats.jobsDig) : 0;
+  let jobsNurse = Number.isFinite(stats.jobsNurse) ? asNonNegativeInt(stats.jobsNurse) : 0;
+  let nurses = Number.isFinite(stats.nurses) ? asNonNegativeInt(stats.nurses) : jobsNurse;
+
+  // Guard against inconsistent producer payloads where workers are set but jobs are all zero.
+  if (workers > 0 && jobsForage + jobsDig + jobsNurse === 0) {
+    jobsForage = workers;
+    jobsDig = 0;
+    jobsNurse = 0;
+    nurses = 0;
+  }
 
   setText('hudNurses', `${nurses}`);
   setText('hudJobs', `${jobsForage} / ${jobsDig} / ${jobsNurse}`);

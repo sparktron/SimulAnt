@@ -401,9 +401,16 @@ function getHudAntCounts(ants) {
 function getHudFoodTotal(colony) {
   const stored = Number.isFinite(colony?.foodStored) ? colony.foodStored : 0;
   const pelletFood = Array.isArray(colony?.nestFoodPellets)
-    ? colony.nestFoodPellets.reduce((sum, pellet) => sum + (Number.isFinite(pellet?.amount) ? pellet.amount : 0), 0)
+    ? colony.nestFoodPellets.reduce((sum, pellet) => {
+      const amount = Number.isFinite(pellet?.amount)
+        ? pellet.amount
+        : (Number.isFinite(pellet?.nutrition) ? pellet.nutrition : 0);
+      return sum + amount;
+    }, 0)
     : 0;
-  return stored + pelletFood;
+
+  // `foodStored` is canonical in current saves; pellet sum is a legacy/fallback source.
+  return Math.max(stored, pelletFood);
 }
 
 function getAntHealthStats(ants) {

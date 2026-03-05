@@ -732,12 +732,17 @@ export class Colony {
     colony.excavatedTiles = data.excavatedTiles || 0;
     colony.nestFoodPellets = Array.isArray(data.nestFoodPellets)
       ? data.nestFoodPellets
-        .filter((pellet) => Number.isFinite(pellet?.x) && Number.isFinite(pellet?.y) && Number.isFinite(pellet?.amount) && pellet.amount > 0)
-        .map((pellet) => ({ x: pellet.x, y: pellet.y, amount: pellet.amount }))
+        .map((pellet) => {
+          const amount = Number.isFinite(pellet?.amount)
+            ? pellet.amount
+            : (Number.isFinite(pellet?.nutrition) ? pellet.nutrition : NaN);
+          return { x: pellet?.x, y: pellet?.y, amount };
+        })
+        .filter((pellet) => Number.isFinite(pellet.x) && Number.isFinite(pellet.y) && Number.isFinite(pellet.amount) && pellet.amount > 0)
       : [];
     colony.setWorkAllocation(data.workAllocation || colony.workAllocation);
     colony.setCasteAllocation(data.casteAllocation || colony.casteAllocation);
-    colony.ants = data.ants.map((a) => {
+    colony.ants = (Array.isArray(data.ants) ? data.ants : []).map((a) => {
       const ant = new Ant(a.x, a.y, rng, a.role || 'worker');
       ant.id = a.id || ant.id;
       ant.dir = a.dir;

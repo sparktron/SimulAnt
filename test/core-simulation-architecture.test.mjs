@@ -826,3 +826,20 @@ test('serialization preserves worker workFocus and alive flags for HUD/job accou
   assert.equal(restoredWorker.workFocus, 'dig');
   assert.equal(restoredWorker.alive, false);
 });
+
+
+test('legacy nestFoodPellets nutrition field migrates to amount on load', () => {
+  const sim = new SimulationCore('legacy-food-migration-seed');
+  const serialized = sim.serialize({});
+
+  serialized.colony.foodStored = 0;
+  serialized.colony.nestFoodPellets = [
+    { x: sim.world.nestX, y: sim.world.nestY + 2, nutrition: 4.5 },
+  ];
+
+  const restored = new SimulationCore('legacy-food-migration-seed-2');
+  restored.loadFromSerialized(serialized);
+
+  assert.equal(restored.colony.nestFoodPellets.length, 1);
+  assert.equal(restored.colony.nestFoodPellets[0].amount, 4.5);
+});
