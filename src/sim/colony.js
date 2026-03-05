@@ -711,6 +711,8 @@ export class Colony {
         stepCounter: ant.stepCounter,
         age: ant.age,
         maxAge: ant.maxAge,
+        alive: ant.alive,
+        workFocus: ant.workFocus,
       })),
     };
   }
@@ -763,6 +765,10 @@ export class Colony {
       ant.stepCounter = a.stepCounter || 0;
       ant.age = a.age || 0;
       if (a.maxAge) ant.maxAge = a.maxAge;
+      ant.alive = typeof a.alive === 'boolean' ? a.alive : ant.alive;
+      ant.workFocus = (a.workFocus === 'dig' || a.workFocus === 'nurse' || a.workFocus === 'forage')
+        ? a.workFocus
+        : ant.workFocus;
       return ant;
     });
     return colony;
