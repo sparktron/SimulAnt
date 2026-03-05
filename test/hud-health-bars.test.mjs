@@ -138,3 +138,32 @@ test('HUD jobs fall back to worker totals when producer omits job fields', () =>
   assert.equal(elements.get('hudFood').textContent, '2.0');
   assert.equal(elements.get('hudQueenHealth').textContent, '77.0');
 });
+
+
+test('HUD jobs self-heal when workers are non-zero but producer sends all-zero jobs', () => {
+  const elements = installFakeDocument();
+
+  updateHud({
+    viewMode: 'SURFACE',
+    tick: 1,
+    ants: 12,
+    workers: 9,
+    soldiers: 3,
+    nurses: 0,
+    jobsForage: 0,
+    jobsDig: 0,
+    jobsNurse: 0,
+    foodStored: 1,
+    queenHealth: 90,
+    fps: 60,
+    digStatus: 'AUTO-DIG: OFF',
+    pherStats: { maxFood: 0, maxHome: 0, avgFood: 0, avgHome: 0 },
+    followingFood: 0,
+    followingHome: 0,
+    selectedAntHealth: null,
+    antHealthStats: { min: 10, avg: 35, max: 70 },
+  });
+
+  assert.equal(elements.get('hudJobs').textContent, '9 / 0 / 0');
+  assert.equal(elements.get('hudNurses').textContent, '0');
+});
