@@ -843,3 +843,21 @@ test('legacy nestFoodPellets nutrition field migrates to amount on load', () => 
   assert.equal(restored.colony.nestFoodPellets.length, 1);
   assert.equal(restored.colony.nestFoodPellets[0].amount, 4.5);
 });
+
+test('newly spawned workers receive workFocus assignments from work allocation', () => {
+  const sim = new SimulationCore('spawn-workfocus-seed');
+
+  sim.colony.ants = [];
+  sim.colony.setWorkAllocation({ forage: 0, dig: 0, nurse: 100 });
+
+  // Prime brood so update performs worker hatches.
+  sim.colony.queen.brood = 12;
+  const config = createConfig();
+  config.antCap = 50;
+
+  sim.update(config);
+
+  const workers = sim.colony.ants.filter((ant) => ant.role === 'worker');
+  assert.ok(workers.length > 0);
+  assert.equal(workers.every((ant) => ant.workFocus === 'nurse'), true);
+});

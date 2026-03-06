@@ -52,12 +52,18 @@ export class Colony {
   #spawnNearNest(role) {
     const jitterX = this.rng.int(7) - 3;
     const jitterY = this.rng.int(7) - 3;
-    return new Ant(
+    const ant = new Ant(
       Math.max(0, Math.min(this.world.width - 1, this.world.nestX + jitterX)),
       Math.max(0, Math.min(this.world.height - 1, this.world.nestY + jitterY)),
       this.rng,
       role,
     );
+
+    if (role === 'worker') {
+      ant.workFocus = this.chooseWorkFocus();
+    }
+
+    return ant;
   }
 
   /**
