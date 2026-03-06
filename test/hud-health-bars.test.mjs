@@ -26,7 +26,10 @@ test('HUD health bars bind to selected health and aggregate health stats', () =>
     ants: 10,
     workers: 7,
     soldiers: 3,
+    breeders: 1,
     nurses: 2,
+    foragers: 4,
+    diggers: 1,
     jobsForage: 4,
     jobsDig: 1,
     jobsNurse: 2,
@@ -45,7 +48,10 @@ test('HUD health bars bind to selected health and aggregate health stats', () =>
   assert.equal(elements.get('healthBlack').style.height, '20%');
   assert.equal(elements.get('healthRed').style.height, '90%');
   assert.equal(elements.get('hudHealthStats').textContent, 'MIN:20.0 AVG:55.0 MAX:90.0');
+  assert.equal(elements.get('hudBreeders').textContent, '1');
   assert.equal(elements.get('hudNurses').textContent, '2');
+  assert.equal(elements.get('hudForagers').textContent, '4');
+  assert.equal(elements.get('hudDiggers').textContent, '1');
   assert.equal(elements.get('hudJobs').textContent, '4 / 1 / 2');
   assert.equal(elements.get('hudQueenHealth').textContent, '88.5');
 });
@@ -59,7 +65,10 @@ test('HUD health bars fall back to aggregate average when no selected ant', () =
     ants: 4,
     workers: 4,
     soldiers: 0,
+    breeders: 0,
     nurses: 1,
+    foragers: 2,
+    diggers: 1,
     jobsForage: 2,
     jobsDig: 1,
     jobsNurse: 1,
@@ -75,7 +84,10 @@ test('HUD health bars fall back to aggregate average when no selected ant', () =
   });
 
   assert.equal(elements.get('healthYellow').style.height, '35%');
+  assert.equal(elements.get('hudBreeders').textContent, '0');
   assert.equal(elements.get('hudNurses').textContent, '1');
+  assert.equal(elements.get('hudForagers').textContent, '2');
+  assert.equal(elements.get('hudDiggers').textContent, '1');
   assert.equal(elements.get('hudJobs').textContent, '2 / 1 / 1');
   assert.equal(elements.get('hudQueenHealth').textContent, '100.0');
 });
@@ -91,7 +103,10 @@ test('HUD health stats tolerate partial/malformed aggregate payloads', () => {
       ants: 1,
       workers: 1,
       soldiers: 0,
+      breeders: 0,
       nurses: 0,
+      foragers: 1,
+      diggers: 0,
       jobsForage: 1,
       jobsDig: 0,
       jobsNurse: 0,
@@ -122,6 +137,7 @@ test('HUD jobs fall back to worker totals when producer omits job fields', () =>
     ants: 5,
     workers: 5,
     soldiers: 0,
+    breeders: 0,
     foodStored: 2,
     queenHealth: 77,
     fps: 60,
@@ -134,7 +150,10 @@ test('HUD jobs fall back to worker totals when producer omits job fields', () =>
   });
 
   assert.equal(elements.get('hudJobs').textContent, '5 / 0 / 0');
+  assert.equal(elements.get('hudBreeders').textContent, '0');
   assert.equal(elements.get('hudNurses').textContent, '0');
+  assert.equal(elements.get('hudForagers').textContent, '5');
+  assert.equal(elements.get('hudDiggers').textContent, '0');
   assert.equal(elements.get('hudFood').textContent, '2.0');
   assert.equal(elements.get('hudQueenHealth').textContent, '77.0');
 });
@@ -149,6 +168,7 @@ test('HUD jobs self-heal when workers are non-zero but producer sends all-zero j
     ants: 12,
     workers: 9,
     soldiers: 3,
+    breeders: 0,
     nurses: 0,
     jobsForage: 0,
     jobsDig: 0,
@@ -166,4 +186,6 @@ test('HUD jobs self-heal when workers are non-zero but producer sends all-zero j
 
   assert.equal(elements.get('hudJobs').textContent, '9 / 0 / 0');
   assert.equal(elements.get('hudNurses').textContent, '0');
+  assert.equal(elements.get('hudForagers').textContent, '9');
+  assert.equal(elements.get('hudDiggers').textContent, '0');
 });

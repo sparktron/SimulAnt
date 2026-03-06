@@ -4,6 +4,7 @@ export function updateHud(stats) {
   setText('hudAnts', `${stats.ants}`);
   setText('hudWorkers', `${stats.workers}`);
   setText('hudSoldiers', `${stats.soldiers}`);
+  setText('hudBreeders', `${asNonNegativeInt(stats.breeders)}`);
 
   const workers = asNonNegativeInt(stats.workers);
   let jobsForage = Number.isFinite(stats.jobsForage) ? asNonNegativeInt(stats.jobsForage) : workers;
@@ -20,6 +21,8 @@ export function updateHud(stats) {
   }
 
   setText('hudNurses', `${nurses}`);
+  setText('hudForagers', `${jobsForage}`);
+  setText('hudDiggers', `${jobsDig}`);
   setText('hudJobs', `${jobsForage} / ${jobsDig} / ${jobsNurse}`);
   setText('hudFood', formatNumber(stats.foodStored));
   setText('hudQueenHealth', formatNumber(stats.queenHealth));

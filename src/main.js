@@ -336,7 +336,10 @@ function loop(now) {
         ants: simCore.colony.ants.length,
         workers: hudCounts.workers,
         soldiers: hudCounts.soldiers,
+        breeders: hudCounts.breeders,
         nurses: hudCounts.nurses,
+        foragers: hudCounts.jobsForage,
+        diggers: hudCounts.jobsDig,
         jobsForage: hudCounts.jobsForage,
         jobsDig: hudCounts.jobsDig,
         jobsNurse: hudCounts.jobsNurse,
@@ -368,6 +371,7 @@ function getHudAntCounts(ants) {
   const counts = {
     workers: 0,
     soldiers: 0,
+    breeders: 0,
     nurses: 0,
     jobsForage: 0,
     jobsDig: 0,
@@ -392,6 +396,7 @@ function getHudAntCounts(ants) {
     }
 
     if (ant.role === 'soldier') counts.soldiers += 1;
+    else if (ant.role === 'breeder') counts.breeders += 1;
   }
 
   return counts;
