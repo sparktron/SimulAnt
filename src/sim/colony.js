@@ -34,6 +34,8 @@ export class Colony {
       x: world.nestX,
       y: Math.min(world.height - 1, world.nestY + 6),
       moveProgress: 0,
+      broodGestationProgress: 0,
+      foodCourierAntId: null,
     };
 
     this.excavatedTiles = 0;
@@ -66,6 +68,7 @@ export class Colony {
    */
   update(config) {
     this.#updateQueenSurvival(config);
+    this.#updateQueenFoodRequest(config);
     if (this.queen.alive) {
       this.#updateQueenAndBrood(config);
     }
@@ -91,13 +94,6 @@ export class Colony {
       while (this.foodStored >= this.spawnCost && this.ants.length < config.antCap) {
         this.foodStored -= this.spawnCost;
         this.queen.brood += 1;
-      }
-
-      while (this.queen.brood >= 1 && this.ants.length < config.antCap) {
-        this.queen.brood -= 1;
-        const role = this.selectHatchRole(config);
-        this.ants.push(this.#spawnNearNest(role));
-        this.births += 1;
       }
     }
   }
@@ -144,15 +140,38 @@ export class Colony {
   }
 
   #updateQueenAndBrood(config) {
-    if (this.foodStored < config.queenEggFoodCost) return;
+    const dt = config.tickSeconds || BASE_TICK_SECONDS;
 
-    this.queen.eggProgress += 1;
-    if (this.queen.eggProgress < config.queenEggTicks) return;
+    if (this.foodStored >= config.queenEggFoodCost) {
+      this.queen.eggProgress += 1;
+      if (this.queen.eggProgress >= config.queenEggTicks) {
+        this.queen.eggProgress = 0;
+        this.foodStored -= config.queenEggFoodCost;
+        this.queen.eggsLaid += 1;
+        this.queen.brood += 1;
+      }
+    }
 
-    this.queen.eggProgress = 0;
-    this.foodStored -= config.queenEggFoodCost;
-    this.queen.eggsLaid += 1;
-    this.queen.brood += 1;
+    if (this.queen.brood <= 0) return;
+
+    const broodFoodRequest = this.queen.brood * (config.broodFoodDrainRate ?? 0) * dt;
+    const broodFoodConsumed = this.consumeFromStore(broodFoodRequest);
+    const broodFeedRatio = broodFoodRequest > 0 ? broodFoodConsumed / broodFoodRequest : 1;
+    const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio));
+    this.queen.broodGestationProgress = (this.queen.broodGestationProgress || 0) + dt * gestationRateScale;
+
+    const hatchSeconds = Math.max(0.001, config.broodGestationSeconds ?? 8);
+    while (
+      this.queen.brood >= 1
+      && this.queen.broodGestationProgress >= hatchSeconds
+      && this.ants.length < config.antCap
+    ) {
+      this.queen.brood -= 1;
+      this.queen.broodGestationProgress -= hatchSeconds;
+      const role = this.selectHatchRole(config);
+      this.ants.push(this.#spawnNearNest(role));
+      this.births += 1;
+    }
   }
 
   #updateQueenSurvival(config) {
@@ -160,17 +179,64 @@ export class Colony {
     const dt = config.tickSeconds || 1 / 30;
     this.queen.hunger = Math.max(0, this.queen.hunger - config.queenHungerDrain * dt);
 
-    if (this.queen.hunger < this.queen.hungerMax * 0.9) {
-      const consumed = this.consumeFromStore(config.queenEatNutrition * dt);
-      this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + consumed);
-    }
-
     if (this.queen.hunger <= 0) {
       this.queen.health = Math.max(0, this.queen.health - config.queenHealthDrainRate * dt);
       if (this.queen.health <= 0) {
         this.queen.alive = false;
       }
     }
+  }
+
+  #updateQueenFoodRequest(config) {
+    if (!this.queen.alive) return;
+
+    const requestThreshold = this.queen.healthMax * (config.queenFoodRequestHealthThreshold ?? 0.5);
+    const clearThreshold = this.queen.healthMax * (config.queenFoodRequestClearThreshold ?? 0.8);
+    const assigned = this.ants.find((ant) => ant.id === this.queen.foodCourierAntId && ant.alive);
+
+    if (this.queen.health >= clearThreshold) {
+      this.queen.foodCourierAntId = null;
+      return;
+    }
+
+    if (this.queen.health >= requestThreshold && assigned) return;
+    if (assigned) return;
+
+    const nearest = this.findNearestWorkerTo(this.queen.x, this.queen.y);
+    this.queen.foodCourierAntId = nearest?.id || null;
+  }
+
+  findNearestWorkerTo(x, y) {
+    let nearest = null;
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive || ant.role !== 'worker') continue;
+      const d = Math.hypot(ant.x - x, ant.y - y);
+      if (d < best) {
+        best = d;
+        nearest = ant;
+      }
+    }
+    return nearest;
+  }
+
+  isQueenFoodCourier(antId) {
+    return this.queen.foodCourierAntId != null && this.queen.foodCourierAntId === antId;
+  }
+
+  pickupQueenFoodRation(amount) {
+    const consumed = this.consumeFromStore(amount);
+    return Math.max(0, consumed);
+  }
+
+  feedQueen(nutrition, config) {
+    const safeNutrition = Math.max(0, nutrition || 0);
+    if (safeNutrition <= 0 || !this.queen.alive) return 0;
+    this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + safeNutrition);
+    const healthGain = safeNutrition * (config.queenHealthRecoveryPerNutrition ?? 0);
+    this.queen.health = Math.min(this.queen.healthMax, this.queen.health + healthGain);
+    return safeNutrition;
   }
 
   #updateQueenPosition(config) {
@@ -563,6 +629,8 @@ export class Colony {
       colony.syncQueenPositionToNest(world.nestX, world.nestY);
     }
     if (!Number.isFinite(colony.queen.moveProgress)) colony.queen.moveProgress = 0;
+    if (!Number.isFinite(colony.queen.broodGestationProgress)) colony.queen.broodGestationProgress = 0;
+    if (typeof colony.queen.foodCourierAntId !== 'string') colony.queen.foodCourierAntId = null;
     colony.excavatedTiles = data.excavatedTiles || 0;
     colony.nestFoodPellets = Array.isArray(data.nestFoodPellets)
       ? data.nestFoodPellets
