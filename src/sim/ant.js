@@ -654,10 +654,11 @@ export class Ant {
   #tryEatFromNest(colony, inNest, config) {
     if (!inNest) return false;
 
+    // Only eat when health drops below 60%
+    const healthBelowThreshold = this.health < this.healthMax * 0.6;
+    if (!healthBelowThreshold) return false;
+
     const critical = this.#isCriticalHealth();
-    const needsFood = this.hunger < this.hungerMax * 0.7;
-    const needsHealth = this.#isLowHealth();
-    if (!critical && !needsFood && !needsHealth) return false;
 
     const requested = critical
       ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
