@@ -76,7 +76,7 @@ const state = {
     workerEmergencyEatNutrition: 35,
     carryingHungerDrainRate: 1.5,
     fightingHungerDrainRate: 3,
-    soldierSpawnChance: 0,
+    soldierSpawnChance: 0.05,  // 5% chance for soldiers to spawn via brood
     foodVisionRadius: 7,
     surfaceFoodSearchMaxMissTicks: 180,  // Increased: give foragers more time to find food
     surfaceReturnToNestHungerThreshold: 0.5,  // Lowered: less aggressive nest rushing
@@ -110,7 +110,7 @@ const state = {
   },
   colonyStatus: {
     workAllocation: { forage: 55, dig: 20, nurse: 25 },
-    casteAllocation: { workers: 100, soldiers: 0, breeders: 0 },
+    casteAllocation: { workers: 85, soldiers: 15, breeders: 0 },
   },
 };
 
