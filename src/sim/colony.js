@@ -50,11 +50,10 @@ export class Colony {
   }
 
   #spawnNearNest(role) {
-    const jitterX = this.rng.int(7) - 3;
-    const jitterY = this.rng.int(7) - 3;
+    const jitterX = this.rng.int(5) - 2;
     const ant = new Ant(
       Math.max(0, Math.min(this.world.width - 1, this.world.nestX + jitterX)),
-      Math.max(0, Math.min(this.world.height - 1, this.world.nestY + jitterY)),
+      Math.max(0, this.world.nestY - 1),
       this.rng,
       role,
     );
