@@ -49,7 +49,8 @@ export class Colony {
     // Bootstrap colony with starter food so specialized work can begin
     // Need enough to support all ants + queen egg production + brood development
     // while foragers ramp up gathering (takes time to find food and return)
-    this.foodStored = 3000;
+    // With food respawning every 300 ticks when < 8 pellets, this gives stability
+    this.foodStored = 5000;
 
     this.syncQueenPositionToNest(world.nestX, world.nestY);
   }

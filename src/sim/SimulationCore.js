@@ -88,6 +88,17 @@ export class SimulationCore {
       this.foodPellets = this.foodPellets.filter((pellet) => !pellet.spoil());
     }
 
+    // Respawn food clusters periodically (every 300 ticks ~10 seconds) if count is low
+    // This ensures steady food availability for the colony to survive
+    if (this.tick % 300 === 0) {
+      const availableFoodCount = this.foodPellets.filter((p) => !p.takenByAntId).length;
+      if (availableFoodCount < 8) {
+        // Spawn new clusters at reasonable distances from nest
+        this.spawnFoodCluster(this.world.nestX + 45, this.world.nestY - 10, 12, 6);
+        this.spawnFoodCluster(this.world.nestX - 60, this.world.nestY - 20, 14, 6);
+      }
+    }
+
     // Record stats every 30 ticks (~1 second)
     if (this.tick % 30 === 0) {
       this.stats.record(this.tick, this.colony);

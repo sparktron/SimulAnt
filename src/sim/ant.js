@@ -29,8 +29,10 @@ export class Ant {
     this.dir = rng.int(DIRS.length);
     this.hungerMax = 100;
     this.healthMax = 100;
-    this.hunger = 80 + rng.int(20);
-    this.health = this.healthMax;
+    // Start with varied hunger (20-100) to desynchronize threshold crossings
+    this.hunger = 20 + rng.int(81);
+    // Initial health ranges from 75%-100% for variance
+    this.health = this.healthMax * (0.75 + rng.range(0, 0.25));
     this.hungerDrainRates = {
       idle: role === 'soldier' ? 2.2 : 1.8,
       move: role === 'soldier' ? 4.5 : 3.2,

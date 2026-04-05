@@ -78,8 +78,8 @@ const state = {
     fightingHungerDrainRate: 3,
     soldierSpawnChance: 0,
     foodVisionRadius: 7,
-    surfaceFoodSearchMaxMissTicks: 90,
-    surfaceReturnToNestHungerThreshold: 0.65,
+    surfaceFoodSearchMaxMissTicks: 180,  // Increased: give foragers more time to find food
+    surfaceReturnToNestHungerThreshold: 0.5,  // Lowered: less aggressive nest rushing
     followAlpha: 1.5,
     followBeta: 5.0,
     wanderNoise: 0.06,
