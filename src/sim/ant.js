@@ -156,6 +156,15 @@ export class Ant {
       return this.#runQueenCourierBehavior(world, colony, rng, config, context);
     }
 
+    // Foragers must exit nest immediately, before any other logic
+    if (this.workFocus === 'forage' && context.inNest && context.entrance) {
+      this.state = 'EXIT_NEST';
+      const exitTargetY = context.entrance.y - 1;
+      if (world.isPassable(context.entrance.x, exitTargetY)) {
+        return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
+      }
+      return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+    }
 
     if (this.carrying?.type === 'dirt') {
       this.state = 'HAUL_DIRT';
@@ -243,16 +252,6 @@ export class Ant {
       // Inside nest: deposit pheromone and wander exploring (don't follow home which leads to exit)
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome * 1.4);
       return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
-    }
-
-    // Foragers must exit nest to forage, even if not hungry
-    if (this.workFocus === 'forage' && context.inNest && context.entrance) {
-      this.state = 'EXIT_NEST';
-      const exitTargetY = context.entrance.y - 1;
-      if (world.isPassable(context.entrance.x, exitTargetY)) {
-        return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
-      }
-      return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
     }
 
     if (!this.#needsForage(colony)) {
