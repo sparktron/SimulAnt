@@ -197,33 +197,41 @@ export class NestRenderer {
   }
 
   /* ------------------------------------------------------------------
-   * Entities: underground ants (y >= nestY - 1) + queen marker.
+   * Entities: underground ants + optional queen marker.
    * ----------------------------------------------------------------*/
   #drawAnts(ctx, colony, selectedAntId, showDebugStats, showQueenMarker = false) {
     const { world } = this;
+    const halfViewW = this.canvas.clientWidth / this.zoom * 0.5;
+    const halfViewH = this.canvas.clientHeight / this.zoom * 0.5;
+    const minX = this.cameraX - halfViewW - 1;
+    const maxX = this.cameraX + halfViewW + 1;
+    const minY = this.cameraY - halfViewH - 1;
+    const maxY = this.cameraY + halfViewH + 1;
 
     for (const ant of colony.ants) {
-      if (ant.y < world.nestY - 1) continue;
+      if (ant.y <= world.nestY) continue;
+      if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
+      const drawY = ant.y;
       ctx.fillStyle = ant.baseColor;
-      ctx.fillRect(ant.x, ant.y, 1, 1);
+      ctx.fillRect(ant.x, drawY, 1, 1);
 
       const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');
       if (carryingType === 'food' || carryingType === 'dirt') {
         ctx.fillStyle = carryingType === 'food' ? '#35d84b' : '#7a4b22';
-        ctx.fillRect(ant.x + 0.7, ant.y, 0.6, 0.6);
+        ctx.fillRect(ant.x + 0.7, drawY, 0.6, 0.6);
       }
 
       if (selectedAntId === ant.id) {
         ctx.strokeStyle = '#ffea00';
         ctx.lineWidth = 0.25;
-        ctx.strokeRect(ant.x - 0.4, ant.y - 0.4, 1.8, 1.8);
+        ctx.strokeRect(ant.x - 0.4, drawY - 0.4, 1.8, 1.8);
       }
 
       if (showDebugStats) {
         ctx.fillStyle = '#ffffff';
         const c = ant.carryingType && ant.carryingType !== 'none' ? ` ${ant.carryingType[0].toUpperCase()}` : '';
         ctx.font = '2.8px monospace';
-        ctx.fillText(`H:${Math.round(ant.hunger)} HP:${Math.round(ant.health)}${c}`, ant.x + 1.2, ant.y - 0.2);
+        ctx.fillText(`H:${Math.round(ant.hunger)} HP:${Math.round(ant.health)}${c}`, ant.x + 1.2, drawY - 0.2);
       }
     }
 

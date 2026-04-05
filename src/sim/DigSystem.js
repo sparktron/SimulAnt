@@ -8,6 +8,7 @@ const CARDINAL_DIRS = [
 ];
 
 const TURN_OPTIONS = [0, -1, 1];
+const DIGGER_ASSIGNMENT_RADIUS2 = 36;
 
 export class DigSystem {
   constructor(world, colony, rng) {
@@ -33,17 +34,29 @@ export class DigSystem {
 
     const activeWorkers = this.autoDig ? Math.max(workerCount, 30) : workerCount;
     const assignedFronts = Math.min(this.fronts.length, Math.max(1, Math.floor(activeWorkers / 24)));
+    const activeDiggerIds = new Set();
 
     for (let i = 0; i < assignedFronts; i += 1) {
       const front = this.fronts[i];
+      const digger = this.#findNearestAvailableWorker(front, activeDiggerIds);
+      if (!digger) continue;
+
+      activeDiggerIds.add(digger.id);
+
       const work = this.autoDig ? 1.4 : 0.7 + this.rng.range(0, 0.5);
       front.progress += work;
 
+      const beforeAdvanceTick = front.lastAdvanceTick;
       let safetySteps = 0;
       while (front.progress >= 1 && safetySteps < 8) {
         front.progress -= 1;
         this.#advanceFront(front, config, false);
         safetySteps += 1;
+      }
+
+      const didExcavate = front.lastAdvanceTick > beforeAdvanceTick;
+      if (didExcavate && !digger.carrying?.type) {
+        digger.carrying = { type: 'dirt', amount: 1 };
       }
 
       if (!Number.isFinite(front.progress) || front.progress < 0 || safetySteps >= 8) {
@@ -56,43 +69,54 @@ export class DigSystem {
     }
 
     this.fronts.sort((a, b) => b.lastAdvanceTick - a.lastAdvanceTick);
-    this.#updateDirtCarriers(assignedFronts);
+    this.#updateDirtCarriers(activeDiggerIds);
   }
 
 
-  #updateDirtCarriers(assignedFronts) {
+  #updateDirtCarriers(activeDiggerIds) {
     const ants = this.colony.ants;
     for (let i = 0; i < ants.length; i += 1) {
       const ant = ants[i];
       if (!ant.alive || ant.role !== 'worker') continue;
       if (ant.carrying?.type === 'food') {
         ant.carryingType = 'food';
+      } else if (ant.carrying?.type === 'dirt') {
+        ant.carryingType = 'dirt';
       } else {
         ant.carryingType = 'none';
       }
     }
 
-    const maxFronts = Math.min(assignedFronts, this.fronts.length);
-    for (let i = 0; i < maxFronts; i += 1) {
-      const front = this.fronts[i];
-      let nearest = null;
-      let nearestDist2 = 121;
-
-      for (let j = 0; j < ants.length; j += 1) {
-        const ant = ants[j];
-        if (!ant.alive || ant.role !== 'worker' || ant.carryingType !== 'none') continue;
-        if (ant.y < this.world.nestY + 1) continue;
-        const dx = ant.x - front.x;
-        const dy = ant.y - front.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < nearestDist2) {
-          nearestDist2 = d2;
-          nearest = ant;
-        }
-      }
-
-      if (nearest) nearest.carryingType = 'dirt';
+    for (let i = 0; i < ants.length; i += 1) {
+      const ant = ants[i];
+      if (!ant.alive || ant.role !== 'worker') continue;
+      if (ant.carryingType !== 'none') continue;
+      if (activeDiggerIds.has(ant.id)) ant.carryingType = 'dirt';
     }
+  }
+
+  #findNearestAvailableWorker(front, unavailableIds) {
+    const ants = this.colony.ants;
+    let nearest = null;
+    let nearestDist2 = DIGGER_ASSIGNMENT_RADIUS2;
+
+    for (let i = 0; i < ants.length; i += 1) {
+      const ant = ants[i];
+      if (!ant.alive || ant.role !== 'worker') continue;
+      if (ant.carrying?.type) continue;
+      if (ant.y < this.world.nestY + 1) continue;
+      if (unavailableIds.has(ant.id)) continue;
+
+      const dx = ant.x - front.x;
+      const dy = ant.y - front.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < nearestDist2) {
+        nearestDist2 = d2;
+        nearest = ant;
+      }
+    }
+
+    return nearest;
   }
 
   toggleAutoDig() {

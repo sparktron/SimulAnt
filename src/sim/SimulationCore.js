@@ -11,6 +11,12 @@ import { ColonyStats } from './ColonyStats.js';
 const SURFACE_DEPOSIT_RATIO = 0.7;
 
 export class SimulationCore {
+  /**
+   * Creates simulation orchestrator and initializes world state.
+   *
+   * Called once at app startup and again indirectly via reset/load actions.
+   * Owns world/colony engines and serialization boundaries.
+   */
   constructor(seed = 'simant-default') {
     this.tick = 0;
     this.nestEntrances = [];
@@ -20,6 +26,12 @@ export class SimulationCore {
     this.reset(seed);
   }
 
+  /**
+   * Rebuilds deterministic world state from a seed.
+   *
+   * Used by startup and Reset control. Side effects: replaces world/colony,
+   * resets tick counters, and repopulates initial entrances/food clusters.
+   */
   reset(seed = 'simant-default') {
     this.seed = seed;
     this.rng = new SeededRng(this.seed);
@@ -33,6 +45,7 @@ export class SimulationCore {
     this.colony = new Colony(this.world, this.rng, 320);
     this.colony.syncQueenPositionToNest(this.world.nestX, this.world.nestY);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
+    this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.reset();
@@ -55,6 +68,12 @@ export class SimulationCore {
     this.tick = 0;
   }
 
+  /**
+   * Advances one fixed simulation tick.
+   *
+   * Called by main loop and Step button; delegates to tick scheduler with
+   * current config and shared mutable simulation arrays.
+   */
   update(config) {
     this.tick += 1;
     this.tickScheduler.runTick({
@@ -123,6 +142,11 @@ export class SimulationCore {
     const entrance = this.#nearestEntrance(worldX);
     if (!entrance) return;
     entrance.excavatedSoilTotal += volume;
+  }
+
+  onDepositDirt(volume, worldX, _depthY) {
+    const entrance = this.#nearestEntrance(worldX);
+    if (!entrance) return;
     entrance.soilOnSurface += volume * SURFACE_DEPOSIT_RATIO;
   }
 
@@ -143,6 +167,12 @@ export class SimulationCore {
     return nearest;
   }
 
+  /**
+   * Applies editor tool effects to world state.
+   *
+   * Called by input paint handlers from both views. Side effects vary by tool
+   * (terrain mutation, pellet mutation, dig-system rebuilds, queen reposition).
+   */
   applyTool(tool, worldX, worldY, radius) {
     switch (tool) {
       case 'food':
@@ -216,6 +246,9 @@ export class SimulationCore {
     this.foodPellets = [];
   }
 
+  /**
+   * Serializes full sim runtime snapshot for save/load.
+   */
   serialize(state) {
     return {
       seed: this.seed,
@@ -232,12 +265,19 @@ export class SimulationCore {
     };
   }
 
+  /**
+   * Restores simulation from serialized snapshot.
+   *
+   * Assumes input schema matches serialize() output. Rebuilds engines to keep
+   * scheduler dependencies synced to restored world and colony instances.
+   */
   loadFromSerialized(data) {
     this.seed = data.seed || this.seed;
     this.rng = new SeededRng(this.seed);
     this.world = World.fromSerialized(data.world);
     this.colony = Colony.fromSerialized(this.world, this.rng, data.colony);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
+    this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.digSystem.loadFromSerialized(data.digSystem);
     this.macroEngine = new MacroEngine(this.world);

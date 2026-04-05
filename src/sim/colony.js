@@ -3,6 +3,7 @@ import { TERRAIN } from './world.js';
 
 const QUEEN_SPEED_RATIO = 0.1;
 const BASE_TICK_SECONDS = 1 / 30;
+const DEBUG_NEST_FOOD_LOGS = false;
 
 export class Colony {
   constructor(world, rng, initialAnts = 300) {
@@ -18,6 +19,9 @@ export class Colony {
     this.nestEntrances = [];
     this.nestFoodPellets = [];
 
+    this.workAllocation = { forage: 55, dig: 20, nurse: 25 };
+    this.casteAllocation = { workers: 70, soldiers: 25, breeders: 5 };
+
     this.queen = {
       alive: true,
       eggProgress: 0,
@@ -30,10 +34,13 @@ export class Colony {
       x: world.nestX,
       y: Math.min(world.height - 1, world.nestY + 6),
       moveProgress: 0,
+      broodGestationProgress: 0,
+      foodCourierAntId: null,
     };
 
     this.excavatedTiles = 0;
     this.onExcavate = null;
+    this.onDepositDirt = null;
 
     for (let i = 0; i < initialAnts; i += 1) {
       this.ants.push(this.#spawnNearNest('worker'));
@@ -53,8 +60,15 @@ export class Colony {
     );
   }
 
+  /**
+   * Advances colony-level simulation by one tick.
+   *
+   * Called from micro simulation engine. Updates queen survival/reproduction,
+   * ticks each ant, compacts dead ants, and hatches brood into ant instances.
+   */
   update(config) {
     this.#updateQueenSurvival(config);
+    this.#updateQueenFoodRequest(config);
     if (this.queen.alive) {
       this.#updateQueenAndBrood(config);
     }
@@ -81,26 +95,83 @@ export class Colony {
         this.foodStored -= this.spawnCost;
         this.queen.brood += 1;
       }
-
-      while (this.queen.brood >= 1 && this.ants.length < config.antCap) {
-        this.queen.brood -= 1;
-        const role = this.rng.chance(config.soldierSpawnChance) ? 'soldier' : 'worker';
-        this.ants.push(this.#spawnNearNest(role));
-        this.births += 1;
-      }
     }
   }
 
+
+  setWorkAllocation(allocation = {}) {
+    const forage = Number.isFinite(allocation.forage) ? allocation.forage : this.workAllocation.forage;
+    const dig = Number.isFinite(allocation.dig) ? allocation.dig : this.workAllocation.dig;
+    const nurse = Number.isFinite(allocation.nurse) ? allocation.nurse : this.workAllocation.nurse;
+    const total = Math.max(1, forage + dig + nurse);
+    this.workAllocation = {
+      forage: Math.max(0, (forage / total) * 100),
+      dig: Math.max(0, (dig / total) * 100),
+      nurse: Math.max(0, (nurse / total) * 100),
+    };
+  }
+
+  setCasteAllocation(allocation = {}) {
+    const workers = Number.isFinite(allocation.workers) ? allocation.workers : this.casteAllocation.workers;
+    const soldiers = Number.isFinite(allocation.soldiers) ? allocation.soldiers : this.casteAllocation.soldiers;
+    const breeders = Number.isFinite(allocation.breeders) ? allocation.breeders : this.casteAllocation.breeders;
+    const total = Math.max(1, workers + soldiers + breeders);
+    this.casteAllocation = {
+      workers: Math.max(0, (workers / total) * 100),
+      soldiers: Math.max(0, (soldiers / total) * 100),
+      breeders: Math.max(0, (breeders / total) * 100),
+    };
+  }
+
+  chooseWorkFocus() {
+    const roll = this.rng.range(0, 100);
+    if (roll < this.workAllocation.forage) return 'forage';
+    if (roll < this.workAllocation.forage + this.workAllocation.dig) return 'dig';
+    return 'nurse';
+  }
+
+  selectHatchRole(config) {
+    const workerSoldierTotal = Math.max(0.0001, this.casteAllocation.workers + this.casteAllocation.soldiers);
+    const casteDrivenSoldierChance = this.casteAllocation.soldiers / workerSoldierTotal;
+    const soldierChance = Number.isFinite(config.soldierSpawnChance)
+      ? Math.max(0, Math.min(1, config.soldierSpawnChance))
+      : casteDrivenSoldierChance;
+    return this.rng.chance(soldierChance) ? 'soldier' : 'worker';
+  }
+
   #updateQueenAndBrood(config) {
-    if (this.foodStored < config.queenEggFoodCost) return;
+    const dt = config.tickSeconds || BASE_TICK_SECONDS;
 
-    this.queen.eggProgress += 1;
-    if (this.queen.eggProgress < config.queenEggTicks) return;
+    if (this.foodStored >= config.queenEggFoodCost) {
+      this.queen.eggProgress += 1;
+      if (this.queen.eggProgress >= config.queenEggTicks) {
+        this.queen.eggProgress = 0;
+        this.foodStored -= config.queenEggFoodCost;
+        this.queen.eggsLaid += 1;
+        this.queen.brood += 1;
+      }
+    }
 
-    this.queen.eggProgress = 0;
-    this.foodStored -= config.queenEggFoodCost;
-    this.queen.eggsLaid += 1;
-    this.queen.brood += 1;
+    if (this.queen.brood <= 0) return;
+
+    const broodFoodRequest = this.queen.brood * (config.broodFoodDrainRate ?? 0) * dt;
+    const broodFoodConsumed = this.consumeFromStore(broodFoodRequest);
+    const broodFeedRatio = broodFoodRequest > 0 ? broodFoodConsumed / broodFoodRequest : 1;
+    const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio));
+    this.queen.broodGestationProgress = (this.queen.broodGestationProgress || 0) + dt * gestationRateScale;
+
+    const hatchSeconds = Math.max(0.001, config.broodGestationSeconds ?? 8);
+    while (
+      this.queen.brood >= 1
+      && this.queen.broodGestationProgress >= hatchSeconds
+      && this.ants.length < config.antCap
+    ) {
+      this.queen.brood -= 1;
+      this.queen.broodGestationProgress -= hatchSeconds;
+      const role = this.selectHatchRole(config);
+      this.ants.push(this.#spawnNearNest(role));
+      this.births += 1;
+    }
   }
 
   #updateQueenSurvival(config) {
@@ -108,17 +179,64 @@ export class Colony {
     const dt = config.tickSeconds || 1 / 30;
     this.queen.hunger = Math.max(0, this.queen.hunger - config.queenHungerDrain * dt);
 
-    if (this.queen.hunger < this.queen.hungerMax * 0.9) {
-      const consumed = this.consumeFromStore(config.queenEatNutrition * dt);
-      this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + consumed);
-    }
-
     if (this.queen.hunger <= 0) {
       this.queen.health = Math.max(0, this.queen.health - config.queenHealthDrainRate * dt);
       if (this.queen.health <= 0) {
         this.queen.alive = false;
       }
     }
+  }
+
+  #updateQueenFoodRequest(config) {
+    if (!this.queen.alive) return;
+
+    const requestThreshold = this.queen.healthMax * (config.queenFoodRequestHealthThreshold ?? 0.5);
+    const clearThreshold = this.queen.healthMax * (config.queenFoodRequestClearThreshold ?? 0.8);
+    const assigned = this.ants.find((ant) => ant.id === this.queen.foodCourierAntId && ant.alive);
+
+    if (this.queen.health >= clearThreshold) {
+      this.queen.foodCourierAntId = null;
+      return;
+    }
+
+    if (this.queen.health >= requestThreshold && assigned) return;
+    if (assigned) return;
+
+    const nearest = this.findNearestWorkerTo(this.queen.x, this.queen.y);
+    this.queen.foodCourierAntId = nearest?.id || null;
+  }
+
+  findNearestWorkerTo(x, y) {
+    let nearest = null;
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive || ant.role !== 'worker') continue;
+      const d = Math.hypot(ant.x - x, ant.y - y);
+      if (d < best) {
+        best = d;
+        nearest = ant;
+      }
+    }
+    return nearest;
+  }
+
+  isQueenFoodCourier(antId) {
+    return this.queen.foodCourierAntId != null && this.queen.foodCourierAntId === antId;
+  }
+
+  pickupQueenFoodRation(amount) {
+    const consumed = this.consumeFromStore(amount);
+    return Math.max(0, consumed);
+  }
+
+  feedQueen(nutrition, config) {
+    const safeNutrition = Math.max(0, nutrition || 0);
+    if (safeNutrition <= 0 || !this.queen.alive) return 0;
+    this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + safeNutrition);
+    const healthGain = safeNutrition * (config.queenHealthRecoveryPerNutrition ?? 0);
+    this.queen.health = Math.min(this.queen.healthMax, this.queen.health + healthGain);
+    return safeNutrition;
   }
 
   #updateQueenPosition(config) {
@@ -219,12 +337,19 @@ export class Colony {
     return consumed;
   }
 
+  /**
+   * Deposits nutrition into nest storage and records a visual pellet marker.
+   *
+   * Called when workers return food. Side effects update aggregate stored food,
+   * nest pellet list, and per-cell `world.nestFood` cache.
+   */
   depositPellet(nutrition, x, y, entrance = null) {
     if (nutrition <= 0) return 0;
     const before = this.nestFoodPellets.length;
-    const point = this.getNestFoodDropPoint(entrance);
-    const pelletX = Number.isFinite(x) ? x : point.x;
-    const pelletY = Number.isFinite(y) ? y : point.y;
+    const point = this.findNestFoodDropPoint(entrance, x, y);
+    if (!point) return 0;
+    const pelletX = point.x;
+    const pelletY = point.y;
     this.foodStored += nutrition;
     this.nestFoodPellets.push({
       x: pelletX,
@@ -232,50 +357,121 @@ export class Colony {
       amount: nutrition,
     });
     this.#applyNestCellFoodDelta(nutrition, pelletX, pelletY);
-    if (this.nestFoodPellets.length !== before) {
+    if (DEBUG_NEST_FOOD_LOGS && this.nestFoodPellets.length !== before) {
       console.log('[nest-food] nestFoodPellets.length changed:', this.nestFoodPellets.length);
     }
     return nutrition;
   }
 
   getNestFoodDropPoint(entrance = null) {
-    const storageCenterX = entrance ? entrance.x : this.world.nestX;
-    const storageCenterY = Math.max(this.world.nestY + 2, entrance ? entrance.y + 3 : this.world.nestY + 3);
-
-    if (!entrance) {
-      return {
-        x: Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX))),
-        y: Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY))),
-      };
-    }
-
-    const maxAttempts = 24;
-    for (let i = 0; i < maxAttempts; i += 1) {
-      const dx = this.rng.int(9) - 4;
-      const dy = this.rng.int(7) - 1;
-      const x = Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX + dx)));
-      const y = Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY + dy)));
-      const terrain = this.world.terrain[this.world.index(x, y)];
-      if (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER) {
-        return { x, y };
-      }
-    }
-
-    return {
-      x: Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX))),
-      y: Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY))),
+    return this.findNestFoodDropPoint(entrance) || {
+      x: Math.max(0, Math.min(this.world.width - 1, Math.round(entrance ? entrance.x : this.world.nestX))),
+      y: Math.max(
+        this.world.nestY + 1,
+        Math.min(this.world.height - 1, Math.round(entrance ? entrance.y + 3 : this.world.nestY + 3)),
+      ),
     };
   }
 
-  depositFoodFromAnt(ant, entrance = null) {
+  #isNestFoodTileClear(x, y) {
+    if (!this.world.inBounds(x, y) || y < this.world.nestY + 1) return false;
+    const terrain = this.world.terrain[this.world.index(x, y)];
+    if (terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER) return false;
+
+    for (let i = 0; i < this.nestFoodPellets.length; i += 1) {
+      const pellet = this.nestFoodPellets[i];
+      if (pellet.amount <= 0.0001) continue;
+      if (Math.round(pellet.x) === x && Math.round(pellet.y) === y) return false;
+    }
+    return true;
+  }
+
+  #findDeepNestStorageY(anchorX) {
+    const xRadius = 12;
+    const minX = Math.max(0, Math.round(anchorX) - xRadius);
+    const maxX = Math.min(this.world.width - 1, Math.round(anchorX) + xRadius);
+
+    for (let y = this.world.height - 1; y >= this.world.nestY + 1; y -= 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        const terrain = this.world.terrain[this.world.index(x, y)];
+        if (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER) return y;
+      }
+    }
+
+    return this.world.nestY + 3;
+  }
+
+  findNestFoodDropPoint(entrance = null, preferredX = null, preferredY = null) {
+    const storageCenterX = entrance ? entrance.x : this.world.nestX;
+    const deepestStorageY = this.#findDeepNestStorageY(storageCenterX);
+    const storageCenterY = Math.max(this.world.nestY + 3, deepestStorageY - 2);
+
+    const minDistanceFromEntrance = entrance ? Math.max(4, (entrance.radius ?? 2) + 3) : 0;
+    const isFarEnoughFromEntrance = (x, y) => {
+      if (!entrance) return true;
+      return Math.hypot(x - entrance.x, y - entrance.y) >= minDistanceFromEntrance;
+    };
+
+    const preferredTileX = Number.isFinite(preferredX)
+      ? Math.max(0, Math.min(this.world.width - 1, Math.round(preferredX)))
+      : null;
+    const preferredTileY = Number.isFinite(preferredY)
+      ? Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(preferredY)))
+      : null;
+    if (
+      preferredTileX != null
+      && preferredTileY != null
+      && this.#isNestFoodTileClear(preferredTileX, preferredTileY)
+      && isFarEnoughFromEntrance(preferredTileX, preferredTileY)
+    ) {
+      return { x: preferredTileX, y: preferredTileY };
+    }
+
+    const centerX = Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX)));
+    const centerY = Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY)));
+    const maxRadius = 8;
+    const randomAttempts = 20;
+    const isValidCandidate = (x, y) => {
+      if (!this.#isNestFoodTileClear(x, y)) return false;
+      return isFarEnoughFromEntrance(x, y);
+    };
+
+    for (let i = 0; i < randomAttempts; i += 1) {
+      const dx = this.rng.int(maxRadius * 2 + 1) - maxRadius;
+      const dy = this.rng.int(maxRadius * 2 + 1) - maxRadius;
+      const x = centerX + dx;
+      const y = centerY + dy;
+      if (isValidCandidate(x, y)) return { x, y };
+    }
+
+    for (let radius = 0; radius <= maxRadius; radius += 1) {
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+          const x = centerX + dx;
+          const y = centerY + dy;
+          if (isValidCandidate(x, y)) {
+            return { x, y };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  depositFoodFromAnt(ant, entrance = null, dropPoint = null) {
     if (!ant?.carrying || ant.carrying.type !== 'food') return false;
 
     const nutrition = ant.carrying.pelletNutrition || 0;
-    const dropPoint = this.getNestFoodDropPoint(entrance);
+    const targetDropPoint = dropPoint || this.findNestFoodDropPoint(entrance, ant.x, ant.y);
+    if (!targetDropPoint) return false;
+    if (ant.x !== targetDropPoint.x || ant.y !== targetDropPoint.y) return false;
 
-    this.depositPellet(nutrition, dropPoint.x, dropPoint.y, entrance);
+    this.depositPellet(nutrition, targetDropPoint.x, targetDropPoint.y, entrance);
     ant.carrying = null;
     ant.carryingType = 'none';
+    ant.baseColor = ant.originalBaseColor || ant.baseColor;
     ant.state = 'FORAGE_SEARCH';
     ant.hunger = Math.min(ant.hungerMax, ant.hunger + nutrition * 0.15);
 
@@ -284,7 +480,9 @@ export class Colony {
       ant.y = dropPoint.y;
     }
 
-    console.log(`[ant] ${ant.id} deposited food at nest entrance (${entrance?.x ?? this.world.nestX}, ${entrance?.y ?? this.world.nestY})`);
+    if (DEBUG_NEST_FOOD_LOGS) {
+      console.log(`[ant] ${ant.id} deposited food at nest entrance (${entrance?.x ?? this.world.nestX}, ${entrance?.y ?? this.world.nestY})`);
+    }
     return true;
   }
 
@@ -312,7 +510,7 @@ export class Colony {
       if (pellet.amount <= 0.0001) this.nestFoodPellets.splice(i, 1);
     }
 
-    if (this.nestFoodPellets.length !== before) {
+    if (DEBUG_NEST_FOOD_LOGS && this.nestFoodPellets.length !== before) {
       console.log('[nest-food] nestFoodPellets.length changed:', this.nestFoodPellets.length);
     }
   }
@@ -390,6 +588,10 @@ export class Colony {
     if (this.onExcavate) this.onExcavate(volume, worldX, depthY);
   }
 
+  recordDirtDeposit(volume, worldX, depthY) {
+    if (this.onDepositDirt) this.onDepositDirt(volume, worldX, depthY);
+  }
+
   serialize() {
     return {
       foodStored: this.foodStored,
@@ -398,6 +600,8 @@ export class Colony {
       queen: this.queen,
       excavatedTiles: this.excavatedTiles,
       nestFoodPellets: this.nestFoodPellets,
+      workAllocation: this.workAllocation,
+      casteAllocation: this.casteAllocation,
       ants: this.ants.map((ant) => ({
         id: ant.id,
         x: ant.x,
@@ -408,6 +612,7 @@ export class Colony {
         carrying: ant.carrying,
         carryingType: ant.carryingType,
         baseColor: ant.baseColor,
+        originalBaseColor: ant.originalBaseColor,
         role: ant.role,
         state: ant.state,
         stepCounter: ant.stepCounter,
@@ -427,12 +632,16 @@ export class Colony {
       colony.syncQueenPositionToNest(world.nestX, world.nestY);
     }
     if (!Number.isFinite(colony.queen.moveProgress)) colony.queen.moveProgress = 0;
+    if (!Number.isFinite(colony.queen.broodGestationProgress)) colony.queen.broodGestationProgress = 0;
+    if (typeof colony.queen.foodCourierAntId !== 'string') colony.queen.foodCourierAntId = null;
     colony.excavatedTiles = data.excavatedTiles || 0;
     colony.nestFoodPellets = Array.isArray(data.nestFoodPellets)
       ? data.nestFoodPellets
         .filter((pellet) => Number.isFinite(pellet?.x) && Number.isFinite(pellet?.y) && Number.isFinite(pellet?.amount) && pellet.amount > 0)
         .map((pellet) => ({ x: pellet.x, y: pellet.y, amount: pellet.amount }))
       : [];
+    colony.setWorkAllocation(data.workAllocation || colony.workAllocation);
+    colony.setCasteAllocation(data.casteAllocation || colony.casteAllocation);
     colony.ants = data.ants.map((a) => {
       const ant = new Ant(a.x, a.y, rng, a.role || 'worker');
       ant.id = a.id || ant.id;
@@ -441,7 +650,22 @@ export class Colony {
       ant.health = a.health ?? ant.health;
       ant.carrying = a.carrying;
       ant.carryingType = a.carryingType || (a.carrying?.type === 'food' ? 'food' : 'none');
-      ant.baseColor = a.baseColor || ant.baseColor;
+      const defaultBaseColor = Ant.getDefaultBaseColor(ant.role);
+      const soldierBaseColor = Ant.getLegacySoldierBaseColor();
+      const serializedBaseColor = typeof a.baseColor === 'string' ? a.baseColor : null;
+      const serializedOriginalBaseColor = typeof a.originalBaseColor === 'string' ? a.originalBaseColor : null;
+
+      ant.originalBaseColor = serializedOriginalBaseColor || defaultBaseColor;
+      ant.baseColor = serializedBaseColor || ant.originalBaseColor;
+
+      // Migration guard: older saves could persist legacy soldier-red despite canonical colony color.
+      if (ant.originalBaseColor === soldierBaseColor) {
+        ant.originalBaseColor = defaultBaseColor;
+      }
+      if (ant.baseColor === soldierBaseColor) {
+        ant.baseColor = ant.originalBaseColor;
+      }
+
       ant.state = a.state || ant.state;
       ant.stepCounter = a.stepCounter || 0;
       ant.age = a.age || 0;

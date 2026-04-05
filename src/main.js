@@ -6,6 +6,7 @@ import { SimulationCore } from './sim/SimulationCore.js';
 import { ViewManager, VIEW } from './ui/ViewManager.js';
 import { InputRouter } from './input/InputRouter.js';
 import { normalizeUnhandledRejectionReason, shouldReportFatalWindowError } from './ui/runtimeErrorGate.js';
+import { ColonyStatusPanel } from './ui/ColonyStatusPanel.js';
 
 const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
@@ -57,12 +58,28 @@ const state = {
     queenHungerDrain: 2.8,
     queenEatNutrition: 8,
     queenHealthDrainRate: 7,
+    queenHealthRecoveryPerNutrition: 0.25,
+    queenFoodRequestHealthThreshold: 0.5,
+    queenFoodRequestClearThreshold: 0.8,
+    queenCourierPickupNutrition: 6,
+    broodFoodDrainRate: 0.12,
+    broodGestationSeconds: 8,
     workerEatNutrition: 25,
     starvationRecoveryHealth: 5,
     healthDrainRate: 10,
     healthRegenRate: 1,
-    soldierSpawnChance: 0.2,
+    healthWorkIdleDrainRate: 0.2,
+    healthWorkMoveDrainRate: 0.5,
+    healthWorkCarryDrainRate: 0.3,
+    healthWorkFightDrainRate: 1.2,
+    healthEatRecoveryRate: 0.45,
+    workerEmergencyEatNutrition: 35,
+    carryingHungerDrainRate: 1.5,
+    fightingHungerDrainRate: 3,
+    soldierSpawnChance: 0,
     foodVisionRadius: 7,
+    surfaceFoodSearchMaxMissTicks: 90,
+    surfaceReturnToNestHungerThreshold: 0.65,
     followAlpha: 1.5,
     followBeta: 3.4,
     wanderNoise: 0.06,
@@ -74,11 +91,26 @@ const state = {
     nearEntranceScatterRadius: 9,
     foodTrailDistanceScale: 1.1,
     maxFoodTrailScale: 3.2,
+    homeScentBaseWeight: 0.35,
+    homeScentSearchStateScale: 0.3,
+    homeScentReturnStateScale: 1.15,
+    homeScentFalloffStartDist: 10,
+    homeScentFalloffEndDist: 80,
+    homeScentMinFalloff: 0.2,
+    homeScentMaxContributionPerStep: 1.2,
+    homeTieBiasScale: 0.003,
+    foodTieBiasScale: 0.01,
+    debugSteeringContributions: false,
+    debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 10,
   },
   casteTargets: {
-    workers: 70,
-    soldiers: 30,
+    workers: 100,
+    soldiers: 0,
+  },
+  colonyStatus: {
+    workAllocation: { forage: 55, dig: 20, nurse: 25 },
+    casteAllocation: { workers: 100, soldiers: 0, breeders: 0 },
   },
 };
 
@@ -90,6 +122,8 @@ const nestRenderer = new NestRenderer(canvas, simCore.world);
 
 surfaceRenderer.resize();
 nestRenderer.resize();
+
+applyColonyStatusToConfig();
 
 new InputRouter(canvas, viewManager, {
   surface: {
@@ -168,6 +202,37 @@ createControls(state, {
   },
 });
 
+const colonyStatusPanel = new ColonyStatusPanel({
+  initialState: {
+    work: {
+      wA: state.colonyStatus.workAllocation.forage / 100,
+      wB: state.colonyStatus.workAllocation.dig / 100,
+      wC: state.colonyStatus.workAllocation.nurse / 100,
+    },
+    caste: {
+      wA: state.colonyStatus.casteAllocation.workers / 100,
+      wB: state.colonyStatus.casteAllocation.soldiers / 100,
+      wC: state.colonyStatus.casteAllocation.breeders / 100,
+    },
+  },
+  onWorkChange: (percentages) => {
+    state.colonyStatus.workAllocation = {
+      forage: percentages.a,
+      dig: percentages.b,
+      nurse: percentages.c,
+    };
+    simCore.colony.setWorkAllocation(state.colonyStatus.workAllocation);
+  },
+  onCasteChange: (percentages) => {
+    state.colonyStatus.casteAllocation = {
+      workers: percentages.a,
+      soldiers: percentages.b,
+      breeders: percentages.c,
+    };
+    applyColonyStatusToConfig();
+  },
+});
+
 window.addEventListener('resize', () => {
   surfaceRenderer.resize();
   nestRenderer.resize();
@@ -207,6 +272,13 @@ window.addEventListener('unhandledrejection', (event) => {
 
 requestAnimationFrame(loop);
 
+/**
+ * Main browser frame loop.
+ *
+ * Called by requestAnimationFrame; drives fixed-step simulation updates,
+ * rendering, and HUD refresh. Side effects include mutating global `state`,
+ * stepping `simCore`, and drawing to canvas.
+ */
 function loop(now) {
   if (hasFatalError) return;
 
@@ -254,22 +326,30 @@ function loop(now) {
     }
 
     const selectedAnt = simCore.findAntById(state.selectedAntId);
-    updateHud({
-      viewMode: activeView,
-      fps,
-      tick: simCore.tick,
-      ants: simCore.colony.ants.length,
-      workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
-      soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
-      foodStored: simCore.colony.foodStored,
-      queenAlive: simCore.colony.queen.alive,
-      selectedAntHealth: selectedAnt ? selectedAnt.health : 0,
-      simMs,
-      digStatus: state.debug.digStatus,
-      pherStats: simCore.world.getPheromoneStats(),
-      followingFood: simCore.colony.ants.filter((ant) => ant.state === 'FORAGE_SEARCH' || ant.state === 'GO_TO_FOOD').length,
-      followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
-    });
+    const antHealthStats = getAntHealthStats(simCore.colony.ants);
+    try {
+      updateHud({
+        viewMode: activeView,
+        fps,
+        tick: simCore.tick,
+        ants: simCore.colony.ants.length,
+        workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
+        soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
+        foodStored: simCore.colony.foodStored,
+        queenAlive: simCore.colony.queen.alive,
+        selectedAntHealth: selectedAnt ? selectedAnt.health : null,
+        antHealthStats,
+        simMs,
+        digStatus: state.debug.digStatus,
+        pherStats: simCore.world.getPheromoneStats(),
+        followingFood: simCore.colony.ants.filter((ant) => ant.state === 'FORAGE_SEARCH' || ant.state === 'GO_TO_FOOD').length,
+        followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
+      });
+    } catch (hudError) {
+      console.error('[SimAnt] HUD update failed (continuing simulation loop):', hudError);
+    }
+
+    maybeLogSteeringDebug(selectedAnt);
 
     requestAnimationFrame(loop);
   } catch (error) {
@@ -277,6 +357,55 @@ function loop(now) {
   }
 }
 
+function getAntHealthStats(ants) {
+  if (!Array.isArray(ants) || ants.length === 0) {
+    return { min: 0, avg: 0, max: 0 };
+  }
+
+  let min = 100;
+  let max = 0;
+  let total = 0;
+  for (const ant of ants) {
+    const health = Math.max(0, Math.min(100, ant.health ?? 0));
+    min = Math.min(min, health);
+    max = Math.max(max, health);
+    total += health;
+  }
+
+  return {
+    min,
+    avg: total / ants.length,
+    max,
+  };
+}
+
+function maybeLogSteeringDebug(selectedAnt) {
+  if (!state.config.debugSteeringContributions || !state.debug.showStats) return;
+  const interval = Math.max(1, Math.floor(state.config.debugSteeringLogIntervalTicks || 1));
+  if (simCore.tick % interval !== 0) return;
+
+  const sample = selectedAnt || simCore.colony.ants.find((ant) => ant.role === 'worker');
+  if (!sample?.lastSteeringDebug) return;
+
+  console.debug('[SimAnt Steering Debug]', {
+    tick: simCore.tick,
+    antId: sample.id,
+    state: sample.state,
+    carrying: sample.carrying?.type || 'none',
+    channel: sample.lastSteeringDebug.channel,
+    chosenDir: sample.lastSteeringDebug.chosenDir,
+    components: sample.lastSteeringDebug.components,
+    distanceToEntrance: sample.lastSteeringDebug.distanceToEntrance,
+    homeScentWeight: sample.lastSteeringDebug.homeScentWeight,
+  });
+}
+
+/**
+ * Selects the closest ant to a world-space point.
+ *
+ * Used by pointer input handlers in both views. Returns true when selection
+ * succeeds and updates `state.selectedAntId`.
+ */
 function selectAntNear(x, y) {
   const ant = simCore.findAntNear(x, y, 2);
   if (!ant) return false;
@@ -284,6 +413,12 @@ function selectAntNear(x, y) {
   return true;
 }
 
+/**
+ * Applies the currently selected paint tool to a world-space point.
+ *
+ * Called by pointer drag/paint input. Floors coordinates to grid cells,
+ * validates bounds and tool support, then mutates simulation world state.
+ */
 function applyToolIfInBounds(x, y) {
   if (!Number.isFinite(x) || !Number.isFinite(y) || !simCore?.world) return;
 
@@ -315,6 +450,12 @@ function applyToolIfInBounds(x, y) {
   simCore.applyTool(state.selectedTool, worldX, worldY, state.brushRadius);
 }
 
+/**
+ * Returns a validated active view mode.
+ *
+ * Guards against invalid enum values from external callers and restores
+ * SURFACE mode when corruption is detected.
+ */
 function getSafeViewMode() {
   const mode = viewManager.getCurrent();
   if (mode === VIEW.SURFACE || mode === VIEW.NEST) return mode;
@@ -323,6 +464,12 @@ function getSafeViewMode() {
   return VIEW.SURFACE;
 }
 
+/**
+ * Stores camera/view data from the last successful render.
+ *
+ * Called after each successful draw so render recovery can restore a known
+ * good camera state when an exception occurs.
+ */
 function captureLastGoodRenderState(view) {
   lastGoodRenderState.view = view;
   lastGoodRenderState.surfaceCam = {
@@ -337,6 +484,12 @@ function captureLastGoodRenderState(view) {
   };
 }
 
+/**
+ * Performs best-effort recovery after renderer exceptions.
+ *
+ * Resets view/camera values to last valid values (or safe defaults) and
+ * triggers renderer resize to reinitialize projection state.
+ */
 function recoverFromRenderError(error) {
   console.error('[SimAnt] Render error. Recovering safely:', error);
   const fallbackView = lastGoodRenderState.view === VIEW.NEST ? VIEW.NEST : VIEW.SURFACE;
@@ -363,12 +516,18 @@ function recoverFromRenderError(error) {
   }
 }
 
+/**
+ * Serializes simulation and UI state into localStorage.
+ *
+ * Called by the Save control. Side effect: writes JSON under STORAGE_KEY.
+ */
 function saveState() {
   const save = simCore.serialize({
     simSpeed: state.simSpeed,
     config: state.config,
     overlays: state.overlays,
     casteTargets: state.casteTargets,
+    colonyStatus: state.colonyStatus,
     selectedTool: state.selectedTool,
     brushRadius: state.brushRadius,
     selectedAntId: state.selectedAntId,
@@ -389,10 +548,22 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
 }
 
+/**
+ * Loads simulation and UI state from localStorage.
+ *
+ * Called by the Load control. This function validates/normalizes stored data
+ * before mutating runtime state to avoid fatal crashes from corrupted saves.
+ */
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return;
-  const data = JSON.parse(raw);
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (error) {
+    console.error('[SimAnt] Ignoring invalid saved JSON payload:', error);
+    return;
+  }
 
   simCore.loadFromSerialized(data);
   syncRenderWorld();
@@ -400,6 +571,16 @@ function loadState() {
   Object.assign(state.config, data.state?.config || {});
   Object.assign(state.overlays, data.state?.overlays || {});
   Object.assign(state.casteTargets, data.state?.casteTargets || {});
+  if (data.state?.colonyStatus) {
+    Object.assign(state.colonyStatus.workAllocation, data.state.colonyStatus.workAllocation || {});
+    Object.assign(state.colonyStatus.casteAllocation, data.state.colonyStatus.casteAllocation || {});
+  }
+  simCore.colony.setWorkAllocation(state.colonyStatus.workAllocation);
+  applyColonyStatusToConfig();
+  colonyStatusPanel.sync({
+    work: state.colonyStatus.workAllocation,
+    caste: state.colonyStatus.casteAllocation,
+  });
   state.simSpeed = data.state?.simSpeed || state.simSpeed;
   const savedTool = data.state?.selectedTool;
   state.selectedTool = EDIT_TOOLS.has(savedTool) ? savedTool : 'food';
@@ -407,13 +588,13 @@ function loadState() {
   state.selectedAntId = data.state?.selectedAntId || null;
 
   const surfaceCam = data.state?.cameras?.surface;
-  if (surfaceCam) {
+  if (surfaceCam && Number.isFinite(surfaceCam.x) && Number.isFinite(surfaceCam.y) && Number.isFinite(surfaceCam.zoom)) {
     surfaceRenderer.cameraX = surfaceCam.x;
     surfaceRenderer.cameraY = surfaceCam.y;
     surfaceRenderer.zoom = surfaceCam.zoom;
   }
   const nestCam = data.state?.cameras?.nest;
-  if (nestCam) {
+  if (nestCam && Number.isFinite(nestCam.x) && Number.isFinite(nestCam.y) && Number.isFinite(nestCam.zoom)) {
     nestRenderer.cameraX = nestCam.x;
     nestRenderer.cameraY = nestCam.y;
     nestRenderer.zoom = nestCam.zoom;
@@ -423,17 +604,47 @@ function loadState() {
   if (mode === VIEW.SURFACE || mode === VIEW.NEST) viewManager.setView(mode);
 }
 
+
+/**
+ * Applies colony status allocation state into runtime config.
+ *
+ * Keeps caste sliders and spawn chance consistent. Side effect: mutates
+ * `state.config` and colony caste allocation.
+ */
+function applyColonyStatusToConfig() {
+  const caste = state.colonyStatus.casteAllocation;
+  const workerSoldierTotal = Math.max(1, caste.workers + caste.soldiers);
+  state.config.soldierSpawnChance = caste.soldiers / workerSoldierTotal;
+  simCore.colony.setCasteAllocation(caste);
+}
+
+/**
+ * Rebinds renderers to the latest world instance.
+ *
+ * Required after reset/load because SimulationCore replaces world objects.
+ */
 function syncRenderWorld() {
   surfaceRenderer.setWorld(simCore.world);
   nestRenderer.setWorld(simCore.world);
 }
 
+/**
+ * Retrieves a required DOM element or throws.
+ *
+ * Used during startup to fail fast when required controls are missing.
+ */
 function mustById(id) {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing required element: ${id}`);
   return el;
 }
 
+/**
+ * Switches runtime into fatal-error mode.
+ *
+ * Called by global error listeners and top-level loop catch; prevents further
+ * simulation frames after unrecoverable exceptions.
+ */
 function reportFatalError(error) {
   if (hasFatalError) return;
   hasFatalError = true;
