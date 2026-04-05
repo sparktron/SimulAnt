@@ -469,8 +469,13 @@ export class Ant {
         }
       }
 
-      const noise = rng.range(0, config.wanderNoise);
-      const weight = Math.max(0, pherContribution + momentum + tieBias + noise - reversePenalty - dangerPenalty - crowdingPenalty);
+      // Ants carrying food wander less and focus on home pheromone
+      const carryingFood = this.carrying?.type === 'food';
+      const noiseReduction = carryingFood ? 0.2 : 1.0;  // 80% noise reduction when carrying
+      const pherBoost = carryingFood && channel === 'home' ? 2.0 : 1.0;  // 2x home pheromone boost
+      const noise = rng.range(0, config.wanderNoise * noiseReduction);
+      const boostedPherContribution = pherContribution * pherBoost;
+      const weight = Math.max(0, boostedPherContribution + momentum + tieBias + noise - reversePenalty - dangerPenalty - crowdingPenalty);
       weights.push({
         d,
         w: weight,
