@@ -63,15 +63,15 @@ export class Ant {
   }
 
   #applyPreMoveDecisions(colony, rng, config, context) {
-    if (this.role === 'worker' && this.#tryEatFromNest(colony, context.inNest, config)) {
+    if (this.#tryEatFromNest(colony, context.inNest, config)) {
       this.state = 'EAT';
     }
 
-    if (this.role === 'worker' && !this.carrying?.type && rng.chance(config.randomTurnChance)) {
+    if (!this.carrying?.type && rng.chance(config.randomTurnChance)) {
       this.dir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
     }
 
-    if (this.role === 'worker' && this.carrying?.type === 'food' && context.entrance) {
+    if (this.carrying?.type === 'food' && context.entrance) {
       const distance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
       if (distance <= (context.entrance.radius ?? 2)) {
         if (colony.depositFoodFromAnt(this, context.entrance)) {
@@ -83,6 +83,29 @@ export class Ant {
 
   #decideAndMove(world, colony, rng, config, context) {
     let didMove = false;
+
+    if (this.role === 'soldier') {
+      this.state = 'PATROL';
+      // Soldiers patrol the nest perimeter, depositing home pheromone near hazards
+      if (context.entrance) {
+        const distToNest = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
+        const patrolRadius = config.nearEntranceScatterRadius + 5;
+        if (distToNest > patrolRadius) {
+          didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        } else {
+          didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+        }
+      }
+      if (!didMove) {
+        didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+      }
+      // Soldiers deposit home pheromone while patrolling
+      if (didMove && this.stepCounter % config.homeDepositIntervalTicks === 0) {
+        world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome * 0.5);
+      }
+      return didMove;
+    }
+
     if (this.role !== 'worker') return didMove;
 
     if (this.carrying?.type === 'food') {
