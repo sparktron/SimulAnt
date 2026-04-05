@@ -55,11 +55,24 @@ export class Colony {
   }
 
   #spawnNearNest(role) {
-    const jitterX = this.rng.int(5) - 2;
-    const jitterY = this.rng.int(6) + 2;  // Spawn 2-8 tiles below nest center
+    // Spawn in the tunnel/chamber, not in surrounding soil
+    // Only nestX is guaranteed passable; try near it with fallback
+    let spawnX = this.world.nestX;
+    let spawnY = this.world.nestY + (this.rng.int(6) + 2);  // 2-8 tiles below nest center
+
+    // Try to find a passable location near the nest
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const tryX = this.world.nestX + (this.rng.chance(0.5) ? 1 : 0);
+      const tryY = spawnY;
+      if (this.world.isPassable(tryX, tryY)) {
+        spawnX = tryX;
+        break;
+      }
+    }
+
     const ant = new Ant(
-      Math.max(0, Math.min(this.world.width - 1, this.world.nestX + jitterX)),
-      Math.max(0, this.world.nestY + jitterY),
+      Math.max(0, Math.min(this.world.width - 1, spawnX)),
+      Math.max(0, spawnY),
       this.rng,
       role,
     );
