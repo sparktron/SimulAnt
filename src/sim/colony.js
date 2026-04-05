@@ -46,6 +46,9 @@ export class Colony {
       this.ants.push(this.#spawnNearNest('worker'));
     }
 
+    // Bootstrap colony with starter food so specialized work can begin
+    this.foodStored = 50;
+
     this.syncQueenPositionToNest(world.nestX, world.nestY);
   }
 
