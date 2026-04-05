@@ -244,6 +244,9 @@ export class Ant {
       const momentum = d === this.dir ? config.momentumBias : 0;
       const reversePenalty = d === reverseDir ? config.reversePenalty : 0;
 
+      // Danger avoidance: reduce weight for tiles with danger pheromone
+      const dangerPenalty = world.danger[nidx] * 0.5;
+
       let tieBias = 0;
       if (entrance) {
         const dist = Math.hypot(nx - entrance.x, ny - entrance.y);
@@ -251,7 +254,7 @@ export class Ant {
       }
 
       const noise = rng.range(0, config.wanderNoise);
-      const weight = Math.max(0, pher * config.followBeta + momentum + tieBias + noise - reversePenalty);
+      const weight = Math.max(0, pher * config.followBeta + momentum + tieBias + noise - reversePenalty - dangerPenalty);
       weights.push({ d, w: weight });
       total += weight;
     }
