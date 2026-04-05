@@ -266,6 +266,7 @@ export class Ant {
     let bestX = this.x;
     let bestY = this.y;
     let bestD = Number.POSITIVE_INFINITY;
+    let bestDir = this.dir;
 
     for (let i = 0; i < DIRS.length; i += 1) {
       const nx = this.x + DIRS[i][0];
@@ -276,12 +277,14 @@ export class Ant {
         bestD = d;
         bestX = nx;
         bestY = ny;
+        bestDir = i;
       }
     }
 
     if (bestX !== this.x || bestY !== this.y) {
       this.x = bestX;
       this.y = bestY;
+      this.dir = bestDir;
       return true;
     }
 
