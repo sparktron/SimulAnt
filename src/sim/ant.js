@@ -77,7 +77,7 @@ export class Ant {
 
     if (this.#resolveHazard(world, colony, rng, config, context.idx)) return;
 
-    didMove = this.#applyFallbackMovement(world, rng, config, context.entrance, didMove);
+    didMove = this.#applyFallbackMovement(world, colony, rng, config, context.entrance, didMove);
     this.#applyVitals(colony, config, context.dt, didMove);
   }
 
@@ -137,11 +137,11 @@ export class Ant {
         if (distToNest > patrolRadius) {
           didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
         } else {
-          didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+          didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance, colony);
         }
       }
       if (!didMove) {
-        didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+        didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance, colony);
       }
       // Soldiers deposit home pheromone while patrolling
       if (didMove && this.stepCounter % config.homeDepositIntervalTicks === 0) {
@@ -361,12 +361,12 @@ export class Ant {
     return false;
   }
 
-  #applyFallbackMovement(world, rng, config, entrance, didMove) {
+  #applyFallbackMovement(world, colony, rng, config, entrance, didMove) {
     if (!didMove && this.carrying?.type) {
-      return this.#moveByPheromone(world, rng, config, 'home', entrance);
+      return this.#moveByPheromone(world, rng, config, 'home', entrance, colony);
     }
     if (!didMove) {
-      return this.#moveByPheromone(world, rng, config, 'food', entrance);
+      return this.#moveByPheromone(world, rng, config, 'food', entrance, colony);
     }
     return didMove;
   }
@@ -402,7 +402,7 @@ export class Ant {
     }
   }
 
-  #moveByPheromone(world, rng, config, channel, entrance) {
+  #moveByPheromone(world, rng, config, channel, entrance, colony) {
     const field = channel === 'home' ? world.toHome : world.toFood;
     const epsilon = 0.001;
     const reverseDir = (this.dir + 4) % DIRS.length;
@@ -432,6 +432,9 @@ export class Ant {
       // Danger avoidance: reduce weight for tiles with danger pheromone
       const dangerPenalty = world.danger[nidx] * 0.5;
 
+      // Crowding avoidance: reduce weight toward congested tiles
+      const crowdingPenalty = colony ? this.#getCrowdingPenalty(nx, ny, colony) : 0;
+
       let tieBias = 0;
       if (entrance) {
         const dist = Math.hypot(nx - entrance.x, ny - entrance.y);
@@ -439,7 +442,7 @@ export class Ant {
       }
 
       const noise = rng.range(0, config.wanderNoise);
-      const weight = Math.max(0, pherContribution + momentum + tieBias + noise - reversePenalty - dangerPenalty);
+      const weight = Math.max(0, pherContribution + momentum + tieBias + noise - reversePenalty - dangerPenalty - crowdingPenalty);
       weights.push({
         d,
         w: weight,
@@ -528,12 +531,12 @@ export class Ant {
       this.state = 'SEEK_QUEEN_FOOD';
       const visiblePellet = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
       if (visiblePellet) return this.#moveToward(world, visiblePellet.x, visiblePellet.y, rng);
-      return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+      return this.#moveByPheromone(world, rng, config, 'food', context.entrance, colony);
     }
 
     this.state = 'RETURN_NEST_FOR_QUEEN_FOOD';
     if (context.entrance) return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
-    return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+    return this.#moveByPheromone(world, rng, config, 'home', context.entrance, colony);
   }
 
   #getHomeScentWeight(config, entrance) {
@@ -550,6 +553,22 @@ export class Ant {
     const stateScale = returningToNest ? config.homeScentReturnStateScale : config.homeScentSearchStateScale;
 
     return config.homeScentBaseWeight * distanceFalloff * stateScale;
+  }
+
+  #getCrowdingPenalty(x, y, colony) {
+    // Count nearby ants (within 1 tile) to detect crowding
+    let nearbyAntCount = 0;
+    const range = 1;
+    for (let dx = -range; dx <= range; dx++) {
+      for (let dy = -range; dy <= range; dy++) {
+        if (dx === 0 && dy === 0) continue; // Don't count self
+        const checkX = x + dx;
+        const checkY = y + dy;
+        nearbyAntCount += colony.countAntsAt(checkX, checkY);
+      }
+    }
+    // Penalty increases with crowding: 0 ants = 0 penalty, 2+ ants = 2 penalty
+    return Math.max(0, nearbyAntCount - 1) * 1.2;
   }
 
   #needsForage(colony) {

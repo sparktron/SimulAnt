@@ -677,6 +677,17 @@ export class Colony {
     return null;
   }
 
+  countAntsAt(x, y) {
+    let count = 0;
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (ant.alive && ant.x === x && ant.y === y) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
   removePelletById(pelletId) {
     const index = this.surfaceFoodPellets.findIndex((pellet) => pellet.id === pelletId);
     if (index >= 0) this.surfaceFoodPellets.splice(index, 1);
