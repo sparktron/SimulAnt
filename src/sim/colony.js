@@ -411,6 +411,8 @@ export class Colony {
         role: ant.role,
         state: ant.state,
         stepCounter: ant.stepCounter,
+        age: ant.age,
+        maxAge: ant.maxAge,
       })),
     };
   }
@@ -442,6 +444,8 @@ export class Colony {
       ant.baseColor = a.baseColor || ant.baseColor;
       ant.state = a.state || ant.state;
       ant.stepCounter = a.stepCounter || 0;
+      ant.age = a.age || 0;
+      if (a.maxAge) ant.maxAge = a.maxAge;
       return ant;
     });
     return colony;

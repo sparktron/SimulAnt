@@ -34,6 +34,8 @@ export class Ant {
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;
+    this.age = 0;
+    this.maxAge = role === 'soldier' ? 1800 + rng.int(600) : 2400 + rng.int(800);
   }
 
   update(world, colony, rng, config) {
@@ -199,12 +201,20 @@ export class Ant {
   }
 
   #applyVitals(colony, config, dt, didMove) {
+    this.age += 1;
+
     const drain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
     this.hunger = Math.max(0, this.hunger - drain * dt);
     if (this.hunger <= 0) {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
     } else if (this.health < this.healthMax && this.hunger > this.hungerMax * 0.65) {
       this.health = Math.min(this.healthMax, this.health + config.healthRegenRate * dt);
+    }
+
+    // Old age: health declines gradually in last 20% of lifespan
+    if (this.age > this.maxAge * 0.8) {
+      const ageFactor = (this.age - this.maxAge * 0.8) / (this.maxAge * 0.2);
+      this.health = Math.max(0, this.health - ageFactor * 2 * dt);
     }
 
     if (this.health <= 0) {
