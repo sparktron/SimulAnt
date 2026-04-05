@@ -765,13 +765,14 @@ test('100% soldier caste allocation hatches soldier ants with non-worker color',
 test('brood hatching follows caste allocation including breeders', () => {
   const sim = new SimulationCore('caste-allocation-hatch-seed');
   const config = createConfig();
+  config.broodGestationSeconds = 0.001;
 
   sim.colony.ants = [];
   sim.colony.foodStored = 0;
   sim.colony.queen.brood = 60;
   sim.colony.setCasteAllocation({ workers: 60, soldiers: 25, breeders: 15 });
 
-  sim.update(config);
+  for (let i = 0; i < 120; i += 1) sim.update(config);
 
   const workers = sim.colony.ants.filter((ant) => ant.role === 'worker').length;
   const soldiers = sim.colony.ants.filter((ant) => ant.role === 'soldier').length;
@@ -854,8 +855,9 @@ test('newly spawned workers receive workFocus assignments from work allocation',
   sim.colony.queen.brood = 12;
   const config = createConfig();
   config.antCap = 50;
+  config.broodGestationSeconds = 0.001;
 
-  sim.update(config);
+  for (let i = 0; i < 60; i += 1) sim.update(config);
 
   const workers = sim.colony.ants.filter((ant) => ant.role === 'worker');
   assert.ok(workers.length > 0);
