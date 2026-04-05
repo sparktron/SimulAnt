@@ -73,6 +73,7 @@ export class Colony {
    * ticks each ant, compacts dead ants, and hatches brood into ant instances.
    */
   update(config) {
+    this.#depositEntrancePheromone(config);
     this.#updateQueenSurvival(config);
     this.#updateQueenFoodRequest(config);
     if (this.queen.alive) {
@@ -630,6 +631,18 @@ export class Colony {
 
   setNestEntrances(nestEntrances) {
     this.nestEntrances = nestEntrances;
+  }
+
+  #depositEntrancePheromone(config) {
+    for (const entrance of this.nestEntrances) {
+      const radius = (entrance.radius ?? 1) + 3;
+      this.world.paintCircle(entrance.x, entrance.y, radius, (idx) => {
+        this.world.toHome[idx] = Math.min(
+          config.pheromoneMaxClamp,
+          this.world.toHome[idx] + config.depositHome * 2.5,
+        );
+      });
+    }
   }
 
   syncQueenPositionToNest(nestX = this.world.nestX, nestY = this.world.nestY) {
