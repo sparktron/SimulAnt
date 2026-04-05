@@ -205,10 +205,15 @@ export class Ant {
       const trailScale = Math.min(config.maxFoodTrailScale, 1 + distToNest * config.foodTrailDistanceScale * 0.05);
       const foodDeposit = config.depositFood * trailScale;
       world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, world.toFood[context.idx] + foodDeposit);
-      // Follow home pheromone with nest-biased steering; fall back to direct nav if stuck
-      didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
-      if (!didMove && context.entrance) {
+
+      // When close to nest, navigate directly; farther out, follow pheromone
+      if (distToNest < 20 && context.entrance) {
         didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      } else {
+        didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+        if (!didMove && context.entrance) {
+          didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        }
       }
       return didMove;
     }
@@ -604,7 +609,13 @@ export class Ant {
     const returningToNest = this.carrying?.type === 'food' || this.state === 'RETURN_HOME';
     const stateScale = returningToNest ? config.homeScentReturnStateScale : config.homeScentSearchStateScale;
 
-    return config.homeScentBaseWeight * distanceFalloff * stateScale;
+    // Boost scent weight when carrying food and close to entrance
+    let proximityBoost = 1.0;
+    if (this.carrying?.type === 'food' && distance < 60) {
+      proximityBoost = 1 + (1 - distance / 60) * 3.0;  // up to 4x boost at entrance
+    }
+
+    return config.homeScentBaseWeight * distanceFalloff * stateScale * proximityBoost;
   }
 
   #getCrowdingPenalty(x, y, colony) {
