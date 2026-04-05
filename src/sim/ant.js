@@ -245,15 +245,17 @@ export class Ant {
       return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
     }
 
-    if (!this.#needsForage(colony)) {
-      if (this.workFocus === 'forage' && context.inNest && context.entrance) {
-        this.state = 'EXIT_NEST';
-        const exitTargetY = context.entrance.y - 1;
-        if (world.isPassable(context.entrance.x, exitTargetY)) {
-          return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
-        }
-        return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+    // Foragers must exit nest to forage, even if not hungry
+    if (this.workFocus === 'forage' && context.inNest && context.entrance) {
+      this.state = 'EXIT_NEST';
+      const exitTargetY = context.entrance.y - 1;
+      if (world.isPassable(context.entrance.x, exitTargetY)) {
+        return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
       }
+      return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+    }
+
+    if (!this.#needsForage(colony)) {
       return didMove;
     }
     if (this.#isCriticalHealth()) {
