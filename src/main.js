@@ -42,7 +42,7 @@ const state = {
     evapHome: 0.015,
     evapDanger: 0.08,
     diffFood: 0.03,
-    diffHome: 0.04,
+    diffHome: 0.18,
     diffDanger: 0.12,
     diffIntervalTicks: 2,
     depositFood: 0.2,
