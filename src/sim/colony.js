@@ -285,6 +285,12 @@ export class Colony {
     const dt = config.tickSeconds || 1 / 30;
     this.queen.hunger = Math.max(0, this.queen.hunger - config.queenHungerDrain * dt);
 
+    // Queen can directly eat from stored food if hungry and in nest
+    if (this.queen.hunger < this.queen.hungerMax * 0.3 && this.foodStored > 0) {
+      const consumed = this.consumeFromStore(config.queenEatNutrition ?? 5);
+      this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + consumed);
+    }
+
     if (this.queen.hunger <= 0) {
       this.queen.health = Math.max(0, this.queen.health - config.queenHealthDrainRate * dt);
       if (this.queen.health <= 0) {
