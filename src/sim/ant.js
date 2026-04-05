@@ -603,9 +603,9 @@ export class Ant {
   }
 
   #getCrowdingPenalty(x, y, colony) {
-    // Count nearby ants (within 1 tile) to detect crowding
+    // Count nearby ants (within 2 tiles) to detect crowding
     let nearbyAntCount = 0;
-    const range = 1;
+    const range = 2;
     for (let dx = -range; dx <= range; dx++) {
       for (let dy = -range; dy <= range; dy++) {
         if (dx === 0 && dy === 0) continue; // Don't count self
@@ -614,8 +614,9 @@ export class Ant {
         nearbyAntCount += colony.countAntsAt(checkX, checkY);
       }
     }
-    // Penalty increases with crowding: 0 ants = 0 penalty, 2+ ants = 2 penalty
-    return Math.max(0, nearbyAntCount - 1) * 1.2;
+    // Exponential penalty: scales quadratically with ant count
+    // Single ant nearby = 1.5 penalty, 2 ants = 6.0, 3 ants = 13.5, etc.
+    return nearbyAntCount * nearbyAntCount * 1.5;
   }
 
   #needsForage(colony) {
