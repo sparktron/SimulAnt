@@ -98,7 +98,7 @@ const state = {
     homeScentFalloffEndDist: 80,
     homeScentMinFalloff: 0.2,
     homeScentMaxContributionPerStep: 1.2,
-    homeTieBiasScale: 0.15,
+    homeTieBiasScale: 0.003,
     foodTieBiasScale: 0.01,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,

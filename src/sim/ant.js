@@ -205,10 +205,12 @@ export class Ant {
       const trailScale = Math.min(config.maxFoodTrailScale, 1 + distToNest * config.foodTrailDistanceScale * 0.05);
       const foodDeposit = config.depositFood * trailScale;
       world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, world.toFood[context.idx] + foodDeposit);
-      // Follow home pheromone trails first, fallback to direct navigation if no trail exists
-      didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
-      if (!didMove && context.entrance) {
+      // Go directly to nest entrance; use home pheromone only if direct path fails
+      if (context.entrance) {
         didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      }
+      if (!didMove) {
+        didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
       }
       return didMove;
     }
