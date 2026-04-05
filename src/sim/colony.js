@@ -11,7 +11,7 @@ export class Colony {
     this.rng = rng;
     this.ants = [];
     this.foodStored = 0;
-    this.foodStoreTarget = 200;
+    this.foodStoreTarget = 100;
     this.births = initialAnts;
     this.deaths = 0;
     this.spawnCost = 12;
@@ -19,7 +19,7 @@ export class Colony {
     this.nestEntrances = [];
     this.nestFoodPellets = [];
 
-    this.workAllocation = { forage: 55, dig: 20, nurse: 25 };
+    this.workAllocation = { forage: 85, dig: 10, nurse: 5 };
     this.casteAllocation = { workers: 70, soldiers: 25, breeders: 5 };
 
     this.queen = {
