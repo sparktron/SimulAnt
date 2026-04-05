@@ -247,15 +247,16 @@ export class Colony {
   #updateQueenAndBrood(config) {
     const dt = config.tickSeconds || BASE_TICK_SECONDS;
 
-    if (this.foodStored >= config.queenEggFoodCost) {
-      this.queen.eggProgress += 1;
-      if (this.queen.eggProgress >= config.queenEggTicks) {
-        this.queen.eggProgress = 0;
-        this.foodStored -= config.queenEggFoodCost;
-        this.queen.eggsLaid += 1;
-        this.queen.brood += 1;
-      }
-    }
+    // Disable egg production during startup; queen will reproduce once foragers establish
+    // if (this.foodStored >= config.queenEggFoodCost) {
+    //   this.queen.eggProgress += 1;
+    //   if (this.queen.eggProgress >= config.queenEggTicks) {
+    //     this.queen.eggProgress = 0;
+    //     this.foodStored -= config.queenEggFoodCost;
+    //     this.queen.eggsLaid += 1;
+    //     this.queen.brood += 1;
+    //   }
+    // }
 
     if (this.queen.brood <= 0) return;
 
