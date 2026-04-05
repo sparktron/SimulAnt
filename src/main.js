@@ -38,7 +38,7 @@ const state = {
   config: {
     tickSeconds: SIM_DT,
     antCap: 2000,
-    evapFood: 0.02,
+    evapFood: 0.006,
     evapHome: 0.12,
     evapDanger: 0.08,
     diffFood: 0.2,
@@ -98,7 +98,7 @@ const state = {
     homeScentFalloffEndDist: 80,
     homeScentMinFalloff: 0.2,
     homeScentMaxContributionPerStep: 1.2,
-    homeTieBiasScale: 0.003,
+    homeTieBiasScale: 2.0,
     foodTieBiasScale: 0.01,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,

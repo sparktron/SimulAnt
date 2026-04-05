@@ -205,12 +205,10 @@ export class Ant {
       const trailScale = Math.min(config.maxFoodTrailScale, 1 + distToNest * config.foodTrailDistanceScale * 0.05);
       const foodDeposit = config.depositFood * trailScale;
       world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, world.toFood[context.idx] + foodDeposit);
-      // Go directly to nest entrance; use home pheromone only if direct path fails
-      if (context.entrance) {
+      // Follow home pheromone with nest-biased steering; fall back to direct nav if stuck
+      didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+      if (!didMove && context.entrance) {
         didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
-      }
-      if (!didMove) {
-        didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
       }
       return didMove;
     }
@@ -439,8 +437,16 @@ export class Ant {
 
       let tieBias = 0;
       if (entrance) {
-        const dist = Math.hypot(nx - entrance.x, ny - entrance.y);
-        tieBias = channel === 'home' ? -dist * config.homeTieBiasScale : dist * config.foodTieBiasScale;
+        const neighborDist = Math.hypot(nx - entrance.x, ny - entrance.y);
+        if (channel === 'home') {
+          // Use relative progress toward nest so bias stays bounded regardless of distance.
+          // progress = +1 if moving directly toward nest, -1 if moving directly away.
+          const antDist = Math.hypot(this.x - entrance.x, this.y - entrance.y) + 0.001;
+          const progress = (antDist - neighborDist) / antDist;
+          tieBias = progress * config.homeTieBiasScale;
+        } else {
+          tieBias = neighborDist * config.foodTieBiasScale;
+        }
       }
 
       const noise = rng.range(0, config.wanderNoise);
