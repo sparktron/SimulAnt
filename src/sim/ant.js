@@ -262,13 +262,6 @@ export class Ant {
       }
     }
 
-    const nearEntrance = context.entrance
-      ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.homeDepositMinDistance
-      : false;
-    if (nearEntrance && this.stepCounter % config.homeDepositIntervalTicks === 0) {
-      world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
-    }
-
     const visible = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
     if (visible) {
       this.failedSurfaceFoodSearchTicks = 0;
