@@ -230,8 +230,8 @@ export class Ant {
       if (!context.inNest && context.entrance) {
         return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
       }
-      // Inside nest: wander in nest areas
-      return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+      // Inside nest: wander exploring (don't follow home pheromone which leads to exit)
+      return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
     }
 
     if (this.workFocus === 'dig' && !this.#needsForage(colony)) {
@@ -240,9 +240,9 @@ export class Ant {
       if (!context.inNest && context.entrance) {
         return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
       }
-      // Inside nest: deposit pheromone to help others navigate, then wander
+      // Inside nest: deposit pheromone and wander exploring (don't follow home which leads to exit)
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome * 1.4);
-      return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+      return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
     }
 
     if (!this.#needsForage(colony)) {
