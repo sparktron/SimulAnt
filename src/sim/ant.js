@@ -333,8 +333,8 @@ export class Ant {
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.nearEntranceScatterRadius
       : false;
     if (nearEntranceScatter && context.entrance) {
-      const ax = this.x + (this.x - context.entrance.x);
-      const ay = this.y + (this.y - context.entrance.y);
+      const ax = this.x + (this.x - context.entrance.x) + rng.int(20) - 10;
+      const ay = this.y + (this.y - context.entrance.y) + rng.int(20) - 10;
       didMove = context.inNest
         ? this.#moveToward(world, context.entrance.x, context.entrance.y, rng)
         : this.#moveToward(world, ax, ay, rng);
