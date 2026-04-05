@@ -13,6 +13,9 @@
 - `test/core-simulation-architecture.test.mjs` (3 line-level conflicts):
   - `carryingType` assertion: Chose PR #34's more specific `=== 'none' || === 'dirt'` over master's `notEqual 'food'`
   - Two hatch tests: Combined both sides — kept master's `broodGestationSeconds` config AND PR #34's `setCasteAllocation` calls
+- `src/sim/colony.js` (2 line-level conflicts during rebase):
+  - Serialization: Combined both sides — kept master's `stepCounter`/`age`/`maxAge` fields AND PR #34's `alive`/`workFocus` fields
+  - Deserialization: Same additive merge — restore all fields from both sides
 
 ## Correctness Fixes Applied
 1. **ant.js line 130**: Missing `}` for queen courier if-block caused `#resolveHazard` syntax error on ES module import. Root cause: pre-existing master bug. Impact: all SimulationCore-dependent tests failed.
@@ -20,26 +23,32 @@
 3. **Worker workFocus spawn test**: Same gestation fix. Root cause: same as above. Impact: test expected hatched workers, got 0.
 
 ## Test Results
-- Node.js test runner: **77 pass, 0 fail, 0 skipped**
-- Test files: `colony-status-panel-dialog.test.mjs`, `core-simulation-architecture.test.mjs`, `hud-health-bars.test.mjs`, `input-router.test.mjs`, `nest-renderer.test.mjs`, `runtime-error-gate.test.mjs`, `triangle-control.test.mjs`, `view-manager.test.mjs`
+- Node.js test runner: **195 pass, 7 fail** (202 total)
+- The 7 failures are **pre-existing on master** (introduced by PR #37) — this branch introduces **zero new failures**
+- Pre-existing failures: `soldier ant does not eat from nest`, `ant health regenerates when well-fed`, `colony spawns ants when food and brood are available`, `depositFoodFromAnt stores food and clears ant carrying`, `assigned queen courier feeds queen from nest store`, `ants avoid tiles with high danger pheromone`, `onExcavate updates entrance soil totals`
 
 ## Files Changed
 ```
- index.html                                 |   6 ++
- src/main.js                                |  67 +++++++++++++-
- src/sim/ant.js                             |   1 +
- src/sim/colony.js                          | 140 +++++++++++++++++++++++++----
- src/ui/hud.js                              |  32 ++++++-
- test/core-simulation-architecture.test.mjs | 112 +++++++++++++++++++++--
- test/hud-health-bars.test.mjs              |  99 ++++++++++++++++++++
- 7 files changed, 433 insertions(+), 24 deletions(-)
+ docs/consolidation/CONSOLIDATION_SUMMARY.md |  45 +++++++++
+ docs/consolidation/FIXES_APPLIED.md         |  17 ++++
+ docs/consolidation/MERGE_STRATEGY.md        |  38 ++++++++
+ docs/consolidation/PR_ANALYSIS.md           |  45 +++++++++
+ index.html                                  |   6 ++
+ src/main.js                                 |  67 ++++++++++++-
+ src/sim/ant.js                              |   1 +
+ src/sim/colony.js                           | 140 +++++++++++++++++++++++++---
+ src/ui/hud.js                               |  32 ++++++-
+ test/core-simulation-architecture.test.mjs  | 112 +++++++++++++++++++++-
+ test/hud-health-bars.test.mjs               |  99 ++++++++++++++++++++
+ 11 files changed, 578 insertions(+), 24 deletions(-)
 ```
 
 ## Ready to Merge?
 - [x] All 4 open PRs reviewed (1 valuable, 3 superseded/already merged)
 - [x] PR #34 consolidated with conflict resolution
 - [x] Pre-existing ant.js syntax bug fixed
-- [x] All 77 tests pass
-- [x] No merge conflicts remain
+- [x] 195/202 tests pass (7 failures pre-existing on master from PR #37)
+- [x] No merge conflicts remain — GitHub reports CLEAN/MERGEABLE
+- [x] Branch rebased on latest master
 - [x] Summary docs in `docs/consolidation/`
-- Recommended next step: Review this summary, then merge the PR
+- Recommended next step: Merge PR #38
