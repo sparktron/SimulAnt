@@ -73,8 +73,7 @@ export class Ant {
 
     if (this.role === 'worker' && this.carrying?.type === 'food' && context.entrance) {
       const distance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
-      if (distance <= (context.entrance.radius ?? 2) && context.inNest) {
-        console.log(`[ant] ${this.id} reached nest entrance (${context.entrance.x}, ${context.entrance.y}) carrying food`);
+      if (distance <= (context.entrance.radius ?? 2)) {
         if (colony.depositFoodFromAnt(this, context.entrance)) {
           this.state = 'FORAGE_SEARCH';
         }
