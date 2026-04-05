@@ -6,6 +6,7 @@ import { FoodPellet, DEFAULT_PELLET_NUTRITION } from './Food.js';
 import { MacroEngine } from './core/MacroEngine.js';
 import { MicroPatchEngine } from './core/MicroPatchEngine.js';
 import { TickScheduler } from './core/TickScheduler.js';
+import { ColonyStats } from './ColonyStats.js';
 
 const SURFACE_DEPOSIT_RATIO = 0.7;
 
@@ -15,6 +16,7 @@ export class SimulationCore {
     this.nestEntrances = [];
     this.foodPellets = [];
     this.nextPelletId = 1;
+    this.stats = new ColonyStats();
     this.reset(seed);
   }
 
@@ -61,6 +63,11 @@ export class SimulationCore {
       foodPellets: this.foodPellets,
       nestEntrances: this.nestEntrances,
     });
+
+    // Record stats every 30 ticks (~1 second)
+    if (this.tick % 30 === 0) {
+      this.stats.record(this.tick, this.colony);
+    }
   }
 
   getPatchState(x, y) {
@@ -215,6 +222,7 @@ export class SimulationCore {
       nextPelletId: this.nextPelletId,
       digSystem: this.digSystem.serialize(),
       macro: this.macroEngine.serialize(),
+      stats: this.stats.serialize(),
       state,
     };
   }
@@ -229,6 +237,8 @@ export class SimulationCore {
     this.digSystem.loadFromSerialized(data.digSystem);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.loadFromSerialized(data.macro);
+    this.stats = new ColonyStats();
+    this.stats.loadFromSerialized(data.stats);
     this.#syncMacroHomeTerritory();
     this.#rebuildTickPipeline();
     this.tick = data.tick || 0;
