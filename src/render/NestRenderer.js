@@ -71,6 +71,7 @@ export class NestRenderer {
 
     this.#drawTerrain(ctx);
     this.#drawNestFood(ctx, colony);
+    this.#drawEggs(ctx, colony);
     this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats, options.showQueenMarker);
 
     ctx.restore();
@@ -173,6 +174,35 @@ export class NestRenderer {
       ctx.beginPath();
       ctx.arc(pellet.x + 0.5, pellet.y + 0.5, r, 0, Math.PI * 2);
       ctx.fill();
+    }
+  }
+
+  #drawEggs(ctx, colony) {
+    // Draw eggs clustered around the queen's position
+    if (!colony.queen.alive || colony.queen.brood <= 0) return;
+
+    const queenX = Number.isFinite(colony.queen.x) ? colony.queen.x : this.world.nestX;
+    const queenY = Number.isFinite(colony.queen.y) ? colony.queen.y : this.world.nestY + 6;
+
+    const eggCount = Math.round(colony.queen.brood);
+
+    // Arrange eggs in a spiral/circular pattern around the queen
+    for (let i = 0; i < eggCount; i += 1) {
+      const angle = (i / Math.max(1, eggCount)) * Math.PI * 2;
+      const distance = 1.5 + (i % 3) * 0.8;  // Nested rings
+      const eggX = queenX + Math.cos(angle) * distance;
+      const eggY = queenY + Math.sin(angle) * distance;
+
+      // Draw egg as small white/cream circle
+      ctx.fillStyle = '#ffffee';
+      ctx.beginPath();
+      ctx.arc(eggX + 0.5, eggY + 0.5, 0.35, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw outline for better visibility
+      ctx.strokeStyle = '#dddde0';
+      ctx.lineWidth = 0.15;
+      ctx.stroke();
     }
   }
 
