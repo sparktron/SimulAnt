@@ -64,6 +64,11 @@ export class SimulationCore {
       nestEntrances: this.nestEntrances,
     });
 
+    // Spoil surface food every 10 ticks
+    if (this.tick % 10 === 0) {
+      this.foodPellets = this.foodPellets.filter((pellet) => !pellet.spoil());
+    }
+
     // Record stats every 30 ticks (~1 second)
     if (this.tick % 30 === 0) {
       this.stats.record(this.tick, this.colony);
