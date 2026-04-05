@@ -42,8 +42,11 @@ export class Colony {
     this.onExcavate = null;
     this.onDepositDirt = null;
 
+    // Spawn initial ants with some soldiers for visual distinction
+    const soldierCount = Math.round(initialAnts * 0.15);  // 15% soldiers
     for (let i = 0; i < initialAnts; i += 1) {
-      this.ants.push(this.#spawnNearNest('worker'));
+      const role = i < soldierCount ? 'soldier' : 'worker';
+      this.ants.push(this.#spawnNearNest(role));
     }
 
     // Bootstrap colony with starter food so specialized work can begin
