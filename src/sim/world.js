@@ -49,8 +49,7 @@ export class World {
     return (
       terrain !== TERRAIN.WALL &&
       terrain !== TERRAIN.WATER &&
-      terrain !== TERRAIN.SOIL &&
-      terrain !== TERRAIN.HAZARD
+      terrain !== TERRAIN.SOIL
     );
   }
 
