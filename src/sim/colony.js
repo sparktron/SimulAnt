@@ -410,6 +410,7 @@ export class Colony {
         baseColor: ant.baseColor,
         role: ant.role,
         state: ant.state,
+        stepCounter: ant.stepCounter,
       })),
     };
   }
@@ -440,6 +441,7 @@ export class Colony {
       ant.carryingType = a.carryingType || (a.carrying?.type === 'food' ? 'food' : 'none');
       ant.baseColor = a.baseColor || ant.baseColor;
       ant.state = a.state || ant.state;
+      ant.stepCounter = a.stepCounter || 0;
       return ant;
     });
     return colony;
