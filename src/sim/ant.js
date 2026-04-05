@@ -45,6 +45,10 @@ export class Ant {
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;
+    // Age/lifespan system for natural mortality
+    this.age = 0;
+    this.maxAge = role === 'soldier' ? 1800 + rng.int(600) : 2400 + rng.int(800);
+    // Work specialization and behavior tracking
     this.workFocus = 'forage';
     this.failedSurfaceFoodSearchTicks = 0;
     this.lastSteeringDebug = null;
@@ -113,7 +117,6 @@ export class Ant {
     if (this.role === 'worker' && !this.carrying?.type && rng.chance(config.randomTurnChance)) {
       this.dir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
     }
-
   }
 
   /**
@@ -124,10 +127,35 @@ export class Ant {
    */
   #decideAndMove(world, colony, rng, config, context) {
     let didMove = false;
+
+    if (this.role === 'soldier') {
+      this.state = 'PATROL';
+      // Soldiers patrol the nest perimeter, depositing home pheromone near hazards
+      if (context.entrance) {
+        const distToNest = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
+        const patrolRadius = config.nearEntranceScatterRadius + 5;
+        if (distToNest > patrolRadius) {
+          didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        } else {
+          didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+        }
+      }
+      if (!didMove) {
+        didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+      }
+      // Soldiers deposit home pheromone while patrolling
+      if (didMove && this.stepCounter % config.homeDepositIntervalTicks === 0) {
+        world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome * 0.5);
+      }
+      return didMove;
+    }
+
     if (this.role !== 'worker') return didMove;
 
     if (this.#isQueenFoodCourier(colony)) {
       return this.#runQueenCourierBehavior(world, colony, rng, config, context);
+    }
+
     if (this.carrying?.type === 'dirt') {
       this.state = 'HAUL_DIRT';
       if (context.entrance) {
@@ -342,18 +370,28 @@ export class Ant {
   }
 
   #applyVitals(colony, config, dt, didMove) {
+    // Increment age for natural lifespan tracking
+    this.age += 1;
+
+    // Hunger mechanics with work penalties
     const hungerDrain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
     const carryingHungerCost = this.carrying?.type ? (config.carryingHungerDrainRate ?? 0) : 0;
     const fightHungerCost = this.state === 'FIGHT' ? (config.fightingHungerDrainRate ?? 0) : 0;
     this.hunger = Math.max(0, this.hunger - (hungerDrain + carryingHungerCost + fightHungerCost) * dt);
 
+    // Health degradation from work
     const healthWorkDrain = (didMove ? (config.healthWorkMoveDrainRate ?? 0) : (config.healthWorkIdleDrainRate ?? 0))
       + (this.carrying?.type ? (config.healthWorkCarryDrainRate ?? 0) : 0)
       + (this.state === 'FIGHT' ? (config.healthWorkFightDrainRate ?? 0) : 0);
     this.health = Math.max(0, this.health - healthWorkDrain * dt);
-
     if (this.hunger <= 0) {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
+    }
+
+    // Old age: health declines gradually in last 20% of lifespan
+    if (this.age > this.maxAge * 0.8) {
+      const ageFactor = (this.age - this.maxAge * 0.8) / (this.maxAge * 0.2);
+      this.health = Math.max(0, this.health - ageFactor * 2 * dt);
     }
 
     if (this.health <= 0) {
@@ -389,6 +427,9 @@ export class Ant {
       const momentum = d === this.dir ? config.momentumBias : 0;
       const reversePenalty = d === reverseDir ? config.reversePenalty : 0;
 
+      // Danger avoidance: reduce weight for tiles with danger pheromone
+      const dangerPenalty = world.danger[nidx] * 0.5;
+
       let tieBias = 0;
       if (entrance) {
         const dist = Math.hypot(nx - entrance.x, ny - entrance.y);
@@ -396,7 +437,7 @@ export class Ant {
       }
 
       const noise = rng.range(0, config.wanderNoise);
-      const weight = Math.max(0, pherContribution + momentum + tieBias + noise - reversePenalty);
+      const weight = Math.max(0, pherContribution + momentum + tieBias + noise - reversePenalty - dangerPenalty);
       weights.push({
         d,
         w: weight,
@@ -406,6 +447,7 @@ export class Ant {
           tieBias,
           noise,
           reversePenalty,
+          dangerPenalty,
         },
       });
       total += weight;
@@ -559,6 +601,7 @@ export class Ant {
     let bestX = this.x;
     let bestY = this.y;
     let bestD = Number.POSITIVE_INFINITY;
+    let bestDir = this.dir;
 
     for (let i = 0; i < DIRS.length; i += 1) {
       const nx = this.x + DIRS[i][0];
@@ -569,12 +612,14 @@ export class Ant {
         bestD = d;
         bestX = nx;
         bestY = ny;
+        bestDir = i;
       }
     }
 
     if (bestX !== this.x || bestY !== this.y) {
       this.x = bestX;
       this.y = bestY;
+      this.dir = bestDir;
       return true;
     }
 

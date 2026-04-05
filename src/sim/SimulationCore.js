@@ -6,6 +6,7 @@ import { FoodPellet, DEFAULT_PELLET_NUTRITION } from './Food.js';
 import { MacroEngine } from './core/MacroEngine.js';
 import { MicroPatchEngine } from './core/MicroPatchEngine.js';
 import { TickScheduler } from './core/TickScheduler.js';
+import { ColonyStats } from './ColonyStats.js';
 
 const SURFACE_DEPOSIT_RATIO = 0.7;
 
@@ -21,6 +22,7 @@ export class SimulationCore {
     this.nestEntrances = [];
     this.foodPellets = [];
     this.nextPelletId = 1;
+    this.stats = new ColonyStats();
     this.reset(seed);
   }
 
@@ -80,6 +82,16 @@ export class SimulationCore {
       foodPellets: this.foodPellets,
       nestEntrances: this.nestEntrances,
     });
+
+    // Spoil surface food every 10 ticks
+    if (this.tick % 10 === 0) {
+      this.foodPellets = this.foodPellets.filter((pellet) => !pellet.spoil());
+    }
+
+    // Record stats every 30 ticks (~1 second)
+    if (this.tick % 30 === 0) {
+      this.stats.record(this.tick, this.colony);
+    }
   }
 
   getPatchState(x, y) {
@@ -181,16 +193,19 @@ export class SimulationCore {
           this.world.terrain[idx] = TERRAIN.HAZARD;
         });
         break;
-      case 'erase':
+      case 'erase': {
+        const erasedCells = new Set();
         this.world.paintCircle(worldX, worldY, radius, (idx, x, y) => {
           this.world.terrain[idx] = TERRAIN.GROUND;
           this.world.food[idx] = 0;
           this.world.toFood[idx] = 0;
           this.world.toHome[idx] = 0;
           this.world.danger[idx] = 0;
-          this.foodPellets = this.foodPellets.filter((pellet) => !(pellet.x === x && pellet.y === y));
+          erasedCells.add(`${x},${y}`);
         });
+        this.foodPellets = this.foodPellets.filter((pellet) => !erasedCells.has(`${pellet.x},${pellet.y}`));
         break;
+      }
       case 'nest':
         this.world.setNest(worldX, worldY);
         if (this.nestEntrances.length === 0) {
@@ -245,6 +260,7 @@ export class SimulationCore {
       nextPelletId: this.nextPelletId,
       digSystem: this.digSystem.serialize(),
       macro: this.macroEngine.serialize(),
+      stats: this.stats.serialize(),
       state,
     };
   }
@@ -266,6 +282,8 @@ export class SimulationCore {
     this.digSystem.loadFromSerialized(data.digSystem);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.loadFromSerialized(data.macro);
+    this.stats = new ColonyStats();
+    this.stats.loadFromSerialized(data.stats);
     this.#syncMacroHomeTerritory();
     this.#rebuildTickPipeline();
     this.tick = data.tick || 0;
