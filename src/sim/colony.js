@@ -102,12 +102,13 @@ export class Colony {
       this.#updateQueenPosition(config);
     }
 
-    if (this.queen.alive) {
-      while (this.foodStored >= this.spawnCost && this.ants.length < config.antCap) {
-        this.foodStored -= this.spawnCost;
-        this.queen.brood += 1;
-      }
-    }
+    // Disable instant brood spawning; let queen lay eggs naturally via eggProgress
+    // if (this.queen.alive) {
+    //   while (this.foodStored >= this.spawnCost && this.ants.length < config.antCap) {
+    //     this.foodStored -= this.spawnCost;
+    //     this.queen.brood += 1;
+    //   }
+    // }
 
     this.rebalanceWorkerFocuses();
   }
