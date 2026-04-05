@@ -279,14 +279,12 @@ export class Colony {
     const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio));
     this.queen.broodGestationProgress = (this.queen.broodGestationProgress || 0) + dt * gestationRateScale;
 
-    // Backward-compatible default for direct Colony usage:
-    // if broodGestationSeconds is omitted, allow existing brood to hatch on the
-    // current tick instead of implicitly requiring an 8s gestation window.
     const hatchSeconds = Math.max(
       0.001,
       Number.isFinite(config.broodGestationSeconds) ? config.broodGestationSeconds : dt,
     );
-    while (
+    // Hatch one ant per frame to avoid batch spawning
+    if (
       this.queen.brood >= 1
       && this.queen.broodGestationProgress >= hatchSeconds
       && this.ants.length < config.antCap
@@ -304,8 +302,8 @@ export class Colony {
     const dt = config.tickSeconds || 1 / 30;
     this.queen.hunger = Math.max(0, this.queen.hunger - config.queenHungerDrain * dt);
 
-    // Queen eats from stored food when health drops below 60%
-    if (this.queen.health < this.queen.healthMax * 0.6 && this.foodStored > 0) {
+    // Queen eats from stored food when hunger drops below 40% (before starvation triggers health drain)
+    if (this.queen.hunger < this.queen.hungerMax * 0.4 && this.foodStored > 0) {
       const consumed = this.consumeFromStore(config.queenEatNutrition ?? 5);
       this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + consumed);
       const healthGain = consumed * (config.healthEatRecoveryRate ?? 0);
