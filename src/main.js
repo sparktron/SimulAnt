@@ -55,7 +55,7 @@ const state = {
     digHomeBoost: 0.9,
     queenEggTicks: 20,
     queenEggFoodCost: 0.25,
-    queenHungerDrain: 2.8,
+    queenHungerDrain: 0.5,
     queenEatNutrition: 8,
     queenHealthDrainRate: 7,
     queenHealthRecoveryPerNutrition: 0.25,
