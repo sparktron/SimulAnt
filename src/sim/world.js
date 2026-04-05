@@ -46,6 +46,7 @@ export class World {
   isPassable(x, y) {
     if (!this.inBounds(x, y)) return false;
     const terrain = this.terrain[this.index(x, y)];
+    // Food pellets are not obstacles—ants can walk freely over them
     return (
       terrain !== TERRAIN.WALL &&
       terrain !== TERRAIN.WATER &&
