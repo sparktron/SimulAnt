@@ -14,8 +14,11 @@ const DIRS = [
 ];
 
 export class Ant {
-  static getDefaultBaseColor(_role = 'worker') {
-    return '#1a1208';
+  static getDefaultBaseColor(role = 'worker') {
+    if (role === 'soldier') {
+      return '#4a2a6a';  // Slightly purple for soldiers
+    }
+    return '#1a1208';  // Dark brown for workers
   }
 
   static getLegacySoldierBaseColor() {
