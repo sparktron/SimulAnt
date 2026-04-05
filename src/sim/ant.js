@@ -326,6 +326,9 @@ export class Ant {
     }
 
     this.state = 'FORAGE_SEARCH';
+    if (this.stepCounter % config.homeDepositIntervalTicks === 0) {
+      world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
+    }
     const nearEntranceScatter = context.entrance
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.nearEntranceScatterRadius
       : false;
