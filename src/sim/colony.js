@@ -47,8 +47,9 @@ export class Colony {
     }
 
     // Bootstrap colony with starter food so specialized work can begin
-    // Need enough to support all ants eating while foragers ramp up gathering
-    this.foodStored = 300;
+    // Need enough to support all ants + queen egg production + brood development
+    // while foragers ramp up gathering (takes time to find food and return)
+    this.foodStored = 1000;
 
     this.syncQueenPositionToNest(world.nestX, world.nestY);
   }
