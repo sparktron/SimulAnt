@@ -122,66 +122,64 @@ export class World {
 
   updatePheromones(config, tick) {
     const dt = config.tickSeconds || 1 / 30;
-    this.#evaporateField(this.toFood, config.evapFood, dt, config.pheromoneMaxClamp);
-    this.#evaporateField(this.toHome, config.evapHome, dt, config.pheromoneMaxClamp);
-    this.#evaporateField(this.danger, config.evapDanger, dt, config.pheromoneMaxClamp);
-
-    if (tick % config.diffIntervalTicks !== 0) return;
-
-    this.#diffuseObstacleAware(this.toFood, this._toFoodNext, config.diffFood, config.pheromoneMaxClamp);
-    this.#diffuseObstacleAware(this.toHome, this._toHomeNext, config.diffHome, config.pheromoneMaxClamp);
-    this.#diffuseObstacleAware(this.danger, this._dangerNext, config.diffDanger, config.pheromoneMaxClamp);
+    // Use discrete diffusion equation: P_i^{t+1} = (1 - λ - 4D) * P_i^t + D * (neighbors sum)
+    // where λ is evaporation per tick and D is diffusion coefficient
+    this.#updatePheromonesField(this.toFood, this._toFoodNext, config.evapFood, config.diffFood, config.pheromoneMaxClamp, dt);
+    this.#updatePheromonesField(this.toHome, this._toHomeNext, config.evapHome, config.diffHome, config.pheromoneMaxClamp, dt);
+    this.#updatePheromonesField(this.danger, this._dangerNext, config.evapDanger, config.diffDanger, config.pheromoneMaxClamp, dt);
   }
 
-  #evaporateField(field, evaporationLambda, dt, clampMax) {
-    const keep = Math.exp(-Math.max(0, evaporationLambda) * dt);
-    for (let i = 0; i < this.size; i += 1) {
-      const v = field[i] * keep;
-      field[i] = v <= 0.0001 ? 0 : Math.min(clampMax, v);
-    }
-  }
-
-  #diffuseObstacleAware(src, dst, diffusionRate, clampMax) {
+  #updatePheromonesField(srcField, dstField, evaporationLambda, diffusionRate, clampMax, dt) {
     const w = this.width;
     const h = this.height;
+
+    // Combined evaporation + diffusion using discrete diffusion equation
+    const lambda = Math.max(0, evaporationLambda) * dt;  // evaporation per tick
+    const D = Math.max(0, diffusionRate) / 4;            // diffusion coefficient (normalized for 4-neighbor)
+
+    // Stability check: 4D should be < 1
+    if (4 * D >= 1) {
+      console.warn(`Pheromone diffusion instability: 4D = ${(4 * D).toFixed(3)} >= 1. Keep diffusion < 0.25.`);
+    }
 
     for (let y = 0; y < h; y += 1) {
       const row = y * w;
       for (let x = 0; x < w; x += 1) {
         const idx = row + x;
+
         if (!this.isPassable(x, y)) {
-          dst[idx] = 0;
+          dstField[idx] = 0;
           continue;
         }
 
-        const center = src[idx];
-        let sum = 0;
-        let count = 0;
+        const center = srcField[idx];
+        let neighborSum = 0;
 
+        // Sum 4-neighbors (up, down, left, right)
         if (x > 0 && this.isPassable(x - 1, y)) {
-          sum += src[idx - 1];
-          count += 1;
+          neighborSum += srcField[idx - 1];
         }
         if (x < w - 1 && this.isPassable(x + 1, y)) {
-          sum += src[idx + 1];
-          count += 1;
+          neighborSum += srcField[idx + 1];
         }
         if (y > 0 && this.isPassable(x, y - 1)) {
-          sum += src[idx - w];
-          count += 1;
+          neighborSum += srcField[idx - w];
         }
         if (y < h - 1 && this.isPassable(x, y + 1)) {
-          sum += src[idx + w];
-          count += 1;
+          neighborSum += srcField[idx + w];
         }
 
-        const neighborAvg = count > 0 ? sum / count : center;
-        const mixed = (1 - diffusionRate) * center + diffusionRate * neighborAvg;
-        dst[idx] = Math.max(0, Math.min(clampMax, mixed));
+        // Discrete diffusion: P_i^{t+1} = (1 - λ - 4D) * P_i^t + D * neighborSum
+        // Source term (ant deposits) is already in center from this tick's updates
+        const decayFactor = Math.max(0, 1 - lambda - 4 * D);
+        const newValue = decayFactor * center + D * neighborSum;
+
+        dstField[idx] = Math.max(0, Math.min(clampMax, newValue));
       }
     }
 
-    src.set(dst);
+    // Copy result back to source field
+    srcField.set(dstField);
   }
 
   getPheromoneStats() {
