@@ -151,16 +151,19 @@ export class SimulationCore {
           this.world.terrain[idx] = TERRAIN.HAZARD;
         });
         break;
-      case 'erase':
+      case 'erase': {
+        const erasedCells = new Set();
         this.world.paintCircle(worldX, worldY, radius, (idx, x, y) => {
           this.world.terrain[idx] = TERRAIN.GROUND;
           this.world.food[idx] = 0;
           this.world.toFood[idx] = 0;
           this.world.toHome[idx] = 0;
           this.world.danger[idx] = 0;
-          this.foodPellets = this.foodPellets.filter((pellet) => !(pellet.x === x && pellet.y === y));
+          erasedCells.add(`${x},${y}`);
         });
+        this.foodPellets = this.foodPellets.filter((pellet) => !erasedCells.has(`${pellet.x},${pellet.y}`));
         break;
+      }
       case 'nest':
         this.world.setNest(worldX, worldY);
         if (this.nestEntrances.length === 0) {
