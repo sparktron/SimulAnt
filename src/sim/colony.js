@@ -248,16 +248,15 @@ export class Colony {
   #updateQueenAndBrood(config) {
     const dt = config.tickSeconds || BASE_TICK_SECONDS;
 
-    // Disable egg production during startup; queen will reproduce once foragers establish
-    // if (this.foodStored >= config.queenEggFoodCost) {
-    //   this.queen.eggProgress += 1;
-    //   if (this.queen.eggProgress >= config.queenEggTicks) {
-    //     this.queen.eggProgress = 0;
-    //     this.foodStored -= config.queenEggFoodCost;
-    //     this.queen.eggsLaid += 1;
-    //     this.queen.brood += 1;
-    //   }
-    // }
+    if (this.foodStored >= config.queenEggFoodCost) {
+      this.queen.eggProgress += 1;
+      if (this.queen.eggProgress >= config.queenEggTicks) {
+        this.queen.eggProgress = 0;
+        this.foodStored -= config.queenEggFoodCost;
+        this.queen.eggsLaid += 1;
+        this.queen.brood += 1;
+      }
+    }
 
     if (this.queen.brood <= 0) return;
 
@@ -292,14 +291,13 @@ export class Colony {
     const dt = config.tickSeconds || 1 / 30;
     this.queen.hunger = Math.max(0, this.queen.hunger - config.queenHungerDrain * dt);
 
-    // DEBUG: Disable queen eating
     // Queen eats from stored food when health drops below 60%
-    // if (this.queen.health < this.queen.healthMax * 0.6 && this.foodStored > 0) {
-    //   const consumed = this.consumeFromStore(config.queenEatNutrition ?? 5);
-    //   this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + consumed);
-    //   const healthGain = consumed * (config.healthEatRecoveryRate ?? 0);
-    //   this.queen.health = Math.min(this.queen.healthMax, this.queen.health + healthGain);
-    // }
+    if (this.queen.health < this.queen.healthMax * 0.6 && this.foodStored > 0) {
+      const consumed = this.consumeFromStore(config.queenEatNutrition ?? 5);
+      this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + consumed);
+      const healthGain = consumed * (config.healthEatRecoveryRate ?? 0);
+      this.queen.health = Math.min(this.queen.healthMax, this.queen.health + healthGain);
+    }
 
     if (this.queen.hunger <= 0) {
       this.queen.health = Math.max(0, this.queen.health - config.queenHealthDrainRate * dt);

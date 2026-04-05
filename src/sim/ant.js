@@ -654,9 +654,6 @@ export class Ant {
   #tryEatFromNest(colony, inNest, config) {
     if (!inNest) return false;
 
-    // DEBUG: Temporarily disable to find food drain
-    return false;
-
     // Only eat when health drops below 60%
     const healthBelowThreshold = this.health < this.healthMax * 0.6;
     if (!healthBelowThreshold) return false;
