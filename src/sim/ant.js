@@ -265,7 +265,7 @@ export class Ant {
     const nearEntrance = context.entrance
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.homeDepositMinDistance
       : false;
-    if (!nearEntrance && this.stepCounter % config.homeDepositIntervalTicks === 0) {
+    if (nearEntrance && this.stepCounter % config.homeDepositIntervalTicks === 0) {
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
     }
 
@@ -439,10 +439,11 @@ export class Ant {
       if (entrance) {
         const neighborDist = Math.hypot(nx - entrance.x, ny - entrance.y);
         if (channel === 'home') {
-          // Use relative progress toward nest so bias stays bounded regardless of distance.
-          // progress = +1 if moving directly toward nest, -1 if moving directly away.
+          // Normalize by step length so bias is consistent at any distance from nest.
+          // progress ≈ +1 stepping directly toward nest, -1 stepping directly away.
           const antDist = Math.hypot(this.x - entrance.x, this.y - entrance.y) + 0.001;
-          const progress = (antDist - neighborDist) / antDist;
+          const stepLen = Math.hypot(DIRS[d][0], DIRS[d][1]);
+          const progress = (antDist - neighborDist) / stepLen;
           tieBias = progress * config.homeTieBiasScale;
         } else {
           tieBias = neighborDist * config.foodTieBiasScale;
