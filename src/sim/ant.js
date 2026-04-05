@@ -636,7 +636,10 @@ export class Ant {
   }
 
   #needsForage(colony) {
-    return this.hunger < this.hungerMax * 0.4 || colony.foodStored < colony.foodStoreTarget;
+    // Ants forage if personally hungry OR colony is critically low on food
+    const personallyHungry = this.hunger < this.hungerMax * 0.4;
+    const criticalFoodShortage = colony.foodStored < Math.max(1, colony.foodStoreTarget * 0.25);
+    return personallyHungry || criticalFoodShortage;
   }
 
   #tryEatFromNest(colony, inNest, config) {
