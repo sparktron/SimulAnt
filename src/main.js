@@ -327,15 +327,24 @@ function loop(now) {
 
     const selectedAnt = simCore.findAntById(state.selectedAntId);
     const antHealthStats = getAntHealthStats(simCore.colony.ants);
+    const hudCounts = getHudAntCounts(simCore.colony.ants);
     try {
       updateHud({
         viewMode: activeView,
         fps,
         tick: simCore.tick,
         ants: simCore.colony.ants.length,
-        workers: simCore.colony.ants.filter((ant) => ant.role === 'worker').length,
-        soldiers: simCore.colony.ants.filter((ant) => ant.role === 'soldier').length,
-        foodStored: simCore.colony.foodStored,
+        workers: hudCounts.workers,
+        soldiers: hudCounts.soldiers,
+        breeders: hudCounts.breeders,
+        nurses: hudCounts.nurses,
+        foragers: hudCounts.jobsForage,
+        diggers: hudCounts.jobsDig,
+        jobsForage: hudCounts.jobsForage,
+        jobsDig: hudCounts.jobsDig,
+        jobsNurse: hudCounts.jobsNurse,
+        foodStored: getHudFoodTotal(simCore.colony),
+        queenHealth: simCore.colony.queen.health,
         queenAlive: simCore.colony.queen.alive,
         selectedAntHealth: selectedAnt ? selectedAnt.health : null,
         antHealthStats,
@@ -355,6 +364,58 @@ function loop(now) {
   } catch (error) {
     reportFatalError(error);
   }
+}
+
+
+function getHudAntCounts(ants) {
+  const counts = {
+    workers: 0,
+    soldiers: 0,
+    breeders: 0,
+    nurses: 0,
+    jobsForage: 0,
+    jobsDig: 0,
+    jobsNurse: 0,
+  };
+
+  if (!Array.isArray(ants)) return counts;
+
+  for (const ant of ants) {
+    if (!ant?.alive) continue;
+
+    if (ant.role === 'worker') {
+      counts.workers += 1;
+      if (ant.workFocus === 'dig') counts.jobsDig += 1;
+      else if (ant.workFocus === 'nurse') {
+        counts.jobsNurse += 1;
+        counts.nurses += 1;
+      } else {
+        counts.jobsForage += 1;
+      }
+      continue;
+    }
+
+    if (ant.role === 'soldier') counts.soldiers += 1;
+    else if (ant.role === 'breeder') counts.breeders += 1;
+  }
+
+  return counts;
+}
+
+
+function getHudFoodTotal(colony) {
+  const stored = Number.isFinite(colony?.foodStored) ? colony.foodStored : 0;
+  const pelletFood = Array.isArray(colony?.nestFoodPellets)
+    ? colony.nestFoodPellets.reduce((sum, pellet) => {
+      const amount = Number.isFinite(pellet?.amount)
+        ? pellet.amount
+        : (Number.isFinite(pellet?.nutrition) ? pellet.nutrition : 0);
+      return sum + amount;
+    }, 0)
+    : 0;
+
+  // `foodStored` is canonical in current saves; pellet sum is a legacy/fallback source.
+  return Math.max(stored, pelletFood);
 }
 
 function getAntHealthStats(ants) {

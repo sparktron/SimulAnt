@@ -52,12 +52,18 @@ export class Colony {
   #spawnNearNest(role) {
     const jitterX = this.rng.int(7) - 3;
     const jitterY = this.rng.int(7) - 3;
-    return new Ant(
+    const ant = new Ant(
       Math.max(0, Math.min(this.world.width - 1, this.world.nestX + jitterX)),
       Math.max(0, Math.min(this.world.height - 1, this.world.nestY + jitterY)),
       this.rng,
       role,
     );
+
+    if (role === 'worker') {
+      ant.workFocus = this.chooseWorkFocus();
+    }
+
+    return ant;
   }
 
   /**
@@ -96,6 +102,8 @@ export class Colony {
         this.queen.brood += 1;
       }
     }
+
+    this.rebalanceWorkerFocuses();
   }
 
 
@@ -124,19 +132,110 @@ export class Colony {
   }
 
   chooseWorkFocus() {
-    const roll = this.rng.range(0, 100);
-    if (roll < this.workAllocation.forage) return 'forage';
-    if (roll < this.workAllocation.forage + this.workAllocation.dig) return 'dig';
-    return 'nurse';
+    const workerCounts = {
+      forage: 0,
+      dig: 0,
+      nurse: 0,
+    };
+
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive || ant.role !== 'worker') continue;
+      if (ant.workFocus === 'dig') {
+        workerCounts.dig += 1;
+      } else if (ant.workFocus === 'nurse') {
+        workerCounts.nurse += 1;
+      } else {
+        workerCounts.forage += 1;
+      }
+    }
+
+    return this.#chooseWeightedDeficit(
+      {
+        forage: this.workAllocation.forage,
+        dig: this.workAllocation.dig,
+        nurse: this.workAllocation.nurse,
+      },
+      workerCounts,
+    );
   }
 
-  selectHatchRole(config) {
-    const workerSoldierTotal = Math.max(0.0001, this.casteAllocation.workers + this.casteAllocation.soldiers);
-    const casteDrivenSoldierChance = this.casteAllocation.soldiers / workerSoldierTotal;
-    const soldierChance = Number.isFinite(config.soldierSpawnChance)
-      ? Math.max(0, Math.min(1, config.soldierSpawnChance))
-      : casteDrivenSoldierChance;
-    return this.rng.chance(soldierChance) ? 'soldier' : 'worker';
+  selectHatchRole(_config) {
+    const roleCounts = {
+      worker: 0,
+      soldier: 0,
+      breeder: 0,
+    };
+
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive) continue;
+      if (ant.role === 'soldier') {
+        roleCounts.soldier += 1;
+      } else if (ant.role === 'breeder') {
+        roleCounts.breeder += 1;
+      } else {
+        roleCounts.worker += 1;
+      }
+    }
+
+    return this.#chooseWeightedDeficit(
+      {
+        worker: this.casteAllocation.workers,
+        soldier: this.casteAllocation.soldiers,
+        breeder: this.casteAllocation.breeders,
+      },
+      roleCounts,
+    );
+  }
+
+  rebalanceWorkerFocuses() {
+    const workers = [];
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive || ant.role !== 'worker') continue;
+      workers.push(ant);
+    }
+
+    if (workers.length === 0) return;
+
+    const forageTarget = Math.round((this.workAllocation.forage / 100) * workers.length);
+    const digTarget = Math.round((this.workAllocation.dig / 100) * workers.length);
+    const nurseTarget = Math.max(0, workers.length - forageTarget - digTarget);
+
+    const desiredFocuses = [];
+    for (let i = 0; i < forageTarget; i += 1) desiredFocuses.push('forage');
+    for (let i = 0; i < digTarget; i += 1) desiredFocuses.push('dig');
+    for (let i = 0; i < nurseTarget; i += 1) desiredFocuses.push('nurse');
+
+    while (desiredFocuses.length < workers.length) desiredFocuses.push('forage');
+    if (desiredFocuses.length > workers.length) desiredFocuses.length = workers.length;
+
+    for (let i = 0; i < workers.length; i += 1) {
+      workers[i].workFocus = desiredFocuses[i];
+    }
+  }
+
+  #chooseWeightedDeficit(targetWeights, currentCounts) {
+    const keys = Object.keys(targetWeights);
+    const totalCount = keys.reduce((sum, key) => sum + (currentCounts[key] || 0), 0);
+    const nextTotal = totalCount + 1;
+
+    let bestKey = keys[0];
+    let bestGap = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      const targetShare = Math.max(0, Number(targetWeights[key]) || 0) / 100;
+      const targetCount = targetShare * nextTotal;
+      const currentCount = currentCounts[key] || 0;
+      const gap = targetCount - currentCount;
+      if (gap > bestGap) {
+        bestGap = gap;
+        bestKey = key;
+      }
+    }
+
+    return bestKey;
   }
 
   #updateQueenAndBrood(config) {
@@ -618,6 +717,8 @@ export class Colony {
         stepCounter: ant.stepCounter,
         age: ant.age,
         maxAge: ant.maxAge,
+        alive: ant.alive,
+        workFocus: ant.workFocus,
       })),
     };
   }
@@ -637,12 +738,17 @@ export class Colony {
     colony.excavatedTiles = data.excavatedTiles || 0;
     colony.nestFoodPellets = Array.isArray(data.nestFoodPellets)
       ? data.nestFoodPellets
-        .filter((pellet) => Number.isFinite(pellet?.x) && Number.isFinite(pellet?.y) && Number.isFinite(pellet?.amount) && pellet.amount > 0)
-        .map((pellet) => ({ x: pellet.x, y: pellet.y, amount: pellet.amount }))
+        .map((pellet) => {
+          const amount = Number.isFinite(pellet?.amount)
+            ? pellet.amount
+            : (Number.isFinite(pellet?.nutrition) ? pellet.nutrition : NaN);
+          return { x: pellet?.x, y: pellet?.y, amount };
+        })
+        .filter((pellet) => Number.isFinite(pellet.x) && Number.isFinite(pellet.y) && Number.isFinite(pellet.amount) && pellet.amount > 0)
       : [];
     colony.setWorkAllocation(data.workAllocation || colony.workAllocation);
     colony.setCasteAllocation(data.casteAllocation || colony.casteAllocation);
-    colony.ants = data.ants.map((a) => {
+    colony.ants = (Array.isArray(data.ants) ? data.ants : []).map((a) => {
       const ant = new Ant(a.x, a.y, rng, a.role || 'worker');
       ant.id = a.id || ant.id;
       ant.dir = a.dir;
@@ -670,6 +776,10 @@ export class Colony {
       ant.stepCounter = a.stepCounter || 0;
       ant.age = a.age || 0;
       if (a.maxAge) ant.maxAge = a.maxAge;
+      ant.alive = typeof a.alive === 'boolean' ? a.alive : ant.alive;
+      ant.workFocus = (a.workFocus === 'dig' || a.workFocus === 'nurse' || a.workFocus === 'forage')
+        ? a.workFocus
+        : ant.workFocus;
       return ant;
     });
     return colony;

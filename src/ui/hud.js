@@ -4,7 +4,28 @@ export function updateHud(stats) {
   setText('hudAnts', `${stats.ants}`);
   setText('hudWorkers', `${stats.workers}`);
   setText('hudSoldiers', `${stats.soldiers}`);
-  setText('hudFood', stats.foodStored.toFixed(1));
+  setText('hudBreeders', `${asNonNegativeInt(stats.breeders)}`);
+
+  const workers = asNonNegativeInt(stats.workers);
+  let jobsForage = Number.isFinite(stats.jobsForage) ? asNonNegativeInt(stats.jobsForage) : workers;
+  let jobsDig = Number.isFinite(stats.jobsDig) ? asNonNegativeInt(stats.jobsDig) : 0;
+  let jobsNurse = Number.isFinite(stats.jobsNurse) ? asNonNegativeInt(stats.jobsNurse) : 0;
+  let nurses = Number.isFinite(stats.nurses) ? asNonNegativeInt(stats.nurses) : jobsNurse;
+
+  // Guard against inconsistent producer payloads where workers are set but jobs are all zero.
+  if (workers > 0 && jobsForage + jobsDig + jobsNurse === 0) {
+    jobsForage = workers;
+    jobsDig = 0;
+    jobsNurse = 0;
+    nurses = 0;
+  }
+
+  setText('hudNurses', `${nurses}`);
+  setText('hudForagers', `${jobsForage}`);
+  setText('hudDiggers', `${jobsDig}`);
+  setText('hudJobs', `${jobsForage} / ${jobsDig} / ${jobsNurse}`);
+  setText('hudFood', formatNumber(stats.foodStored));
+  setText('hudQueenHealth', formatNumber(stats.queenHealth));
   setText('hudFps', stats.fps.toFixed(1));
   setText('hudDig', stats.digStatus || 'AUTO-DIG: OFF');
 
@@ -30,6 +51,15 @@ function normalizeHealthStats(value) {
   const avg = Number.isFinite(value?.avg) ? value.avg : 0;
   const max = Number.isFinite(value?.max) ? value.max : 0;
   return { min, avg, max };
+}
+
+function asNonNegativeInt(value) {
+  return Math.max(0, Math.floor(Number(value) || 0));
+}
+
+function formatNumber(value) {
+  const number = Number.isFinite(value) ? value : 0;
+  return number.toFixed(1);
 }
 
 function setText(id, value) {

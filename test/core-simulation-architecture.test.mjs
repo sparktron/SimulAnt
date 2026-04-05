@@ -295,7 +295,7 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   assert.equal(sim.colony.nestFoodPellets.length > 0, true);
   assert.equal(sim.colony.foodStored >= 3, true);
   assert.equal(ant.carrying, null);
-  assert.notEqual(ant.carryingType, 'food');
+  assert.ok(ant.carryingType === 'none' || ant.carryingType === 'dirt');
   assert.equal(ant.baseColor, ant.originalBaseColor);
 });
 
@@ -724,14 +724,14 @@ test('food pickup overrides stale dirt carryingType so renderer markers stay cor
   assert.equal(ant.carryingType, 'food');
 });
 
-test('zero soldier spawn chance hatches only worker-colored ants', () => {
+test('100% worker caste allocation hatches only worker-colored ants', () => {
   const sim = new SimulationCore('worker-only-hatch-seed');
   const config = createConfig();
 
-  config.soldierSpawnChance = 0;
   config.queenEggTicks = 1;
   config.queenEggFoodCost = 0;
   config.broodGestationSeconds = 0.05;
+  sim.colony.setCasteAllocation({ workers: 100, soldiers: 0, breeders: 0 });
 
   sim.colony.foodStored = 200;
   const beforeCount = sim.colony.ants.length;
@@ -743,14 +743,14 @@ test('zero soldier spawn chance hatches only worker-colored ants', () => {
   assert.equal(hatched.every((ant) => ant.baseColor === '#1a1208'), true);
 });
 
-test('soldier ants use distinct non-red color from workers', () => {
+test('100% soldier caste allocation hatches soldier ants with non-worker color', () => {
   const sim = new SimulationCore('soldier-color-seed');
   const config = createConfig();
 
-  config.soldierSpawnChance = 1;
   config.queenEggTicks = 1;
   config.queenEggFoodCost = 0;
   config.broodGestationSeconds = 0.05;
+  sim.colony.setCasteAllocation({ workers: 0, soldiers: 100, breeders: 0 });
 
   sim.colony.foodStored = 200;
   const beforeCount = sim.colony.ants.length;
@@ -760,4 +760,106 @@ test('soldier ants use distinct non-red color from workers', () => {
   assert.ok(hatched.length > 0);
   assert.equal(hatched.every((ant) => ant.role === 'soldier'), true);
   assert.equal(hatched.every((ant) => ant.baseColor !== '#d93828'), true);
+});
+
+test('brood hatching follows caste allocation including breeders', () => {
+  const sim = new SimulationCore('caste-allocation-hatch-seed');
+  const config = createConfig();
+  config.broodGestationSeconds = 0.001;
+
+  sim.colony.ants = [];
+  sim.colony.foodStored = 0;
+  sim.colony.queen.brood = 60;
+  sim.colony.setCasteAllocation({ workers: 60, soldiers: 25, breeders: 15 });
+
+  for (let i = 0; i < 120; i += 1) sim.update(config);
+
+  const workers = sim.colony.ants.filter((ant) => ant.role === 'worker').length;
+  const soldiers = sim.colony.ants.filter((ant) => ant.role === 'soldier').length;
+  const breeders = sim.colony.ants.filter((ant) => ant.role === 'breeder').length;
+
+  assert.equal(sim.colony.ants.length, 60);
+  assert.equal(workers, 36);
+  assert.equal(soldiers, 15);
+  assert.equal(breeders, 9);
+});
+
+test('worker workFocus distribution is rebalanced to work allocation ratios', () => {
+  const sim = new SimulationCore('work-allocation-focus-seed');
+
+  sim.colony.setWorkAllocation({ forage: 40, dig: 35, nurse: 25 });
+  sim.colony.rebalanceWorkerFocuses();
+
+  const workers = sim.colony.ants.filter((ant) => ant.role === 'worker');
+  const counts = workers.reduce(
+    (acc, ant) => {
+      if (ant.workFocus === 'dig') acc.dig += 1;
+      else if (ant.workFocus === 'nurse') acc.nurse += 1;
+      else acc.forage += 1;
+      return acc;
+    },
+    { forage: 0, dig: 0, nurse: 0 },
+  );
+
+  const totalWorkers = workers.length;
+  const expectedForage = Math.round(totalWorkers * 0.4);
+  const expectedDig = Math.round(totalWorkers * 0.35);
+  const expectedNurse = totalWorkers - expectedForage - expectedDig;
+
+  assert.equal(counts.forage, expectedForage);
+  assert.equal(counts.dig, expectedDig);
+  assert.equal(counts.nurse, expectedNurse);
+});
+
+test('serialization preserves worker workFocus and alive flags for HUD/job accounting', () => {
+  const sim = new SimulationCore('workfocus-serialize-seed');
+  const worker = sim.colony.ants.find((ant) => ant.role === 'worker');
+  assert.ok(worker);
+
+  worker.workFocus = 'dig';
+  worker.alive = false;
+
+  const restored = new SimulationCore('workfocus-serialize-seed-2');
+  restored.loadFromSerialized(sim.serialize({}));
+
+  const restoredWorker = restored.colony.ants.find((ant) => ant.id === worker.id);
+  assert.ok(restoredWorker);
+  assert.equal(restoredWorker.workFocus, 'dig');
+  assert.equal(restoredWorker.alive, false);
+});
+
+
+test('legacy nestFoodPellets nutrition field migrates to amount on load', () => {
+  const sim = new SimulationCore('legacy-food-migration-seed');
+  const serialized = sim.serialize({});
+
+  serialized.colony.foodStored = 0;
+  serialized.colony.nestFoodPellets = [
+    { x: sim.world.nestX, y: sim.world.nestY + 2, nutrition: 4.5 },
+  ];
+
+  const restored = new SimulationCore('legacy-food-migration-seed-2');
+  restored.loadFromSerialized(serialized);
+
+  assert.equal(restored.colony.nestFoodPellets.length, 1);
+  assert.equal(restored.colony.nestFoodPellets[0].amount, 4.5);
+});
+
+test('newly spawned workers receive workFocus assignments from work allocation', () => {
+  const sim = new SimulationCore('spawn-workfocus-seed');
+
+  sim.colony.ants = [];
+  sim.colony.setWorkAllocation({ forage: 0, dig: 0, nurse: 100 });
+
+  // Prime brood so update performs worker hatches.
+  sim.colony.queen.brood = 12;
+  const config = createConfig();
+  config.antCap = 50;
+  config.broodGestationSeconds = 0.001;
+
+  for (let i = 0; i < 60; i += 1) sim.update(config);
+
+  const workers = sim.colony.ants.filter((ant) => ant.role === 'worker');
+  assert.ok(workers.length > 0);
+  assert.equal(workers.every((ant) => ant.workFocus === 'nurse'), true);
 });

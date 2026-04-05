@@ -156,6 +156,7 @@ export class Ant {
       return this.#runQueenCourierBehavior(world, colony, rng, config, context);
     }
 
+
     if (this.carrying?.type === 'dirt') {
       this.state = 'HAUL_DIRT';
       if (context.entrance) {
