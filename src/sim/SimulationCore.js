@@ -142,6 +142,12 @@ export class SimulationCore {
     const entrance = this.#nearestEntrance(worldX);
     if (!entrance) return;
     entrance.excavatedSoilTotal += volume;
+    // Backward compatibility:
+    // - single-entrance mode historically surfaced excavated soil directly,
+    // - multi-entrance mode tracks excavation totals only until dirt is deposited.
+    if (this.nestEntrances.length <= 1) {
+      entrance.soilOnSurface += volume * SURFACE_DEPOSIT_RATIO;
+    }
   }
 
   onDepositDirt(volume, worldX, _depthY) {

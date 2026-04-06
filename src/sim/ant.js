@@ -371,6 +371,22 @@ export class Ant {
     // Increment age for natural lifespan tracking
     this.age += 1;
 
+    // Soldier hunger is currently modeled as static:
+    // - soldiers do not consume colony stores (worker-only feeding),
+    // - soldiers also do not metabolically drain hunger each tick.
+    // They still age and can die from old age and hazards.
+    if (this.role === 'soldier') {
+      if (this.age > this.maxAge * 0.8) {
+        const ageFactor = (this.age - this.maxAge * 0.8) / (this.maxAge * 0.2);
+        this.health = Math.max(0, this.health - ageFactor * 2 * dt);
+      }
+      if (this.health <= 0) {
+        this.alive = false;
+        colony.deaths += 1;
+      }
+      return;
+    }
+
     // Hunger mechanics with work penalties
     const hungerDrain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
     const carryingHungerCost = this.carrying?.type ? (config.carryingHungerDrainRate ?? 0) : 0;
@@ -384,6 +400,11 @@ export class Ant {
     this.health = Math.max(0, this.health - healthWorkDrain * dt);
     if (this.hunger <= 0) {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
+    }
+
+    if (this.hunger > this.hungerMax * 0.65 && this.health < this.healthMax) {
+      const regenRate = Math.max(0, config.healthRegenRate ?? 0);
+      this.health = Math.min(this.healthMax, this.health + regenRate * dt);
     }
 
     // Old age: health declines gradually in last 20% of lifespan
@@ -425,8 +446,10 @@ export class Ant {
       const momentum = d === this.dir ? config.momentumBias : 0;
       const reversePenalty = d === reverseDir ? config.reversePenalty : 0;
 
-      // Danger avoidance: reduce weight for tiles with danger pheromone
-      const dangerPenalty = world.danger[nidx] * 0.5;
+      // Danger avoidance: reduce weight for tiles with danger pheromone.
+      // Configurable so tuning can be tightened without altering steering math.
+      const dangerAvoidanceWeight = config.dangerAvoidanceWeight ?? 1.25;
+      const dangerPenalty = world.danger[nidx] * dangerAvoidanceWeight;
 
       // Crowding avoidance: reduce weight toward congested tiles
       const crowdingPenalty = colony ? this.#getCrowdingPenalty(nx, ny, colony) : 0;
@@ -476,7 +499,26 @@ export class Ant {
     } else if (channel === 'home' && entrance) {
       return this.#moveToward(world, entrance.x, entrance.y, rng);
     } else {
-      chosenDir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
+      const safestDirs = [];
+      let lowestDanger = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < DIRS.length; i += 1) {
+        const nx = this.x + DIRS[i][0];
+        const ny = this.y + DIRS[i][1];
+        if (!world.isPassable(nx, ny)) continue;
+        const danger = world.danger[world.index(nx, ny)];
+        if (danger + 1e-6 < lowestDanger) {
+          lowestDanger = danger;
+          safestDirs.length = 0;
+          safestDirs.push(i);
+        } else if (Math.abs(danger - lowestDanger) <= 1e-6) {
+          safestDirs.push(i);
+        }
+      }
+      if (safestDirs.length > 0) {
+        chosenDir = safestDirs[rng.int(safestDirs.length)];
+      } else {
+        chosenDir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
+      }
     }
 
     const tx = this.x + DIRS[chosenDir][0];

@@ -8,7 +8,7 @@ const CARDINAL_DIRS = [
 ];
 
 const TURN_OPTIONS = [0, -1, 1];
-const DIGGER_ASSIGNMENT_RADIUS2 = 36;
+const DIGGER_ASSIGNMENT_RADIUS2 = 64;
 
 export class DigSystem {
   constructor(world, colony, rng) {
@@ -104,7 +104,7 @@ export class DigSystem {
       const ant = ants[i];
       if (!ant.alive || ant.role !== 'worker') continue;
       if (ant.carrying?.type) continue;
-      if (ant.y < this.world.nestY + 1) continue;
+      if (ant.health < ant.healthMax * 0.35 || ant.hunger < ant.hungerMax * 0.25) continue;
       if (unavailableIds.has(ant.id)) continue;
 
       const dx = ant.x - front.x;

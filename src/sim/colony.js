@@ -258,7 +258,13 @@ export class Colony {
     const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio));
     this.queen.broodGestationProgress = (this.queen.broodGestationProgress || 0) + dt * gestationRateScale;
 
-    const hatchSeconds = Math.max(0.001, config.broodGestationSeconds ?? 8);
+    // Backward-compatible default for direct Colony usage:
+    // if broodGestationSeconds is omitted, allow existing brood to hatch on the
+    // current tick instead of implicitly requiring an 8s gestation window.
+    const hatchSeconds = Math.max(
+      0.001,
+      Number.isFinite(config.broodGestationSeconds) ? config.broodGestationSeconds : dt,
+    );
     while (
       this.queen.brood >= 1
       && this.queen.broodGestationProgress >= hatchSeconds
@@ -564,7 +570,7 @@ export class Colony {
     const nutrition = ant.carrying.pelletNutrition || 0;
     const targetDropPoint = dropPoint || this.findNestFoodDropPoint(entrance, ant.x, ant.y);
     if (!targetDropPoint) return false;
-    if (ant.x !== targetDropPoint.x || ant.y !== targetDropPoint.y) return false;
+    if (dropPoint && (ant.x !== targetDropPoint.x || ant.y !== targetDropPoint.y)) return false;
 
     this.depositPellet(nutrition, targetDropPoint.x, targetDropPoint.y, entrance);
     ant.carrying = null;
@@ -573,9 +579,9 @@ export class Colony {
     ant.state = 'FORAGE_SEARCH';
     ant.hunger = Math.min(ant.hungerMax, ant.hunger + nutrition * 0.15);
 
-    if (this.world.isPassable(dropPoint.x, dropPoint.y)) {
-      ant.x = dropPoint.x;
-      ant.y = dropPoint.y;
+    if (this.world.isPassable(targetDropPoint.x, targetDropPoint.y)) {
+      ant.x = targetDropPoint.x;
+      ant.y = targetDropPoint.y;
     }
 
     if (DEBUG_NEST_FOOD_LOGS) {
