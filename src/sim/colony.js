@@ -258,7 +258,13 @@ export class Colony {
     const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio));
     this.queen.broodGestationProgress = (this.queen.broodGestationProgress || 0) + dt * gestationRateScale;
 
-    const hatchSeconds = Math.max(0.001, config.broodGestationSeconds ?? 8);
+    // Backward-compatible default for direct Colony usage:
+    // if broodGestationSeconds is omitted, allow existing brood to hatch on the
+    // current tick instead of implicitly requiring an 8s gestation window.
+    const hatchSeconds = Math.max(
+      0.001,
+      Number.isFinite(config.broodGestationSeconds) ? config.broodGestationSeconds : dt,
+    );
     while (
       this.queen.brood >= 1
       && this.queen.broodGestationProgress >= hatchSeconds
