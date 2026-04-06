@@ -174,7 +174,8 @@ export class World {
         const decayFactor = Math.max(0, 1 - lambda - 4 * D);
         const newValue = decayFactor * center + D * neighborSum;
 
-        dstField[idx] = Math.max(0, Math.min(clampMax, newValue));
+        const clampedValue = Math.max(0, Math.min(clampMax, newValue));
+        dstField[idx] = clampedValue < 1e-5 ? 0 : clampedValue;
       }
     }
 

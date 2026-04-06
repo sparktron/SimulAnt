@@ -371,6 +371,22 @@ export class Ant {
     // Increment age for natural lifespan tracking
     this.age += 1;
 
+    // Soldier hunger is currently modeled as static:
+    // - soldiers do not consume colony stores (worker-only feeding),
+    // - soldiers also do not metabolically drain hunger each tick.
+    // They still age and can die from old age and hazards.
+    if (this.role === 'soldier') {
+      if (this.age > this.maxAge * 0.8) {
+        const ageFactor = (this.age - this.maxAge * 0.8) / (this.maxAge * 0.2);
+        this.health = Math.max(0, this.health - ageFactor * 2 * dt);
+      }
+      if (this.health <= 0) {
+        this.alive = false;
+        colony.deaths += 1;
+      }
+      return;
+    }
+
     // Hunger mechanics with work penalties
     const hungerDrain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
     const carryingHungerCost = this.carrying?.type ? (config.carryingHungerDrainRate ?? 0) : 0;
@@ -384,6 +400,11 @@ export class Ant {
     this.health = Math.max(0, this.health - healthWorkDrain * dt);
     if (this.hunger <= 0) {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
+    }
+
+    if (this.hunger > this.hungerMax * 0.65 && this.health < this.healthMax) {
+      const regenRate = Math.max(0, config.healthRegenRate ?? 0);
+      this.health = Math.min(this.healthMax, this.health + regenRate * dt);
     }
 
     // Old age: health declines gradually in last 20% of lifespan

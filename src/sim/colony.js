@@ -564,7 +564,7 @@ export class Colony {
     const nutrition = ant.carrying.pelletNutrition || 0;
     const targetDropPoint = dropPoint || this.findNestFoodDropPoint(entrance, ant.x, ant.y);
     if (!targetDropPoint) return false;
-    if (ant.x !== targetDropPoint.x || ant.y !== targetDropPoint.y) return false;
+    if (dropPoint && (ant.x !== targetDropPoint.x || ant.y !== targetDropPoint.y)) return false;
 
     this.depositPellet(nutrition, targetDropPoint.x, targetDropPoint.y, entrance);
     ant.carrying = null;
@@ -573,9 +573,9 @@ export class Colony {
     ant.state = 'FORAGE_SEARCH';
     ant.hunger = Math.min(ant.hungerMax, ant.hunger + nutrition * 0.15);
 
-    if (this.world.isPassable(dropPoint.x, dropPoint.y)) {
-      ant.x = dropPoint.x;
-      ant.y = dropPoint.y;
+    if (this.world.isPassable(targetDropPoint.x, targetDropPoint.y)) {
+      ant.x = targetDropPoint.x;
+      ant.y = targetDropPoint.y;
     }
 
     if (DEBUG_NEST_FOOD_LOGS) {
