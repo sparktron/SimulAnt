@@ -446,8 +446,10 @@ export class Ant {
       const momentum = d === this.dir ? config.momentumBias : 0;
       const reversePenalty = d === reverseDir ? config.reversePenalty : 0;
 
-      // Danger avoidance: reduce weight for tiles with danger pheromone
-      const dangerPenalty = world.danger[nidx] * 0.5;
+      // Danger avoidance: reduce weight for tiles with danger pheromone.
+      // Configurable so tuning can be tightened without altering steering math.
+      const dangerAvoidanceWeight = config.dangerAvoidanceWeight ?? 1.25;
+      const dangerPenalty = world.danger[nidx] * dangerAvoidanceWeight;
 
       // Crowding avoidance: reduce weight toward congested tiles
       const crowdingPenalty = colony ? this.#getCrowdingPenalty(nx, ny, colony) : 0;
@@ -497,7 +499,26 @@ export class Ant {
     } else if (channel === 'home' && entrance) {
       return this.#moveToward(world, entrance.x, entrance.y, rng);
     } else {
-      chosenDir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
+      const safestDirs = [];
+      let lowestDanger = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < DIRS.length; i += 1) {
+        const nx = this.x + DIRS[i][0];
+        const ny = this.y + DIRS[i][1];
+        if (!world.isPassable(nx, ny)) continue;
+        const danger = world.danger[world.index(nx, ny)];
+        if (danger + 1e-6 < lowestDanger) {
+          lowestDanger = danger;
+          safestDirs.length = 0;
+          safestDirs.push(i);
+        } else if (Math.abs(danger - lowestDanger) <= 1e-6) {
+          safestDirs.push(i);
+        }
+      }
+      if (safestDirs.length > 0) {
+        chosenDir = safestDirs[rng.int(safestDirs.length)];
+      } else {
+        chosenDir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
+      }
     }
 
     const tx = this.x + DIRS[chosenDir][0];
