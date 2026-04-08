@@ -111,11 +111,11 @@ export class Ant {
    * Side effects include changing ant state and optionally depositing food.
    */
   #applyPreMoveDecisions(colony, rng, config, context) {
-    if (this.role === 'worker' && this.#tryEatFromNest(colony, context.inNest, config)) {
+    if (this.#tryEatFromNest(colony, context.inNest, config)) {
       this.state = 'EAT';
     }
 
-    if (this.role === 'worker' && this.#tryEatNearbyPellet(colony, config)) {
+    if (this.#tryEatNearbyPellet(colony, config)) {
       this.state = 'EAT';
     }
 
@@ -418,6 +418,11 @@ export class Ant {
       + (this.carrying?.type ? (config.healthWorkCarryDrainRate ?? 0) : 0)
       + (this.state === 'FIGHT' ? (config.healthWorkFightDrainRate ?? 0) : 0);
     this.health = Math.max(0, this.health - healthWorkDrain * dt);
+    // Passive health regen when fed (hunger > 50%)
+    if (this.hunger > this.hungerMax * 0.5 && this.health < this.healthMax) {
+      this.health = Math.min(this.healthMax, this.health + (config.healthRegenRate ?? 0) * dt);
+    }
+
     if (this.hunger <= 0) {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
     }

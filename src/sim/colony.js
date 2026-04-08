@@ -60,23 +60,40 @@ export class Colony {
 
   #spawnNearNest(role) {
     // Spawn in the tunnel/chamber, not in surrounding soil
-    // Only nestX is guaranteed passable; try near it with fallback
     let spawnX = this.world.nestX;
     let spawnY = this.world.nestY + (this.rng.int(6) + 2);  // 2-8 tiles below nest center
 
-    // Try to find a passable location near the nest
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const tryX = this.world.nestX + (this.rng.chance(0.5) ? 1 : 0);
-      const tryY = spawnY;
+    // Try to find a passable location near the nest with wider search
+    let found = false;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const tryX = this.world.nestX + this.rng.int(5) - 2;  // -2 to +2
+      const tryY = this.world.nestY + this.rng.int(6) + 2;  // +2 to +7
       if (this.world.isPassable(tryX, tryY)) {
         spawnX = tryX;
+        spawnY = tryY;
+        found = true;
         break;
+      }
+    }
+
+    // Fallback: scan immediate area around nest center
+    if (!found) {
+      for (let dy = 2; dy <= 8; dy += 1) {
+        for (let dx = -2; dx <= 2; dx += 1) {
+          if (this.world.isPassable(this.world.nestX + dx, this.world.nestY + dy)) {
+            spawnX = this.world.nestX + dx;
+            spawnY = this.world.nestY + dy;
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
       }
     }
 
     const ant = new Ant(
       Math.max(0, Math.min(this.world.width - 1, spawnX)),
-      Math.max(0, spawnY),
+      Math.max(0, Math.min(this.world.height - 1, spawnY)),
       this.rng,
       role,
     );
@@ -215,10 +232,13 @@ export class Colony {
 
   rebalanceWorkerFocuses() {
     const workers = [];
+    const counts = { forage: 0, dig: 0, nurse: 0 };
+
     for (let i = 0; i < this.ants.length; i += 1) {
       const ant = this.ants[i];
       if (!ant.alive || ant.role !== 'worker') continue;
       workers.push(ant);
+      counts[ant.workFocus] = (counts[ant.workFocus] || 0) + 1;
     }
 
     if (workers.length === 0) return;
@@ -227,16 +247,37 @@ export class Colony {
     const digTarget = Math.round((this.workAllocation.dig / 100) * workers.length);
     const nurseTarget = Math.max(0, workers.length - forageTarget - digTarget);
 
-    const desiredFocuses = [];
-    for (let i = 0; i < forageTarget; i += 1) desiredFocuses.push('forage');
-    for (let i = 0; i < digTarget; i += 1) desiredFocuses.push('dig');
-    for (let i = 0; i < nurseTarget; i += 1) desiredFocuses.push('nurse');
+    const targets = { forage: forageTarget, dig: digTarget, nurse: nurseTarget };
 
-    while (desiredFocuses.length < workers.length) desiredFocuses.push('forage');
-    if (desiredFocuses.length > workers.length) desiredFocuses.length = workers.length;
+    // Only reassign workers from overstaffed roles to understaffed roles
+    const overstaffed = [];
+    for (const focus of ['forage', 'dig', 'nurse']) {
+      const excess = counts[focus] - targets[focus];
+      if (excess > 0) {
+        let reassigned = 0;
+        for (let i = workers.length - 1; i >= 0 && reassigned < excess; i -= 1) {
+          if (workers[i].workFocus === focus && !workers[i].carrying?.type) {
+            overstaffed.push(workers[i]);
+            counts[focus] -= 1;
+            reassigned += 1;
+          }
+        }
+      }
+    }
 
-    for (let i = 0; i < workers.length; i += 1) {
-      workers[i].workFocus = desiredFocuses[i];
+    for (const ant of overstaffed) {
+      // Assign to the most understaffed role
+      let bestFocus = 'forage';
+      let bestDeficit = Number.NEGATIVE_INFINITY;
+      for (const focus of ['forage', 'dig', 'nurse']) {
+        const deficit = targets[focus] - counts[focus];
+        if (deficit > bestDeficit) {
+          bestDeficit = deficit;
+          bestFocus = focus;
+        }
+      }
+      ant.workFocus = bestFocus;
+      counts[bestFocus] += 1;
     }
   }
 
@@ -375,7 +416,12 @@ export class Colony {
   }
 
   #updateQueenPosition(config) {
-    const target = this.#findQueenSafeTile();
+    // Recalculate queen target tile every 60 ticks (~2 seconds) instead of every tick
+    if (!this._queenTargetTile || (this._queenTargetRecalcCounter = (this._queenTargetRecalcCounter || 0) + 1) >= 60) {
+      this._queenTargetTile = this.#findQueenSafeTile();
+      this._queenTargetRecalcCounter = 0;
+    }
+    const target = this._queenTargetTile;
     if (!target) return;
 
     const dt = config.tickSeconds || BASE_TICK_SECONDS;
