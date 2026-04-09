@@ -93,9 +93,17 @@ export class SimulationCore {
     if (this.tick % 300 === 0) {
       const availableFoodCount = this.foodPellets.filter((p) => !p.takenByAntId).length;
       if (availableFoodCount < 8) {
-        // Spawn new clusters at reasonable distances from nest
-        this.spawnFoodCluster(this.world.nestX + 45, this.world.nestY - 10, 12, 6);
-        this.spawnFoodCluster(this.world.nestX - 60, this.world.nestY - 20, 14, 6);
+        // Spawn new clusters at randomized distances from nest to avoid static gameplay
+        const angle1 = this.rng.range(0, Math.PI * 2);
+        const dist1 = 30 + this.rng.range(0, 40);
+        const angle2 = angle1 + Math.PI * (0.5 + this.rng.range(0, 1)); // opposite-ish direction
+        const dist2 = 30 + this.rng.range(0, 40);
+        const x1 = Math.round(this.world.nestX + Math.cos(angle1) * dist1);
+        const y1 = Math.round(this.world.nestY + Math.sin(angle1) * dist1);
+        const x2 = Math.round(this.world.nestX + Math.cos(angle2) * dist2);
+        const y2 = Math.round(this.world.nestY + Math.sin(angle2) * dist2);
+        this.spawnFoodCluster(x1, Math.min(y1, this.world.nestY), 12, 6);
+        this.spawnFoodCluster(x2, Math.min(y2, this.world.nestY), 14, 6);
       }
     }
 

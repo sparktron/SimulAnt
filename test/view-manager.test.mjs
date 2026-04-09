@@ -61,11 +61,12 @@ test('Colony food stored persists across toggles', () => {
   const vm = new ViewManager(VIEW.SURFACE);
   const sim = new SimulationCore('seed-food');
 
+  const foodBefore = sim.colony.foodStored;
   sim.colony.storeFood(42);
   vm.toggle();
   vm.toggle();
 
-  assert.equal(sim.colony.foodStored, 42);
+  assert.equal(sim.colony.foodStored, foodBefore + 42);
 });
 
 test('Simulation tick count persists across toggles', () => {
@@ -248,34 +249,50 @@ test('Dirt-carrying ant deposits at surface near entrance', () => {
   const sim = new SimulationCore('seed-dirt-surface-deposit');
   const ant = sim.colony.ants[0];
   const entrance = sim.nestEntrances[0];
-  const cfg = {
-    antCap: 300,
-    evaporationRate: 0.01,
-    diffusionRate: 0.12,
-    pheromoneUpdateTicks: 2,
-    toFoodDeposit: 0.5,
-    toHomeDeposit: 0.4,
-    dangerDeposit: 0.6,
-    hazardDeathChance: 0.02,
-    foodPickupRate: 0.7,
-    digChance: 0.04,
-    digEnergyCost: 8,
-    digHomeBoost: 0.9,
-    queenEggTicks: 20,
-    queenEggFoodCost: 0.8,
-    soldierSpawnChance: 0.2,
-  };
 
+  // Place ant on surface right at the entrance with dirt
+  ant.role = 'worker';
   ant.x = entrance.x;
-  ant.y = entrance.y - 1;
+  ant.y = entrance.y;
   ant.carrying = { type: 'dirt', amount: 2 };
   ant.carryingType = 'dirt';
 
   const beforeSoil = sim.nestEntrances[0].soilOnSurface;
-  sim.update(cfg);
 
-  assert.equal(ant.carrying, null);
-  assert.equal(sim.nestEntrances[0].soilOnSurface > beforeSoil, true);
+  // Run individual ant update (not full sim) to isolate behavior
+  const cfg = {
+    tickSeconds: 1 / 30, antCap: 2000, evapFood: 0.01, evapHome: 0.015,
+    evapDanger: 0.08, diffFood: 0.03, diffHome: 0.18, diffDanger: 0.12,
+    diffIntervalTicks: 2, depositFood: 0.2, depositHome: 0.08, dangerDeposit: 0.3,
+    hazardDeathChance: 0, foodPickupRate: 0.7, digChance: 0.04, digEnergyCost: 8,
+    digHomeBoost: 0.9, queenEggTicks: 20, queenEggFoodCost: 0.25,
+    queenHungerDrain: 0.5, queenEatNutrition: 8, queenHealthDrainRate: 7,
+    queenHealthRecoveryPerNutrition: 0.25, queenFoodRequestHealthThreshold: 0.5,
+    queenFoodRequestClearThreshold: 0.8, queenCourierPickupNutrition: 6,
+    broodFoodDrainRate: 0.01, broodGestationSeconds: 8, workerEatNutrition: 25,
+    starvationRecoveryHealth: 5, healthDrainRate: 0, healthRegenRate: 1,
+    healthWorkIdleDrainRate: 0, healthWorkMoveDrainRate: 0, healthWorkCarryDrainRate: 0,
+    healthWorkFightDrainRate: 0, healthEatRecoveryRate: 0.45,
+    workerEmergencyEatNutrition: 35, carryingHungerDrainRate: 0,
+    fightingHungerDrainRate: 0, soldierSpawnChance: 0, foodVisionRadius: 7,
+    surfaceFoodSearchMaxMissTicks: 180, surfaceReturnToNestHungerThreshold: 0.5,
+    followAlpha: 1.5, followBeta: 5, wanderNoise: 0.06, randomTurnChance: 0,
+    momentumBias: 0.3, reversePenalty: 0.9, homeDepositIntervalTicks: 3,
+    homeDepositMinDistance: 20, nearEntranceScatterRadius: 15,
+    foodTrailDistanceScale: 1.1, maxFoodTrailScale: 3.2,
+    homeScentBaseWeight: 1, homeScentSearchStateScale: 0.3,
+    homeScentReturnStateScale: 1, homeScentFalloffStartDist: 10,
+    homeScentFalloffEndDist: 9999, homeScentMinFalloff: 1,
+    homeScentMaxContributionPerStep: 999, homeTieBiasScale: 0.05,
+    foodTieBiasScale: 0.01, pheromoneMaxClamp: 10,
+  };
+
+  sim.colony.setNestEntrances(sim.nestEntrances);
+  sim.colony.setSurfaceFoodPellets([]);
+  ant.update(sim.world, sim.colony, sim.rng, cfg);
+
+  assert.equal(ant.carrying, null, 'Ant should have deposited dirt');
+  assert.ok(sim.nestEntrances[0].soilOnSurface > beforeSoil, 'Soil on surface should increase');
 });
 
 test('Auto-dig workers carry dirt and increase surface soil via entrance deposit', () => {
@@ -440,19 +457,20 @@ test('Soldier ant color migrates from stale soldier-red save data', () => {
 
   const restoredAnt = restored.colony.ants.find((candidate) => candidate.id === ant.id);
   assert.equal(restoredAnt.role, 'soldier');
-  assert.equal(restoredAnt.originalBaseColor, '#1a1208');
-  assert.equal(restoredAnt.baseColor, '#1a1208');
+  // Legacy soldier-red should migrate to the current default for that role
+  assert.equal(restoredAnt.originalBaseColor, Ant.getDefaultBaseColor('soldier'));
+  assert.equal(restoredAnt.baseColor, Ant.getDefaultBaseColor('soldier'));
 });
 
-test('All ant roles use the same colony base color', () => {
+test('All ant roles use their designated base color', () => {
   const rng = new SeededRng('seed-role-color-consistency');
   const worker = new Ant(0, 0, rng, 'worker');
   const soldier = new Ant(0, 0, rng, 'soldier');
   const breeder = new Ant(0, 0, rng, 'breeder');
 
-  assert.equal(worker.baseColor, '#1a1208');
-  assert.equal(soldier.baseColor, '#1a1208');
-  assert.equal(breeder.baseColor, '#1a1208');
+  assert.equal(worker.baseColor, Ant.getDefaultBaseColor('worker'));
+  assert.equal(soldier.baseColor, Ant.getDefaultBaseColor('soldier'));
+  assert.equal(breeder.baseColor, Ant.getDefaultBaseColor('breeder'));
 });
 
 test('Depositing and consuming food updates nest food cell storage', () => {
@@ -481,29 +499,28 @@ test('Food-carrying ants must enter nest before depositing pellets', () => {
   ant.carryingType = 'food';
 
   const cfg = {
-    tickSeconds: 1 / 30,
-    randomTurnChance: 0,
-    maxFoodTrailScale: 1.2,
-    foodTrailDistanceScale: 1,
-    depositFood: 0.1,
-    pheromoneMaxClamp: 10,
-    followAlpha: 1,
-    momentumBias: 0,
-    reversePenalty: 0,
-    followBeta: 1,
-    wanderNoise: 0,
-    homeDepositMinDistance: 2,
-    homeDepositIntervalTicks: 8,
-    depositHome: 0.1,
-    foodVisionRadius: 5,
-    nearEntranceScatterRadius: 4,
-    hazardDeathChance: 0,
-    dangerDeposit: 0,
-    healthDrainRate: 0,
-    healthRegenRate: 0,
-    workerEatNutrition: 0,
-    starvationRecoveryHealth: 0,
+    tickSeconds: 1 / 30, randomTurnChance: 0, maxFoodTrailScale: 1.2,
+    foodTrailDistanceScale: 1, depositFood: 0.1, pheromoneMaxClamp: 10,
+    followAlpha: 1, momentumBias: 0, reversePenalty: 0, followBeta: 1,
+    wanderNoise: 0, homeDepositMinDistance: 2, homeDepositIntervalTicks: 8,
+    depositHome: 0.1, foodVisionRadius: 5, nearEntranceScatterRadius: 4,
+    hazardDeathChance: 0, dangerDeposit: 0, healthDrainRate: 0, healthRegenRate: 0,
+    workerEatNutrition: 0, starvationRecoveryHealth: 0,
+    healthWorkIdleDrainRate: 0, healthWorkMoveDrainRate: 0,
+    healthWorkCarryDrainRate: 0, healthWorkFightDrainRate: 0,
+    healthEatRecoveryRate: 0, carryingHungerDrainRate: 0,
+    fightingHungerDrainRate: 0, workerEmergencyEatNutrition: 0,
+    homeScentBaseWeight: 1, homeScentReturnStateScale: 1,
+    homeScentSearchStateScale: 0.3, homeScentFalloffStartDist: 10,
+    homeScentFalloffEndDist: 9999, homeScentMinFalloff: 1,
+    homeScentMaxContributionPerStep: 999, homeTieBiasScale: 0.05,
+    foodTieBiasScale: 0.01, surfaceFoodSearchMaxMissTicks: 180,
+    surfaceReturnToNestHungerThreshold: 0.5,
   };
+
+  // Ensure ant has full vitals so it focuses on depositing, not eating
+  ant.hunger = 100;
+  ant.health = 100;
 
   ant.update(sim.world, sim.colony, sim.rng, cfg);
   assert.notEqual(ant.carrying, null);
@@ -517,7 +534,7 @@ test('Food-carrying ants must enter nest before depositing pellets', () => {
   let nestFoodTotal = 0;
   for (let i = 0; i < sim.world.nestFood.length; i += 1) nestFoodTotal += sim.world.nestFood[i];
 
-  assert.equal(ant.carrying, null);
-  assert.ok(enteredNestBeforeDrop);
-  assert.ok(nestFoodTotal > 0);
+  assert.equal(ant.carrying, null, 'Ant should deposit food within 200 ticks');
+  assert.ok(enteredNestBeforeDrop, 'Ant should enter nest before depositing');
+  assert.ok(nestFoodTotal > 0, 'Nest food storage should increase');
 });

@@ -41,6 +41,7 @@ export class Colony {
     this.excavatedTiles = 0;
     this.onExcavate = null;
     this.onDepositDirt = null;
+    this._updateCounter = 0;
 
     // Spawn initial ants with some soldiers for visual distinction
     const soldierCount = Math.round(initialAnts * 0.15);  // 15% soldiers
@@ -112,7 +113,9 @@ export class Colony {
    * ticks each ant, compacts dead ants, and hatches brood into ant instances.
    */
   update(config) {
-    this.#depositEntrancePheromone(config);
+    this._updateCounter += 1;
+    // Deposit entrance pheromone every 5 ticks to prevent saturation flooding
+    if (this._updateCounter % 5 === 0) this.#depositEntrancePheromone(config);
     this.#updateQueenSurvival(config);
     this.#updateQueenFoodRequest(config);
     if (this.queen.alive) {
@@ -715,7 +718,7 @@ export class Colony {
       this.world.paintCircle(entrance.x, entrance.y, radius, (idx) => {
         this.world.toHome[idx] = Math.min(
           config.pheromoneMaxClamp,
-          this.world.toHome[idx] + config.depositHome * 2.5,
+          this.world.toHome[idx] + config.depositHome * 0.8,
         );
       });
     }

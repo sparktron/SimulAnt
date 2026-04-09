@@ -111,12 +111,16 @@ export class Ant {
    * Side effects include changing ant state and optionally depositing food.
    */
   #applyPreMoveDecisions(colony, rng, config, context) {
-    if (this.#tryEatFromNest(colony, context.inNest, config)) {
-      this.state = 'EAT';
-    }
+    // Skip eating when already carrying something — prevents double-dipping
+    // (eating from nest store while simultaneously carrying food to deposit)
+    if (!this.carrying?.type) {
+      if (this.#tryEatFromNest(colony, context.inNest, config)) {
+        this.state = 'EAT';
+      }
 
-    if (this.#tryEatNearbyPellet(colony, config)) {
-      this.state = 'EAT';
+      if (this.#tryEatNearbyPellet(colony, config)) {
+        this.state = 'EAT';
+      }
     }
 
     if (this.role === 'worker' && !this.carrying?.type && rng.chance(config.randomTurnChance)) {
@@ -161,16 +165,7 @@ export class Ant {
       return this.#runQueenCourierBehavior(world, colony, rng, config, context);
     }
 
-    // Foragers must exit nest immediately, before any other logic
-    if (this.workFocus === 'forage' && context.inNest && context.entrance) {
-      this.state = 'EXIT_NEST';
-      const exitTargetY = context.entrance.y - 1;
-      if (world.isPassable(context.entrance.x, exitTargetY)) {
-        return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
-      }
-      return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
-    }
-
+    // Carrying checks must come before exit-nest: ants with cargo handle it first
     if (this.carrying?.type === 'dirt') {
       this.state = 'HAUL_DIRT';
       if (context.entrance) {
@@ -230,6 +225,16 @@ export class Ant {
         }
       }
       return didMove;
+    }
+
+    // Foragers exit nest when not carrying anything
+    if (this.workFocus === 'forage' && context.inNest && context.entrance) {
+      this.state = 'EXIT_NEST';
+      const exitTargetY = context.entrance.y - 1;
+      if (world.isPassable(context.entrance.x, exitTargetY)) {
+        return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
+      }
+      return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
     }
 
     if (this.#isLowHealth() && !context.inNest) {
@@ -418,15 +423,12 @@ export class Ant {
       + (this.carrying?.type ? (config.healthWorkCarryDrainRate ?? 0) : 0)
       + (this.state === 'FIGHT' ? (config.healthWorkFightDrainRate ?? 0) : 0);
     this.health = Math.max(0, this.health - healthWorkDrain * dt);
-    // Passive health regen when fed (hunger > 50%)
-    if (this.hunger > this.hungerMax * 0.5 && this.health < this.healthMax) {
-      this.health = Math.min(this.healthMax, this.health + (config.healthRegenRate ?? 0) * dt);
-    }
 
     if (this.hunger <= 0) {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
     }
 
+    // Passive health regen when well-fed (hunger > 65%)
     if (this.hunger > this.hungerMax * 0.65 && this.health < this.healthMax) {
       const regenRate = Math.max(0, config.healthRegenRate ?? 0);
       this.health = Math.min(this.healthMax, this.health + regenRate * dt);

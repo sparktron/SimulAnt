@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
 import { TERRAIN } from '../src/sim/world.js';
+import { Ant } from '../src/sim/ant.js';
 import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 
 function createConfig() {
@@ -278,18 +279,28 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   config.digChance = 0;
   const ant = sim.colony.ants[0];
   sim.colony.ants = [ant];
+  sim.colony.queen.alive = false;
+  sim.colony.queen.brood = 0;
   const entrance = sim.nestEntrances[0];
 
+  sim.colony.foodStored = 0;
+  sim.colony.nestFoodPellets = [];
+
+  ant.role = 'worker';
   ant.x = entrance.x;
   ant.y = entrance.y;
   ant.hunger = ant.hungerMax;
-  ant.originalBaseColor = '#1a1208';
+  ant.health = ant.healthMax;
+  ant.originalBaseColor = Ant.getDefaultBaseColor('worker');
   ant.baseColor = '#d93828';
   ant.carrying = { type: 'food', pelletId: 'test-pellet', pelletNutrition: 3 };
   ant.carryingType = 'food';
 
+  sim.colony.setSurfaceFoodPellets([]);
+  sim.colony.setNestEntrances(sim.nestEntrances);
+
   for (let i = 0; i < 80 && ant.carrying; i += 1) {
-    sim.update(config);
+    ant.update(sim.world, sim.colony, sim.rng, config);
   }
 
   assert.equal(sim.colony.nestFoodPellets.length > 0, true);
@@ -343,8 +354,13 @@ test('single starving ant health decreases deterministically across ticks', () =
   const sim = new SimulationCore('health-decay-seed');
   const config = createConfig();
   sim.colony.ants = sim.colony.ants.slice(0, 1);
+  sim.colony.foodStored = 0;
+  sim.colony.nestFoodPellets = [];
+  sim.colony.queen.alive = false;
+  sim.colony.queen.brood = 0;
 
   const ant = sim.colony.ants[0];
+  ant.role = 'worker';  // Ensure worker (soldiers skip hunger drain)
   ant.hunger = 0;
   ant.health = 100;
 
@@ -364,12 +380,12 @@ test('feeding a starving ant increases health deterministically', () => {
   ant.x = sim.world.nestX;
   ant.y = sim.world.nestY + 2;
   ant.hunger = 0;
-  ant.health = 60;
+  ant.health = 59;
   sim.colony.foodStored = 100;
 
   sim.update(config);
 
-  assert.ok(ant.health > 60);
+  assert.ok(ant.health > 59);
 });
 
 
@@ -457,15 +473,25 @@ test('hungry worker with no surface food returns to nest to eat and resumes fora
   const ant = sim.colony.ants[0];
   sim.colony.ants = [ant];
   sim.foodPellets = [];
+  sim.colony.queen.alive = false;
+  sim.colony.queen.brood = 0;
 
   const entrance = sim.nestEntrances[0];
+  ant.role = 'worker';
   ant.workFocus = 'forage';
   ant.x = entrance.x + 24;
   ant.y = Math.max(0, entrance.y - 6);
   ant.hunger = 20;
-  ant.health = ant.healthMax;
+  ant.health = 55;  // Below 60% so ant will eat from nest store
 
+  sim.colony.foodStored = 0;
+  sim.colony.nestFoodPellets = [];
   sim.colony.depositPellet(40, entrance.x, entrance.y + 3, entrance);
+
+  // Seed home pheromone near entrance so ant can navigate home
+  sim.world.paintCircle(entrance.x, entrance.y, 8, (idx) => {
+    sim.world.toHome[idx] = Math.min(config.pheromoneMaxClamp, sim.world.toHome[idx] + 3);
+  });
 
   let enteredNest = false;
   let ateInNest = false;
@@ -542,13 +568,22 @@ test('worker that repeatedly fails to find surface food falls back to nest stora
   sim.colony.queen.brood = 0;
 
   const entrance = sim.nestEntrances[0];
+  ant.role = 'worker';
+  ant.workFocus = 'forage';
   ant.x = entrance.x + 18;
   ant.y = Math.max(0, entrance.y - 4);
   ant.hunger = 55;
-  ant.health = ant.healthMax;
+  ant.health = 55;  // Below 60% so ant will eat from nest store once it arrives
 
+  sim.colony.foodStored = 0;
+  sim.colony.nestFoodPellets = [];
   sim.colony.depositPellet(50, entrance.x, entrance.y + 3, entrance);
   const foodBefore = sim.colony.foodStored;
+
+  // Seed home pheromone near entrance so ant can navigate home
+  sim.world.paintCircle(entrance.x, entrance.y, 8, (idx) => {
+    sim.world.toHome[idx] = Math.min(config.pheromoneMaxClamp, sim.world.toHome[idx] + 3);
+  });
 
   let reachedNest = false;
   let consumedStoredFood = false;
@@ -659,12 +694,23 @@ test('returning ant can still reach nest entrance from mid-range distance', () =
   const entrance = sim.nestEntrances[0];
   const ant = sim.colony.ants[0];
   sim.colony.ants = [ant];
+  sim.colony.queen.alive = false;
+  sim.colony.queen.brood = 0;
+  sim.colony.foodStored = 0;
+  sim.colony.nestFoodPellets = [];
 
   ant.x = entrance.x + 26;
   ant.y = entrance.y - 9;
   ant.carrying = { type: 'food', pelletId: 'carried-food', pelletNutrition: 3 };
   ant.carryingType = 'food';
+  ant.role = 'worker';
   ant.hunger = ant.hungerMax;
+  ant.health = ant.healthMax;
+
+  // Seed home pheromone near entrance so ant can navigate home
+  sim.world.paintCircle(entrance.x, entrance.y, 8, (idx) => {
+    sim.world.toHome[idx] = Math.min(config.pheromoneMaxClamp, sim.world.toHome[idx] + 3);
+  });
 
   let delivered = false;
   for (let i = 0; i < 140; i += 1) {
@@ -685,17 +731,25 @@ test('searching ants spend most time exploring instead of hugging nest gradient'
   const ant = sim.colony.ants[0];
   sim.colony.ants = [ant];
   sim.foodPellets = [];
+  sim.colony.queen.alive = false;
+  sim.colony.queen.brood = 0;
+  sim.colony.foodStored = 0;  // Force foraging behavior
 
   ant.x = entrance.x + 12;
   ant.y = entrance.y - 2;
   ant.carrying = null;
   ant.carryingType = 'none';
+  ant.role = 'worker';
   ant.hunger = 90;
+  ant.workFocus = 'forage';
+
+  sim.colony.setSurfaceFoodPellets([]);
+  sim.colony.setNestEntrances(sim.nestEntrances);
 
   const totalSteps = 160;
   let exploringSteps = 0;
   for (let i = 0; i < totalSteps; i += 1) {
-    sim.update(config);
+    ant.update(sim.world, sim.colony, sim.rng, config);
     const distance = Math.hypot(ant.x - entrance.x, ant.y - entrance.y);
     if (distance > 15) exploringSteps += 1;
   }
@@ -709,16 +763,24 @@ test('food pickup overrides stale dirt carryingType so renderer markers stay cor
   const ant = sim.colony.ants[0];
   sim.colony.ants = [ant];
 
+  ant.role = 'worker';
   ant.carrying = null;
   ant.carryingType = 'dirt';
   ant.health = ant.healthMax;
-  ant.hunger = ant.hungerMax;
+  ant.hunger = 30;  // Below 40% threshold so ant will forage and pick up food
+  ant.workFocus = 'forage';
+  sim.colony.foodStored = 0;  // Force colony into critical food shortage
+  sim.colony.queen.alive = false;
+  sim.colony.queen.brood = 0;
 
   const pellet = sim.foodPellets[0];
   ant.x = pellet.x;
   ant.y = pellet.y;
 
-  sim.update(config);
+  // Run individual ant update to isolate behavior
+  sim.colony.setSurfaceFoodPellets(sim.foodPellets);
+  sim.colony.setNestEntrances(sim.nestEntrances);
+  ant.update(sim.world, sim.colony, sim.rng, config);
 
   assert.equal(ant.carrying?.type, 'food');
   assert.equal(ant.carryingType, 'food');

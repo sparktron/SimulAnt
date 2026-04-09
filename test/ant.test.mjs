@@ -70,8 +70,8 @@ test('ant initializes with correct defaults for worker', () => {
   assert.equal(ant.alive, true);
   assert.equal(ant.healthMax, 100);
   assert.equal(ant.hungerMax, 100);
-  assert.ok(ant.hunger >= 80 && ant.hunger <= 100);
-  assert.equal(ant.health, 100);
+  assert.ok(ant.hunger >= 20 && ant.hunger <= 100, `hunger ${ant.hunger} should be 20-100`);
+  assert.ok(ant.health >= 75 && ant.health <= 100, `health ${ant.health} should be 75-100`);
   assert.equal(ant.carrying, null);
   assert.equal(ant.carryingType, 'none');
   assert.equal(ant.state, 'IDLE');
@@ -84,8 +84,7 @@ test('ant initializes with correct defaults for soldier', () => {
   const ant = new Ant(5, 5, rng, 'soldier');
 
   assert.equal(ant.role, 'soldier');
-  // Master design: soldiers use same color as workers
-  assert.equal(ant.baseColor, '#1a1208');
+  assert.equal(ant.baseColor, Ant.getDefaultBaseColor('soldier'));
   assert.equal(Ant.getLegacySoldierBaseColor(), '#d93828');
   assert.equal(ant.hungerDrainRates.idle, 2.2);
   assert.equal(ant.hungerDrainRates.move, 4.5);

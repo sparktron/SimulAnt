@@ -59,7 +59,7 @@ test('colony initializes with correct ant count', () => {
   assert.equal(colony.ants.length, 50);
   assert.equal(colony.births, 50);
   assert.equal(colony.deaths, 0);
-  assert.equal(colony.foodStored, 0);
+  assert.equal(colony.foodStored, 5000);  // Colony starts with bootstrap food
 });
 
 test('colony queen starts alive with full vitals', () => {
@@ -125,7 +125,7 @@ test('queen eats from food store when hungry', () => {
   const colony = new Colony(world, rng, 0);
   const config = createTestConfig();
 
-  colony.queen.hunger = 80; // below 90% threshold
+  colony.queen.hunger = 30; // below 40% threshold triggers eating
   colony.foodStored = 100;
   colony.setNestEntrances([]);
   colony.setSurfaceFoodPellets([]);
@@ -239,12 +239,13 @@ test('depositFoodFromAnt stores food and clears ant carrying', () => {
   ant.carrying = { type: 'food', pelletId: 'p1', pelletNutrition: 15 };
   ant.carryingType = 'food';
 
+  const foodBefore = colony.foodStored;
   const result = colony.depositFoodFromAnt(ant, null);
 
   assert.ok(result);
   assert.equal(ant.carrying, null);
   assert.equal(ant.carryingType, 'none');
-  assert.equal(colony.foodStored, 15);
+  assert.equal(colony.foodStored, foodBefore + 15);
   assert.equal(colony.nestFoodPellets.length, 1);
 });
 
