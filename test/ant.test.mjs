@@ -280,6 +280,50 @@ test('soldier ant does not eat from nest (worker-only behavior)', () => {
   assert.equal(soldier.hunger, 10, 'Soldier hunger should remain unchanged');
 });
 
+test('worker standing on entrance tile is treated as surface and does not consume nest food', () => {
+  const rng = new SeededRng('entrance-boundary-eat');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 100;
+
+  const ant = new Ant(world.nestX, world.nestY, rng, 'worker');
+  ant.health = 10; // low enough to eat if this tile is treated as in-nest
+  ant.hunger = 10;
+  colony.ants.push(ant);
+
+  const beforeFood = colony.foodStored;
+  ant.update(world, colony, rng, config);
+
+  assert.equal(colony.foodStored, beforeFood, 'Entrance tile should not count as in-nest feeding location');
+});
+
+test('worker returning from surface enters nest interior while returning to heal', () => {
+  const rng = new SeededRng('entry-target-below-surface');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+
+  const ant = new Ant(world.nestX, world.nestY - 1, rng, 'worker');
+  ant.health = 10; // low health triggers return-to-nest-heal movement
+  ant.hunger = 10;
+  colony.ants.push(ant);
+
+  for (let i = 0; i < 4; i += 1) {
+    ant.update(world, colony, rng, config);
+    if (ant.y > world.nestY) break;
+  }
+
+  assert.ok(ant.y > world.nestY, 'Returning ant should move below entrance into nest interior');
+});
+
 // --- Vitals ---
 
 test('ant hunger drains over time and health drops when starving', () => {

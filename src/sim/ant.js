@@ -95,7 +95,7 @@ export class Ant {
   #sense(world, colony, config) {
     const dt = config.tickSeconds || 1 / 30;
     const idx = world.index(this.x, this.y);
-    const inNest = this.y >= world.nestY;
+    const inNest = this.y > world.nestY;
     const entrance = colony.nearestEntrance(this.x, this.y);
 
     if (inNest) this.failedSurfaceFoodSearchTicks = 0;
@@ -215,9 +215,9 @@ export class Ant {
       const foodDeposit = config.depositFood * trailScale;
       world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, world.toFood[context.idx] + foodDeposit);
 
-      // When close to nest, navigate directly; farther out, follow pheromone
-      if (distToNest < 20 && context.entrance) {
-        didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      // When reasonably close to nest, navigate directly; farther out, follow pheromone
+      if (distToNest < 40 && context.entrance) {
+        didMove = this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
       } else {
         didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
         if (!didMove && context.entrance) {
@@ -239,7 +239,7 @@ export class Ant {
 
     if (this.#isLowHealth() && !context.inNest) {
       this.state = 'RETURN_TO_NEST_HEAL';
-      if (context.entrance) return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      if (context.entrance) return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
       return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
     }
 
@@ -247,7 +247,7 @@ export class Ant {
       this.state = 'NURSE';
       // Nurses work inside the nest; enter if outside, wander if inside
       if (!context.inNest && context.entrance) {
-        return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
       }
       // Inside nest: wander exploring (don't follow home pheromone which leads to exit)
       return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
@@ -257,7 +257,7 @@ export class Ant {
       this.state = 'DIG_SUPPORT';
       // Diggers work inside the nest; enter if outside, deposit pheromone and wander if inside
       if (!context.inNest && context.entrance) {
-        return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
       }
       // Inside nest: deposit pheromone and wander exploring (don't follow home which leads to exit)
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome * 1.4);
@@ -346,7 +346,7 @@ export class Ant {
 
       if (shouldReturnToNestForFood && context.entrance) {
         this.state = 'RETURN_NEST_TO_EAT';
-        return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
       }
     }
 
@@ -614,8 +614,22 @@ export class Ant {
     }
 
     this.state = 'RETURN_NEST_FOR_QUEEN_FOOD';
-    if (context.entrance) return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+    if (context.entrance) return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
     return this.#moveByPheromone(world, rng, config, 'home', context.entrance, colony);
+  }
+
+  #getNestEntryTargetY(world, entrance) {
+    const baseX = entrance?.x ?? this.x;
+    const baseY = entrance?.y ?? world.nestY;
+    const maxDepthSearch = 6;
+
+    for (let dy = 1; dy <= maxDepthSearch; dy += 1) {
+      const candidateY = Math.min(world.height - 1, baseY + dy);
+      if (world.isPassable(baseX, candidateY)) {
+        return candidateY;
+      }
+    }
+    return baseY;
   }
 
   #getHomeScentWeight(config, entrance) {
