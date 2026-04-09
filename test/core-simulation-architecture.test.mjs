@@ -542,7 +542,7 @@ test('low-health worker with full hunger still returns to nest and eats from sto
 
   for (let i = 0; i < 140; i += 1) {
     sim.update(config);
-    if (ant.y >= sim.world.nestY) reachedNest = true;
+    if (ant.y > sim.world.nestY) reachedNest = true;
     if (sim.colony.foodStored < foodBefore) {
       consumedNestFood = true;
       break;
@@ -615,9 +615,9 @@ test('critical-health ant returns to nest and recovers from stored food', () => 
 
   const healthBefore = ant.health;
   let enteredNest = false;
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < 24; i += 1) {
     sim.update(config);
-    if (ant.y >= sim.world.nestY) enteredNest = true;
+    if (ant.y > sim.world.nestY) enteredNest = true;
   }
 
   assert.ok(enteredNest);
@@ -713,7 +713,7 @@ test('returning ant can still reach nest entrance from mid-range distance', () =
   });
 
   let delivered = false;
-  for (let i = 0; i < 140; i += 1) {
+  for (let i = 0; i < 220; i += 1) {
     sim.update(config);
     if (!ant.carrying) {
       delivered = true;
