@@ -42,6 +42,8 @@ export class Colony {
     this.onExcavate = null;
     this.onDepositDirt = null;
     this._updateCounter = 0;
+    this._antGrid = new Map();  // spatial hash: "x,y" → count
+    this._nestFoodTiles = new Set();  // occupied nest food tile keys: "x,y"
 
     // Spawn initial ants with some soldiers for visual distinction
     const soldierCount = Math.round(initialAnts * 0.15);  // 15% soldiers
@@ -121,6 +123,9 @@ export class Colony {
     if (this.queen.alive) {
       this.#updateQueenAndBrood(config);
     }
+
+    this.#rebuildAntGrid();
+    this.#rebuildNestFoodTiles();
 
     for (let i = 0; i < this.ants.length; i += 1) {
       this.ants[i].update(this.world, this, this.rng, config);
@@ -540,6 +545,7 @@ export class Colony {
       y: pelletY,
       amount: nutrition,
     });
+    this._nestFoodTiles.add(`${pelletX},${pelletY}`);
     this.#applyNestCellFoodDelta(nutrition, pelletX, pelletY);
     if (DEBUG_NEST_FOOD_LOGS && this.nestFoodPellets.length !== before) {
       console.log('[nest-food] nestFoodPellets.length changed:', this.nestFoodPellets.length);
@@ -561,13 +567,7 @@ export class Colony {
     if (!this.world.inBounds(x, y) || y < this.world.nestY + 1) return false;
     const terrain = this.world.terrain[this.world.index(x, y)];
     if (terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER) return false;
-
-    for (let i = 0; i < this.nestFoodPellets.length; i += 1) {
-      const pellet = this.nestFoodPellets[i];
-      if (pellet.amount <= 0.0001) continue;
-      if (Math.round(pellet.x) === x && Math.round(pellet.y) === y) return false;
-    }
-    return true;
+    return !this._nestFoodTiles.has(`${x},${y}`);
   }
 
   #findDeepNestStorageY(anchorX) {
@@ -691,7 +691,10 @@ export class Colony {
       pellet.amount -= consumed;
       remaining -= consumed;
       this.#applyNestCellFoodDelta(-consumed, pellet.x, pellet.y);
-      if (pellet.amount <= 0.0001) this.nestFoodPellets.splice(i, 1);
+      if (pellet.amount <= 0.0001) {
+        this._nestFoodTiles.delete(`${Math.round(pellet.x)},${Math.round(pellet.y)}`);
+        this.nestFoodPellets.splice(i, 1);
+      }
     }
 
     if (DEBUG_NEST_FOOD_LOGS && this.nestFoodPellets.length !== before) {
@@ -776,14 +779,27 @@ export class Colony {
   }
 
   countAntsAt(x, y) {
-    let count = 0;
-    for (let i = 0; i < this.ants.length; i += 1) {
-      const ant = this.ants[i];
-      if (ant.alive && ant.x === x && ant.y === y) {
-        count += 1;
+    return this._antGrid.get(`${x},${y}`) || 0;
+  }
+
+  #rebuildNestFoodTiles() {
+    this._nestFoodTiles.clear();
+    for (let i = 0; i < this.nestFoodPellets.length; i += 1) {
+      const pellet = this.nestFoodPellets[i];
+      if (pellet.amount > 0.0001) {
+        this._nestFoodTiles.add(`${Math.round(pellet.x)},${Math.round(pellet.y)}`);
       }
     }
-    return count;
+  }
+
+  #rebuildAntGrid() {
+    this._antGrid.clear();
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive) continue;
+      const key = `${ant.x},${ant.y}`;
+      this._antGrid.set(key, (this._antGrid.get(key) || 0) + 1);
+    }
   }
 
   removePelletById(pelletId) {
@@ -855,6 +871,7 @@ export class Colony {
         })
         .filter((pellet) => Number.isFinite(pellet.x) && Number.isFinite(pellet.y) && Number.isFinite(pellet.amount) && pellet.amount > 0)
       : [];
+    colony.#rebuildNestFoodTiles();
     colony.setWorkAllocation(data.workAllocation || colony.workAllocation);
     colony.setCasteAllocation(data.casteAllocation || colony.casteAllocation);
     colony.ants = (Array.isArray(data.ants) ? data.ants : []).map((a) => {
