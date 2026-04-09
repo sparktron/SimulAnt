@@ -470,16 +470,21 @@ export class Colony {
   }
 
   #findQueenSafeTile() {
-    const lowerHalfStartY = this.#getLowerHalfStartY();
+    const SEARCH_RADIUS = 30;
+    const lowerHalfStartY = this.#getLowerHalfStartY(SEARCH_RADIUS);
+    const { nestX, nestY, width, height } = this.world;
+    const minX = Math.max(0, nestX - SEARCH_RADIUS);
+    const maxX = Math.min(width - 1, nestX + SEARCH_RADIUS);
+    const maxY = Math.min(height - 1, nestY + SEARCH_RADIUS);
     let best = null;
     let bestDepth = Number.NEGATIVE_INFINITY;
     let bestOffset = Number.POSITIVE_INFINITY;
 
-    for (let y = lowerHalfStartY; y < this.world.height; y += 1) {
-      for (let x = 0; x < this.world.width; x += 1) {
+    for (let y = lowerHalfStartY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
         if (!this.world.isPassable(x, y)) continue;
         const depth = y;
-        const offset = Math.abs(x - this.world.nestX);
+        const offset = Math.abs(x - nestX);
         if (depth > bestDepth || (depth === bestDepth && offset < bestOffset)) {
           bestDepth = depth;
           bestOffset = offset;
@@ -491,30 +496,34 @@ export class Colony {
     if (best) return best;
 
     return {
-      x: Math.max(0, Math.min(this.world.width - 1, Math.round(this.world.nestX))),
-      y: Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(this.world.nestY + 6))),
+      x: Math.max(0, Math.min(width - 1, Math.round(nestX))),
+      y: Math.max(nestY + 1, Math.min(height - 1, Math.round(nestY + 6))),
     };
   }
 
-  #getLowerHalfStartY() {
-    let minY = Number.POSITIVE_INFINITY;
-    let maxY = Number.NEGATIVE_INFINITY;
+  #getLowerHalfStartY(searchRadius) {
+    const { nestX, nestY, width, height } = this.world;
+    const minX = Math.max(0, nestX - searchRadius);
+    const maxX = Math.min(width - 1, nestX + searchRadius);
+    const maxScanY = Math.min(height - 1, nestY + searchRadius);
+    let minPassableY = Number.POSITIVE_INFINITY;
+    let maxPassableY = Number.NEGATIVE_INFINITY;
 
-    for (let y = this.world.nestY + 1; y < this.world.height; y += 1) {
-      for (let x = 0; x < this.world.width; x += 1) {
+    for (let y = nestY + 1; y <= maxScanY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
         if (!this.world.isPassable(x, y)) continue;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
+        if (y < minPassableY) minPassableY = y;
+        if (y > maxPassableY) maxPassableY = y;
       }
     }
 
-    if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
-      return Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, this.world.nestY + 6));
+    if (!Number.isFinite(minPassableY) || !Number.isFinite(maxPassableY)) {
+      return Math.max(nestY + 1, Math.min(height - 1, nestY + 6));
     }
 
     return Math.max(
-      this.world.nestY + 1,
-      Math.min(this.world.height - 1, minY + Math.floor((maxY - minY + 1) / 2)),
+      nestY + 1,
+      Math.min(height - 1, minPassableY + Math.floor((maxPassableY - minPassableY + 1) / 2)),
     );
   }
 

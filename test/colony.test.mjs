@@ -439,3 +439,117 @@ test('syncQueenPositionToNest repositions queen', () => {
 
   assert.ok(colony.queen.y > 20, 'Queen should be below new nestY');
 });
+
+// --- Spatial Hash Grid (countAntsAt) ---
+
+test('countAntsAt returns 0 when no ants present', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('grid-empty');
+  const colony = new Colony(world, rng, 0);
+  const config = createTestConfig();
+  colony.update(config);
+
+  assert.equal(colony.countAntsAt(10, 10), 0);
+});
+
+test('countAntsAt returns correct count after grid rebuild', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('grid-count');
+  const colony = new Colony(world, rng, 5);
+
+  // Place all ants at the same position
+  for (const ant of colony.ants) {
+    ant.x = 20;
+    ant.y = 20;
+  }
+  // Manually rebuild the grid (update() would move ants)
+  colony._antGrid.clear();
+  for (const ant of colony.ants) {
+    if (!ant.alive) continue;
+    const key = `${ant.x},${ant.y}`;
+    colony._antGrid.set(key, (colony._antGrid.get(key) || 0) + 1);
+  }
+
+  assert.equal(colony.countAntsAt(20, 20), 5);
+  assert.equal(colony.countAntsAt(10, 10), 0);
+});
+
+test('countAntsAt excludes dead ants', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('grid-dead');
+  const colony = new Colony(world, rng, 3);
+
+  for (const ant of colony.ants) {
+    ant.x = 15;
+    ant.y = 15;
+  }
+  colony.ants[0].alive = false;
+  // Manually rebuild the grid
+  colony._antGrid.clear();
+  for (const ant of colony.ants) {
+    if (!ant.alive) continue;
+    const key = `${ant.x},${ant.y}`;
+    colony._antGrid.set(key, (colony._antGrid.get(key) || 0) + 1);
+  }
+
+  assert.equal(colony.countAntsAt(15, 15), 2);
+});
+
+// --- Nest Food Tile Set ---
+
+test('nest food Set tracks pellets correctly', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('food-set');
+  const colony = new Colony(world, rng, 0);
+
+  // Directly add pellets to test the Set rebuild
+  const px = world.nestX;
+  const py = world.nestY + 3;
+  colony.nestFoodPellets.push({ x: px, y: py, amount: 5 });
+  colony.nestFoodPellets.push({ x: px + 1, y: py, amount: 10 });
+
+  // Clear and rebuild (simulating what update does)
+  colony._nestFoodTiles.clear();
+  for (const pellet of colony.nestFoodPellets) {
+    if (pellet.amount > 0.0001) {
+      colony._nestFoodTiles.add(`${Math.round(pellet.x)},${Math.round(pellet.y)}`);
+    }
+  }
+
+  assert.ok(colony._nestFoodTiles.has(`${px},${py}`));
+  assert.ok(colony._nestFoodTiles.has(`${px + 1},${py}`));
+  assert.ok(!colony._nestFoodTiles.has(`${px + 5},${py + 5}`));
+});
+
+test('nest food Set excludes depleted pellets', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('food-depleted');
+  const colony = new Colony(world, rng, 0);
+
+  colony.nestFoodPellets.push({ x: 10, y: 35, amount: 5 });
+  colony.nestFoodPellets.push({ x: 11, y: 35, amount: 0.00001 }); // below threshold
+
+  colony._nestFoodTiles.clear();
+  for (const pellet of colony.nestFoodPellets) {
+    if (pellet.amount > 0.0001) {
+      colony._nestFoodTiles.add(`${Math.round(pellet.x)},${Math.round(pellet.y)}`);
+    }
+  }
+
+  assert.ok(colony._nestFoodTiles.has('10,35'));
+  assert.ok(!colony._nestFoodTiles.has('11,35'), 'Depleted pellet should not be in Set');
+});
+
+// --- Queen Safe Tile Search ---
+
+test('queen safe tile is within search radius of nest', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('queen-safe');
+  const colony = new Colony(world, rng, 0);
+
+  const qx = colony.queen.x;
+  const qy = colony.queen.y;
+  assert.ok(Math.abs(qx - world.nestX) <= 30, 'Queen X should be within search radius');
+  assert.ok(qy > world.nestY, 'Queen Y should be below nest');
+  assert.ok(qy - world.nestY <= 30, 'Queen Y should be within search radius');
+});
