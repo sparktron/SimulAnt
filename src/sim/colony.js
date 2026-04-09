@@ -698,7 +698,8 @@ export class Colony {
 
 
   storeFood(amount) {
-    this.depositPellet(amount);
+    const dropPoint = this.getNestFoodDropPoint();
+    this.depositPellet(amount, dropPoint.x, dropPoint.y);
   }
   setSurfaceFoodPellets(pellets) {
     this.surfaceFoodPellets = pellets;

@@ -16,7 +16,7 @@ export class FoodPellet {
   spoil() {
     this.age += 1;
     this.nutrition = Math.max(0, this.nutrition - FOOD_SPOIL_RATE);
-    return this.nutrition <= 0;
+    return this.nutrition <= FOOD_MIN_NUTRITION;
   }
 }
 

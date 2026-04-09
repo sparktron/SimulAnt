@@ -92,7 +92,7 @@ const state = {
     foodTrailDistanceScale: 1.1,
     maxFoodTrailScale: 3.2,
     homeScentBaseWeight: 1.0,
-    homeScentSearchStateScale: 0,
+    homeScentSearchStateScale: 0.3,
     homeScentReturnStateScale: 1.0,
     homeScentFalloffStartDist: 10,
     homeScentFalloffEndDist: 9999,
@@ -123,6 +123,7 @@ const nestRenderer = new NestRenderer(canvas, simCore.world);
 surfaceRenderer.resize();
 nestRenderer.resize();
 
+simCore.colony.setWorkAllocation(state.colonyStatus.workAllocation);
 applyColonyStatusToConfig();
 
 new InputRouter(canvas, viewManager, {
