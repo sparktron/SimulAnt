@@ -139,6 +139,13 @@ Upload:
 - Tune diffusion/evaporation carefully for balance + performance.
 - Keep world size at default (`256x256`) for smooth play on typical laptops.
 
+### Recent Optimizations (Phase 2–3)
+- **Spatial hash grid** for ant counting: O(n) → O(1) per position lookup
+- **Set-based nest food tile tracking**: O(pellets) → O(1) occupancy checks
+- **Bounded queen safe-tile search**: Full 256×256 world scan → 30-tile radius around nest
+- **Entrance pheromone throttling**: Every tick → every 5 ticks (reduced overhead)
+- **Deterministic food respawn**: Hardcoded locations → randomized angles/distances (better testing)
+
 ---
 
 ## 📖 Project Docs
