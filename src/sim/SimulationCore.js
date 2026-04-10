@@ -83,11 +83,6 @@ export class SimulationCore {
       nestEntrances: this.nestEntrances,
     });
 
-    // Spoil surface food every 10 ticks
-    if (this.tick % 10 === 0) {
-      this.foodPellets = this.foodPellets.filter((pellet) => !pellet.spoil());
-    }
-
     // Respawn food clusters periodically (every 300 ticks ~10 seconds) if count is low
     // This ensures steady food availability for the colony to survive
     if (this.tick % 300 === 0) {
@@ -314,7 +309,11 @@ export class SimulationCore {
     this.#rebuildTickPipeline();
     this.tick = data.tick || 0;
     this.foodPellets = Array.isArray(data.foodPellets)
-      ? data.foodPellets.map((pellet) => new FoodPellet(pellet.id, pellet.x, pellet.y, pellet.nutrition))
+      ? data.foodPellets.map((pellet) => {
+        const restored = new FoodPellet(pellet.id, pellet.x, pellet.y, pellet.nutrition);
+        restored.takenByAntId = typeof pellet.takenByAntId === 'string' ? pellet.takenByAntId : null;
+        return restored;
+      })
       : [];
     this.nextPelletId = data.nextPelletId || 1;
 
