@@ -481,6 +481,9 @@ test('Depositing and consuming food updates nest food cell storage', () => {
   sim.colony.depositPellet(5);
   assert.equal(totalNestFood(), before + 5);
 
+  // Exhaust virtual food reserve first so physical pellets get consumed.
+  // Virtual food drains silently (no nestFood change); physical pellets drain cells.
+  sim.colony._virtualFoodStored = 0;
   sim.colony.consumeFromStore(2);
   assert.equal(totalNestFood(), before + 3);
 });

@@ -208,6 +208,14 @@ export class Ant {
           if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
           return didMove;
         }
+
+        // No storage tile available (nest not excavated enough yet).
+        // Exit back to the surface so the ant doesn't freeze at the entrance boundary.
+        this.state = 'RETURN_HOME';
+        if (context.entrance) {
+          didMove = this.#moveToward(world, context.entrance.x, context.entrance.y - 1, rng);
+          if (didMove) return didMove;
+        }
       }
 
       const distToNest = context.entrance ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) : 0;

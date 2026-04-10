@@ -44,6 +44,7 @@ export class Colony {
     this._updateCounter = 0;
     this._antGrid = new Map();  // spatial hash: "x,y" → count
     this._nestFoodTiles = new Set();  // occupied nest food tile keys: "x,y"
+    this._virtualFoodStored = 0;  // bootstrap food not backed by physical pellets
 
     // Spawn initial ants with some soldiers for visual distinction
     const soldierCount = Math.round(initialAnts * 0.15);  // 15% soldiers
@@ -57,6 +58,7 @@ export class Colony {
     // while foragers ramp up gathering (takes time to find food and return)
     // With food respawning every 300 ticks when < 8 pellets, this gives stability
     this.foodStored = 5000;
+    this._virtualFoodStored = 5000;  // consumed before physical pellets so deposits accumulate visibly
 
     this.syncQueenPositionToNest(world.nestX, world.nestY);
   }
@@ -319,6 +321,7 @@ export class Colony {
       if (this.queen.eggProgress >= config.queenEggTicks) {
         this.queen.eggProgress = 0;
         this.foodStored -= config.queenEggFoodCost;
+        this._virtualFoodStored = Math.max(0, this._virtualFoodStored - config.queenEggFoodCost);
         this.queen.eggsLaid += 1;
         this.queen.brood += 1;
       }
@@ -531,7 +534,16 @@ export class Colony {
     if (amount <= 0 || this.foodStored <= 0) return 0;
     const consumed = Math.min(amount, this.foodStored);
     this.foodStored -= consumed;
-    this.#consumeNestFoodPellets(consumed);
+
+    // Drain virtual (bootstrap) food reserve first so that physical pellets deposited
+    // by foragers accumulate visibly rather than being immediately consumed.
+    const virtualDrain = Math.min(consumed, this._virtualFoodStored);
+    this._virtualFoodStored -= virtualDrain;
+    const physicalDrain = consumed - virtualDrain;
+    if (physicalDrain > 0) {
+      this.#consumeNestFoodPellets(physicalDrain);
+    }
+
     return consumed;
   }
 
@@ -828,6 +840,7 @@ export class Colony {
   serialize() {
     return {
       foodStored: this.foodStored,
+      virtualFoodStored: this._virtualFoodStored,
       births: this.births,
       deaths: this.deaths,
       queen: this.queen,
@@ -860,6 +873,7 @@ export class Colony {
   static fromSerialized(world, rng, data) {
     const colony = new Colony(world, rng, 0);
     colony.foodStored = data.foodStored;
+    colony._virtualFoodStored = Number.isFinite(data.virtualFoodStored) ? data.virtualFoodStored : 0;
     colony.births = data.births;
     colony.deaths = data.deaths;
     colony.queen = { ...colony.queen, ...(data.queen || {}) };
