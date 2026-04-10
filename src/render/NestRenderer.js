@@ -185,13 +185,22 @@ export class NestRenderer {
     const broodY = Math.max(this.world.nestY + 2, Math.min(this.world.height - 1, this.world.nestY + 8));
 
     const eggCount = Math.round(colony.queen.brood);
+    if (eggCount <= 0) return;
 
-    // Arrange eggs in a spiral/circular pattern around a brood pile in the nest.
+    // Nurses keep eggs in a compact, even brood patch rather than tracing queen movement.
+    const cols = Math.max(1, Math.ceil(Math.sqrt(eggCount)));
+    const rowSpacing = 0.72;
+    const colSpacing = 0.78;
+    const rows = Math.ceil(eggCount / cols);
+    const patchHalfWidth = ((cols - 1) * colSpacing) * 0.5;
+    const patchHalfHeight = ((rows - 1) * rowSpacing) * 0.5;
+
     for (let i = 0; i < eggCount; i += 1) {
-      const angle = (i / Math.max(1, eggCount)) * Math.PI * 2;
-      const distance = 1.5 + (i % 3) * 0.8;  // Nested rings
-      const eggX = broodX + Math.cos(angle) * distance;
-      const eggY = broodY + Math.sin(angle) * distance;
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      const stagger = (row % 2) * (colSpacing * 0.5);
+      const eggX = broodX - patchHalfWidth + (col * colSpacing) + stagger;
+      const eggY = broodY - patchHalfHeight + (row * rowSpacing);
 
       // Draw egg as small white/cream circle
       ctx.fillStyle = '#ffffee';

@@ -158,6 +158,13 @@ test('NestRenderer renders brood eggs in a nest brood area, not attached to quee
     const firstEgg = mainCtx.arcArgs[0];
     const distToQueen = Math.hypot(firstEgg.x - (colony.queen.x + 0.5), firstEgg.y - (colony.queen.y + 0.5));
     assert.ok(distToQueen > 4, 'first brood egg should render away from queen position');
+
+    const uniqueRows = new Set(mainCtx.arcArgs.map((egg) => egg.y.toFixed(2)));
+    assert.ok(uniqueRows.size <= 2, 'brood eggs should be clustered into compact rows');
+
+    const rowOneY = mainCtx.arcArgs[0].y;
+    const rowTwoY = mainCtx.arcArgs[3].y;
+    assert.ok(Math.abs(rowOneY - rowTwoY) > 0.5, 'adjacent brood rows should have visible separation');
   } finally {
     globalThis.document = oldDocument;
   }
