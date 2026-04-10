@@ -700,7 +700,14 @@ export class Ant {
     const requested = critical
       ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
       : config.workerEatNutrition;
-    const consumed = colony.consumeFromStore(requested);
+    // Clamp intake to remaining hunger capacity to avoid wasting colony food.
+    // Without this, a nearly full ant can consume an entire ration and discard
+    // the overflow when hunger is capped, draining stores too quickly.
+    const hungerCapacity = Math.max(0, this.hungerMax - this.hunger);
+    const requestedIntake = Math.min(requested, hungerCapacity);
+    if (requestedIntake <= 0) return false;
+
+    const consumed = colony.consumeFromStore(requestedIntake);
     if (consumed <= 0) return false;
 
     this.hunger = Math.min(this.hungerMax, this.hunger + consumed);

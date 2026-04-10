@@ -378,6 +378,27 @@ test('worker standing on entrance tile is treated as surface and does not consum
   assert.equal(colony.foodStored, beforeFood, 'Entrance tile should not count as in-nest feeding location');
 });
 
+test('worker nest feeding only consumes hunger deficit from store', () => {
+  const rng = new SeededRng('bounded-nest-eat');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 100;
+
+  const ant = new Ant(world.nestX, world.nestY + 3, rng, 'worker');
+  ant.health = 10;
+  ant.hunger = 95;
+  colony.ants.push(ant);
+
+  ant.update(world, colony, rng, config);
+
+  assert.equal(colony.foodStored, 95, 'Only 5 nutrition should be consumed to fill hunger to max');
+  assert.ok(ant.hunger > 99.8 && ant.hunger <= 100, 'Ant hunger should be effectively full after bounded intake');
+});
+
 test('worker returning from surface enters nest interior while returning to heal', () => {
   const rng = new SeededRng('entry-target-below-surface');
   const world = createTestWorld();
