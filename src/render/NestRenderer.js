@@ -178,20 +178,20 @@ export class NestRenderer {
   }
 
   #drawEggs(ctx, colony) {
-    // Draw eggs clustered around the queen's position
+    // Draw eggs as a brood pile in the nest chamber.
     if (!colony.queen.alive || colony.queen.brood <= 0) return;
 
-    const queenX = Number.isFinite(colony.queen.x) ? colony.queen.x : this.world.nestX;
-    const queenY = Number.isFinite(colony.queen.y) ? colony.queen.y : this.world.nestY + 6;
+    const broodX = Math.max(0, Math.min(this.world.width - 1, this.world.nestX + 4));
+    const broodY = Math.max(this.world.nestY + 2, Math.min(this.world.height - 1, this.world.nestY + 8));
 
     const eggCount = Math.round(colony.queen.brood);
 
-    // Arrange eggs in a spiral/circular pattern around the queen
+    // Arrange eggs in a spiral/circular pattern around a brood pile in the nest.
     for (let i = 0; i < eggCount; i += 1) {
       const angle = (i / Math.max(1, eggCount)) * Math.PI * 2;
       const distance = 1.5 + (i % 3) * 0.8;  // Nested rings
-      const eggX = queenX + Math.cos(angle) * distance;
-      const eggY = queenY + Math.sin(angle) * distance;
+      const eggX = broodX + Math.cos(angle) * distance;
+      const eggY = broodY + Math.sin(angle) * distance;
 
       // Draw egg as small white/cream circle
       ctx.fillStyle = '#ffffee';

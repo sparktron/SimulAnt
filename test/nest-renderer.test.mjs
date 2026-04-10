@@ -6,6 +6,7 @@ import { TERRAIN } from '../src/sim/world.js';
 function createFakeCanvasContext() {
   return {
     arcCalls: 0,
+    arcArgs: [],
     fillRectCalls: [],
     fillStyle: '#000000',
     lineWidth: 1,
@@ -24,7 +25,10 @@ function createFakeCanvasContext() {
     fill() {},
     fillText() {},
     strokeRect() {},
-    arc() { this.arcCalls += 1; },
+    arc(x, y, r) {
+      this.arcCalls += 1;
+      this.arcArgs.push({ x, y, r });
+    },
   };
 }
 
@@ -102,6 +106,58 @@ test('NestRenderer hides queen marker by default and shows it only when enabled'
 
     renderer.draw(colony, { showDebugStats: false, showQueenMarker: true });
     assert.equal(mainCtx.arcCalls, 2, 'queen marker should render as two circles when enabled');
+  } finally {
+    globalThis.document = oldDocument;
+  }
+});
+
+test('NestRenderer renders brood eggs in a nest brood area, not attached to queen position', () => {
+  const world = createWorld();
+  const mainCtx = createFakeCanvasContext();
+  const offscreenCtx = createOffscreenContext(world.width, world.height);
+
+  const fakeDocument = {
+    createElement(tag) {
+      assert.equal(tag, 'canvas');
+      return {
+        width: world.width,
+        height: world.height,
+        getContext() {
+          return offscreenCtx;
+        },
+      };
+    },
+  };
+
+  const oldDocument = globalThis.document;
+  globalThis.document = fakeDocument;
+
+  try {
+    const canvas = {
+      clientWidth: 320,
+      clientHeight: 200,
+      getContext() {
+        return mainCtx;
+      },
+      getBoundingClientRect() {
+        return { width: this.clientWidth, height: this.clientHeight };
+      },
+    };
+
+    const renderer = new NestRenderer(canvas, world);
+    const colony = {
+      ants: [],
+      nestFoodPellets: [],
+      foodStored: 0,
+      queen: { alive: true, brood: 6, hunger: 100, health: 100, x: 0, y: world.height - 1 },
+    };
+
+    renderer.draw(colony, { showDebugStats: false });
+    assert.equal(mainCtx.arcCalls, 6, 'brood eggs should render by default');
+
+    const firstEgg = mainCtx.arcArgs[0];
+    const distToQueen = Math.hypot(firstEgg.x - (colony.queen.x + 0.5), firstEgg.y - (colony.queen.y + 0.5));
+    assert.ok(distToQueen > 4, 'first brood egg should render away from queen position');
   } finally {
     globalThis.document = oldDocument;
   }
