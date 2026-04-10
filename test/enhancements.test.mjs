@@ -6,7 +6,7 @@ import { Colony } from '../src/sim/colony.js';
 import { SeededRng } from '../src/sim/rng.js';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
 import { ColonyStats } from '../src/sim/ColonyStats.js';
-import { FoodPellet, FOOD_SPOIL_RATE } from '../src/sim/Food.js';
+import { FoodPellet } from '../src/sim/Food.js';
 
 function createTestConfig() {
   return {
@@ -288,69 +288,25 @@ test('ants avoid tiles with high danger pheromone', () => {
 });
 
 // ============================================================
-// Enhancement #4: Food Spoilage
+// Enhancement #4: Food Pellets (No Spoilage)
 // ============================================================
 
-test('FoodPellet has age property', () => {
+test('FoodPellet stores base nutrition and reservation metadata', () => {
   const pellet = new FoodPellet('p1', 10, 10, 25);
 
-  assert.equal(pellet.age, 0);
   assert.equal(pellet.nutrition, 25);
+  assert.equal(pellet.takenByAntId, null);
 });
 
-test('FoodPellet nutrition decreases when spoiled', () => {
-  const pellet = new FoodPellet('p1', 10, 10, 25);
-
-  pellet.spoil();
-  assert.ok(pellet.nutrition < 25, 'Nutrition should decrease after spoiling');
-  assert.equal(pellet.age, 1);
-});
-
-test('FoodPellet spoil returns true when fully decayed', () => {
-  const pellet = new FoodPellet('p1', 10, 10, 0.001);
-
-  const removed = pellet.spoil();
-  assert.ok(removed, 'Should return true when nutrition reaches 0');
-});
-
-test('food spoilage is gradual and predictable', () => {
-  const pellet = new FoodPellet('p1', 10, 10, 25);
-
-  for (let i = 0; i < 100; i += 1) pellet.spoil();
-
-  assert.ok(pellet.nutrition > 0, 'Food should not fully spoil in 100 ticks');
-  assert.ok(pellet.nutrition < 25, 'Nutrition should have decreased');
-  assert.equal(pellet.age, 100);
-});
-
-test('SimulationCore removes fully spoiled food pellets', () => {
-  const sim = new SimulationCore('spoil-test');
+test('surface food pellets do not decay over time', () => {
+  const sim = new SimulationCore('no-spoil-test');
   const config = createTestConfig();
 
-  // Add a tiny nutrition pellet that will spoil fast
-  sim.foodPellets.push(new FoodPellet('spoil-1', 10, 10, 0.001));
-  const before = sim.foodPellets.length;
+  sim.foodPellets = [new FoodPellet('stable-pellet', 5, 5, 12)];
 
-  // Run enough ticks for spoilage (spoilage runs every 10 ticks)
-  for (let i = 0; i < 20; i += 1) sim.update(config);
-
-  // The tiny pellet should have been removed
-  const spoilPellet = sim.foodPellets.find((p) => p.id === 'spoil-1');
-  assert.equal(spoilPellet, undefined, 'Fully spoiled pellet should be removed');
-});
-
-test('food pellets retain most nutrition after moderate time', () => {
-  const sim = new SimulationCore('spoil-moderate');
-  const config = createTestConfig();
-
-  sim.foodPellets.push(new FoodPellet('test-p', 50, 50, 25));
-
-  // Run 300 ticks (10 seconds) = 30 spoil cycles
   for (let i = 0; i < 300; i += 1) sim.update(config);
 
-  const pellet = sim.foodPellets.find((p) => p.id === 'test-p');
-  if (pellet) {
-    assert.ok(pellet.nutrition > 20, `Food should retain most nutrition, got ${pellet.nutrition}`);
-  }
-  // Pellet may have been picked up by an ant, which is also fine
+  const pellet = sim.foodPellets.find((p) => p.id === 'stable-pellet');
+  assert.ok(pellet, 'Pellet should still exist without spoilage');
+  assert.equal(pellet.nutrition, 12, 'Pellet nutrition should remain unchanged');
 });

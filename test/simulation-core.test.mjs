@@ -247,6 +247,22 @@ test('serialize and loadFromSerialized round-trip preserves state', () => {
   assert.equal(sim2.foodPellets.length, sim.foodPellets.length);
 });
 
+test('loadFromSerialized preserves pellet reservation state', () => {
+  const sim = new SimulationCore('serial-food-pellets');
+  const firstPellet = sim.foodPellets[0];
+  assert.ok(firstPellet, 'Expected an initial food pellet');
+
+  firstPellet.takenByAntId = 'ant-locked';
+
+  const serialized = sim.serialize({});
+  const sim2 = new SimulationCore('other');
+  sim2.loadFromSerialized(serialized);
+
+  const restored = sim2.foodPellets.find((pellet) => pellet.id === firstPellet.id);
+  assert.ok(restored, 'Expected pellet to be restored by id');
+  assert.equal(restored.takenByAntId, 'ant-locked');
+});
+
 test('loadFromSerialized handles missing nestEntrances gracefully', () => {
   const sim = new SimulationCore('missing-entrances');
   const config = createConfig();
