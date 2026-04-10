@@ -148,6 +148,48 @@ test('ant does not move onto wall terrain', () => {
   }
 });
 
+test('ant movement tie-break strongly prefers forward over reverse', () => {
+  const world = createTestWorld(64, 64);
+  const config = createTestConfig();
+  let forwardMoves = 0;
+  let reverseMoves = 0;
+
+  for (let y = 0; y < world.height; y += 1) {
+    for (let x = 0; x < world.width; x += 1) {
+      world.terrain[world.index(x, y)] = TERRAIN.WALL;
+    }
+  }
+
+  const antX = world.nestX;
+  const antY = world.nestY + 3; // underground
+  const eastX = antX + 1;
+  const westX = antX - 1;
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY + 1, radius: 2 };
+
+  world.terrain[world.index(antX, antY)] = TERRAIN.TUNNEL;
+  world.terrain[world.index(eastX, antY)] = TERRAIN.TUNNEL;
+  world.terrain[world.index(westX, antY)] = TERRAIN.TUNNEL;
+
+  for (let i = 0; i < 300; i += 1) {
+    const rng = new SeededRng(`forward-bias-${i}`);
+    const colony = createTestColony(world, rng, 0);
+    colony.setNestEntrances([entrance]);
+    colony.setSurfaceFoodPellets([]);
+
+    const ant = new Ant(antX, antY, rng, 'worker');
+    ant.dir = 0; // facing east
+    ant.update(world, colony, rng, config);
+
+    if (ant.x === eastX) forwardMoves += 1;
+    if (ant.x === westX) reverseMoves += 1;
+  }
+
+  assert.ok(
+    forwardMoves > reverseMoves * 1.8,
+    `Forward should be strongly preferred (forward=${forwardMoves}, reverse=${reverseMoves})`,
+  );
+});
+
 // --- Hazard Interaction ---
 
 test('ant can step onto hazard terrain and may die', () => {

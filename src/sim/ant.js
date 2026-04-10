@@ -547,7 +547,7 @@ export class Ant {
         }
       }
       if (safestDirs.length > 0) {
-        chosenDir = safestDirs[rng.int(safestDirs.length)];
+        chosenDir = this.#pickDirectionalCandidate(safestDirs, rng);
       } else {
         chosenDir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
       }
@@ -723,31 +723,62 @@ export class Ant {
   }
 
   #moveToward(world, tx, ty, rng) {
-    let bestX = this.x;
-    let bestY = this.y;
     let bestD = Number.POSITIVE_INFINITY;
-    let bestDir = this.dir;
+    const bestCandidates = [];
 
     for (let i = 0; i < DIRS.length; i += 1) {
       const nx = this.x + DIRS[i][0];
       const ny = this.y + DIRS[i][1];
       if (!world.isPassable(nx, ny)) continue;
       const d = Math.hypot(tx - nx, ty - ny);
-      if (d < bestD || (d === bestD && rng.chance(0.5))) {
+      if (d < bestD) {
         bestD = d;
-        bestX = nx;
-        bestY = ny;
-        bestDir = i;
+        bestCandidates.length = 0;
+        bestCandidates.push(i);
+      } else if (Math.abs(d - bestD) <= 1e-9) {
+        bestCandidates.push(i);
       }
     }
 
-    if (bestX !== this.x || bestY !== this.y) {
-      this.x = bestX;
-      this.y = bestY;
+    if (bestCandidates.length > 0) {
+      const bestDir = this.#pickDirectionalCandidate(bestCandidates, rng);
+      this.x += DIRS[bestDir][0];
+      this.y += DIRS[bestDir][1];
       this.dir = bestDir;
       return true;
     }
 
     return false;
+  }
+
+  #pickDirectionalCandidate(candidates, rng) {
+    if (!candidates?.length) return this.dir;
+    if (candidates.length === 1) return candidates[0];
+
+    const reverseDir = (this.dir + 4) % DIRS.length;
+    let totalWeight = 0;
+    const weightedCandidates = candidates.map((candidateDir) => {
+      let weight = 1;
+      if (candidateDir === this.dir) {
+        weight = 4;
+      } else if (candidateDir === reverseDir) {
+        weight = 0.8;
+      } else {
+        const delta = Math.min(
+          (candidateDir - this.dir + DIRS.length) % DIRS.length,
+          (this.dir - candidateDir + DIRS.length) % DIRS.length,
+        );
+        weight = delta === 1 ? 2.5 : 1.6;
+      }
+      totalWeight += weight;
+      return { candidateDir, weight };
+    });
+
+    let pick = rng.range(0, totalWeight);
+    for (let i = 0; i < weightedCandidates.length; i += 1) {
+      pick -= weightedCandidates[i].weight;
+      if (pick <= 0) return weightedCandidates[i].candidateDir;
+    }
+    return weightedCandidates[weightedCandidates.length - 1].candidateDir;
   }
 }
