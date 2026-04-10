@@ -70,12 +70,14 @@ export class Ant {
     }
 
     const context = this.#sense(world, colony, config);
+    if (this.#resolveHazard(world, colony, rng, config, context.idx)) return;
 
     this.#applyPreMoveDecisions(colony, rng, config, context);
 
     let didMove = this.#decideAndMove(world, colony, rng, config, context);
 
-    if (this.#resolveHazard(world, colony, rng, config, context.idx)) return;
+    const currentIdx = world.index(this.x, this.y);
+    if (currentIdx !== context.idx && this.#resolveHazard(world, colony, rng, config, currentIdx)) return;
 
     didMove = this.#applyFallbackMovement(world, colony, rng, config, context.entrance, didMove);
     this.#applyVitals(colony, config, context.dt, didMove);

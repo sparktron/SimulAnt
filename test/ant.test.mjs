@@ -202,6 +202,41 @@ test('ant survives hazard with 0% death chance and deposits danger pheromone', (
   assert.ok(world.danger[idx] > 0, 'Danger pheromone should be deposited on hazard tile');
 });
 
+test('ant dies immediately after stepping onto a hazard tile', () => {
+  const rng = new SeededRng('hazard-step-seed');
+  const world = createTestWorld(9, 9);
+  const config = createTestConfig();
+  config.hazardDeathChance = 1.0;
+
+  for (let y = 0; y < world.height; y += 1) {
+    for (let x = 0; x < world.width; x += 1) {
+      world.terrain[world.index(x, y)] = TERRAIN.WALL;
+    }
+  }
+
+  const startX = 4;
+  const startY = 4;
+  const hx = 5;
+  const hy = 4;
+  world.terrain[world.index(startX, startY)] = TERRAIN.GROUND;
+  world.terrain[world.index(hx, hy)] = TERRAIN.HAZARD;
+
+  const colony = createTestColony(world, rng, 0);
+  colony.setNestEntrances([{ id: 'e', x: startX, y: startY, radius: 1 }]);
+  colony.setSurfaceFoodPellets([]);
+
+  const ant = new Ant(startX, startY, rng, 'worker');
+  ant.dir = 0; // bias east toward the only passable neighbor
+  colony.ants.push(ant);
+
+  ant.update(world, colony, rng, config);
+
+  assert.equal(ant.x, hx);
+  assert.equal(ant.y, hy);
+  assert.equal(ant.alive, false, 'Ant should die in the same tick it enters hazard');
+  assert.equal(colony.deaths, 1);
+});
+
 // --- Food Deposit ---
 
 test('ant deposits food when near entrance regardless of y position', () => {
