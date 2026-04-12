@@ -190,6 +190,40 @@ test('ant movement tie-break strongly prefers forward over reverse', () => {
   );
 });
 
+test('worker return-to-nest fallback uses per-ant miss-threshold jitter to avoid lockstep', () => {
+  const rng = new SeededRng('miss-jitter-seed');
+  const world = createTestWorld(96, 96);
+  const colony = createTestColony(world, rng, 0);
+  const config = createTestConfig();
+  config.surfaceFoodSearchMaxMissTicks = 5;
+  config.surfaceReturnToNestHungerThreshold = 0.8;
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 10;
+  colony.foodStoreTarget = 100;
+
+  const ant = new Ant(world.nestX + 24, Math.max(0, world.nestY - 20), rng, 'worker');
+  const buddy = new Ant(world.nestX + 22, Math.max(0, world.nestY - 21), rng, 'worker');
+  colony.ants.push(ant, buddy);
+  ant.workFocus = 'forage';
+  ant.hunger = 55;
+  ant.health = ant.healthMax;
+  ant.surfaceSearchMissThresholdOffsetTicks = 12;
+
+  ant.failedSurfaceFoodSearchTicks = 4;
+  ant.update(world, colony, rng, config);
+  assert.notEqual(
+    ant.state,
+    'RETURN_NEST_TO_EAT',
+    'Positive miss-threshold offset should prevent early synchronized nest return',
+  );
+
+  ant.failedSurfaceFoodSearchTicks = 16;
+  ant.update(world, colony, rng, config);
+  assert.equal(ant.state, 'RETURN_NEST_TO_EAT');
+});
+
 // --- Hazard Interaction ---
 
 test('ant can step onto hazard terrain and may die', () => {
