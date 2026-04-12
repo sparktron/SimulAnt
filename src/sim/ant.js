@@ -718,6 +718,11 @@ export class Ant {
         requestedIntake = Math.min(requested, nutritionForRecovery);
       }
     }
+    // Prefer to cap by hunger capacity, but allow low-health ants to consume
+    // a healing ration even when hunger is already full.
+    const hungerCapacity = Math.max(0, this.hungerMax - this.hunger);
+    const needsHealingOnly = hungerCapacity <= 0;
+    const requestedIntake = needsHealingOnly ? requested : Math.min(requested, hungerCapacity);
     if (requestedIntake <= 0) return false;
 
     const consumed = colony.consumeFromStore(requestedIntake);
