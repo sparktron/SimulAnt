@@ -56,6 +56,8 @@ export class Ant {
     // Work specialization and behavior tracking
     this.workFocus = 'forage';
     this.failedSurfaceFoodSearchTicks = 0;
+    const antIdNumeric = Number.parseInt(this.id.slice(4), 10) || 0;
+    this.surfaceSearchMissThresholdOffsetTicks = (antIdNumeric % 31) - 15;
     this.lastSteeringDebug = null;
   }
 
@@ -344,7 +346,13 @@ export class Ant {
 
     if (!context.inNest) {
       this.failedSurfaceFoodSearchTicks += 1;
-      const maxMissTicks = Math.max(1, config.surfaceFoodSearchMaxMissTicks ?? 90);
+      const missThresholdOffset = colony.ants.length > 1
+        ? this.surfaceSearchMissThresholdOffsetTicks
+        : 0;
+      const maxMissTicks = Math.max(
+        1,
+        (config.surfaceFoodSearchMaxMissTicks ?? 90) + missThresholdOffset,
+      );
       const returnHungerThreshold = Math.max(0, Math.min(1, config.surfaceReturnToNestHungerThreshold ?? 0.65));
       const shouldReturnToNestForFood = colony.foodStored > 0 && (
         this.hunger < this.hungerMax * 0.25
