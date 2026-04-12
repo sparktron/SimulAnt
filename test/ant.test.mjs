@@ -97,6 +97,7 @@ test('ant moves on passable terrain during update', () => {
   const world = createTestWorld();
   const colony = createTestColony(world, rng, 0);
   const config = createTestConfig();
+  config.healthEatRecoveryRate = 2.0;
 
   // Place ant on surface (passable)
   const ant = new Ant(world.nestX, world.nestY - 5, rng, 'worker');
@@ -397,6 +398,31 @@ test('worker nest feeding only consumes hunger deficit from store', () => {
 
   assert.equal(colony.foodStored, 95, 'Only 5 nutrition should be consumed to fill hunger to max');
   assert.ok(ant.hunger > 99.8 && ant.hunger <= 100, 'Ant hunger should be effectively full after bounded intake');
+});
+
+test('full-hunger worker consumes only nutrition needed for health recovery', () => {
+  const rng = new SeededRng('full-hunger-health-recovery-cap');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  config.healthEatRecoveryRate = 2.0;
+  const colony = createTestColony(world, rng, 0);
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 100;
+
+  const ant = new Ant(world.nestX, world.nestY + 3, rng, 'worker');
+  ant.hunger = ant.hungerMax;
+  ant.health = 59;
+  colony.ants.push(ant);
+
+  ant.update(world, colony, rng, config);
+
+  // health deficit = 41 and recovery rate = 2.0 in test config, so only 20.5
+  // nutrition is needed; ant should not consume the full workerEatNutrition.
+  assert.equal(colony.foodStored, 79.5);
+  assert.ok(ant.hunger > 99.8 && ant.hunger <= ant.hungerMax);
+  assert.ok(ant.health >= 99.99 && ant.health <= ant.healthMax);
 });
 
 test('worker returning from surface enters nest interior while returning to heal', () => {
