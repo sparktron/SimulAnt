@@ -700,11 +700,11 @@ export class Ant {
     const requested = critical
       ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
       : config.workerEatNutrition;
-    // Clamp intake to remaining hunger capacity to avoid wasting colony food.
-    // Without this, a nearly full ant can consume an entire ration and discard
-    // the overflow when hunger is capped, draining stores too quickly.
+    // Prefer to cap by hunger capacity, but allow low-health ants to consume
+    // a healing ration even when hunger is already full.
     const hungerCapacity = Math.max(0, this.hungerMax - this.hunger);
-    const requestedIntake = Math.min(requested, hungerCapacity);
+    const needsHealingOnly = hungerCapacity <= 0;
+    const requestedIntake = needsHealingOnly ? requested : Math.min(requested, hungerCapacity);
     if (requestedIntake <= 0) return false;
 
     const consumed = colony.consumeFromStore(requestedIntake);
