@@ -97,7 +97,6 @@ test('ant moves on passable terrain during update', () => {
   const world = createTestWorld();
   const colony = createTestColony(world, rng, 0);
   const config = createTestConfig();
-  config.healthEatRecoveryRate = 2.0;
 
   // Place ant on surface (passable)
   const ant = new Ant(world.nestX, world.nestY - 5, rng, 'worker');
