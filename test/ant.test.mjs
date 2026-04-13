@@ -458,6 +458,56 @@ test('full-hunger worker consumes only nutrition needed for health recovery', ()
   assert.ok(ant.health >= 99.99 && ant.health <= ant.healthMax);
 });
 
+test('low-health worker eats from found pellet and carries the remainder', () => {
+  const rng = new SeededRng('eat-then-carry');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  config.healthEatRecoveryRate = 1;
+  config.workerEatNutrition = 10;
+  const colony = createTestColony(world, rng, 0);
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  const pellet = { id: 'p-eat-carry', x: world.nestX + 8, y: world.nestY - 6, nutrition: 30 };
+  colony.setSurfaceFoodPellets([pellet]);
+
+  const ant = new Ant(pellet.x, pellet.y, rng, 'worker');
+  ant.health = 30;
+  ant.hunger = 20;
+  colony.ants.push(ant);
+
+  ant.update(world, colony, rng, config);
+
+  assert.equal(ant.carrying?.type, 'food');
+  assert.equal(ant.carrying?.pelletNutrition, 10);
+  assert.equal(colony.findAvailablePelletAt(pellet.x, pellet.y), null);
+  assert.ok(ant.health > 30, 'Ant should recover health before hauling');
+});
+
+test('low-health worker carrying food eats before continuing home', () => {
+  const rng = new SeededRng('eat-carried-food-first');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  config.healthEatRecoveryRate = 1;
+  config.workerEatNutrition = 8;
+  const colony = createTestColony(world, rng, 0);
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+
+  const ant = new Ant(world.nestX + 12, world.nestY - 8, rng, 'worker');
+  ant.health = 20;
+  ant.hunger = 30;
+  ant.carrying = { type: 'food', pelletId: 'carry-1', pelletNutrition: 20 };
+  ant.carryingType = 'food';
+  colony.ants.push(ant);
+
+  ant.update(world, colony, rng, config);
+
+  assert.equal(ant.carrying?.type, 'food');
+  assert.equal(ant.carrying?.pelletNutrition, 12);
+  assert.ok(ant.health > 20, 'Ant should consume carried food to recover first');
+});
+
 test('worker returning from surface enters nest interior while returning to heal', () => {
   const rng = new SeededRng('entry-target-below-surface');
   const world = createTestWorld();

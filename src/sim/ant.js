@@ -198,6 +198,15 @@ export class Ant {
 
     if (this.carrying?.type === 'food') {
       this.failedSurfaceFoodSearchTicks = 0;
+
+      if (this.#isLowHealth()) {
+        this.#consumeCarriedFoodForHealth(config);
+        if (!this.carrying?.type) {
+          this.state = 'EAT';
+          return didMove;
+        }
+      }
+
       this.state = 'RETURN_HOME';
       if (context.inNest) {
         const dropPoint = colony.findNestFoodDropPoint(context.entrance, this.x, this.y);
@@ -304,7 +313,7 @@ export class Ant {
       this.failedSurfaceFoodSearchTicks = 0;
       if (this.x === visible.x && this.y === visible.y) {
         if (this.#isLowHealth()) {
-          this.#consumePelletForHealth(colony, visible, config);
+          this.#consumePelletForHealthThenCarry(colony, visible, config);
           this.state = 'EAT';
         } else {
           visible.takenByAntId = this.id;
@@ -328,7 +337,7 @@ export class Ant {
     if (onPellet) {
       this.failedSurfaceFoodSearchTicks = 0;
       if (this.#isLowHealth()) {
-        this.#consumePelletForHealth(colony, onPellet, config);
+        this.#consumePelletForHealthThenCarry(colony, onPellet, config);
         this.state = 'EAT';
       } else {
         onPellet.takenByAntId = this.id;
@@ -726,11 +735,6 @@ export class Ant {
         requestedIntake = Math.min(requested, nutritionForRecovery);
       }
     }
-    // Prefer to cap by hunger capacity, but allow low-health ants to consume
-    // a healing ration even when hunger is already full.
-    const hungerCapacity = Math.max(0, this.hungerMax - this.hunger);
-    const needsHealingOnly = hungerCapacity <= 0;
-    const requestedIntake = needsHealingOnly ? requested : Math.min(requested, hungerCapacity);
     if (requestedIntake <= 0) return false;
 
     const consumed = colony.consumeFromStore(requestedIntake);
@@ -746,7 +750,7 @@ export class Ant {
     if (!this.#isLowHealth()) return false;
     const pellet = colony.findAvailablePelletAt(this.x, this.y);
     if (!pellet) return false;
-    this.#consumePelletForHealth(colony, pellet, config);
+    this.#consumePelletForHealthThenCarry(colony, pellet, config);
     return true;
   }
 
@@ -755,6 +759,60 @@ export class Ant {
     colony.removePelletById(pellet.id);
     this.hunger = Math.min(this.hungerMax, this.hunger + nutrition);
     this.health = Math.min(this.healthMax, this.health + nutrition * (config.healthEatRecoveryRate ?? 0));
+  }
+
+  #consumePelletForHealthThenCarry(colony, pellet, config) {
+    const nutrition = Math.max(0, pellet?.nutrition || 0);
+    if (nutrition <= 0) {
+      colony.removePelletById(pellet.id);
+      return;
+    }
+
+    const requested = this.#isCriticalHealth()
+      ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition ?? nutrition)
+      : (config.workerEatNutrition ?? nutrition);
+    const consumed = Math.min(nutrition, requested);
+    const healthRecoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
+
+    this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
+    this.health = Math.min(this.healthMax, this.health + consumed * healthRecoveryRate);
+
+    const remainingNutrition = Math.max(0, nutrition - consumed);
+    colony.removePelletById(pellet.id);
+    if (remainingNutrition > 0.0001) {
+      this.carrying = {
+        type: 'food',
+        pelletId: pellet.id,
+        pelletNutrition: remainingNutrition,
+      };
+      this.carryingType = 'food';
+    }
+  }
+
+  #consumeCarriedFoodForHealth(config) {
+    if (this.carrying?.type !== 'food') return;
+    const available = Math.max(0, this.carrying.pelletNutrition || 0);
+    if (available <= 0) {
+      this.carrying = null;
+      this.carryingType = 'none';
+      return;
+    }
+
+    const requested = this.#isCriticalHealth()
+      ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
+      : (config.workerEatNutrition ?? available);
+    const consumed = Math.min(available, requested);
+    const recoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
+    this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
+    this.health = Math.min(this.healthMax, this.health + consumed * recoveryRate);
+
+    const remaining = Math.max(0, available - consumed);
+    if (remaining <= 0.0001) {
+      this.carrying = null;
+      this.carryingType = 'none';
+      return;
+    }
+    this.carrying.pelletNutrition = remaining;
   }
 
   #isLowHealth() {
