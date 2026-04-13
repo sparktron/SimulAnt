@@ -669,7 +669,10 @@ export class Ant {
     const t = Math.min(1, Math.max(0, (distance - falloffStart) / (falloffEnd - falloffStart)));
     const distanceFalloff = 1 - (1 - minFalloff) * t;
 
-    const returningToNest = this.carrying?.type === 'food' || this.state === 'RETURN_HOME';
+    const returningToNest = this.carrying?.type === 'food'
+      || this.state === 'RETURN_HOME'
+      || this.state === 'RETURN_TO_NEST_HEAL'
+      || this.state === 'RETURN_NEST_TO_EAT';
     const stateScale = returningToNest ? config.homeScentReturnStateScale : config.homeScentSearchStateScale;
 
     // Boost scent weight when carrying food and close to entrance
