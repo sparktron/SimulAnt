@@ -69,6 +69,7 @@ export class Ant {
    */
   update(world, colony, rng, config) {
     if (!this.alive) return;
+    this._currentColony = colony;
 
     if (this.carrying?.type === 'food' || this.carrying?.type === 'queen-food') {
       this.carryingType = 'food';
@@ -252,6 +253,15 @@ export class Ant {
     if (this.workFocus === 'forage' && context.inNest && context.entrance) {
       this.state = 'EXIT_NEST';
       const exitTargetY = context.entrance.y - 1;
+      // Scatter exits along the entrance width so a crowd of foragers doesn't
+      // all race to the same single tile. Each ant picks a deterministic
+      // column offset based on its id, spreading load across the 3-wide shaft.
+      const radius = Math.max(1, context.entrance.radius ?? 1);
+      const scatter = this.#entranceColumnOffset(radius);
+      const scatteredX = context.entrance.x + scatter;
+      if (world.isPassable(scatteredX, exitTargetY)) {
+        return this.#moveToward(world, scatteredX, exitTargetY, rng);
+      }
       if (world.isPassable(context.entrance.x, exitTargetY)) {
         return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
       }
@@ -461,6 +471,7 @@ export class Ant {
   }
 
   #moveByPheromone(world, rng, config, channel, entrance, colony) {
+    if (!colony) colony = this._currentColony;
     const field = channel === 'home' ? world.toHome : world.toFood;
     const epsilon = 0.001;
     const reverseDir = (this.dir + 4) % DIRS.length;
@@ -578,9 +589,14 @@ export class Ant {
       homeScentWeight: channel === 'home' ? homeScentWeight : 0,
       distanceToEntrance: entrance ? Math.hypot(this.x - entrance.x, this.y - entrance.y) : null,
     };
+    const prevX = this.x;
+    const prevY = this.y;
     this.x = tx;
     this.y = ty;
     this.dir = chosenDir;
+    if (colony && (prevX !== this.x || prevY !== this.y)) {
+      colony.moveAntInGrid(prevX, prevY, this.x, this.y);
+    }
     return true;
   }
 
@@ -764,6 +780,17 @@ export class Ant {
     return baseY;
   }
 
+  #entranceColumnOffset(radius) {
+    // Deterministic per-ant scatter across the entrance width.
+    // Parse the id suffix once — cached so sorts/comparisons remain cheap.
+    if (this._entranceColumnOffset === undefined) {
+      const numericPart = Number.parseInt((this.id || '').slice(4), 10) || 0;
+      const span = Math.max(1, radius * 2 + 1);
+      this._entranceColumnOffset = (numericPart % span) - Math.floor(span / 2);
+    }
+    return this._entranceColumnOffset;
+  }
+
   #getHomeScentWeight(config, entrance) {
     if (!entrance) return config.homeScentBaseWeight;
 
@@ -938,28 +965,42 @@ export class Ant {
   }
 
   #moveToward(world, tx, ty, rng) {
-    let bestD = Number.POSITIVE_INFINITY;
-    const bestCandidates = [];
+    // Score each passable neighbor by distance-to-target plus a crowding penalty.
+    // Without the crowding term, every exit/enter goal sends ants to the exact
+    // same tile and they stack indefinitely at the entrance column.
+    const scored = [];
+    let bestScore = Number.POSITIVE_INFINITY;
+    const colony = this._currentColony;
 
     for (let i = 0; i < DIRS.length; i += 1) {
       const nx = this.x + DIRS[i][0];
       const ny = this.y + DIRS[i][1];
       if (!world.isPassable(nx, ny)) continue;
       const d = Math.hypot(tx - nx, ty - ny);
-      if (d < bestD) {
-        bestD = d;
-        bestCandidates.length = 0;
-        bestCandidates.push(i);
-      } else if (Math.abs(d - bestD) <= 1e-9) {
-        bestCandidates.push(i);
+      const crowd = colony ? colony.countAntsAt(nx, ny) : 0;
+      // Each already-present ant costs ~0.6 units of distance equivalence.
+      // Strong enough to prefer an empty sidestep over a 1-tile-better but occupied target,
+      // but weak enough that ants still make progress through lightly crowded tunnels.
+      const score = d + crowd * 0.6;
+      if (score < bestScore - 1e-9) {
+        bestScore = score;
+        scored.length = 0;
+        scored.push(i);
+      } else if (score < bestScore + 1e-9) {
+        scored.push(i);
       }
     }
 
-    if (bestCandidates.length > 0) {
-      const bestDir = this.#pickDirectionalCandidate(bestCandidates, rng);
+    if (scored.length > 0) {
+      const bestDir = this.#pickDirectionalCandidate(scored, rng);
+      const prevX = this.x;
+      const prevY = this.y;
       this.x += DIRS[bestDir][0];
       this.y += DIRS[bestDir][1];
       this.dir = bestDir;
+      if (colony && (prevX !== this.x || prevY !== this.y)) {
+        colony.moveAntInGrid(prevX, prevY, this.x, this.y);
+      }
       return true;
     }
 

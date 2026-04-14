@@ -108,15 +108,25 @@ export class World {
   }
 
   #carveStarterNest() {
-    this.paintCircle(this.nestX, this.nestY + 3, 4, (idx, _x, y) => {
+    // Larger starter chamber so brood/queen/nurses have room to spread out
+    this.paintCircle(this.nestX, this.nestY + 4, 6, (idx, _x, y) => {
       if (y >= this.nestY) this.terrain[idx] = TERRAIN.CHAMBER;
     });
 
+    // Widen the entrance shaft to 3 tiles so multiple ants can flow in parallel.
+    // Single-tile entrance caused severe stacking bottlenecks at the surface transition.
     for (let y = this.nestY; y <= this.nestY + 14; y += 1) {
-      if (!this.inBounds(this.nestX, y)) continue;
-      this.terrain[this.index(this.nestX, y)] = TERRAIN.TUNNEL;
-      if (y > this.nestY + 1 && y % 4 === 0 && this.inBounds(this.nestX + 1, y)) {
-        this.terrain[this.index(this.nestX + 1, y)] = TERRAIN.TUNNEL;
+      for (let dx = -1; dx <= 1; dx += 1) {
+        const tx = this.nestX + dx;
+        if (!this.inBounds(tx, y)) continue;
+        this.terrain[this.index(tx, y)] = TERRAIN.TUNNEL;
+      }
+      // Extra flaring near the surface for smoother entry/exit
+      if (y <= this.nestY + 2) {
+        for (const dx of [-2, 2]) {
+          const tx = this.nestX + dx;
+          if (this.inBounds(tx, y)) this.terrain[this.index(tx, y)] = TERRAIN.TUNNEL;
+        }
       }
     }
   }

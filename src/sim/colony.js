@@ -871,6 +871,19 @@ export class Colony {
     return this._antGrid.get(`${x},${y}`) || 0;
   }
 
+  // Live-updates the ant grid when an ant moves within a tick. Without this,
+  // the grid reflects only tick-start positions, so many ants see zero crowd
+  // at their exit target and all stack onto the same tile before the next rebuild.
+  moveAntInGrid(fromX, fromY, toX, toY) {
+    const fromKey = `${fromX},${fromY}`;
+    const prev = this._antGrid.get(fromKey) || 0;
+    if (prev <= 1) this._antGrid.delete(fromKey);
+    else this._antGrid.set(fromKey, prev - 1);
+
+    const toKey = `${toX},${toY}`;
+    this._antGrid.set(toKey, (this._antGrid.get(toKey) || 0) + 1);
+  }
+
   #rebuildNestFoodTiles() {
     this._nestFoodTiles.clear();
     for (let i = 0; i < this.nestFoodPellets.length; i += 1) {
