@@ -150,10 +150,18 @@ test('NestRenderer renders brood eggs in a nest brood area, not attached to quee
       nestFoodPellets: [],
       foodStored: 0,
       queen: { alive: true, brood: 6, hunger: 100, health: 100, x: 0, y: world.height - 1 },
+      larvae: [
+        { stage: 1, progress: 0 },
+        { stage: 2, progress: 0 },
+        { stage: 1, progress: 0.5 },
+        { stage: 3, progress: 0 },
+        { stage: 2, progress: 0.3 },
+        { stage: 4, progress: 0 },
+      ],
     };
 
     renderer.draw(colony, { showDebugStats: false });
-    assert.equal(mainCtx.arcCalls, 6, 'brood eggs should render by default');
+    assert.equal(mainCtx.arcCalls, 6, 'brood larvae should render by default');
 
     const firstEgg = mainCtx.arcArgs[0];
     const distToQueen = Math.hypot(firstEgg.x - (colony.queen.x + 0.5), firstEgg.y - (colony.queen.y + 0.5));
