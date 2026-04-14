@@ -834,13 +834,26 @@ export class Ant {
   }
 
   #needsForage(colony) {
-    // Role-aware hunger thresholds: nurses and diggers stay on duty unless
-    // personally starving — they should not abandon roles for colony-level shortages
+    // Role-aware: specialists (nurse/dig) stay on duty unless personally starving.
     const isSpecialist = this.workFocus === 'nurse' || this.workFocus === 'dig';
     if (isSpecialist) {
-      // Only forage when about to die: critically low hunger AND health declining
       return this.hunger < this.hungerMax * 0.15;
     }
+
+    // Foragers: this is their *job*. They should keep working as long as the
+    // colony has room to grow its reserves. Previously they idled as soon as
+    // they were personally fed AND the store was above 25% of target, which
+    // caused them to cluster at the entrance and refuse to walk the pheromone
+    // trails. Keep them foraging until the store is nearly full.
+    if (this.workFocus === 'forage') {
+      const storeTarget = Math.max(1, colony.foodStoreTarget);
+      const storeNearlyFull = colony.foodStored >= storeTarget * 0.9;
+      if (!storeNearlyFull) return true;
+      // Even at target, still forage if personally hungry.
+      return this.hunger < this.hungerMax * 0.6;
+    }
+
+    // Unspecialized workers fall back to the legacy hunger/shortage heuristic.
     const personallyHungry = this.hunger < this.hungerMax * 0.4;
     const criticalFoodShortage = colony.foodStored < Math.max(1, colony.foodStoreTarget * 0.25);
     return personallyHungry || criticalFoodShortage;
