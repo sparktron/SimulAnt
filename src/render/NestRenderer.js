@@ -180,38 +180,43 @@ export class NestRenderer {
   }
 
   #drawEggs(ctx, colony) {
-    // Draw eggs as a brood pile in the nest chamber.
-    if (!colony.queen.alive || colony.queen.brood <= 0) return;
+    // Draw larvae in various growth stages in the nest chamber.
+    const larvae = colony.larvae || [];
+    if (!colony.queen.alive || larvae.length === 0) return;
 
     const broodX = Math.max(0, Math.min(this.world.width - 1, this.world.nestX + 4));
     const broodY = Math.max(this.world.nestY + 2, Math.min(this.world.height - 1, this.world.nestY + 8));
 
-    const eggCount = Math.round(colony.queen.brood);
-    if (eggCount <= 0) return;
-
-    // Nurses keep eggs in a compact, even brood patch rather than tracing queen movement.
-    const cols = Math.max(1, Math.ceil(Math.sqrt(eggCount)));
+    // Nurses keep larvae in a compact, even brood patch rather than tracing queen movement.
+    const cols = Math.max(1, Math.ceil(Math.sqrt(larvae.length)));
     const rowSpacing = 0.72;
     const colSpacing = 0.78;
-    const rows = Math.ceil(eggCount / cols);
+    const rows = Math.ceil(larvae.length / cols);
     const patchHalfWidth = ((cols - 1) * colSpacing) * 0.5;
     const patchHalfHeight = ((rows - 1) * rowSpacing) * 0.5;
 
-    for (let i = 0; i < eggCount; i += 1) {
+    for (let i = 0; i < larvae.length; i += 1) {
+      const larva = larvae[i];
       const row = Math.floor(i / cols);
       const col = i % cols;
       const stagger = (row % 2) * (colSpacing * 0.5);
-      const eggX = broodX - patchHalfWidth + (col * colSpacing) + stagger;
-      const eggY = broodY - patchHalfHeight + (row * rowSpacing);
+      const larvaX = broodX - patchHalfWidth + (col * colSpacing) + stagger;
+      const larvaY = broodY - patchHalfHeight + (row * rowSpacing);
 
-      // Draw egg as small white/cream circle
-      ctx.fillStyle = '#ffffee';
+      // Size grows from ~0.35 (stage 1, like food pellet) to ~0.7 (stage 4, like ~4 pellets)
+      // Stage 1: 0.35, Stage 2: 0.45, Stage 3: 0.6, Stage 4: 0.7
+      const stage = larva.stage || 1;
+      const baseRadius = 0.35 + (stage - 1) * 0.118;  // linear growth across 4 stages
+
+      // Draw larva with color indicating stage (lighter to darker)
+      const hue = 200 - (stage - 1) * 20;  // blues and teals
+      ctx.fillStyle = `hsl(${hue}, 80%, ${85 - (stage - 1) * 8}%)`;
       ctx.beginPath();
-      ctx.arc(eggX + 0.5, eggY + 0.5, 0.35, 0, Math.PI * 2);
+      ctx.arc(larvaX + 0.5, larvaY + 0.5, baseRadius, 0, Math.PI * 2);
       ctx.fill();
 
       // Draw outline for better visibility
-      ctx.strokeStyle = '#dddde0';
+      ctx.strokeStyle = `hsl(${hue}, 60%, 60%)`;
       ctx.lineWidth = 0.15;
       ctx.stroke();
     }

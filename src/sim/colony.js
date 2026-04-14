@@ -26,7 +26,7 @@ export class Colony {
       alive: true,
       eggProgress: 0,
       eggsLaid: 0,
-      brood: 0,
+      brood: 0,  // kept for backwards compatibility with rendering/stats
       hunger: 100,
       hungerMax: 100,
       health: 100,
@@ -38,6 +38,7 @@ export class Colony {
       foodCourierAntId: null,
     };
 
+    this.larvae = [];  // array of { stage: 1-4, progress: 0-1 }
     this.excavatedTiles = 0;
     this.onExcavate = null;
     this.onDepositDirt = null;
@@ -324,32 +325,43 @@ export class Colony {
         this._virtualFoodStored = Math.max(0, this._virtualFoodStored - config.queenEggFoodCost);
         this.queen.eggsLaid += 1;
         this.queen.brood += 1;
+        // Add new larva at stage 1
+        this.larvae.push({ stage: 1, progress: 0 });
       }
     }
 
-    if (this.queen.brood <= 0) return;
+    if (this.larvae.length === 0) return;
 
-    const broodFoodRequest = this.queen.brood * (config.broodFoodDrainRate ?? 0) * dt;
+    // Larvae consume food and progress through stages
+    const broodFoodRequest = this.larvae.length * (config.broodFoodDrainRate ?? 0) * dt;
     const broodFoodConsumed = this.consumeFromStore(broodFoodRequest);
     const broodFeedRatio = broodFoodRequest > 0 ? broodFoodConsumed / broodFoodRequest : 1;
     const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio));
-    this.queen.broodGestationProgress = (this.queen.broodGestationProgress || 0) + dt * gestationRateScale;
 
-    const hatchSeconds = Math.max(
+    // Time per stage (in seconds) - divided by 4 since we have 4 stages
+    const stageSeconds = Math.max(
       0.001,
-      Number.isFinite(config.broodGestationSeconds) ? config.broodGestationSeconds : dt,
+      (Number.isFinite(config.broodGestationSeconds) ? config.broodGestationSeconds : dt) / 4,
     );
-    // Hatch one ant per frame to avoid batch spawning
-    if (
-      this.queen.brood >= 1
-      && this.queen.broodGestationProgress >= hatchSeconds
-      && this.ants.length < config.antCap
-    ) {
-      this.queen.brood -= 1;
-      this.queen.broodGestationProgress -= hatchSeconds;
-      const role = this.selectHatchRole(config);
-      this.ants.push(this.#spawnNearNest(role));
-      this.births += 1;
+
+    // Progress each larva through stages
+    for (let i = this.larvae.length - 1; i >= 0; i -= 1) {
+      const larva = this.larvae[i];
+      larva.progress += dt * gestationRateScale;
+
+      if (larva.progress >= stageSeconds) {
+        larva.progress -= stageSeconds;
+        larva.stage += 1;
+
+        // Stage 5 means time to hatch
+        if (larva.stage > 4 && this.ants.length < config.antCap) {
+          this.larvae.splice(i, 1);
+          this.queen.brood -= 1;
+          const role = this.selectHatchRole(config);
+          this.ants.push(this.#spawnNearNest(role));
+          this.births += 1;
+        }
+      }
     }
   }
 
@@ -844,6 +856,7 @@ export class Colony {
       births: this.births,
       deaths: this.deaths,
       queen: this.queen,
+      larvae: this.larvae,
       excavatedTiles: this.excavatedTiles,
       nestFoodPellets: this.nestFoodPellets,
       workAllocation: this.workAllocation,
@@ -883,6 +896,9 @@ export class Colony {
     if (!Number.isFinite(colony.queen.moveProgress)) colony.queen.moveProgress = 0;
     if (!Number.isFinite(colony.queen.broodGestationProgress)) colony.queen.broodGestationProgress = 0;
     if (typeof colony.queen.foodCourierAntId !== 'string') colony.queen.foodCourierAntId = null;
+    colony.larvae = Array.isArray(data.larvae)
+      ? data.larvae.filter((larva) => larva && Number.isFinite(larva.stage) && Number.isFinite(larva.progress))
+      : [];
     colony.excavatedTiles = data.excavatedTiles || 0;
     colony.nestFoodPellets = Array.isArray(data.nestFoodPellets)
       ? data.nestFoodPellets
