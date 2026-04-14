@@ -671,11 +671,12 @@ export class Ant {
       this.carryingType = 'none';
     }
 
-    // Feed the queen if she's hungry (below 70% hunger) and food is available
+    // Feed the queen if she's actually hungry and not enough couriers already
     const queen = colony.queen;
     if (queen?.alive && !this.carrying?.type
-        && queen.hunger < queen.hungerMax * 0.7
-        && colony.foodStored > 0) {
+        && queen.hunger < queen.hungerMax * 0.4
+        && colony.foodStored > 2
+        && colony.countQueenFoodCouriers() < 2) {
       const pickupAmount = config.queenCourierPickupNutrition ?? 6;
       const nutrition = colony.pickupQueenFoodRation(pickupAmount);
       if (nutrition > 0) {
@@ -806,17 +807,15 @@ export class Ant {
   }
 
   #needsForage(colony) {
-    // Role-aware hunger thresholds: nurses and diggers tolerate more hunger
-    // before abandoning their duties to forage
-    const hungerThreshold = (this.workFocus === 'nurse' || this.workFocus === 'dig')
-      ? this.hungerMax * 0.2   // specialists only forage when critically hungry
-      : this.hungerMax * 0.4;  // foragers forage at moderate hunger
-    const personallyHungry = this.hunger < hungerThreshold;
-    const criticalFoodShortage = colony.foodStored < Math.max(1, colony.foodStoreTarget * 0.25);
-    // Specialists ignore colony food shortage — only their personal hunger matters
-    if (this.workFocus === 'nurse' || this.workFocus === 'dig') {
-      return personallyHungry;
+    // Role-aware hunger thresholds: nurses and diggers stay on duty unless
+    // personally starving — they should not abandon roles for colony-level shortages
+    const isSpecialist = this.workFocus === 'nurse' || this.workFocus === 'dig';
+    if (isSpecialist) {
+      // Only forage when about to die: critically low hunger AND health declining
+      return this.hunger < this.hungerMax * 0.15;
     }
+    const personallyHungry = this.hunger < this.hungerMax * 0.4;
+    const criticalFoodShortage = colony.foodStored < Math.max(1, colony.foodStoreTarget * 0.25);
     return personallyHungry || criticalFoodShortage;
   }
 

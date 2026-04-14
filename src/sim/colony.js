@@ -433,6 +433,14 @@ export class Colony {
     return this.queen.foodCourierAntId != null && this.queen.foodCourierAntId === antId;
   }
 
+  countQueenFoodCouriers() {
+    let count = 0;
+    for (let i = 0; i < this.ants.length; i += 1) {
+      if (this.ants[i].carrying?.type === 'queen-food') count += 1;
+    }
+    return count;
+  }
+
   pickupQueenFoodRation(amount) {
     const consumed = this.consumeFromStore(amount);
     return Math.max(0, consumed);

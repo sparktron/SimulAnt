@@ -83,22 +83,28 @@ export class SimulationCore {
       nestEntrances: this.nestEntrances,
     });
 
-    // Respawn food clusters periodically (every 300 ticks ~10 seconds) if count is low
-    // This ensures steady food availability for the colony to survive
-    if (this.tick % 300 === 0) {
+    // Respawn food clusters periodically to sustain the colony.
+    // Scales with colony size: larger colonies need more frequent food.
+    const antCount = this.colony.ants.length;
+    const respawnInterval = antCount > 200 ? 150 : 300; // faster respawn for larger colonies
+    if (this.tick % respawnInterval === 0) {
       const availableFoodCount = this.foodPellets.filter((p) => !p.takenByAntId).length;
-      if (availableFoodCount < 8) {
-        // Spawn new clusters at randomized distances from nest to avoid static gameplay
-        const angle1 = this.rng.range(0, Math.PI * 2);
-        const dist1 = 30 + this.rng.range(0, 40);
-        const angle2 = angle1 + Math.PI * (0.5 + this.rng.range(0, 1)); // opposite-ish direction
-        const dist2 = 30 + this.rng.range(0, 40);
-        const x1 = Math.round(this.world.nestX + Math.cos(angle1) * dist1);
-        const y1 = Math.round(this.world.nestY + Math.sin(angle1) * dist1);
-        const x2 = Math.round(this.world.nestX + Math.cos(angle2) * dist2);
-        const y2 = Math.round(this.world.nestY + Math.sin(angle2) * dist2);
-        this.spawnFoodCluster(x1, Math.min(y1, this.world.nestY), 12, 6);
-        this.spawnFoodCluster(x2, Math.min(y2, this.world.nestY), 14, 6);
+      const pelletThreshold = Math.max(8, Math.floor(antCount * 0.08)); // scale with colony
+      if (availableFoodCount < pelletThreshold) {
+        // Spawn a mix of near and far clusters so foragers always find some food
+        // Near cluster: 10-25 tiles from nest (easy to find)
+        const angleNear = this.rng.range(0, Math.PI * 2);
+        const distNear = 10 + this.rng.range(0, 15);
+        const xNear = Math.round(this.world.nestX + Math.cos(angleNear) * distNear);
+        const yNear = Math.round(this.world.nestY - Math.abs(Math.sin(angleNear) * distNear));
+        this.spawnFoodCluster(xNear, Math.min(yNear, this.world.nestY - 2), 8, 8);
+
+        // Far cluster: 30-60 tiles from nest (rewards exploration)
+        const angleFar = angleNear + Math.PI * (0.5 + this.rng.range(0, 1));
+        const distFar = 30 + this.rng.range(0, 30);
+        const xFar = Math.round(this.world.nestX + Math.cos(angleFar) * distFar);
+        const yFar = Math.round(this.world.nestY - Math.abs(Math.sin(angleFar) * distFar));
+        this.spawnFoodCluster(xFar, Math.min(yFar, this.world.nestY - 2), 12, 8);
       }
     }
 
