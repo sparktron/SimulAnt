@@ -90,7 +90,7 @@ const state = {
     reversePenalty: 0.9,
     homeDepositIntervalTicks: 3,
     homeDepositMinDistance: 20,
-    nearEntranceScatterRadius: 30,
+    nearEntranceScatterRadius: 8,
     foodTrailDistanceScale: 1.1,
     maxFoodTrailScale: 3.2,
     homeScentBaseWeight: 1.0,

@@ -389,9 +389,17 @@ export class Ant {
     if (this.stepCounter % config.homeDepositIntervalTicks === 0) {
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
     }
-    const nearEntranceScatter = context.entrance
-      ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) < config.nearEntranceScatterRadius
-      : false;
+
+    // Only scatter ants that are very close to the entrance AND not already
+    // on a food trail. Previously the scatter radius was 30 tiles, covering
+    // most of the foraging range and overriding pheromone following entirely —
+    // ants would drift randomly instead of walking the trail to the food source.
+    const distFromEntrance = context.entrance
+      ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
+      : 0;
+    const onFoodTrail = world.toFood[context.idx] > 0.5;
+    const nearEntranceScatter = !onFoodTrail && context.entrance
+      && distFromEntrance < (config.nearEntranceScatterRadius ?? 8);
     if (nearEntranceScatter && context.entrance) {
       const ax = this.x + (this.x - context.entrance.x) + rng.int(20) - 10;
       const ay = this.y + (this.y - context.entrance.y) + rng.int(20) - 10;
@@ -532,9 +540,12 @@ export class Ant {
         }
       }
 
-      // Ants carrying food wander less and focus on home pheromone
+      // Reduce wander noise when the ant is already locked onto a trail so it
+      // follows pheromone all the way to the source instead of drifting off.
       const carryingFood = this.carrying?.type === 'food';
-      const noiseReduction = carryingFood ? 0.2 : 1.0;  // 80% noise reduction when carrying
+      const currentTrailValue = field[world.index(this.x, this.y)] ?? 0;
+      const onStrongTrail = !carryingFood && channel === 'food' && currentTrailValue > 0.5;
+      const noiseReduction = carryingFood ? 0.2 : onStrongTrail ? 0.35 : 1.0;
       const pherBoost = carryingFood && channel === 'home' ? 2.0 : 1.0;  // 2x home pheromone boost
       const noise = rng.range(0, config.wanderNoise * noiseReduction);
       const boostedPherContribution = pherContribution * pherBoost;
