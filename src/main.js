@@ -41,11 +41,13 @@ const state = {
     evapFood: 0.012,
     evapHome: 0.015,
     evapDanger: 0.08,
-    diffFood: 0.03,
+    // Food diffusion is intentionally very low so the forager trails stay
+    // narrow and legible instead of bleeding into a wide green haze.
+    diffFood: 0.006,
     diffHome: 0.18,
     diffDanger: 0.12,
     diffIntervalTicks: 2,
-    depositFood: 0.2,
+    depositFood: 0.35,
     depositHome: 0.08,
     dangerDeposit: 0.3,
     hazardDeathChance: 0.02,

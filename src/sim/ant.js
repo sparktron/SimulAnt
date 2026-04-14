@@ -233,7 +233,16 @@ export class Ant {
       }
 
       const distToNest = context.entrance ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) : 0;
-      const trailScale = Math.min(config.maxFoodTrailScale, 1 + distToNest * config.foodTrailDistanceScale * 0.05);
+      // Trail is strongest right at the pickup point and decays only slightly as
+      // the ant walks home. `pickupDistance` is stamped when the pellet is picked
+      // up; if it's missing (legacy carry), fall back to the current distance.
+      const pickupDistance = this.carrying.pickupDistance ?? distToNest;
+      const safePickupDist = Math.max(1, pickupDistance);
+      // progress: 0 at pickup, 1 at nest entrance.
+      const progress = Math.min(1, Math.max(0, 1 - distToNest / safePickupDist));
+      // Max scale at pickup, 80% of max at the nest — "very slightly weaker".
+      const minScale = config.maxFoodTrailScale * 0.8;
+      const trailScale = config.maxFoodTrailScale - (config.maxFoodTrailScale - minScale) * progress;
       const foodDeposit = config.depositFood * trailScale;
       world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, world.toFood[context.idx] + foodDeposit);
 
@@ -318,6 +327,7 @@ export class Ant {
             type: 'food',
             pelletId: visible.id,
             pelletNutrition: visible.nutrition,
+            pickupDistance: this.#distanceToEntrance(colony),
           };
           this.carryingType = 'food';
           colony.removePelletById(visible.id);
@@ -342,6 +352,7 @@ export class Ant {
           type: 'food',
           pelletId: onPellet.id,
           pelletNutrition: onPellet.nutrition,
+          pickupDistance: this.#distanceToEntrance(colony),
         };
         this.carryingType = 'food';
         colony.removePelletById(onPellet.id);
@@ -780,6 +791,12 @@ export class Ant {
     return baseY;
   }
 
+  #distanceToEntrance(colony) {
+    const entrance = colony?.nearestEntrance?.(this.x, this.y);
+    if (!entrance) return 0;
+    return Math.hypot(this.x - entrance.x, this.y - entrance.y);
+  }
+
   #entranceColumnOffset(radius) {
     // Deterministic per-ant scatter across the entrance width.
     // Parse the id suffix once — cached so sorts/comparisons remain cheap.
@@ -938,6 +955,7 @@ export class Ant {
         type: 'food',
         pelletId: pellet.id,
         pelletNutrition: remainingNutrition,
+        pickupDistance: this.#distanceToEntrance(colony),
       };
       this.carryingType = 'food';
     }
