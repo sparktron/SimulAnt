@@ -265,24 +265,11 @@ export class Ant {
     }
 
     if (this.workFocus === 'nurse' && !this.#needsForage(colony)) {
-      this.state = 'NURSE';
-      // Nurses work inside the nest; enter if outside, wander if inside
-      if (!context.inNest && context.entrance) {
-        return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
-      }
-      // Inside nest: wander exploring (don't follow home pheromone which leads to exit)
-      return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+      return this.#runNurseBehavior(world, colony, rng, config, context);
     }
 
     if (this.workFocus === 'dig' && !this.#needsForage(colony)) {
-      this.state = 'DIG_SUPPORT';
-      // Diggers work inside the nest; enter if outside, deposit pheromone and wander if inside
-      if (!context.inNest && context.entrance) {
-        return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
-      }
-      // Inside nest: deposit pheromone and wander exploring (don't follow home which leads to exit)
-      world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome * 1.4);
-      return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+      return this.#runDiggerBehavior(world, colony, rng, config, context);
     }
 
     if (!this.#needsForage(colony)) {
@@ -645,6 +632,123 @@ export class Ant {
     return this.#moveByPheromone(world, rng, config, 'home', context.entrance, colony);
   }
 
+  /**
+   * Nurse behavior: feed the queen, tend larvae, and maintain the nest.
+   *
+   * Priority order:
+   * 1. If outside nest, return inside
+   * 2. If carrying queen-food, deliver to queen
+   * 3. If queen is hungry and food is available, pick up food for queen
+   * 4. Spread overcrowded larvae
+   * 5. Wander the nest
+   */
+  #runNurseBehavior(world, colony, rng, config, context) {
+    this.state = 'NURSE';
+
+    // Enter the nest if outside
+    if (!context.inNest && context.entrance) {
+      this.state = 'NURSE_ENTER_NEST';
+      return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
+    }
+
+    // If carrying queen-food, deliver it
+    if (this.carrying?.type === 'queen-food') {
+      const queen = colony.queen;
+      if (queen?.alive) {
+        const distToQueen = Math.hypot(this.x - queen.x, this.y - queen.y);
+        if (distToQueen <= 1.5) {
+          colony.feedQueen(this.carrying.pelletNutrition, config);
+          this.carrying = null;
+          this.carryingType = 'none';
+          this.state = 'NURSE_FEED_QUEEN';
+          return false;
+        }
+        this.state = 'NURSE_DELIVER_QUEEN_FOOD';
+        return this.#moveToward(world, queen.x, queen.y, rng);
+      }
+      // Queen dead — drop the food
+      this.carrying = null;
+      this.carryingType = 'none';
+    }
+
+    // Feed the queen if she's hungry (below 70% hunger) and food is available
+    const queen = colony.queen;
+    if (queen?.alive && !this.carrying?.type
+        && queen.hunger < queen.hungerMax * 0.7
+        && colony.foodStored > 0) {
+      const pickupAmount = config.queenCourierPickupNutrition ?? 6;
+      const nutrition = colony.pickupQueenFoodRation(pickupAmount);
+      if (nutrition > 0) {
+        this.carrying = {
+          type: 'queen-food',
+          pelletId: null,
+          pelletNutrition: nutrition,
+        };
+        this.carryingType = 'food';
+        this.state = 'NURSE_PICKUP_QUEEN_FOOD';
+        return false;
+      }
+    }
+
+    // Spread overcrowded larvae periodically (every ~60 ticks per nurse)
+    if (this.stepCounter % 60 === 0 && colony.larvae.length > 1) {
+      colony.spreadLarvae(rng);
+    }
+
+    // Tend brood: move toward the brood area
+    if (colony.larvae.length > 0) {
+      const broodX = Math.max(0, Math.min(world.width - 1, world.nestX + 4));
+      const broodY = Math.max(world.nestY + 2, Math.min(world.height - 1, world.nestY + 8));
+      const distToBrood = Math.hypot(this.x - broodX, this.y - broodY);
+      // Stay near the brood but don't pile on top — wander within 6 tiles
+      if (distToBrood > 6) {
+        this.state = 'NURSE_TEND_BROOD';
+        return this.#moveToward(world, broodX, broodY, rng);
+      }
+    }
+
+    // Default: wander nest exploring
+    return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+  }
+
+  /**
+   * Digger behavior: actively seek and work at dig fronts.
+   *
+   * Priority order:
+   * 1. If outside nest, return inside
+   * 2. If carrying dirt, haul it to the surface (handled by carrying check above)
+   * 3. Move toward the nearest active dig front
+   * 4. Deposit home pheromone to help others navigate
+   */
+  #runDiggerBehavior(world, colony, rng, config, context) {
+    this.state = 'DIG';
+
+    // Enter the nest if outside
+    if (!context.inNest && context.entrance) {
+      this.state = 'DIG_ENTER_NEST';
+      return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
+    }
+
+    // Deposit home pheromone to help navigation
+    const idx = world.index(this.x, this.y);
+    world.toHome[idx] = Math.min(config.pheromoneMaxClamp, world.toHome[idx] + config.depositHome * 1.4);
+
+    // Move toward the nearest active dig front
+    const digTarget = colony.getActiveDigFrontPosition(this.x, this.y);
+    if (digTarget) {
+      const distToFront = Math.hypot(this.x - digTarget.x, this.y - digTarget.y);
+      if (distToFront > 2) {
+        this.state = 'DIG_MOVE_TO_FRONT';
+        return this.#moveToward(world, digTarget.x, digTarget.y, rng);
+      }
+      // At the front — wander nearby so DigSystem can assign us
+      this.state = 'DIG_AT_FRONT';
+    }
+
+    // Wander near current position in tunnels
+    return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
+  }
+
   #getNestEntryTargetY(world, entrance) {
     const baseX = entrance?.x ?? this.x;
     const baseY = entrance?.y ?? world.nestY;
@@ -702,9 +806,17 @@ export class Ant {
   }
 
   #needsForage(colony) {
-    // Ants forage if personally hungry OR colony is critically low on food
-    const personallyHungry = this.hunger < this.hungerMax * 0.4;
+    // Role-aware hunger thresholds: nurses and diggers tolerate more hunger
+    // before abandoning their duties to forage
+    const hungerThreshold = (this.workFocus === 'nurse' || this.workFocus === 'dig')
+      ? this.hungerMax * 0.2   // specialists only forage when critically hungry
+      : this.hungerMax * 0.4;  // foragers forage at moderate hunger
+    const personallyHungry = this.hunger < hungerThreshold;
     const criticalFoodShortage = colony.foodStored < Math.max(1, colony.foodStoreTarget * 0.25);
+    // Specialists ignore colony food shortage — only their personal hunger matters
+    if (this.workFocus === 'nurse' || this.workFocus === 'dig') {
+      return personallyHungry;
+    }
     return personallyHungry || criticalFoodShortage;
   }
 

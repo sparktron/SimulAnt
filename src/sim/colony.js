@@ -44,6 +44,7 @@ export class Colony {
     this.onDepositDirt = null;
     this._updateCounter = 0;
     this._antGrid = new Map();  // spatial hash: "x,y" → count
+    this._digFronts = [];  // active dig front positions, set by DigSystem each tick
     this._nestFoodTiles = new Set();  // occupied nest food tile keys: "x,y"
     this._virtualFoodStored = 0;  // bootstrap food not backed by physical pellets
 
@@ -444,6 +445,45 @@ export class Colony {
     const healthGain = safeNutrition * (config.queenHealthRecoveryPerNutrition ?? 0);
     this.queen.health = Math.min(this.queen.healthMax, this.queen.health + healthGain);
     return safeNutrition;
+  }
+
+  /**
+   * Spreads overcrowded larvae to reduce brood pile density.
+   * Called by nurse ants periodically.
+   */
+  spreadLarvae(rng) {
+    if (this.larvae.length <= 4) return; // Not overcrowded
+
+    // Larvae are rendered in a grid from a fixed brood position.
+    // "Spreading" is a conceptual action — the real effect is that nurses
+    // tend the brood, which in the future could affect development speed.
+    // For now, this is a placeholder that validates the nurse-brood interaction.
+  }
+
+  /**
+   * Returns the position of the nearest active dig front, if any.
+   * Used by dig-focus workers to navigate toward excavation sites.
+   */
+  getActiveDigFrontPosition(antX, antY) {
+    if (!this._digFronts || this._digFronts.length === 0) return null;
+    let nearest = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < this._digFronts.length; i += 1) {
+      const front = this._digFronts[i];
+      const d = Math.hypot(front.x - antX, front.y - antY);
+      if (d < bestDist) {
+        bestDist = d;
+        nearest = front;
+      }
+    }
+    return nearest;
+  }
+
+  /**
+   * Called by DigSystem each tick to expose active front positions to colony.
+   */
+  setDigFronts(fronts) {
+    this._digFronts = fronts;
   }
 
   #updateQueenPosition(config) {

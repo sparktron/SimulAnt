@@ -70,6 +70,9 @@ export class DigSystem {
 
     this.fronts.sort((a, b) => b.lastAdvanceTick - a.lastAdvanceTick);
     this.#updateDirtCarriers(activeDiggerIds);
+
+    // Expose active front positions so dig-focus workers can navigate toward them
+    this.colony.setDigFronts(this.fronts.map((f) => ({ x: f.x, y: f.y })));
   }
 
 
@@ -97,8 +100,10 @@ export class DigSystem {
 
   #findNearestAvailableWorker(front, unavailableIds) {
     const ants = this.colony.ants;
-    let nearest = null;
-    let nearestDist2 = DIGGER_ASSIGNMENT_RADIUS2;
+    let nearestDigger = null;
+    let nearestDiggerDist2 = DIGGER_ASSIGNMENT_RADIUS2;
+    let nearestAny = null;
+    let nearestAnyDist2 = DIGGER_ASSIGNMENT_RADIUS2;
 
     for (let i = 0; i < ants.length; i += 1) {
       const ant = ants[i];
@@ -110,13 +115,22 @@ export class DigSystem {
       const dx = ant.x - front.x;
       const dy = ant.y - front.y;
       const d2 = dx * dx + dy * dy;
-      if (d2 < nearestDist2) {
-        nearestDist2 = d2;
-        nearest = ant;
+
+      // Dig-focus workers get priority and a larger search radius
+      if (ant.workFocus === 'dig') {
+        const digRadius2 = DIGGER_ASSIGNMENT_RADIUS2 * 4; // 2x radius for dig workers
+        if (d2 < nearestDiggerDist2 && d2 < digRadius2) {
+          nearestDiggerDist2 = d2;
+          nearestDigger = ant;
+        }
+      } else if (d2 < nearestAnyDist2) {
+        nearestAnyDist2 = d2;
+        nearestAny = ant;
       }
     }
 
-    return nearest;
+    // Prefer dig-focus workers, fall back to any available worker
+    return nearestDigger || nearestAny;
   }
 
   toggleAutoDig() {
