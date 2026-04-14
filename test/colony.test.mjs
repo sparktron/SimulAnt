@@ -177,13 +177,15 @@ test('colony spawns ants when food and brood are available', () => {
   const rng = new SeededRng('spawn-ants');
   const colony = new Colony(world, rng, 0);
   const config = createTestConfig();
+  config.broodGestationSeconds = 0.001;  // Fast gestation for testing
 
   colony.foodStored = 200;
   colony.queen.brood = 5;
   colony.setNestEntrances([]);
   colony.setSurfaceFoodPellets([]);
 
-  colony.update(config);
+  // Need multiple updates for larvae to progress through 4 stages
+  for (let i = 0; i < 50; i += 1) colony.update(config);
 
   assert.ok(colony.ants.length > 0, 'Ants should be spawned from brood');
 });

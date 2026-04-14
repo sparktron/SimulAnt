@@ -330,6 +330,14 @@ export class Colony {
       }
     }
 
+    // Ensure larvae array matches brood count (for backwards compatibility with tests/saves)
+    if (this.larvae.length < this.queen.brood) {
+      const diff = this.queen.brood - this.larvae.length;
+      for (let i = 0; i < diff; i += 1) {
+        this.larvae.push({ stage: 1, progress: 0 });
+      }
+    }
+
     if (this.larvae.length === 0) return;
 
     // Larvae consume food and progress through stages
