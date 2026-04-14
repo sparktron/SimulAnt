@@ -328,7 +328,7 @@ function loop(now) {
 
     const selectedAnt = simCore.findAntById(state.selectedAntId);
     const antHealthStats = getAntHealthStats(simCore.colony.ants);
-    const hudCounts = getHudAntCounts(simCore.colony.ants);
+    const hudCounts = getHudAntCounts(simCore.colony.ants, simCore.world.nestY);
     try {
       updateHud({
         viewMode: activeView,
@@ -352,6 +352,8 @@ function loop(now) {
         simMs,
         digStatus: state.debug.digStatus,
         pherStats: simCore.world.getPheromoneStats(),
+        antsSurface: hudCounts.surface,
+        antsUnderground: hudCounts.underground,
         followingFood: simCore.colony.ants.filter((ant) => ant.state === 'FORAGE_SEARCH' || ant.state === 'GO_TO_FOOD').length,
         followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
       });
@@ -368,7 +370,7 @@ function loop(now) {
 }
 
 
-function getHudAntCounts(ants) {
+function getHudAntCounts(ants, nestY) {
   const counts = {
     workers: 0,
     soldiers: 0,
@@ -377,12 +379,20 @@ function getHudAntCounts(ants) {
     jobsForage: 0,
     jobsDig: 0,
     jobsNurse: 0,
+    surface: 0,
+    underground: 0,
   };
 
   if (!Array.isArray(ants)) return counts;
 
   for (const ant of ants) {
     if (!ant?.alive) continue;
+
+    if (ant.y >= nestY) {
+      counts.underground += 1;
+    } else {
+      counts.surface += 1;
+    }
 
     if (ant.role === 'worker') {
       counts.workers += 1;

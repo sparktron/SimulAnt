@@ -2,6 +2,9 @@ export function updateHud(stats) {
   setText('modeIndicator', stats.viewMode);
   setText('hudTick', String(stats.tick));
   setText('hudAnts', `${stats.ants}`);
+  const surface = asNonNegativeInt(stats.antsSurface);
+  const underground = asNonNegativeInt(stats.antsUnderground);
+  setText('hudAntLocation', `(${surface}↑ ${underground}↓)`);
   setText('hudWorkers', `${stats.workers}`);
   setText('hudSoldiers', `${stats.soldiers}`);
   setText('hudBreeders', `${asNonNegativeInt(stats.breeders)}`);

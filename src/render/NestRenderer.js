@@ -48,6 +48,7 @@ export class NestRenderer {
   }
 
   screenToWorld(sx, sy) {
+    this.#enforceNestViewBounds();
     const viewW = this.canvas.clientWidth / this.zoom;
     const viewH = this.canvas.clientHeight / this.zoom;
     return {
@@ -57,6 +58,7 @@ export class NestRenderer {
   }
 
   draw(colony, options = {}) {
+    this.#enforceNestViewBounds();
     const { ctx } = this;
     const cw = this.canvas.clientWidth;
     const ch = this.canvas.clientHeight;
@@ -298,5 +300,23 @@ export class NestRenderer {
       ctx.fillText(`Queen H:${Math.round(colony.queen.hunger)} HP:${Math.round(colony.queen.health)}`, world.nestX + 4, world.nestY + 11);
       ctx.fillText(`NestPellets:${colony.nestFoodPellets?.length || 0}`, world.nestX + 4, world.nestY + 14);
     }
+  }
+
+  #enforceNestViewBounds() {
+    const { world } = this;
+    const nestDepth = world.height - world.nestY;
+    const minZoom = Math.max(1, this.canvas.clientHeight / nestDepth);
+    this.zoom = Math.max(this.zoom, minZoom);
+
+    const viewW = this.canvas.clientWidth / this.zoom;
+    const viewH = this.canvas.clientHeight / this.zoom;
+
+    const minX = viewW * 0.5;
+    const maxX = world.width - viewW * 0.5;
+    this.cameraX = minX > maxX ? world.width * 0.5 : Math.max(minX, Math.min(maxX, this.cameraX));
+
+    const minY = world.nestY + viewH * 0.5;
+    const maxY = world.height - viewH * 0.5;
+    this.cameraY = minY > maxY ? (world.nestY + world.height) * 0.5 : Math.max(minY, Math.min(maxY, this.cameraY));
   }
 }

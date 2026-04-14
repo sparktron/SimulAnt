@@ -99,7 +99,7 @@ export class Ant {
   #sense(world, colony, config) {
     const dt = config.tickSeconds || 1 / 30;
     const idx = world.index(this.x, this.y);
-    const inNest = this.y > world.nestY;
+    const inNest = this.y >= world.nestY;
     const entrance = colony.nearestEntrance(this.x, this.y);
 
     if (inNest) this.failedSurfaceFoodSearchTicks = 0;
