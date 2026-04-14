@@ -38,7 +38,7 @@ const state = {
   config: {
     tickSeconds: SIM_DT,
     antCap: 2000,
-    evapFood: 0.012,
+    evapFood: 0.06,
     evapHome: 0.015,
     evapDanger: 0.08,
     // Food diffusion is intentionally very low so the forager trails stay
@@ -79,7 +79,7 @@ const state = {
     carryingHungerDrainRate: 1.5,
     fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.05,  // 5% chance for soldiers to spawn via brood
-    foodVisionRadius: 7,
+    foodVisionRadius: 10,
     surfaceFoodSearchMaxMissTicks: 180,  // Increased: give foragers more time to find food
     surfaceReturnToNestHungerThreshold: 0.5,  // Lowered: less aggressive nest rushing
     followAlpha: 1.5,
@@ -91,8 +91,8 @@ const state = {
     homeDepositIntervalTicks: 3,
     homeDepositMinDistance: 20,
     nearEntranceScatterRadius: 8,
-    foodTrailDistanceScale: 1.1,
-    maxFoodTrailScale: 3.2,
+    foodTrailDecayPerStep: 0.92,
+    maxFoodTrailScale: 4.0,
     homeScentBaseWeight: 1.0,
     homeScentSearchStateScale: 0,
     homeScentReturnStateScale: 1.0,
@@ -101,10 +101,10 @@ const state = {
     homeScentMinFalloff: 1.0,
     homeScentMaxContributionPerStep: 999,
     homeTieBiasScale: 0.05,
-    foodTieBiasScale: 0.04,
+    foodTieBiasScale: 0.12,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
-    pheromoneMaxClamp: 10,
+    pheromoneMaxClamp: 150,
   },
   casteTargets: {
     workers: 100,

@@ -233,18 +233,19 @@ export class Ant {
       }
 
       const distToNest = context.entrance ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) : 0;
-      // Trail is strongest right at the pickup point and decays only slightly as
-      // the ant walks home. `pickupDistance` is stamped when the pellet is picked
-      // up; if it's missing (legacy carry), fall back to the current distance.
-      const pickupDistance = this.carrying.pickupDistance ?? distToNest;
-      const safePickupDist = Math.max(1, pickupDistance);
-      // progress: 0 at pickup, 1 at nest entrance.
-      const progress = Math.min(1, Math.max(0, 1 - distToNest / safePickupDist));
-      // Max scale at pickup, 80% of max at the nest — "very slightly weaker".
-      const minScale = config.maxFoodTrailScale * 0.8;
-      const trailScale = config.maxFoodTrailScale - (config.maxFoodTrailScale - minScale) * progress;
-      const foodDeposit = config.depositFood * trailScale;
+      // Trail intensity starts at maxFoodTrailScale when food is picked up and
+      // decays by foodTrailDecayPerStep each step as the ant walks home.
+      // This guarantees tiles near the food source are ALWAYS more heavily marked
+      // than tiles near the nest — even when the clamp saturates both, previous
+      // evaporation cycles leave the near-food end consistently higher.
+      // Distance-based formulas fail when the trail saturates at the clamp; a
+      // per-step decay accumulates correctly regardless of total trail length.
+      if (this.carrying._trailIntensity === undefined) {
+        this.carrying._trailIntensity = config.maxFoodTrailScale;
+      }
+      const foodDeposit = config.depositFood * this.carrying._trailIntensity;
       world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, world.toFood[context.idx] + foodDeposit);
+      this.carrying._trailIntensity *= (config.foodTrailDecayPerStep ?? 0.93);
 
       // When reasonably close to nest, navigate directly; farther out, follow pheromone
       if (distToNest < 40 && context.entrance) {

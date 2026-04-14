@@ -97,7 +97,7 @@ export function sanitizeTickConfig(config = {}) {
     surfaceReturnToNestHungerThreshold: clamp01(config.surfaceReturnToNestHungerThreshold, 0.65),
     homeDepositMinDistance: clampNonNegativeNumber(config.homeDepositMinDistance, 0),
     nearEntranceScatterRadius: clampNonNegativeNumber(config.nearEntranceScatterRadius, 0),
-    foodTrailDistanceScale: clampNonNegativeNumber(config.foodTrailDistanceScale, 0),
+    foodTrailDecayPerStep: clamp01(config.foodTrailDecayPerStep, 0.92),
     maxFoodTrailScale: Math.max(1, clampNonNegativeNumber(config.maxFoodTrailScale, 1)),
     homeScentBaseWeight: clampNonNegativeNumber(config.homeScentBaseWeight, 1),
     homeScentSearchStateScale: clampNonNegativeNumber(config.homeScentSearchStateScale, 1),
