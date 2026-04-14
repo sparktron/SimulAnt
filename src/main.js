@@ -388,7 +388,7 @@ function getHudAntCounts(ants, nestY) {
   for (const ant of ants) {
     if (!ant?.alive) continue;
 
-    if (ant.y >= nestY) {
+    if (ant.y > nestY) {
       counts.underground += 1;
     } else {
       counts.surface += 1;
