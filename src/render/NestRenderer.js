@@ -116,17 +116,20 @@ export class NestRenderer {
           const isChamber = terrain === TERRAIN.CHAMBER;
           const edge = this.#isTunnelEdge(x, y);
           if (edge) {
-            r = 96;
-            g = 80;
-            b = 56;
+            // Tunnel edge: slightly darker than tunnel interior
+            r = 200;
+            g = 190;
+            b = 170;
           } else if (isChamber) {
-            r = 168;
-            g = 152;
-            b = 122;
+            // Chamber: light color for visibility
+            r = 240;
+            g = 235;
+            b = 220;
           } else {
-            r = 184;
-            g = 166;
-            b = 130;
+            // Tunnel interior: light, distinct from dirt
+            r = 235;
+            g = 225;
+            b = 205;
           }
         } else if (terrain === TERRAIN.WATER) {
           r = 36;
