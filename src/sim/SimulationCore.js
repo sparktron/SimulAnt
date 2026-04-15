@@ -42,7 +42,7 @@ export class SimulationCore {
     });
 
     this.world.setNest(this.world.nestX, this.world.nestY);
-    this.colony = new Colony(this.world, this.rng, 160);
+    this.colony = new Colony(this.world, this.rng, 80);
     this.colony.syncQueenPositionToNest(this.world.nestX, this.world.nestY);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
