@@ -42,7 +42,7 @@ export class SimulationCore {
     });
 
     this.world.setNest(this.world.nestX, this.world.nestY);
-    this.colony = new Colony(this.world, this.rng, 320);
+    this.colony = new Colony(this.world, this.rng, 160);
     this.colony.syncQueenPositionToNest(this.world.nestX, this.world.nestY);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
@@ -83,28 +83,37 @@ export class SimulationCore {
       nestEntrances: this.nestEntrances,
     });
 
-    // Respawn food clusters periodically to sustain the colony.
-    // Scales with colony size: larger colonies need more frequent food.
+    // Respawn food clusters to sustain the colony.
+    // Check frequently and scale supply with colony size so the colony
+    // never starves between respawn windows.
     const antCount = this.colony.ants.length;
-    const respawnInterval = antCount > 200 ? 150 : 300; // faster respawn for larger colonies
-    if (this.tick % respawnInterval === 0) {
-      const availableFoodCount = this.foodPellets.filter((p) => !p.takenByAntId).length;
-      const pelletThreshold = Math.max(8, Math.floor(antCount * 0.08)); // scale with colony
-      if (availableFoodCount < pelletThreshold) {
-        // Spawn a mix of near and far clusters so foragers always find some food
-        // Near cluster: 10-25 tiles from nest (easy to find)
+    const availableFoodCount = this.foodPellets.filter((p) => !p.takenByAntId).length;
+    // Target ~1 unclaimed pellet per ant so foragers always have something to find.
+    const pelletTarget = Math.max(20, antCount);
+    // Emergency spawn: if food on map AND in store is both critically low,
+    // spawn immediately regardless of tick interval.
+    const totalFoodAvailable = availableFoodCount + this.colony.foodStored;
+    const criticalShortage = totalFoodAvailable < Math.max(10, antCount * 0.5);
+    const regularInterval = antCount > 100 ? 60 : 120;
+
+    if (criticalShortage || this.tick % regularInterval === 0) {
+      if (availableFoodCount < pelletTarget) {
+        const deficit = pelletTarget - availableFoodCount;
+        // Near cluster: 10-25 tiles from nest (easy to find, reinforces trails)
         const angleNear = this.rng.range(0, Math.PI * 2);
         const distNear = 10 + this.rng.range(0, 15);
         const xNear = Math.round(this.world.nestX + Math.cos(angleNear) * distNear);
         const yNear = Math.round(this.world.nestY - Math.abs(Math.sin(angleNear) * distNear));
-        this.spawnFoodCluster(xNear, Math.min(yNear, this.world.nestY - 2), 8, 8);
+        const nearCount = Math.ceil(deficit * 0.4);
+        this.spawnFoodCluster(xNear, Math.min(yNear, this.world.nestY - 2), 8, nearCount);
 
         // Far cluster: 30-60 tiles from nest (rewards exploration)
         const angleFar = angleNear + Math.PI * (0.5 + this.rng.range(0, 1));
         const distFar = 30 + this.rng.range(0, 30);
         const xFar = Math.round(this.world.nestX + Math.cos(angleFar) * distFar);
         const yFar = Math.round(this.world.nestY - Math.abs(Math.sin(angleFar) * distFar));
-        this.spawnFoodCluster(xFar, Math.min(yFar, this.world.nestY - 2), 12, 8);
+        const farCount = Math.ceil(deficit * 0.6);
+        this.spawnFoodCluster(xFar, Math.min(yFar, this.world.nestY - 2), 12, farCount);
       }
     }
 

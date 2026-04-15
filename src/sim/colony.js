@@ -11,6 +11,8 @@ export class Colony {
     this.rng = rng;
     this.ants = [];
     this.foodStored = 0;
+    // Target scales with colony size so foragers keep working as ants grow.
+    // Updated each tick via #updateFoodStoreTarget().
     this.foodStoreTarget = 100;
     this.births = initialAnts;
     this.deaths = 0;
@@ -59,8 +61,11 @@ export class Colony {
     // Need enough to support all ants + queen egg production + brood development
     // while foragers ramp up gathering (takes time to find food and return)
     // With food respawning every 300 ticks when < 8 pellets, this gives stability
-    this.foodStored = 5000;
-    this._virtualFoodStored = 5000;  // consumed before physical pellets so deposits accumulate visibly
+    // Bootstrap food scales with colony size so a smaller start doesn't
+    // immediately starve before foragers establish trails.
+    const bootstrapFood = Math.max(500, initialAnts * 8);
+    this.foodStored = bootstrapFood;
+    this._virtualFoodStored = bootstrapFood;  // consumed before physical pellets so deposits accumulate visibly
 
     this.syncQueenPositionToNest(world.nestX, world.nestY);
   }
@@ -120,6 +125,10 @@ export class Colony {
    */
   update(config) {
     this._updateCounter += 1;
+    // Scale food store target with colony size: ~2 nutrition per ant as a
+    // rolling buffer. Foragers work until the store reaches 90% of this,
+    // so a larger colony keeps more reserves without over-hoarding.
+    this.foodStoreTarget = Math.max(100, this.ants.length * 2);
     // Deposit entrance pheromone every 5 ticks to prevent saturation flooding
     if (this._updateCounter % 5 === 0) this.#depositEntrancePheromone(config);
     this.#updateQueenSurvival(config);
