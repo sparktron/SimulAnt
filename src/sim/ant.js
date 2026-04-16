@@ -38,7 +38,7 @@ export class Ant {
     this.health = this.healthMax * (0.75 + rng.range(0, 0.25));
     this.hungerDrainRates = {
       idle: role === 'soldier' ? 2.2 : 1.8,
-      move: role === 'soldier' ? 4.5 : 3.2,
+      move: role === 'soldier' ? 4.5 : 2.0,
       dig: 5.0,
       fight: 7.0,
     };
@@ -59,6 +59,13 @@ export class Ant {
     const antIdNumeric = Number.parseInt(this.id.slice(4), 10) || 0;
     this.surfaceSearchMissThresholdOffsetTicks = (antIdNumeric % 31) - 15;
     this.lastSteeringDebug = null;
+    this._lastNestEatTick = -Infinity;
+    // Trail re-acquisition: remember last on-trail direction for a few ticks
+    // so the ant can find the trail again if it drifts off momentarily.
+    this._lastTrailDir = -1;
+    this._ticksSinceOnTrail = Infinity;
+    // Stagger nest departures to avoid traffic jams at the entrance.
+    this._nestDepartureDelay = 0;
   }
 
   /**
@@ -214,6 +221,9 @@ export class Ant {
         if (dropPoint) {
           if (this.x === dropPoint.x && this.y === dropPoint.y) {
             colony.depositFoodFromAnt(this, context.entrance, dropPoint);
+            // Stagger nest departures: random delay after depositing food
+            // so ants don't all rush the entrance at once.
+            this._nestDepartureDelay = 5 + Math.floor(Math.random() * 16);
             return didMove;
           }
 
@@ -233,25 +243,25 @@ export class Ant {
       }
 
       const distToNest = context.entrance ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) : 0;
-      // Trail intensity starts at maxFoodTrailScale when food is picked up and
-      // decays by foodTrailDecayPerStep each step as the ant walks home.
-      // This guarantees tiles near the food source are ALWAYS more heavily marked
-      // than tiles near the nest — even when the clamp saturates both, previous
-      // evaporation cycles leave the near-food end consistently higher.
-      // Distance-based formulas fail when the trail saturates at the clamp; a
-      // per-step decay accumulates correctly regardless of total trail length.
-      if (this.carrying._trailIntensity === undefined) {
-        this.carrying._trailIntensity = config.maxFoodTrailScale;
-      }
-      const foodDeposit = config.depositFood * this.carrying._trailIntensity;
-      world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, world.toFood[context.idx] + foodDeposit);
-      this.carrying._trailIntensity *= (config.foodTrailDecayPerStep ?? 0.93);
+      // Food-trail reinforcement: when a returning ant walks over an existing
+      // food trail, the pheromone is multiplied by 1.25× AND the normal deposit
+      // is added.  This makes popular trails grow exponentially stronger while
+      // unused branches fade away — a positive feedback loop that consolidates
+      // foraging traffic onto the best routes.
+      const existingFood = world.toFood[context.idx];
+      const foodDeposit = config.depositFood;
+      const amplified = existingFood > 0.1
+        ? existingFood * 1.25 + foodDeposit
+        : existingFood + foodDeposit;
+      world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, amplified);
 
       // When reasonably close to nest, navigate directly; farther out, follow pheromone
+      // with food-trail gravitation so returning ants reinforce existing trails
+      // rather than carving new paths.
       if (distToNest < 40 && context.entrance) {
         didMove = this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
       } else {
-        didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
+        didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance, null, world.toFood);
         if (!didMove && context.entrance) {
           didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
         }
@@ -261,12 +271,19 @@ export class Ant {
 
     // Foragers exit nest when not carrying anything
     if (this.workFocus === 'forage' && context.inNest && context.entrance) {
+      // Stagger departures: after eating, wait a random delay before leaving
+      // so ants don't all rush the entrance at once.
+      if (this._nestDepartureDelay > 0) {
+        this._nestDepartureDelay -= 1;
+        this.state = 'IDLE';
+        return false;
+      }
       this.state = 'EXIT_NEST';
       const exitTargetY = context.entrance.y - 1;
-      // Scatter exits along the entrance width so a crowd of foragers doesn't
-      // all race to the same single tile. Each ant picks a deterministic
-      // column offset based on its id, spreading load across the 3-wide shaft.
-      const radius = Math.max(1, context.entrance.radius ?? 1);
+      // Scatter exits along a wider band so foragers fan out instead of
+      // clustering at the same few tiles.  Uses double the entrance radius
+      // plus padding so ants emerge across an 8-10 tile front.
+      const radius = Math.max(1, (context.entrance.radius ?? 1) * 2 + 2);
       const scatter = this.#entranceColumnOffset(radius);
       const scatteredX = context.entrance.x + scatter;
       if (world.isPassable(scatteredX, exitTargetY)) {
@@ -319,8 +336,18 @@ export class Ant {
     if (visible) {
       this.failedSurfaceFoodSearchTicks = 0;
       if (this.x === visible.x && this.y === visible.y) {
+        // In an abundant food source with health below 60%, eat a pellet
+        // for personal health before picking up one to carry home.  This
+        // keeps foragers alive on long trips and doesn't waste food since
+        // the source is plentiful.
+        const abundantFood = colony.countVisiblePellets(this.x, this.y, config.foodVisionRadius) >= 3;
+        const needsPersonalFood = this.health < this.healthMax * 0.6;
         if (this.#isLowHealth()) {
           this.#consumePelletForHealthThenCarry(colony, visible, config);
+          this.state = 'EAT';
+        } else if (abundantFood && needsPersonalFood) {
+          // Eat this pellet outright for health, then next tick pick up another to carry
+          this.#consumePelletForHealth(colony, visible, config);
           this.state = 'EAT';
         } else {
           visible.takenByAntId = this.id;
@@ -344,8 +371,13 @@ export class Ant {
     const onPellet = colony.findAvailablePelletAt(this.x, this.y);
     if (onPellet) {
       this.failedSurfaceFoodSearchTicks = 0;
+      const abundantFoodHere = colony.countVisiblePellets(this.x, this.y, config.foodVisionRadius) >= 3;
+      const needsFoodHere = this.health < this.healthMax * 0.6;
       if (this.#isLowHealth()) {
         this.#consumePelletForHealthThenCarry(colony, onPellet, config);
+        this.state = 'EAT';
+      } else if (abundantFoodHere && needsFoodHere) {
+        this.#consumePelletForHealth(colony, onPellet, config);
         this.state = 'EAT';
       } else {
         onPellet.takenByAntId = this.id;
@@ -373,7 +405,7 @@ export class Ant {
       );
       const returnHungerThreshold = Math.max(0, Math.min(1, config.surfaceReturnToNestHungerThreshold ?? 0.65));
       const shouldReturnToNestForFood = colony.foodStored > 0 && (
-        this.hunger < this.hungerMax * 0.25
+        this.hunger < this.hungerMax * 0.15
         || (
           this.failedSurfaceFoodSearchTicks >= maxMissTicks
           && this.hunger < this.hungerMax * returnHungerThreshold
@@ -490,7 +522,7 @@ export class Ant {
     }
   }
 
-  #moveByPheromone(world, rng, config, channel, entrance, colony) {
+  #moveByPheromone(world, rng, config, channel, entrance, colony, trailAttractionField = null) {
     if (!colony) colony = this._currentColony;
     const field = channel === 'home' ? world.toHome : world.toFood;
     const epsilon = 0.001;
@@ -545,12 +577,31 @@ export class Ant {
       // follows pheromone all the way to the source instead of drifting off.
       const carryingFood = this.carrying?.type === 'food';
       const currentTrailValue = field[world.index(this.x, this.y)] ?? 0;
-      const onStrongTrail = !carryingFood && channel === 'food' && currentTrailValue > 0.5;
-      const noiseReduction = carryingFood ? 0.2 : onStrongTrail ? 0.35 : 1.0;
+      const onStrongTrail = !carryingFood && channel === 'food' && currentTrailValue > 0.1;
+      const noiseReduction = carryingFood ? 0.2 : onStrongTrail ? 0.25 : 1.0;
       const pherBoost = carryingFood && channel === 'home' ? 2.0 : 1.0;  // 2x home pheromone boost
+
+      // Trail re-acquisition: if this ant was on a trail recently but lost it,
+      // bias toward the last known trail direction for a few ticks.
+      let reacquireBias = 0;
+      if (!onStrongTrail && channel === 'food' && this._ticksSinceOnTrail < 5 && this._lastTrailDir >= 0) {
+        reacquireBias = d === this._lastTrailDir ? 0.4 : 0;
+      }
+
+      // Trail-reinforcement gravitation: when returning with food, bias toward
+      // tiles that already have food pheromone so the ant walks along the
+      // existing trail corridor instead of creating a parallel path.
+      let trailAttraction = 0;
+      if (trailAttractionField) {
+        const attractValue = trailAttractionField[nidx] ?? 0;
+        if (attractValue > 0.1) {
+          trailAttraction = Math.min(attractValue * 0.3, 2.0);
+        }
+      }
+
       const noise = rng.range(0, config.wanderNoise * noiseReduction);
       const boostedPherContribution = pherContribution * pherBoost;
-      const weight = Math.max(0, boostedPherContribution + momentum + tieBias + noise - reversePenalty - dangerPenalty - crowdingPenalty);
+      const weight = Math.max(0, boostedPherContribution + momentum + tieBias + noise + reacquireBias + trailAttraction - reversePenalty - dangerPenalty - crowdingPenalty);
       weights.push({
         d,
         w: weight,
@@ -612,6 +663,17 @@ export class Ant {
       homeScentWeight: channel === 'home' ? homeScentWeight : 0,
       distanceToEntrance: entrance ? Math.hypot(this.x - entrance.x, this.y - entrance.y) : null,
     };
+    // Update trail re-acquisition memory: remember direction while on trail
+    const movedTrailValue = field[world.index(tx, ty)] ?? 0;
+    if (channel === 'food') {
+      if (movedTrailValue > 0.1) {
+        this._lastTrailDir = chosenDir;
+        this._ticksSinceOnTrail = 0;
+      } else {
+        this._ticksSinceOnTrail += 1;
+      }
+    }
+
     const prevX = this.x;
     const prevY = this.y;
     this.x = tx;
@@ -846,6 +908,15 @@ export class Ant {
   }
 
   #getCrowdingPenalty(x, y, colony) {
+    // Disable crowding penalty near the entrance — entrances are *supposed*
+    // to be crowded (they're chokepoints).  The penalty should only apply on
+    // open trails and foraging areas to spread ants out.
+    const entrance = colony.nearestEntrance(x, y);
+    if (entrance) {
+      const distToEntrance = Math.hypot(x - entrance.x, y - entrance.y);
+      if (distToEntrance < 4) return 0;
+    }
+
     // Count nearby ants (within 2 tiles) to detect crowding
     let nearbyAntCount = 0;
     const range = 2;
@@ -890,39 +961,33 @@ export class Ant {
 
   #tryEatFromNest(colony, inNest, config) {
     if (!inNest) return false;
+    // Only workers eat from nest stores; soldiers have static metabolism.
+    if (this.role !== 'worker') return false;
 
-    // Only eat when health drops below 60%
-    const healthBelowThreshold = this.health < this.healthMax * 0.6;
-    if (!healthBelowThreshold) return false;
-
+    // Cooldown: prevent ants from eating every single tick in the nest.
+    // 30 ticks between meals unless critically starving.
+    const eatCooldown = config.nestEatCooldownTicks ?? 30;
+    const ticksSinceLastEat = this.stepCounter - this._lastNestEatTick;
     const critical = this.#isCriticalHealth();
+    if (!critical && ticksSinceLastEat < eatCooldown) return false;
+
+    // Hunger-based eating: eat when hungry, not when health dips.
+    // Health regenerates passively when hunger > 65%, so feeding hunger
+    // is the correct lever.  Critical-health ants still get priority.
+    const hungry = this.hunger < this.hungerMax * 0.35;
+    if (!hungry && !critical) return false;
 
     const requested = critical
       ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
       : config.workerEatNutrition;
-    // Clamp intake to remaining hunger capacity in the common case to avoid
-    // wasting colony food. When hunger is already full, cap intake to the
-    // nutrition actually needed for health recovery so full-hunger workers can
-    // heal without draining excess rations.
+    // Clamp intake to remaining hunger capacity so we don't waste food.
     const hungerCapacity = Math.max(0, this.hungerMax - this.hunger);
-    let requestedIntake = 0;
-    if (hungerCapacity > 0) {
-      requestedIntake = Math.min(requested, hungerCapacity);
-    } else {
-      const healthDeficit = Math.max(0, this.healthMax - this.health);
-      const criticalBonus = critical ? Math.max(0, config.starvationRecoveryHealth ?? 0) : 0;
-      const remainingRecovery = Math.max(0, healthDeficit - criticalBonus);
-      const healthRecoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
-      if (healthRecoveryRate > 0) {
-        const nutritionForRecovery = remainingRecovery / healthRecoveryRate;
-        requestedIntake = Math.min(requested, nutritionForRecovery);
-      }
-    }
-    if (requestedIntake <= 0) return false;
+    const requestedIntake = Math.max(1, Math.min(requested, hungerCapacity > 0 ? hungerCapacity : requested));
 
     const consumed = colony.consumeFromStore(requestedIntake);
     if (consumed <= 0) return false;
 
+    this._lastNestEatTick = this.stepCounter;
     this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
     const healthGain = consumed * (config.healthEatRecoveryRate ?? 0);
     this.health = Math.min(this.healthMax, this.health + healthGain + (critical ? config.starvationRecoveryHealth : 0));

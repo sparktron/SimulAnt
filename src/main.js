@@ -38,12 +38,12 @@ const state = {
   config: {
     tickSeconds: SIM_DT,
     antCap: 2000,
-    evapFood: 0.06,
+    evapFood: 0.02,
     evapHome: 0.015,
     evapDanger: 0.08,
-    // Food diffusion is intentionally very low so the forager trails stay
-    // narrow and legible instead of bleeding into a wide green haze.
-    diffFood: 0.006,
+    // Food diffusion is moderate so trails have a detectable width (ants
+    // sense only 8 immediate neighbors) while still staying legible.
+    diffFood: 0.02,
     diffHome: 0.18,
     diffDanger: 0.12,
     diffIntervalTicks: 2,
@@ -71,8 +71,8 @@ const state = {
     healthDrainRate: 5,
     healthRegenRate: 1,
     healthWorkIdleDrainRate: 0.1,
-    healthWorkMoveDrainRate: 0.25,
-    healthWorkCarryDrainRate: 0.15,
+    healthWorkMoveDrainRate: 0.08,
+    healthWorkCarryDrainRate: 0.01,
     healthWorkFightDrainRate: 0.6,
     healthEatRecoveryRate: 0.45,
     workerEmergencyEatNutrition: 35,
@@ -80,17 +80,17 @@ const state = {
     fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.05,  // 5% chance for soldiers to spawn via brood
     foodVisionRadius: 10,
-    surfaceFoodSearchMaxMissTicks: 180,  // Increased: give foragers more time to find food
-    surfaceReturnToNestHungerThreshold: 0.5,  // Lowered: less aggressive nest rushing
+    surfaceFoodSearchMaxMissTicks: 400,  // Give foragers much more time to find food
+    surfaceReturnToNestHungerThreshold: 0.35,  // Only return when genuinely hungry
     followAlpha: 1.5,
-    followBeta: 5.0,
+    followBeta: 8.0,
     wanderNoise: 0.06,
-    randomTurnChance: 0.045,
+    randomTurnChance: 0.02,
     momentumBias: 0.3,
     reversePenalty: 0.9,
     homeDepositIntervalTicks: 3,
     homeDepositMinDistance: 20,
-    nearEntranceScatterRadius: 8,
+    nearEntranceScatterRadius: 18,
     foodTrailDecayPerStep: 0.92,
     maxFoodTrailScale: 4.0,
     homeScentBaseWeight: 1.0,
@@ -101,7 +101,7 @@ const state = {
     homeScentMinFalloff: 1.0,
     homeScentMaxContributionPerStep: 999,
     homeTieBiasScale: 0.05,
-    foodTieBiasScale: 0.12,
+    foodTieBiasScale: 0.02,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,

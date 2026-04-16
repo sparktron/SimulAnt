@@ -433,7 +433,7 @@ test('worker nest feeding only consumes hunger deficit from store', () => {
   assert.ok(ant.hunger > 99.8 && ant.hunger <= 100, 'Ant hunger should be effectively full after bounded intake');
 });
 
-test('full-hunger worker consumes only nutrition needed for health recovery', () => {
+test('full-hunger worker with moderate health does not eat (relies on passive regen)', () => {
   const rng = new SeededRng('full-hunger-health-recovery-cap');
   const world = createTestWorld();
   const config = createTestConfig();
@@ -451,11 +451,10 @@ test('full-hunger worker consumes only nutrition needed for health recovery', ()
 
   ant.update(world, colony, rng, config);
 
-  // health deficit = 41 and recovery rate = 2.0 in test config, so only 20.5
-  // nutrition is needed; ant should not consume the full workerEatNutrition.
-  assert.equal(colony.foodStored, 79.5);
-  assert.ok(ant.hunger > 99.8 && ant.hunger <= ant.hungerMax);
-  assert.ok(ant.health >= 99.99 && ant.health <= ant.healthMax);
+  // With hunger-based eating, a full-hunger ant with moderate health does NOT
+  // eat from the store — passive health regen (triggered when hunger > 65%)
+  // handles recovery without wasting colony food.
+  assert.equal(colony.foodStored, 100, 'Full-hunger ant should not consume from store');
 });
 
 test('low-health worker eats from found pellet and carries the remainder', () => {

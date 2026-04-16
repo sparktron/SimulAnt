@@ -125,10 +125,10 @@ export class Colony {
    */
   update(config) {
     this._updateCounter += 1;
-    // Scale food store target with colony size: ~2 nutrition per ant as a
+    // Scale food store target with colony size: ~5 nutrition per ant as a
     // rolling buffer. Foragers work until the store reaches 90% of this,
     // so a larger colony keeps more reserves without over-hoarding.
-    this.foodStoreTarget = Math.max(100, this.ants.length * 2);
+    this.foodStoreTarget = Math.max(100, this.ants.length * 5);
     // Deposit entrance pheromone every 5 ticks to prevent saturation flooding
     if (this._updateCounter % 5 === 0) this.#depositEntrancePheromone(config);
     this.#updateQueenSurvival(config);
@@ -865,6 +865,19 @@ export class Colony {
       best = pellet;
     }
     return best;
+  }
+
+  countVisiblePellets(x, y, radius = 6) {
+    const r2 = radius * radius;
+    let count = 0;
+    for (let i = 0; i < this.surfaceFoodPellets.length; i += 1) {
+      const pellet = this.surfaceFoodPellets[i];
+      if (pellet.takenByAntId != null) continue;
+      const dx = pellet.x - x;
+      const dy = pellet.y - y;
+      if (dx * dx + dy * dy <= r2) count += 1;
+    }
+    return count;
   }
 
   findAvailablePelletAt(x, y) {
