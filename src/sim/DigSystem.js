@@ -308,7 +308,7 @@ export class DigSystem {
     // and a pseudo-random chance (8%) per qualifying chamber.
     const depth = front.y - this.world.nestY;
     if (depth >= 12 && this.upwardShafts.length < 3 && this.rng.chance(0.08)) {
-      this.#spawnUpwardShaft(front.x, front.y);
+      this.#spawnUpwardShaft(front.x, front.y, config);
     }
 
     return true;
@@ -361,18 +361,26 @@ export class DigSystem {
    * chamber, so the new entrance emerges at a different surface location
    * than existing ones.
    */
-  #spawnUpwardShaft(chamberX, chamberY) {
+  #spawnUpwardShaft(chamberX, chamberY, config) {
     // Pick a random x offset so the entrance doesn't stack on existing ones.
     const sign = this.rng.chance(0.5) ? 1 : -1;
     const offset = 15 + this.rng.int(26); // 15-40 tiles away
     let targetX = chamberX + sign * offset;
     // Clamp to world bounds with margin
     targetX = Math.max(3, Math.min(this.world.width - 4, targetX));
+    const shaftStartY = Math.max(this.world.nestY + 2, chamberY - 1);
+
+    // Carve a horizontal connector from chamber to shaft start so the
+    // eventual surface entrance is connected to the existing colony.
+    const xStep = targetX >= chamberX ? 1 : -1;
+    for (let x = chamberX; x !== targetX + xStep; x += xStep) {
+      this.#carveTunnel(x, shaftStartY, config, null);
+    }
 
     // Start the shaft from just above the chamber
     this.upwardShafts.push({
       x: targetX,
-      y: chamberY,
+      y: shaftStartY,
       startY: chamberY,
       progress: 0,
     });
