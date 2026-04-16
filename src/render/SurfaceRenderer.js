@@ -21,7 +21,7 @@ export class SurfaceRenderer {
     this.world = world;
 
     this.cameraX = world.nestX;
-    this.cameraY = world.nestY * 0.42;
+    this.cameraY = world.nestY * 0.5;
     this.zoom = 3;
 
     this._off = document.createElement('canvas');
@@ -227,7 +227,10 @@ export class SurfaceRenderer {
     this.cameraX = minX > maxX ? this.world.width * 0.5 : clamp(this.cameraX, minX, maxX);
 
     const minY = viewH * 0.5;
-    const maxY = this.world.nestY - viewH * 0.5;
-    this.cameraY = minY > maxY ? this.world.nestY * 0.5 : clamp(this.cameraY, minY, maxY);
+    // Allow the camera to show some padding below the nest so the entrance
+    // isn't pinned to the very bottom edge of the surface view.
+    const nestPadding = Math.min(20, this.world.nestY * 0.15);
+    const maxY = this.world.nestY + nestPadding - viewH * 0.5;
+    this.cameraY = minY > maxY ? (this.world.nestY + nestPadding) * 0.5 : clamp(this.cameraY, minY, maxY);
   }
 }

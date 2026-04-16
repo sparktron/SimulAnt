@@ -27,7 +27,7 @@ export class World {
     this._dangerNext = new Float32Array(this.size);
 
     this.nestX = Math.floor(width * 0.5);
-    this.nestY = Math.floor(height * 0.65);
+    this.nestY = Math.floor(height * 0.5);
     this.nestRadius = 8;
     this.nestInfluence = new Float32Array(this.size);
 
