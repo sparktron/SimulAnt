@@ -21,8 +21,8 @@ export class DigSystem {
     // Upward shafts that dig toward the surface to create new entrances.
     // Each has {x, y, progress, startY} — always moves dir=3 (up / [0,-1]).
     this.upwardShafts = [];
-    // Callback fired when an upward shaft breaches the surface.
-    // Signature: onNewEntrance(x, y) where y = nestY (surface level).
+    // Callback fired when an upward shaft breaches near the surface.
+    // Signature: onNewEntrance(x, y).
     this.onNewEntrance = null;
 
     this.#seedInitialFronts();
@@ -182,6 +182,7 @@ export class DigSystem {
             x: Math.max(0, Math.min(this.world.width - 1, Number(s.x) || 0)),
             y: Math.max(this.world.nestY, Math.min(this.world.height - 1, Number(s.y) || 0)),
             startY: Number(s.startY) || s.y,
+            breachY: Math.max(this.world.nestY - 1, Math.min(this.world.nestY + 1, Number(s.breachY) || this.world.nestY)),
             progress: this.#sanitizeProgress(s.progress),
           }))
       : [];
@@ -357,17 +358,11 @@ export class DigSystem {
   /**
    * Spawns an upward shaft from a deep chamber location.
    *
-   * The x-position is pseudo-randomized: offset ±15-40 tiles from the
-   * chamber, so the new entrance emerges at a different surface location
-   * than existing ones.
+   * The emergence target is pseudo-randomized on both axes so the 2D nest
+   * view can symbolize a more varied 3D tunnel network.
    */
   #spawnUpwardShaft(chamberX, chamberY, config) {
-    // Pick a random x offset so the entrance doesn't stack on existing ones.
-    const sign = this.rng.chance(0.5) ? 1 : -1;
-    const offset = 15 + this.rng.int(26); // 15-40 tiles away
-    let targetX = chamberX + sign * offset;
-    // Clamp to world bounds with margin
-    targetX = Math.max(3, Math.min(this.world.width - 4, targetX));
+    const { targetX, breachY } = this.#pickSurfaceEmergenceTarget(chamberX);
     const shaftStartY = Math.max(this.world.nestY + 2, chamberY - 1);
 
     // Carve a horizontal connector from chamber to shaft start so the
@@ -382,8 +377,24 @@ export class DigSystem {
       x: targetX,
       y: shaftStartY,
       startY: chamberY,
+      breachY,
       progress: 0,
     });
+  }
+
+  #pickSurfaceEmergenceTarget(chamberX) {
+    // Pick a random x offset so the entrance doesn't stack on existing ones.
+    const sign = this.rng.chance(0.5) ? 1 : -1;
+    const offset = 15 + this.rng.int(26); // 15-40 tiles away
+    let targetX = chamberX + sign * offset;
+    // Clamp to world bounds with margin
+    targetX = Math.max(3, Math.min(this.world.width - 4, targetX));
+
+    // Keep emergence near the surface but vary around nestY so openings do
+    // not appear perfectly even in the 2D representation.
+    const yJitter = this.rng.int(3) - 1; // -1, 0, +1
+    const breachY = Math.max(this.world.nestY - 1, Math.min(this.world.nestY + 1, this.world.nestY + yJitter));
+    return { targetX, breachY };
   }
 
   /**
@@ -400,7 +411,9 @@ export class DigSystem {
       const shaft = this.upwardShafts[i];
       shaft.progress += 0.6;
 
-      while (shaft.progress >= 1 && shaft.y > this.world.nestY) {
+      const breachY = Number.isFinite(shaft.breachY) ? shaft.breachY : this.world.nestY;
+
+      while (shaft.progress >= 1 && shaft.y > breachY) {
         shaft.progress -= 1;
         shaft.y -= 1; // move up
 
@@ -419,7 +432,7 @@ export class DigSystem {
       }
 
       // Shaft has reached the surface — create the entrance
-      if (shaft.y <= this.world.nestY) {
+      if (shaft.y <= breachY) {
         this.#breachSurface(shaft, config);
         this.upwardShafts.splice(i, 1);
       }
@@ -435,7 +448,7 @@ export class DigSystem {
    */
   #breachSurface(shaft, config) {
     const sx = shaft.x;
-    const sy = this.world.nestY;
+    const sy = Math.max(this.world.nestY - 1, Math.min(this.world.nestY + 1, shaft.breachY ?? this.world.nestY));
 
     // Carve flared entrance: 5 tiles wide at surface, 3 tiles wide just below
     for (let dy = 0; dy <= 2; dy += 1) {

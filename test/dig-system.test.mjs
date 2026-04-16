@@ -310,3 +310,55 @@ test('upward shaft spawn carves a horizontal connector to the colony', () => {
     );
   }
 });
+
+test('upward shaft spawn stores varied emergence Y and reports it on breach', () => {
+  const world = new World(96, 96);
+  const rng = new SeededRng('upward-shaft-emergence-y');
+  const colony = new Colony(world, rng, 10);
+  const dig = new DigSystem(world, colony, rng);
+  const config = createTestConfig();
+
+  const chamberX = world.nestX;
+  const chamberY = world.nestY + 24;
+  dig.fronts[0] = {
+    x: chamberX,
+    y: chamberY,
+    dir: 1,
+    progress: 0,
+    age: 0,
+    stepsSinceChamber: 30,
+    lastAdvanceTick: 0,
+  };
+
+  const originalChance = rng.chance.bind(rng);
+  const originalInt = rng.int.bind(rng);
+  rng.chance = (probability) => {
+    if (probability === 0.08 || probability === 0.5) return true;
+    return originalChance(probability);
+  };
+  rng.int = (max) => {
+    if (max === 26) return 5; // stable x offset for this test
+    if (max === 3) return 2; // yJitter = +1
+    return originalInt(max);
+  };
+
+  const created = dig.forceChamberAtActiveFront(config);
+  assert.equal(created, true, 'Expected forced chamber creation to succeed');
+  assert.equal(dig.upwardShafts.length, 1, 'Expected upward shaft to be spawned');
+
+  const shaft = dig.upwardShafts[0];
+  const expectedBreachY = world.nestY + 1;
+  assert.equal(shaft.breachY, expectedBreachY, 'Spawned shaft should store varied emergence Y');
+
+  let breached = null;
+  dig.onNewEntrance = (x, y) => {
+    breached = { x, y };
+  };
+
+  for (let i = 0; i < 200 && !breached; i += 1) {
+    dig.update(config);
+  }
+
+  assert.ok(breached, 'Expected shaft to breach and trigger callback');
+  assert.equal(breached.y, expectedBreachY, 'New entrance callback should report varied emergence Y');
+});
