@@ -47,6 +47,7 @@ export class SimulationCore {
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
+    this.digSystem.onNewEntrance = (x, y) => this.#registerNewEntrance(x, y);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.reset();
     this.#rebuildTickPipeline();
@@ -185,6 +186,25 @@ export class SimulationCore {
     entrance.soilOnSurface += volume * SURFACE_DEPOSIT_RATIO;
   }
 
+  /**
+   * Registers a new nest entrance when an upward shaft breaches the surface.
+   *
+   * Called by DigSystem.onNewEntrance callback. Adds the entrance to the
+   * shared nestEntrances array so colony pheromone painting and ant
+   * navigation immediately recognize the new opening.
+   */
+  #registerNewEntrance(x, y) {
+    const id = `entrance-${this.nestEntrances.length}`;
+    this.nestEntrances.push({
+      id,
+      x,
+      y,
+      excavatedSoilTotal: 0,
+      soilOnSurface: 0,
+      radius: 2,
+    });
+  }
+
   #nearestEntrance(worldX) {
     if (this.nestEntrances.length === 0) return null;
     let nearest = this.nestEntrances[0];
@@ -315,6 +335,7 @@ export class SimulationCore {
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
+    this.digSystem.onNewEntrance = (x, y) => this.#registerNewEntrance(x, y);
     this.digSystem.loadFromSerialized(data.digSystem);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.loadFromSerialized(data.macro);

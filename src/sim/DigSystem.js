@@ -18,6 +18,12 @@ export class DigSystem {
     this.autoDig = false;
     this.fronts = [];
     this.maxFronts = 10;
+    // Upward shafts that dig toward the surface to create new entrances.
+    // Each has {x, y, progress, startY} — always moves dir=3 (up / [0,-1]).
+    this.upwardShafts = [];
+    // Callback fired when an upward shaft breaches the surface.
+    // Signature: onNewEntrance(x, y) where y = nestY (surface level).
+    this.onNewEntrance = null;
 
     this.#seedInitialFronts();
   }
@@ -70,6 +76,7 @@ export class DigSystem {
 
     this.fronts.sort((a, b) => b.lastAdvanceTick - a.lastAdvanceTick);
     this.#updateDirtCarriers(activeDiggerIds);
+    this.#updateUpwardShafts(config);
 
     // Expose active front positions so dig-focus workers can navigate toward them
     this.colony.setDigFronts(this.fronts.map((f) => ({ x: f.x, y: f.y })));
@@ -148,6 +155,7 @@ export class DigSystem {
     return {
       autoDig: this.autoDig,
       fronts: this.fronts,
+      upwardShafts: this.upwardShafts,
     };
   }
 
@@ -167,6 +175,16 @@ export class DigSystem {
           }))
       : [];
     if (this.fronts.length === 0) this.#seedInitialFronts();
+    this.upwardShafts = Array.isArray(data?.upwardShafts)
+      ? data.upwardShafts
+          .filter((s) => this.world.inBounds(s.x, s.y))
+          .map((s) => ({
+            x: Math.max(0, Math.min(this.world.width - 1, Number(s.x) || 0)),
+            y: Math.max(this.world.nestY, Math.min(this.world.height - 1, Number(s.y) || 0)),
+            startY: Number(s.startY) || s.y,
+            progress: this.#sanitizeProgress(s.progress),
+          }))
+      : [];
   }
 
   #seedInitialFronts() {
@@ -285,6 +303,14 @@ export class DigSystem {
       this.fronts.push({ x: bx, y: by, dir, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 });
     }
 
+    // Deep chambers may trigger an upward shaft to create a new entrance.
+    // Requires: chamber is at least 12 tiles below surface, max 3 shafts,
+    // and a pseudo-random chance (8%) per qualifying chamber.
+    const depth = front.y - this.world.nestY;
+    if (depth >= 12 && this.upwardShafts.length < 3 && this.rng.chance(0.08)) {
+      this.#spawnUpwardShaft(front.x, front.y);
+    }
+
     return true;
   }
 
@@ -325,6 +351,107 @@ export class DigSystem {
         lastAdvanceTick: 0,
       });
       return;
+    }
+  }
+
+  /**
+   * Spawns an upward shaft from a deep chamber location.
+   *
+   * The x-position is pseudo-randomized: offset ±15-40 tiles from the
+   * chamber, so the new entrance emerges at a different surface location
+   * than existing ones.
+   */
+  #spawnUpwardShaft(chamberX, chamberY) {
+    // Pick a random x offset so the entrance doesn't stack on existing ones.
+    const sign = this.rng.chance(0.5) ? 1 : -1;
+    const offset = 15 + this.rng.int(26); // 15-40 tiles away
+    let targetX = chamberX + sign * offset;
+    // Clamp to world bounds with margin
+    targetX = Math.max(3, Math.min(this.world.width - 4, targetX));
+
+    // Start the shaft from just above the chamber
+    this.upwardShafts.push({
+      x: targetX,
+      y: chamberY,
+      startY: chamberY,
+      progress: 0,
+    });
+  }
+
+  /**
+   * Advances all upward shafts one step toward the surface.
+   *
+   * Each shaft carves a 3-wide tunnel upward at ~0.6 units/tick.
+   * When it reaches nestY, it breaches the surface: carves a flared
+   * entrance and fires the onNewEntrance callback.
+   */
+  #updateUpwardShafts(config) {
+    if (this.upwardShafts.length === 0) return;
+
+    for (let i = this.upwardShafts.length - 1; i >= 0; i -= 1) {
+      const shaft = this.upwardShafts[i];
+      shaft.progress += 0.6;
+
+      while (shaft.progress >= 1 && shaft.y > this.world.nestY) {
+        shaft.progress -= 1;
+        shaft.y -= 1; // move up
+
+        // Carve a 3-wide tunnel at the current y level
+        for (let dx = -1; dx <= 1; dx += 1) {
+          const cx = shaft.x + dx;
+          if (!this.world.inBounds(cx, shaft.y)) continue;
+          const idx = this.world.index(cx, shaft.y);
+          const terrain = this.world.terrain[idx];
+          if (terrain === TERRAIN.SOIL) {
+            this.world.terrain[idx] = TERRAIN.TUNNEL;
+            this.colony.recordExcavation(1, cx, shaft.y);
+            this.world.toHome[idx] += config.digHomeBoost ?? 0.9;
+          }
+        }
+      }
+
+      // Shaft has reached the surface — create the entrance
+      if (shaft.y <= this.world.nestY) {
+        this.#breachSurface(shaft, config);
+        this.upwardShafts.splice(i, 1);
+      }
+    }
+  }
+
+  /**
+   * Carves a flared entrance at the surface where an upward shaft emerges.
+   *
+   * Creates a 5-wide opening at the surface (matching the initial entrance
+   * style) and fires the onNewEntrance callback so SimulationCore can
+   * register the new entrance for pheromone painting and ant navigation.
+   */
+  #breachSurface(shaft, config) {
+    const sx = shaft.x;
+    const sy = this.world.nestY;
+
+    // Carve flared entrance: 5 tiles wide at surface, 3 tiles wide just below
+    for (let dy = 0; dy <= 2; dy += 1) {
+      const y = sy + dy;
+      const width = dy === 0 ? 2 : 1; // wider flare at surface level
+      for (let dx = -width; dx <= width; dx += 1) {
+        const cx = sx + dx;
+        if (!this.world.inBounds(cx, y)) continue;
+        const idx = this.world.index(cx, y);
+        const terrain = this.world.terrain[idx];
+        if (terrain === TERRAIN.SOIL || terrain === TERRAIN.GROUND) {
+          this.world.terrain[idx] = TERRAIN.TUNNEL;
+          this.world.toHome[idx] += config.digHomeBoost ?? 0.9;
+        }
+      }
+    }
+
+    // Also ensure the surface tile itself is passable
+    if (this.world.inBounds(sx, sy)) {
+      this.world.terrain[this.world.index(sx, sy)] = TERRAIN.TUNNEL;
+    }
+
+    if (this.onNewEntrance) {
+      this.onNewEntrance(sx, sy);
     }
   }
 
