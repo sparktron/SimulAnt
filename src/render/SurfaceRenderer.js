@@ -6,9 +6,9 @@ export function normalizeSurfaceTerrain(terrain) {
 }
 
 export function getSurfaceMinZoom(canvasHeight, nestY) {
-  // Include padding below the nest so the entrance isn't pinned to the
-  // bottom pixel of the viewport when fully zoomed out.
-  const padding = Math.max(40, Math.floor(nestY * 0.55));
+  // Pad below the nest equally to the surface above so the entrance
+  // sits in the vertical center when fully zoomed out.
+  const padding = nestY;
   const surfaceHeight = Math.max(1, nestY + 1 + padding);
   return canvasHeight / surfaceHeight;
 }
@@ -24,7 +24,7 @@ export class SurfaceRenderer {
     this.world = world;
 
     this.cameraX = world.nestX;
-    this.cameraY = world.nestY * 0.65;
+    this.cameraY = world.nestY;
     this.zoom = 3;
 
     this._off = document.createElement('canvas');
@@ -230,9 +230,9 @@ export class SurfaceRenderer {
     this.cameraX = minX > maxX ? this.world.width * 0.5 : clamp(this.cameraX, minX, maxX);
 
     const minY = viewH * 0.5;
-    // Allow the camera to show padding below the nest so the entrance
-    // isn't pinned to the very bottom edge of the surface view.
-    const nestPadding = Math.max(40, Math.floor(this.world.nestY * 0.55));
+    // Pad below the nest equally to the surface above so the entrance
+    // sits in the vertical center when fully zoomed out.
+    const nestPadding = this.world.nestY;
     const maxY = this.world.nestY + nestPadding - viewH * 0.5;
     this.cameraY = minY > maxY ? (this.world.nestY + nestPadding) * 0.5 : clamp(this.cameraY, minY, maxY);
   }
