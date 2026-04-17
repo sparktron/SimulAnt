@@ -6,8 +6,9 @@ export function normalizeSurfaceTerrain(terrain) {
 }
 
 export function getSurfaceMinZoom(canvasHeight, nestY) {
-  // Surface view should only include the true surface band (0..nestY).
-  const surfaceHeight = Math.max(1, nestY + 1);
+  // Camera is locked to cameraY = nestY, so the view extends nestY rows above
+  // and nestY rows below the nest entrance. Total visible height = 2*nestY+1.
+  const surfaceHeight = Math.max(1, nestY * 2 + 1);
   return canvasHeight / surfaceHeight;
 }
 
@@ -245,10 +246,8 @@ export class SurfaceRenderer {
     const maxX = this.world.width - viewW * 0.5;
     this.cameraX = minX > maxX ? this.world.width * 0.5 : clamp(this.cameraX, minX, maxX);
 
-    const minY = viewH * 0.5;
-    // Clamp camera to the actual surface band so surface tools/rendering
-    // stay consistent and avoid exposing underground rows in surface view.
-    const maxY = this.world.nestY - viewH * 0.5;
-    this.cameraY = minY > maxY ? this.world.nestY * 0.5 : clamp(this.cameraY, minY, maxY);
+    // Lock Y so the nest entrance row is always vertically centered.
+    // Vertical scrolling is not meaningful in surface view.
+    this.cameraY = this.world.nestY;
   }
 }
