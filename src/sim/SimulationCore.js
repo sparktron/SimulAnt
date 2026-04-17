@@ -229,6 +229,8 @@ export class SimulationCore {
    * (terrain mutation, pellet mutation, dig-system rebuilds, queen reposition).
    */
   applyTool(tool, worldX, worldY, radius) {
+    // Scale radius by 0.5 so brush size 1 represents half of original scale
+    radius = radius * 0.5;
     switch (tool) {
       case 'food':
         this.spawnFoodCluster(worldX, worldY, Math.max(2, radius * 2), Math.max(3, radius * 2));
