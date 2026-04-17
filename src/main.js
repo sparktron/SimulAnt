@@ -19,7 +19,7 @@ const state = {
   paused: false,
   simSpeed: 1,
   selectedTool: 'food',
-  brushRadius: 3,
+  brushRadius: 1.5,
   seed: 'simant-default',
   selectedAntId: null,
   cursor: { surface: null, nest: null },

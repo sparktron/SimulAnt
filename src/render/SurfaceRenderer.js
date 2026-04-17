@@ -6,10 +6,8 @@ export function normalizeSurfaceTerrain(terrain) {
 }
 
 export function getSurfaceMinZoom(canvasHeight, nestY) {
-  // Pad below the nest equally to the surface above so the entrance
-  // sits in the vertical center when fully zoomed out.
-  const padding = nestY;
-  const surfaceHeight = Math.max(1, nestY + 1 + padding);
+  // Surface view should only include the true surface band (0..nestY).
+  const surfaceHeight = Math.max(1, nestY + 1);
   return canvasHeight / surfaceHeight;
 }
 
@@ -83,7 +81,7 @@ export class SurfaceRenderer {
   #drawTerrain(ctx, overlays) {
     const { world } = this;
     const W = world.width;
-    const H = world.height;
+    const H = world.nestY + 1;
 
     this._off.width = W;
     this._off.height = H;
@@ -162,6 +160,7 @@ export class SurfaceRenderer {
   #drawFoodPellets(ctx, foodPellets) {
     ctx.fillStyle = '#35d84b';
     for (const pellet of foodPellets) {
+      if (pellet.y > this.world.nestY) continue;
       ctx.fillRect(pellet.x, pellet.y, 1, 1);
     }
   }
@@ -181,6 +180,7 @@ export class SurfaceRenderer {
 
     ctx.font = '2.8px monospace';
     for (const ant of colony.ants) {
+      if (ant.y > world.nestY) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
@@ -245,10 +245,9 @@ export class SurfaceRenderer {
     this.cameraX = minX > maxX ? this.world.width * 0.5 : clamp(this.cameraX, minX, maxX);
 
     const minY = viewH * 0.5;
-    // Pad below the nest equally to the surface above so the entrance
-    // sits in the vertical center when fully zoomed out.
-    const nestPadding = this.world.nestY;
-    const maxY = this.world.nestY + nestPadding - viewH * 0.5;
-    this.cameraY = minY > maxY ? (this.world.nestY + nestPadding) * 0.5 : clamp(this.cameraY, minY, maxY);
+    // Clamp camera to the actual surface band so surface tools/rendering
+    // stay consistent and avoid exposing underground rows in surface view.
+    const maxY = this.world.nestY - viewH * 0.5;
+    this.cameraY = minY > maxY ? this.world.nestY * 0.5 : clamp(this.cameraY, minY, maxY);
   }
 }
