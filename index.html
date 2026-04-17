@@ -201,6 +201,17 @@
         background: #fff;
         font-size: 11px;
       }
+
+      #versionLabel {
+        position: fixed;
+        bottom: 4px;
+        right: 4px;
+        background: #999;
+        padding: 2px 4px;
+        font-size: 10px;
+        border: 1px solid #333;
+        z-index: 10;
+      }
     </style>
   </head>
   <body>
@@ -324,6 +335,8 @@
         <div id="casteTriangleContainer"></div>
       </div>
     </dialog>
+
+    <div id="versionLabel">v1.0.0</div>
 
     <script type="module" src="src/main.js"></script>
   </body>
