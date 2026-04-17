@@ -80,7 +80,7 @@ export class SurfaceRenderer {
   #drawTerrain(ctx, overlays) {
     const { world } = this;
     const W = world.width;
-    const H = world.height;
+    const H = world.nestY + 1;
 
     this._off.width = W;
     this._off.height = H;
@@ -147,6 +147,7 @@ export class SurfaceRenderer {
   #drawFoodPellets(ctx, foodPellets) {
     ctx.fillStyle = '#35d84b';
     for (const pellet of foodPellets) {
+      if (pellet.y > this.world.nestY) continue;
       ctx.fillRect(pellet.x, pellet.y, 1, 1);
     }
   }
@@ -166,6 +167,7 @@ export class SurfaceRenderer {
 
     ctx.font = '2.8px monospace';
     for (const ant of colony.ants) {
+      if (ant.y > world.nestY) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
