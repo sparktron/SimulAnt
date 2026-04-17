@@ -47,13 +47,10 @@ export class SurfaceRenderer {
     this.#enforceSurfaceViewBounds();
     const viewW = this.canvas.clientWidth / this.zoom;
     const viewH = this.canvas.clientHeight / this.zoom;
-    const x = clamp(Math.floor(this.cameraX - viewW * 0.5 + sx / this.zoom), 0, this.world.width - 1);
-    const y = Math.floor(this.cameraY - viewH * 0.5 + sy / this.zoom);
-    // Only the surface area (rows 0–nestY) is interactive. Clicks in the
-    // underground padding shown below the nest entrance return null so the
-    // input router ignores them rather than silently snapping to nestY.
-    if (y < 0 || y > this.world.nestY) return null;
-    return { x, y };
+    return {
+      x: clamp(Math.floor(this.cameraX - viewW * 0.5 + sx / this.zoom), 0, this.world.width - 1),
+      y: clamp(Math.floor(this.cameraY - viewH * 0.5 + sy / this.zoom), 0, this.world.nestY),
+    };
   }
 
   draw(colony, overlays, nestEntrances, foodPellets, options = {}) {
@@ -94,10 +91,22 @@ export class SurfaceRenderer {
     for (let y = 0; y < H; y += 1) {
       for (let x = 0; x < W; x += 1) {
         const idx = y * W + x;
-        const terrain = world.terrain[idx];
         const o = idx * 4;
-
         const noise = ((x * 7 + y * 13) % 11) - 5;
+
+        // Rows below the nest entrance are underground soil shown only as
+        // visual context — render them as earthy brown so they are clearly
+        // distinct from the interactive surface above.
+        if (y > world.nestY) {
+          const depthFrac = (y - world.nestY) / (H - world.nestY);
+          data[o]     = Math.max(0, Math.floor(78 - 14 * depthFrac) + (noise >> 1));
+          data[o + 1] = Math.max(0, Math.floor(60 - 10 * depthFrac) + (noise >> 1));
+          data[o + 2] = Math.max(0, Math.floor(40 -  8 * depthFrac) + (noise >> 2));
+          data[o + 3] = 255;
+          continue;
+        }
+
+        const terrain = world.terrain[idx];
         let r = 96 + noise;
         let g = 138 + noise;
         let b = 52 + (noise >> 1);
