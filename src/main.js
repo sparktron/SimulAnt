@@ -27,12 +27,12 @@ const state = {
     showToFood: false,
     showToHome: false,
     showDanger: false,
-    showScent: false,
+    showScent: true,
   },
   debug: {
     showEntranceInfo: false,
     showStats: false,
-    showQueenMarker: true,
+    showQueenMarker: false,
     digStatus: 'AUTO-DIG: OFF',
   },
   config: {
