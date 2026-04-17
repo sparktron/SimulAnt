@@ -6,9 +6,9 @@ export function normalizeSurfaceTerrain(terrain) {
 }
 
 export function getSurfaceMinZoom(canvasHeight, nestY) {
-  // Camera is locked to cameraY = nestY, so the view extends nestY rows above
-  // and nestY rows below the nest entrance. Total visible height = 2*nestY+1.
-  const surfaceHeight = Math.max(1, nestY * 2 + 1);
+  // Surface view should fill the canvas with the true surface band (rows 0..nestY).
+  // At minZoom, the entire surface is visible; ants can forage across the full canvas.
+  const surfaceHeight = Math.max(1, nestY + 1);
   return canvasHeight / surfaceHeight;
 }
 
@@ -246,8 +246,10 @@ export class SurfaceRenderer {
     const maxX = this.world.width - viewW * 0.5;
     this.cameraX = minX > maxX ? this.world.width * 0.5 : clamp(this.cameraX, minX, maxX);
 
-    // Lock Y so the nest entrance row is always vertically centered.
-    // Vertical scrolling is not meaningful in surface view.
-    this.cameraY = this.world.nestY;
+    // Clamp camera to the surface band so the full canvas shows usable surface.
+    // At minZoom, the entire surface (rows 0..nestY) fills the canvas.
+    const minY = viewH * 0.5;
+    const maxY = this.world.nestY + 1 - viewH * 0.5;
+    this.cameraY = minY > maxY ? (this.world.nestY + 1) * 0.5 : clamp(this.cameraY, minY, maxY);
   }
 }

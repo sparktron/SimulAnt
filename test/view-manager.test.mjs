@@ -165,12 +165,12 @@ test('Surface terrain normalization maps underground terrain to ground palette',
 });
 
 
-test('Surface minimum zoom fits surface + equal padding below nest entrance', () => {
-  // surfaceHeight = nestY + 1 + nestY = 257 (padding = nestY centres the entrance)
-  // minZoom = 642 / 257 ≈ 2.498
+test('Surface minimum zoom fits the true surface band into the canvas', () => {
+  // surfaceHeight = nestY + 1 = 129 so the entire surface is visible at minZoom.
+  // minZoom = 642 / 129 ≈ 4.977
   const minZoom = getSurfaceMinZoom(642, 128);
-  assert.ok(minZoom > 2.4);
-  assert.ok(minZoom < 2.6);
+  assert.ok(minZoom > 4.9);
+  assert.ok(minZoom < 5.1);
 });
 
 test('Auto-dig grows tunnels and soil mound over time', () => {
