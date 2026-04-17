@@ -201,6 +201,22 @@ test('applyTool erase clears terrain and pheromones', () => {
   assert.equal(sim.world.toFood[sim.world.index(x, y)], 0);
 });
 
+test('applyTool erase digs tunnel when used underground', () => {
+  const sim = new SimulationCore('tool-erase-underground');
+  const x = sim.world.nestX + 10;
+  const y = sim.world.nestY + 10;
+  const idx = sim.world.index(x, y);
+
+  // Ensure target cell starts as compact soil.
+  sim.world.terrain[idx] = TERRAIN.SOIL;
+  sim.world.toHome[idx] = 3.2;
+
+  sim.applyTool('erase', x, y, 1);
+
+  assert.equal(sim.world.terrain[idx], TERRAIN.TUNNEL);
+  assert.equal(sim.world.toHome[idx], 0);
+});
+
 test('applyTool erase removes food pellets in area', () => {
   const sim = new SimulationCore('tool-erase-pellets');
   const x = sim.world.nestX + 30;

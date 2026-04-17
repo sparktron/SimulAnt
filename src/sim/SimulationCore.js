@@ -251,7 +251,7 @@ export class SimulationCore {
       case 'erase': {
         const erasedCells = new Set();
         this.world.paintCircle(worldX, worldY, radius, (idx, x, y) => {
-          this.world.terrain[idx] = TERRAIN.GROUND;
+          this.world.terrain[idx] = y > this.world.nestY ? TERRAIN.TUNNEL : TERRAIN.GROUND;
           this.world.food[idx] = 0;
           this.world.toFood[idx] = 0;
           this.world.toHome[idx] = 0;
