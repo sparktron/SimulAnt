@@ -29,15 +29,15 @@ export function updateHud(stats) {
   setText('hudJobs', `${jobsForage} / ${jobsDig} / ${jobsNurse}`);
   setText('hudFood', formatNumber(stats.foodStored));
   setText('hudQueenHealth', formatNumber(stats.queenHealth));
-  setText('hudFps', stats.fps.toFixed(1));
+  setText('hudFps', Math.round(stats.fps).toString());
   setText('hudDig', stats.digStatus || 'AUTO-DIG: OFF');
 
   const pher = stats.pherStats || { maxFood: 0, maxHome: 0, avgFood: 0, avgHome: 0 };
-  setText('hudPherMax', `F:${pher.maxFood.toFixed(2)} H:${pher.maxHome.toFixed(2)}`);
-  setText('hudPherAvg', `F:${pher.avgFood.toFixed(2)} H:${pher.avgHome.toFixed(2)}`);
+  setText('hudPherMax', `F:${Math.round(pher.maxFood)} H:${Math.round(pher.maxHome)}`);
+  setText('hudPherAvg', `F:${Math.round(pher.avgFood)} H:${Math.round(pher.avgHome)}`);
   setText('hudFollow', `F:${stats.followingFood || 0} H:${stats.followingHome || 0}`);
   const healthStats = normalizeHealthStats(stats.antHealthStats);
-  setText('hudHealthStats', `MIN:${healthStats.min.toFixed(1)} AVG:${healthStats.avg.toFixed(1)} MAX:${healthStats.max.toFixed(1)}`);
+  setText('hudHealthStats', `MIN:${Math.round(healthStats.min)} AVG:${Math.round(healthStats.avg)} MAX:${Math.round(healthStats.max)}`);
 
   const focusHealth = Number.isFinite(stats.selectedAntHealth) ? stats.selectedAntHealth : healthStats.avg;
   setBar('healthYellow', clampPercent(focusHealth));
@@ -62,7 +62,7 @@ function asNonNegativeInt(value) {
 
 function formatNumber(value) {
   const number = Number.isFinite(value) ? value : 0;
-  return number.toFixed(1);
+  return number.toFixed(0);
 }
 
 function setText(id, value) {

@@ -392,7 +392,7 @@ export class Colony {
     if (this.queen.hunger < this.queen.hungerMax * 0.4 && this.foodStored > 0) {
       const consumed = this.consumeFromStore(config.queenEatNutrition ?? 5);
       this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + consumed);
-      const healthGain = consumed * (config.healthEatRecoveryRate ?? 0);
+      const healthGain = consumed * (config.queenHealthRecoveryPerNutrition ?? 0);
       this.queen.health = Math.min(this.queen.healthMax, this.queen.health + healthGain);
     }
 
