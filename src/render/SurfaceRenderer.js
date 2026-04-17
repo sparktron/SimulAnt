@@ -47,10 +47,13 @@ export class SurfaceRenderer {
     this.#enforceSurfaceViewBounds();
     const viewW = this.canvas.clientWidth / this.zoom;
     const viewH = this.canvas.clientHeight / this.zoom;
-    return {
-      x: clamp(Math.floor(this.cameraX - viewW * 0.5 + sx / this.zoom), 0, this.world.width - 1),
-      y: clamp(Math.floor(this.cameraY - viewH * 0.5 + sy / this.zoom), 0, this.world.nestY),
-    };
+    const x = clamp(Math.floor(this.cameraX - viewW * 0.5 + sx / this.zoom), 0, this.world.width - 1);
+    const y = Math.floor(this.cameraY - viewH * 0.5 + sy / this.zoom);
+    // Only the surface area (rows 0–nestY) is interactive. Clicks in the
+    // underground padding shown below the nest entrance return null so the
+    // input router ignores them rather than silently snapping to nestY.
+    if (y < 0 || y > this.world.nestY) return null;
+    return { x, y };
   }
 
   draw(colony, overlays, nestEntrances, foodPellets, options = {}) {
