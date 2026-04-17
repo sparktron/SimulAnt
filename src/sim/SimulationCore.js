@@ -261,6 +261,30 @@ export class SimulationCore {
         this.foodPellets = this.foodPellets.filter((pellet) => !erasedCells.has(`${pellet.x},${pellet.y}`));
         break;
       }
+      case 'dig':
+        // Carve TUNNEL terrain in the underground area (y > nestY).
+        // Lets the user sculpt the colony layout from the nest view.
+        this.world.paintCircle(worldX, worldY, radius, (idx, _x, y) => {
+          if (y > this.world.nestY && this.world.terrain[idx] === TERRAIN.SOIL) {
+            this.world.terrain[idx] = TERRAIN.TUNNEL;
+          }
+        });
+        break;
+      case 'fill':
+        // Seal TUNNEL/CHAMBER terrain back to SOIL in the underground area.
+        // Also clears pheromones from sealed cells so ants stop navigating there.
+        this.world.paintCircle(worldX, worldY, radius, (idx, _x, y) => {
+          if (y > this.world.nestY) {
+            const t = this.world.terrain[idx];
+            if (t === TERRAIN.TUNNEL || t === TERRAIN.CHAMBER) {
+              this.world.terrain[idx] = TERRAIN.SOIL;
+              this.world.toHome[idx] = 0;
+              this.world.toFood[idx] = 0;
+              this.world.danger[idx] = 0;
+            }
+          }
+        });
+        break;
       case 'nest':
         this.world.setNest(worldX, worldY);
         if (this.nestEntrances.length === 0) {

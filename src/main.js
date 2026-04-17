@@ -13,7 +13,7 @@ const SIM_DT = 1 / 30;
 const BASE_SIM_SPEED_SCALE = 0.4;
 const DEBUG_UI = false;
 const DEBUG_RENDER = false;
-const EDIT_TOOLS = new Set(['food', 'wall', 'water', 'hazard', 'erase']);
+const EDIT_TOOLS = new Set(['food', 'wall', 'water', 'hazard', 'erase', 'dig', 'fill']);
 
 const state = {
   paused: false,

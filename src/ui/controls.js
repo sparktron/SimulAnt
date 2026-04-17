@@ -4,6 +4,8 @@ const TOOL_BY_KEY = {
   '3': 'water',
   '4': 'hazard',
   '5': 'erase',
+  '6': 'dig',
+  '7': 'fill',
 };
 
 export function createControls(state, actions) {
