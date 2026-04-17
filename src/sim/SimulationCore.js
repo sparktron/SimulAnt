@@ -229,30 +229,42 @@ export class SimulationCore {
    * (terrain mutation, pellet mutation, dig-system rebuilds, queen reposition).
    */
   applyTool(tool, worldX, worldY, radius) {
-    // Scale radius by 0.5 so brush size 1 represents half of original scale
-    radius = radius * 0.5;
     switch (tool) {
-      case 'food':
-        this.spawnFoodCluster(worldX, worldY, Math.max(2, radius * 2), Math.max(3, radius * 2));
+      case 'food': {
+        // Scale radius by 0.5 for food placement
+        const scaledRadius = radius * 0.5;
+        this.spawnFoodCluster(worldX, worldY, Math.max(2, scaledRadius * 2), Math.max(3, scaledRadius * 2));
         break;
-      case 'wall':
-        this.world.paintCircle(worldX, worldY, radius, (idx) => {
+      }
+      case 'wall': {
+        // Scale radius by 0.5 for terrain painting
+        const scaledRadius = radius * 0.5;
+        this.world.paintCircle(worldX, worldY, scaledRadius, (idx) => {
           this.world.terrain[idx] = TERRAIN.WALL;
         });
         break;
-      case 'water':
-        this.world.paintCircle(worldX, worldY, radius, (idx) => {
+      }
+      case 'water': {
+        // Scale radius by 0.5 for terrain painting
+        const scaledRadius = radius * 0.5;
+        this.world.paintCircle(worldX, worldY, scaledRadius, (idx) => {
           this.world.terrain[idx] = TERRAIN.WATER;
         });
         break;
-      case 'hazard':
-        this.world.paintCircle(worldX, worldY, radius, (idx) => {
+      }
+      case 'hazard': {
+        // Scale radius by 0.5 for terrain painting
+        const scaledRadius = radius * 0.5;
+        this.world.paintCircle(worldX, worldY, scaledRadius, (idx) => {
           this.world.terrain[idx] = TERRAIN.HAZARD;
         });
         break;
+      }
       case 'erase': {
+        // Scale radius by 0.5 for erasing
+        const scaledRadius = radius * 0.5;
         const erasedCells = new Set();
-        this.world.paintCircle(worldX, worldY, radius, (idx, x, y) => {
+        this.world.paintCircle(worldX, worldY, scaledRadius, (idx, x, y) => {
           this.world.terrain[idx] = TERRAIN.GROUND;
           this.world.food[idx] = 0;
           this.world.toFood[idx] = 0;
@@ -265,6 +277,7 @@ export class SimulationCore {
       }
       case 'dig':
         // Carve TUNNEL terrain in the underground area (y > nestY).
+        // Use full radius for effective digging (don't scale down).
         // Lets the user sculpt the colony layout from the nest view.
         this.world.paintCircle(worldX, worldY, radius, (idx, _x, y) => {
           if (y > this.world.nestY && this.world.terrain[idx] === TERRAIN.SOIL) {
@@ -274,6 +287,7 @@ export class SimulationCore {
         break;
       case 'fill':
         // Seal TUNNEL/CHAMBER terrain back to SOIL in the underground area.
+        // Use full radius for effective filling (don't scale down).
         // Also clears pheromones from sealed cells so ants stop navigating there.
         this.world.paintCircle(worldX, worldY, radius, (idx, _x, y) => {
           if (y > this.world.nestY) {

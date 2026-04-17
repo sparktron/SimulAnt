@@ -95,14 +95,15 @@ export class SurfaceRenderer {
         const o = idx * 4;
         const noise = ((x * 7 + y * 13) % 11) - 5;
 
-        // Rows below the nest entrance are underground soil shown only as
-        // visual context — render them as earthy brown so they are clearly
-        // distinct from the interactive surface above.
+        // Rows below nestY are underground — render them as plain surface
+        // green so the nest entrance appears centred in a uniform ground
+        // plane.  Ants and food are already filtered to y <= nestY, and
+        // screenToWorld returns null for these rows, so the area is purely
+        // decorative.
         if (y > world.nestY) {
-          const depthFrac = (y - world.nestY) / (H - world.nestY);
-          data[o]     = Math.max(0, Math.floor(78 - 14 * depthFrac) + (noise >> 1));
-          data[o + 1] = Math.max(0, Math.floor(60 - 10 * depthFrac) + (noise >> 1));
-          data[o + 2] = Math.max(0, Math.floor(40 -  8 * depthFrac) + (noise >> 2));
+          data[o]     = Math.max(0, 96 + noise);
+          data[o + 1] = Math.max(0, 138 + noise);
+          data[o + 2] = Math.max(0, 52 + (noise >> 1));
           data[o + 3] = 255;
           continue;
         }
