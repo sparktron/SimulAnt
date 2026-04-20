@@ -499,7 +499,9 @@ test('Food-carrying ants must enter nest before depositing pellets', () => {
 
   ant.role = 'worker';
   ant.x = entrance.x;
-  ant.y = Math.max(0, entrance.y - 2);
+  // Start the ant right at the surface/underground boundary so the test
+  // validates the deposit-after-descent rule rather than shaft traversal time.
+  ant.y = Math.max(0, sim.world.nestY - 2);
   ant.carrying = { type: 'food', pelletNutrition: 4 };
   ant.carryingType = 'food';
 

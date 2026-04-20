@@ -853,16 +853,21 @@ export class Ant {
 
   #getNestEntryTargetY(world, entrance) {
     const baseX = entrance?.x ?? this.x;
-    const baseY = entrance?.y ?? world.nestY;
+    const baseY = entrance?.y ?? world.entranceY ?? world.nestY;
     const maxDepthSearch = 6;
 
+    // The target is always below the ant's current position — if the ant is
+    // already in the shaft (below entrance.y), aim deeper instead of pulling
+    // it back up to the entrance mouth. This keeps ants moving toward the
+    // chamber when the entrance sits above the surface/underground boundary.
+    const searchFrom = Math.max(baseY, this.y);
     for (let dy = 1; dy <= maxDepthSearch; dy += 1) {
-      const candidateY = Math.min(world.height - 1, baseY + dy);
+      const candidateY = Math.min(world.height - 1, searchFrom + dy);
       if (world.isPassable(baseX, candidateY)) {
         return candidateY;
       }
     }
-    return baseY;
+    return searchFrom;
   }
 
   #distanceToEntrance(colony) {

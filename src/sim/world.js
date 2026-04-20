@@ -28,6 +28,12 @@ export class World {
 
     this.nestX = Math.floor(width * 0.5);
     this.nestY = Math.floor(height * 0.5);
+    // Entrance sits inside the surface band, above the surface/underground
+    // boundary, so the surface "yard" extends in all directions around it.
+    // The starter shaft connects entranceY down through the yard into the soil.
+    // Offset is kept modest so ants don't spend too long traversing the shaft
+    // (each extra row of yard adds two trip-rows of shaft for every forager).
+    this.entranceY = Math.max(0, this.nestY - 16);
     this.nestRadius = 8;
     this.nestInfluence = new Float32Array(this.size);
 
@@ -74,6 +80,7 @@ export class World {
   setNest(x, y) {
     this.nestX = Math.max(0, Math.min(this.width - 1, x));
     this.nestY = Math.max(0, Math.min(this.height - 1, y));
+    this.entranceY = Math.max(0, this.nestY - 16);
     this.recomputeNestInfluence();
     this.#carveStarterNest();
   }
@@ -114,15 +121,19 @@ export class World {
     });
 
     // Widen the entrance shaft to 3 tiles so multiple ants can flow in parallel.
-    // Single-tile entrance caused severe stacking bottlenecks at the surface transition.
-    for (let y = this.nestY; y <= this.nestY + 14; y += 1) {
+    // The shaft now starts at entranceY (in the surface yard) and extends down
+    // through the yard ground into the soil chamber, giving the entrance a
+    // visible mound surrounded by usable surface in all directions.
+    const shaftTop = Math.max(0, Math.min(this.nestY, this.entranceY));
+    const shaftBottom = this.nestY + 14;
+    for (let y = shaftTop; y <= shaftBottom; y += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
         const tx = this.nestX + dx;
         if (!this.inBounds(tx, y)) continue;
         this.terrain[this.index(tx, y)] = TERRAIN.TUNNEL;
       }
-      // Extra flaring near the surface for smoother entry/exit
-      if (y <= this.nestY + 2) {
+      // Extra flaring near the surface mouth for smoother entry/exit
+      if (y <= shaftTop + 2) {
         for (const dx of [-2, 2]) {
           const tx = this.nestX + dx;
           if (this.inBounds(tx, y)) this.terrain[this.index(tx, y)] = TERRAIN.TUNNEL;
@@ -227,6 +238,7 @@ export class World {
       height: this.height,
       nestX: this.nestX,
       nestY: this.nestY,
+      entranceY: this.entranceY,
       nestRadius: this.nestRadius,
       terrain: Array.from(this.terrain),
       food: Array.from(this.food),
@@ -241,6 +253,7 @@ export class World {
     const world = new World(data.width, data.height);
     world.nestX = data.nestX;
     world.nestY = data.nestY;
+    world.entranceY = Number.isFinite(data.entranceY) ? data.entranceY : Math.max(0, world.nestY - 16);
     world.nestRadius = data.nestRadius;
     world.terrain.set(data.terrain);
     world.food.set(data.food);

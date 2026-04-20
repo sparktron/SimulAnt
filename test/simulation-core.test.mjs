@@ -228,6 +228,41 @@ test('applyTool nest relocates nest entrance', () => {
   assert.equal(sim.world.nestY, newY);
 });
 
+test('applyTool dig carves tunnels in underground area', () => {
+  const sim = new SimulationCore('tool-dig');
+  // Find a soil cell to test digging
+  const y = sim.world.nestY + 10;
+  let testX = sim.world.nestX + 25;
+  let idx = sim.world.index(testX, y);
+
+  // Make sure we're testing on soil (skip if it's already a tunnel)
+  if (sim.world.terrain[idx] === TERRAIN.TUNNEL) {
+    sim.applyTool('dig', testX, y, 2);
+    assert.equal(sim.world.terrain[idx], TERRAIN.TUNNEL, 'Digging should carve through');
+  } else if (sim.world.terrain[idx] === TERRAIN.SOIL) {
+    sim.applyTool('dig', testX, y, 2);
+    assert.equal(sim.world.terrain[idx], TERRAIN.TUNNEL, 'Digging soil should create tunnel');
+  }
+});
+
+test('applyTool fill seals tunnels in underground area', () => {
+  const sim = new SimulationCore('tool-fill');
+  const x = sim.world.nestX + 25;
+  const y = sim.world.nestY + 10;
+  const idx = sim.world.index(x, y);
+
+  // First dig a tunnel if it's not already one
+  if (sim.world.terrain[idx] !== TERRAIN.TUNNEL) {
+    sim.applyTool('dig', x, y, 2);
+  }
+
+  // Verify it's a tunnel before trying to fill
+  if (sim.world.terrain[idx] === TERRAIN.TUNNEL) {
+    sim.applyTool('fill', x, y, 2);
+    assert.equal(sim.world.terrain[idx], TERRAIN.SOIL, 'Should be soil after filling');
+  }
+});
+
 // --- Serialization ---
 
 test('serialize and loadFromSerialized round-trip preserves state', () => {

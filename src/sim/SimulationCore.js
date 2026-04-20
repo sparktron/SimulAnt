@@ -56,7 +56,7 @@ export class SimulationCore {
       {
         id: 'entrance-main',
         x: this.world.nestX,
-        y: this.world.nestY,
+        y: this.world.entranceY,
         excavatedSoilTotal: 0,
         soilOnSurface: 0,
         radius: 2,
@@ -261,10 +261,9 @@ export class SimulationCore {
         break;
       }
       case 'erase': {
-        // Scale radius by 0.5 for erasing
-        const scaledRadius = radius * 0.5;
+        // Use full radius for erasing to be effective
         const erasedCells = new Set();
-        this.world.paintCircle(worldX, worldY, scaledRadius, (idx, x, y) => {
+        this.world.paintCircle(worldX, worldY, radius, (idx, x, y) => {
           this.world.terrain[idx] = TERRAIN.GROUND;
           this.world.food[idx] = 0;
           this.world.toFood[idx] = 0;
@@ -407,7 +406,7 @@ export class SimulationCore {
         {
           id: 'entrance-main',
           x: this.world.nestX,
-          y: this.world.nestY,
+          y: this.world.entranceY,
           excavatedSoilTotal: 0,
           soilOnSurface: 0,
           radius: 2,
