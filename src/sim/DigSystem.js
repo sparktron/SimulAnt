@@ -182,7 +182,7 @@ export class DigSystem {
             x: Math.max(0, Math.min(this.world.width - 1, Number(s.x) || 0)),
             y: Math.max(this.world.nestY, Math.min(this.world.height - 1, Number(s.y) || 0)),
             startY: Number(s.startY) || s.y,
-            breachY: Math.max(this.world.nestY - 1, Math.min(this.world.nestY + 1, Number(s.breachY) || this.world.nestY)),
+            breachY: this.#clampBreachY(Number(s.breachY)),
             progress: this.#sanitizeProgress(s.progress),
           }))
       : [];
@@ -390,10 +390,12 @@ export class DigSystem {
     // Clamp to world bounds with margin
     targetX = Math.max(3, Math.min(this.world.width - 4, targetX));
 
-    // Keep emergence near the surface but vary around nestY so openings do
-    // not appear perfectly even in the 2D representation.
+    // Breach at the surface yard (entranceY) so dig-generated mounds appear
+    // in the visible surface band alongside the starter entrance, rather
+    // than pinned to the surface/underground boundary at the bottom of the
+    // surface view. Jitter slightly so openings don't look uniform.
     const yJitter = this.rng.int(3) - 1; // -1, 0, +1
-    const breachY = Math.max(this.world.nestY - 1, Math.min(this.world.nestY + 1, this.world.nestY + yJitter));
+    const breachY = this.#clampBreachY((this.world.entranceY ?? this.world.nestY) + yJitter);
     return { targetX, breachY };
   }
 
@@ -448,7 +450,7 @@ export class DigSystem {
    */
   #breachSurface(shaft, config) {
     const sx = shaft.x;
-    const sy = Math.max(this.world.nestY - 1, Math.min(this.world.nestY + 1, shaft.breachY ?? this.world.nestY));
+    const sy = this.#clampBreachY(shaft.breachY ?? (this.world.entranceY ?? this.world.nestY));
 
     // Carve flared entrance: 5 tiles wide at surface, 3 tiles wide just below
     for (let dy = 0; dy <= 2; dy += 1) {
@@ -474,6 +476,15 @@ export class DigSystem {
     if (this.onNewEntrance) {
       this.onNewEntrance(sx, sy);
     }
+  }
+
+  #clampBreachY(value) {
+    const target = Number.isFinite(value) ? value : (this.world.entranceY ?? this.world.nestY);
+    const base = this.world.entranceY ?? this.world.nestY;
+    // Keep breach inside the surface band so the mound renders in the yard.
+    const min = Math.max(0, base - 1);
+    const max = Math.min(this.world.nestY, base + 1);
+    return Math.max(min, Math.min(max, target));
   }
 
   #sanitizeDir(value) {

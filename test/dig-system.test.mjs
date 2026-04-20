@@ -347,8 +347,12 @@ test('upward shaft spawn stores varied emergence Y and reports it on breach', ()
   assert.equal(dig.upwardShafts.length, 1, 'Expected upward shaft to be spawned');
 
   const shaft = dig.upwardShafts[0];
-  const expectedBreachY = world.nestY + 1;
-  assert.equal(shaft.breachY, expectedBreachY, 'Spawned shaft should store varied emergence Y');
+  // Breaches now target the surface yard (entranceY) rather than the
+  // surface/underground boundary at nestY, so dig-generated mounds appear
+  // in the visible yard alongside the starter entrance. yJitter=+1 lifts
+  // the breach one row below entranceY.
+  const expectedBreachY = world.entranceY + 1;
+  assert.equal(shaft.breachY, expectedBreachY, 'Spawned shaft should store varied emergence Y near the surface yard');
 
   let breached = null;
   dig.onNewEntrance = (x, y) => {

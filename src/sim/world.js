@@ -115,9 +115,12 @@ export class World {
   }
 
   #carveStarterNest() {
-    // Larger starter chamber so brood/queen/nurses have room to spread out
+    // Larger starter chamber so brood/queen/nurses have room to spread out.
+    // Carve strictly below the surface/underground boundary (y > nestY) so
+    // row nestY remains surface; otherwise chamber ants at y = nestY would
+    // leak into the surface view's bottom edge.
     this.paintCircle(this.nestX, this.nestY + 4, 6, (idx, _x, y) => {
-      if (y >= this.nestY) this.terrain[idx] = TERRAIN.CHAMBER;
+      if (y > this.nestY) this.terrain[idx] = TERRAIN.CHAMBER;
     });
 
     // Widen the entrance shaft to 3 tiles so multiple ants can flow in parallel.
