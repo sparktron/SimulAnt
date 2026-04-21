@@ -60,10 +60,25 @@ export class World {
     );
   }
 
-  isUnderground(x, y) {
+  // Terrain-based classification: true for any TUNNEL/CHAMBER tile regardless
+  // of y-coordinate. Use this for "is the ant/cell inside the carved nest
+  // structure" checks (e.g. chamber navigation, nest-food storage).
+  isUndergroundTile(x, y) {
     if (!this.inBounds(x, y)) return false;
     const terrain = this.terrain[this.index(x, y)];
     return terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER;
+  }
+
+  // Spatial classification: true when the tile is strictly below the
+  // surface/underground horizon. Use this for view ownership / layer-based
+  // logic (renderer filters, patch underground flag, HUD counts).
+  isBelowSurface(x, y) {
+    return y > this.nestY;
+  }
+
+  // Back-compat alias. Existing callers expect terrain-based semantics.
+  isUnderground(x, y) {
+    return this.isUndergroundTile(x, y);
   }
 
   initializeTerrain() {

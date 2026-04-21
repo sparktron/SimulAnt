@@ -76,4 +76,3 @@ const evap = state.config.pheromoneEvapRate;
 - Run npm or any Node package manager commands (no package.json exists).
 - Use `Math.random()` inside `src/sim/`.
 - Commit `localStorage` data, `.env` files, or secrets.
-- Auto-generate AGENTS.md content (statistically degrades agent performance per ETH Zurich research).
