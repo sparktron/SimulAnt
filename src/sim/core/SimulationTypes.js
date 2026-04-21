@@ -137,7 +137,7 @@ export function getPatchCellState(world, foodPellets, x, y) {
       code: world.terrain[idx],
       kind: TERRAIN_TO_KIND[world.terrain[idx]] || PATCH_TERRAIN_KIND.SURFACE_GROUND,
       passable: world.isPassable(x, y),
-      underground: world.isUnderground(x, y),
+      underground: world.isBelowSurface(x, y),
     },
     food: {
       groundUnits: world.food[idx],
