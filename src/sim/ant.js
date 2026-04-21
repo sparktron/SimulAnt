@@ -438,14 +438,12 @@ export class Ant {
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
       : 0;
     const onFoodTrail = world.toFood[context.idx] > 0.5;
-    const nearEntranceScatter = !onFoodTrail && context.entrance
+    const nearEntranceScatter = !onFoodTrail && !context.inNest && context.entrance
       && distFromEntrance < (config.nearEntranceScatterRadius ?? 8);
     if (nearEntranceScatter && context.entrance) {
       const ax = this.x + (this.x - context.entrance.x) + rng.int(20) - 10;
       const ay = this.y + (this.y - context.entrance.y) + rng.int(20) - 10;
-      didMove = context.inNest
-        ? this.#moveToward(world, context.entrance.x, context.entrance.y, rng)
-        : this.#moveToward(world, ax, ay, rng);
+      didMove = this.#moveToward(world, ax, ay, rng);
     }
     if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance);
     return didMove;
