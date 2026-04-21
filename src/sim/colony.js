@@ -371,13 +371,16 @@ export class Colony {
         larva.progress -= stageSeconds;
         larva.stage += 1;
 
-        // Stage 5 means time to hatch
-        if (larva.stage > 4 && this.ants.length < config.antCap) {
+        // Stage 5 means time to hatch; always remove the larva so it
+        // doesn't linger and consume food indefinitely when the cap is hit.
+        if (larva.stage > 4) {
           this.larvae.splice(i, 1);
           this.queen.brood -= 1;
-          const role = this.selectHatchRole(config);
-          this.ants.push(this.#spawnNearNest(role));
-          this.births += 1;
+          if (this.ants.length < config.antCap) {
+            const role = this.selectHatchRole(config);
+            this.ants.push(this.#spawnNearNest(role));
+            this.births += 1;
+          }
         }
       }
     }
