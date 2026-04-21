@@ -48,7 +48,7 @@ const state = {
     diffDanger: 0.12,
     diffIntervalTicks: 2,
     depositFood: 0.35,
-    depositHome: 0.08,
+    depositHome: 0.15,
     dangerDeposit: 0.3,
     hazardDeathChance: 0.02,
     foodPickupRate: 0.7,
