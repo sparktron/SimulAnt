@@ -513,8 +513,10 @@ export class Ant {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
     }
 
-    // Passive health regen when well-fed (hunger > 65%)
-    if (this.hunger > this.hungerMax * 0.65 && this.health < this.healthMax) {
+    // Passive health regen when well-fed (hunger > 65%), but not once the ant
+    // has entered the senescence zone — age drain should be able to run its
+    // course without regen extending life past maxAge.
+    if (this.hunger > this.hungerMax * 0.65 && this.health < this.healthMax && this.age <= this.maxAge * 0.8) {
       const regenRate = Math.max(0, config.healthRegenRate ?? 0);
       this.health = Math.min(this.healthMax, this.health + regenRate * dt);
     }
