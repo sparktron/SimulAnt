@@ -107,7 +107,14 @@ export class Ant {
   #sense(world, colony, config) {
     const dt = config.tickSeconds || 1 / 30;
     const idx = world.index(this.x, this.y);
-    const inNest = this.y >= world.nestY;
+    // "inNest" means the ant is inside the carved nest structure (tunnel
+    // or chamber). Using y >= nestY mis-classified the 16-row shaft band
+    // between entranceY and nestY-1 as "surface" even though the ant was
+    // visually inside the shaft, which broke food drop / eat-from-nest /
+    // exit-nest logic at the shaft's boundary. Use terrain so any ant
+    // standing on a tunnel/chamber tile is treated as inside the nest,
+    // regardless of vertical band.
+    const inNest = world.isUndergroundTile(this.x, this.y) || world.isBelowSurface(this.x, this.y);
     const entrance = colony.nearestEntrance(this.x, this.y);
 
     if (inNest) this.failedSurfaceFoodSearchTicks = 0;
