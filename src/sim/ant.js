@@ -995,8 +995,11 @@ export class Ant {
       ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
       : config.workerEatNutrition;
     // Clamp intake to remaining hunger capacity so we don't waste food.
+    // If hunger is already full there is nothing to absorb — passive regen
+    // (hunger > 65%) will restore health without consuming colony stores.
     const hungerCapacity = Math.max(0, this.hungerMax - this.hunger);
-    const requestedIntake = Math.max(1, Math.min(requested, hungerCapacity > 0 ? hungerCapacity : requested));
+    if (hungerCapacity <= 0) return false;
+    const requestedIntake = Math.max(1, Math.min(requested, hungerCapacity));
 
     const consumed = colony.consumeFromStore(requestedIntake);
     if (consumed <= 0) return false;
