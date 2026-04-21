@@ -968,7 +968,7 @@ export class Ant {
     // trails. Keep them foraging until the store is nearly full.
     if (this.workFocus === 'forage') {
       const storeTarget = Math.max(1, colony.foodStoreTarget);
-      const storeNearlyFull = colony.foodStored >= storeTarget * 0.9;
+      const storeNearlyFull = colony.foodStored >= storeTarget;
       if (!storeNearlyFull) return true;
       // Even at target, still forage if personally hungry.
       return this.hunger < this.hungerMax * 0.6;
