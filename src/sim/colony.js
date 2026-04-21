@@ -410,17 +410,27 @@ export class Colony {
   #updateQueenFoodRequest(config) {
     if (!this.queen.alive) return;
 
-    const requestThreshold = this.queen.healthMax * (config.queenFoodRequestHealthThreshold ?? 0.5);
+    const requestHealthThreshold = this.queen.healthMax * (config.queenFoodRequestHealthThreshold ?? 0.5);
     const clearThreshold = this.queen.healthMax * (config.queenFoodRequestClearThreshold ?? 0.8);
+    // Hunger-based early warning: dispatch a courier before health is ever
+    // affected, giving foragers time to return food before starvation begins.
+    const hungerWarningThreshold = this.queen.hungerMax * (config.queenFoodRequestHungerThreshold ?? 0.2);
+
     const assigned = this.ants.find((ant) => ant.id === this.queen.foodCourierAntId && ant.alive);
 
-    if (this.queen.health >= clearThreshold) {
+    // Clear the assignment once the queen is both healthy and well-fed.
+    if (this.queen.health >= clearThreshold && this.queen.hunger >= hungerWarningThreshold) {
       this.queen.foodCourierAntId = null;
       return;
     }
 
-    if (this.queen.health >= requestThreshold && assigned) return;
+    // Keep the existing courier unless they've died.
     if (assigned) return;
+
+    // Assign a courier if the queen is running low on either hunger or health.
+    const needsCourier = this.queen.health < requestHealthThreshold
+      || this.queen.hunger < hungerWarningThreshold;
+    if (!needsCourier) return;
 
     const nearest = this.findNearestWorkerTo(this.queen.x, this.queen.y);
     this.queen.foodCourierAntId = nearest?.id || null;

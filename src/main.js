@@ -63,6 +63,7 @@ const state = {
     queenHealthRecoveryPerNutrition: 0.25,
     queenFoodRequestHealthThreshold: 0.5,
     queenFoodRequestClearThreshold: 0.8,
+    queenFoodRequestHungerThreshold: 0.2,
     queenCourierPickupNutrition: 6,
     broodFoodDrainRate: 0.005,
     broodGestationSeconds: 8,
