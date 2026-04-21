@@ -96,7 +96,7 @@ const state = {
     foodTrailDecayPerStep: 0.92,
     maxFoodTrailScale: 4.0,
     homeScentBaseWeight: 1.0,
-    homeScentSearchStateScale: 0,
+    homeScentSearchStateScale: 0.3,
     homeScentReturnStateScale: 1.0,
     homeScentFalloffStartDist: 10,
     homeScentFalloffEndDist: 9999,
