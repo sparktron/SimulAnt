@@ -133,7 +133,11 @@ export class SimulationCore {
       const theta = this.rng.range(0, Math.PI * 2);
       const r = this.rng.range(0, radius);
       const x = Math.max(0, Math.min(this.world.width - 1, Math.round(centerX + Math.cos(theta) * r)));
-      const y = Math.max(0, Math.min(this.world.nestY, Math.round(centerY + Math.sin(theta) * r)));
+      // Clamp strictly above the horizon row (y < nestY) so pellets can only
+      // land in the surface band. Surface owns y <= nestY for rendering but
+      // ants transiting the boundary row shouldn't stand on pellets that
+      // also conceptually live in the nest's horizon strip.
+      const y = Math.max(0, Math.min(this.world.nestY - 1, Math.round(centerY + Math.sin(theta) * r)));
       if (!this.world.inBounds(x, y)) continue;
       this.foodPellets.push(new FoodPellet(`pellet-${this.nextPelletId++}`, x, y, DEFAULT_PELLET_NUTRITION));
     }

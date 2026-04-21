@@ -231,8 +231,8 @@ test('NestRenderer only draws underground ants in nest view', () => {
     );
 
     assert.ok(
-      mainCtx.fillRectCalls.some((call) => call.x === 3 && call.y === world.nestY && call.w === 1 && call.h === 1),
-      'horizon ant at nestY should be rendered in nest view (ant.y < nestY is the filter now)',
+      !mainCtx.fillRectCalls.some((call) => call.x === 3 && call.y === world.nestY && call.w === 1 && call.h === 1),
+      'horizon ant at nestY is owned by the surface view — nest view must skip it to keep filters complementary',
     );
 
     assert.ok(
