@@ -1007,7 +1007,10 @@ export class Ant {
     this._lastNestEatTick = this.stepCounter;
     this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
     const healthGain = consumed * (config.healthEatRecoveryRate ?? 0);
-    this.health = Math.min(this.healthMax, this.health + healthGain + (critical ? config.starvationRecoveryHealth : 0));
+    // Recovery bonus only applies when the ant is actually starving, not when
+    // health is low for other reasons (old age, combat damage, etc.).
+    const isStarving = this.hunger < this.hungerMax * 0.1;
+    this.health = Math.min(this.healthMax, this.health + healthGain + (critical && isStarving ? config.starvationRecoveryHealth : 0));
     return true;
   }
 
