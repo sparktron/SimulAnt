@@ -1019,13 +1019,6 @@ export class Ant {
     return true;
   }
 
-  #consumePelletForHealth(colony, pellet, config) {
-    const nutrition = Math.max(0, pellet?.nutrition || 0);
-    colony.removePelletById(pellet.id);
-    this.hunger = Math.min(this.hungerMax, this.hunger + nutrition);
-    this.health = Math.min(this.healthMax, this.health + nutrition * (config.healthEatRecoveryRate ?? 0));
-  }
-
   #consumePelletForHealthThenCarry(colony, pellet, config) {
     const nutrition = Math.max(0, pellet?.nutrition || 0);
     if (nutrition <= 0) {
