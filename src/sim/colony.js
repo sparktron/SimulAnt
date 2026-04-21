@@ -38,6 +38,7 @@ export class Colony {
       moveProgress: 0,
       broodGestationProgress: 0,
       foodCourierAntId: null,
+      foodCourierAntId2: null,
     };
 
     this.larvae = [];  // array of { stage: 1-4, progress: 0-1 }
@@ -432,29 +433,40 @@ export class Colony {
     if (!this.queen.alive) return;
 
     const requestHealthThreshold = this.queen.healthMax * (config.queenFoodRequestHealthThreshold ?? 0.5);
+    const criticalHealthThreshold = this.queen.healthMax * 0.25;
     const clearThreshold = this.queen.healthMax * (config.queenFoodRequestClearThreshold ?? 0.8);
-    // Hunger-based early warning: dispatch a courier before health is ever
-    // affected, giving foragers time to return food before starvation begins.
     const hungerWarningThreshold = this.queen.hungerMax * (config.queenFoodRequestHungerThreshold ?? 0.2);
 
-    const assigned = this.ants.find((ant) => ant.id === this.queen.foodCourierAntId && ant.alive);
+    const assigned1 = this.ants.find((ant) => ant.id === this.queen.foodCourierAntId && ant.alive);
+    const assigned2 = this.ants.find((ant) => ant.id === this.queen.foodCourierAntId2 && ant.alive);
 
-    // Clear the assignment once the queen is both healthy and well-fed.
+    // Clear assignments once the queen is both healthy and well-fed.
     if (this.queen.health >= clearThreshold && this.queen.hunger >= hungerWarningThreshold) {
       this.queen.foodCourierAntId = null;
+      this.queen.foodCourierAntId2 = null;
       return;
     }
 
-    // Keep the existing courier unless they've died.
-    if (assigned) return;
-
-    // Assign a courier if the queen is running low on either hunger or health.
     const needsCourier = this.queen.health < requestHealthThreshold
       || this.queen.hunger < hungerWarningThreshold;
-    if (!needsCourier) return;
 
-    const nearest = this.findNearestWorkerTo(this.queen.x, this.queen.y);
-    this.queen.foodCourierAntId = nearest?.id || null;
+    // Primary slot: assign if empty and queen needs help.
+    if (!assigned1 && needsCourier) {
+      const nearest = this.findNearestWorkerTo(this.queen.x, this.queen.y);
+      this.queen.foodCourierAntId = nearest?.id || null;
+    }
+
+    // Secondary slot: escalate to a second courier when health is critical.
+    const criticallyIll = this.queen.health < criticalHealthThreshold;
+    if (criticallyIll && !assigned2) {
+      const nearest = this.findNearestWorkerTo(this.queen.x, this.queen.y);
+      // Avoid assigning the same ant twice.
+      if (nearest && nearest.id !== this.queen.foodCourierAntId) {
+        this.queen.foodCourierAntId2 = nearest.id;
+      }
+    } else if (!criticallyIll) {
+      this.queen.foodCourierAntId2 = null;
+    }
   }
 
   findNearestWorkerTo(x, y) {
@@ -473,7 +485,8 @@ export class Colony {
   }
 
   isQueenFoodCourier(antId) {
-    return this.queen.foodCourierAntId != null && this.queen.foodCourierAntId === antId;
+    return (this.queen.foodCourierAntId != null && this.queen.foodCourierAntId === antId)
+      || (this.queen.foodCourierAntId2 != null && this.queen.foodCourierAntId2 === antId);
   }
 
   countQueenFoodCouriers() {
@@ -1021,6 +1034,7 @@ export class Colony {
     if (!Number.isFinite(colony.queen.moveProgress)) colony.queen.moveProgress = 0;
     if (!Number.isFinite(colony.queen.broodGestationProgress)) colony.queen.broodGestationProgress = 0;
     if (typeof colony.queen.foodCourierAntId !== 'string') colony.queen.foodCourierAntId = null;
+    if (typeof colony.queen.foodCourierAntId2 !== 'string') colony.queen.foodCourierAntId2 = null;
     colony.larvae = Array.isArray(data.larvae)
       ? data.larvae.filter((larva) => larva && Number.isFinite(larva.stage) && Number.isFinite(larva.progress))
       : [];
