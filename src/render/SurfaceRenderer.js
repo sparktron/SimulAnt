@@ -162,6 +162,8 @@ export class SurfaceRenderer {
   #drawFoodPellets(ctx, foodPellets) {
     ctx.fillStyle = '#35d84b';
     for (const pellet of foodPellets) {
+      // Surface owns rows y <= nestY (complementary to NestRenderer which
+      // draws y > nestY); keeps pellets from being double-rendered.
       if (pellet.y > this.world.nestY) continue;
       ctx.fillRect(pellet.x, pellet.y, 1, 1);
     }

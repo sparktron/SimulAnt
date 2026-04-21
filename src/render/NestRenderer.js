@@ -51,10 +51,14 @@ export class NestRenderer {
     this.#enforceNestViewBounds();
     const viewW = this.canvas.clientWidth / this.zoom;
     const viewH = this.canvas.clientHeight / this.zoom;
-    return {
-      x: Math.floor(this.cameraX - viewW * 0.5 + sx / this.zoom),
-      y: Math.floor(this.cameraY - viewH * 0.5 + sy / this.zoom),
-    };
+    const x = Math.floor(this.cameraX - viewW * 0.5 + sx / this.zoom);
+    const y = Math.floor(this.cameraY - viewH * 0.5 + sy / this.zoom);
+    // The nest view's sky band (y < nestY) is decorative context — clicks
+    // there must not mutate surface-band terrain via tool paint. Surface
+    // clicks belong to the surface view's screenToWorld.
+    if (y < this.world.nestY || y >= this.world.height) return null;
+    if (x < 0 || x >= this.world.width) return null;
+    return { x, y };
   }
 
   draw(colony, options = {}) {
@@ -101,13 +105,20 @@ export class NestRenderer {
 
         let r, g, b;
 
-        if (y < world.nestY - 1) {
+        // Terrain takes precedence over the y-based sky/horizon banding so
+        // that tunnels or chambers carved into the surface band (e.g. the
+        // entrance shaft above nestY) render as tunnel, not sky. Otherwise
+        // real nest terrain would be hidden by the decorative sky wash.
+        const isCarvedAboveHorizon = y < world.nestY
+          && (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER);
+
+        if (y < world.nestY - 1 && !isCarvedAboveHorizon) {
           // Sky -- subtle top-to-bottom gradient
           const t = y / world.nestY;
           r = Math.floor(38 + 32 * t);
           g = Math.floor(58 + 42 * t);
           b = Math.floor(108 + 44 * t);
-        } else if (y <= world.nestY) {
+        } else if (y <= world.nestY && !isCarvedAboveHorizon) {
           // Ground-surface strip (green)
           r = 66;
           g = 118;
@@ -174,6 +185,7 @@ export class NestRenderer {
     for (let i = 0; i < pellets.length; i += 1) {
       const pellet = pellets[i];
       if (pellet.amount <= 0.01) continue;
+      if (pellet.y <= this.world.nestY) continue;
       const r = Math.max(0.2, Math.min(0.45, 0.18 + Math.sqrt(pellet.amount) * 0.08));
       ctx.fillStyle = '#35d84b';
       ctx.beginPath();
@@ -258,7 +270,10 @@ export class NestRenderer {
     const maxY = this.cameraY + halfViewH + 1;
 
     for (const ant of colony.ants) {
-      if (ant.y < world.nestY) continue;
+      // Nest view owns rows strictly below the horizon. Row nestY is the
+      // green surface strip and belongs to the surface view so ants don't
+      // get double-drawn across the boundary.
+      if (ant.y <= world.nestY) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       const drawY = ant.y;
       ctx.fillStyle = ant.baseColor;
