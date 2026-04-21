@@ -472,15 +472,24 @@ export class Ant {
     // Increment age for natural lifespan tracking
     this.age += 1;
 
-    // Soldier hunger is currently modeled as static:
-    // - soldiers do not consume colony stores (worker-only feeding),
-    // - soldiers also do not metabolically drain hunger each tick.
-    // They still age and can die from old age and hazards.
     if (this.role === 'soldier') {
+      const hungerDrain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
+      this.hunger = Math.max(0, this.hunger - hungerDrain * dt);
+
+      if (this.hunger <= 0) {
+        this.health = Math.max(0, this.health - config.healthDrainRate * dt);
+      }
+
+      if (this.hunger > this.hungerMax * 0.65 && this.health < this.healthMax && this.age <= this.maxAge * 0.8) {
+        const regenRate = Math.max(0, config.healthRegenRate ?? 0);
+        this.health = Math.min(this.healthMax, this.health + regenRate * dt);
+      }
+
       if (this.age > this.maxAge * 0.8) {
         const ageFactor = (this.age - this.maxAge * 0.8) / (this.maxAge * 0.2);
         this.health = Math.max(0, this.health - ageFactor * 2 * dt);
       }
+
       if (this.health <= 0) {
         this.alive = false;
         colony.deaths += 1;
@@ -966,8 +975,8 @@ export class Ant {
 
   #tryEatFromNest(colony, inNest, config) {
     if (!inNest) return false;
-    // Only workers eat from nest stores; soldiers have static metabolism.
-    if (this.role !== 'worker') return false;
+    // Only workers and soldiers eat from nest stores; other roles (nurses, etc.) feed separately.
+    if (this.role !== 'worker' && this.role !== 'soldier') return false;
 
     // Cooldown: prevent ants from eating every single tick in the nest.
     // 30 ticks between meals unless critically starving.
