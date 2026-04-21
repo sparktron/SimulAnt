@@ -67,6 +67,7 @@ const state = {
     queenCourierPickupNutrition: 6,
     broodFoodDrainRate: 0.005,
     broodGestationSeconds: 8,
+    broodStarvationTicks: 600,
     workerEatNutrition: 25,
     starvationRecoveryHealth: 5,
     healthDrainRate: 5,

@@ -356,15 +356,36 @@ export class Colony {
     const broodFeedRatio = broodFoodRequest > 0 ? broodFoodConsumed / broodFoodRequest : 1;
     const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio));
 
+    // Track how long larvae have been severely underfed (feed ratio < 30%).
+    // Each tick at that level increments a counter; adequate feeding resets it.
+    const severelyUnderfed = broodFeedRatio < 0.3;
+
     // Time per stage (in seconds) - divided by 4 since we have 4 stages
     const stageSeconds = Math.max(
       0.001,
       (Number.isFinite(config.broodGestationSeconds) ? config.broodGestationSeconds : dt) / 4,
     );
 
+    const broodStarvationTicks = config.broodStarvationTicks ?? 600;
+
     // Progress each larva through stages
     for (let i = this.larvae.length - 1; i >= 0; i -= 1) {
       const larva = this.larvae[i];
+
+      // Accumulate or reset malnourishment counter.
+      if (severelyUnderfed) {
+        larva.malnourishmentTicks = (larva.malnourishmentTicks || 0) + 1;
+      } else {
+        larva.malnourishmentTicks = 0;
+      }
+
+      // Starving larva dies — remove it and release the brood slot.
+      if (larva.malnourishmentTicks >= broodStarvationTicks) {
+        this.larvae.splice(i, 1);
+        this.queen.brood -= 1;
+        continue;
+      }
+
       larva.progress += dt * gestationRateScale;
 
       if (larva.progress >= stageSeconds) {
