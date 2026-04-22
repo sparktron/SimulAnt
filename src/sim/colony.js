@@ -683,6 +683,14 @@ export class Colony {
     return consumed;
   }
 
+  getNestPelletNutritionTotal() {
+    return this.nestFoodPellets.reduce((sum, pellet) => sum + (pellet.amount || 0), 0);
+  }
+
+  getTotalStoredFood() {
+    return Math.max(this.foodStored, this.getNestPelletNutritionTotal());
+  }
+
   /**
    * Deposits nutrition into nest storage and records a visual pellet marker.
    *

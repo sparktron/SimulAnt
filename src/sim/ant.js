@@ -1,4 +1,5 @@
 import { TERRAIN } from './world.js';
+import { isInNestSpatial } from './behavior/NestState.js';
 
 const DEBUG_ANT_FLOW_LOGS = false;
 
@@ -114,7 +115,7 @@ export class Ant {
     // exit-nest logic at the shaft's boundary. Use terrain so any ant
     // standing on a tunnel/chamber tile is treated as inside the nest,
     // regardless of vertical band.
-    const inNest = world.isBelowSurface(this.x, this.y);
+    const inNest = isInNestSpatial(world, this.x, this.y);
     const entrance = colony.nearestEntrance(this.x, this.y);
 
     if (inNest) this.failedSurfaceFoodSearchTicks = 0;

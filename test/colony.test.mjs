@@ -298,6 +298,20 @@ test('consumeFromStore returns 0 for empty store', () => {
   assert.equal(colony.consumeFromStore(5), 0);
 });
 
+test('getTotalStoredFood returns canonical max across store and pellets', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('food-ledger-total');
+  const colony = new Colony(world, rng, 0);
+
+  colony.foodStored = 10;
+  colony.nestFoodPellets = [{ x: world.nestX, y: world.nestY + 2, amount: 6 }];
+  assert.equal(colony.getTotalStoredFood(), 10);
+
+  colony.foodStored = 4;
+  colony.nestFoodPellets = [{ x: world.nestX, y: world.nestY + 2, amount: 7 }];
+  assert.equal(colony.getTotalStoredFood(), 7);
+});
+
 // --- Nearest Entrance ---
 
 test('nearestEntrance returns closest entrance', () => {

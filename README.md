@@ -155,6 +155,8 @@ Upload:
 - [Onboarding analysis](docs/onboarding-analysis.md)
 - [Implementation report (2026-04-22)](docs/2026-04-22-fix-implementation-report.md)
 - [Open items / TODO plan](docs/open-items-todo.md)
+- [Known issues](docs/KNOWN_ISSUES.md)
+- [Change history](CHANGE_HISTORY.md)
 
 ---
 

@@ -432,6 +432,10 @@ function getHudAntCounts(ants, nestY) {
 
 
 function getHudFoodTotal(colony) {
+  if (typeof colony?.getTotalStoredFood === 'function') {
+    return colony.getTotalStoredFood();
+  }
+
   const stored = Number.isFinite(colony?.foodStored) ? colony.foodStored : 0;
   const pelletFood = Array.isArray(colony?.nestFoodPellets)
     ? colony.nestFoodPellets.reduce((sum, pellet) => {
