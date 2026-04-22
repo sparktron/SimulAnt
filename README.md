@@ -28,6 +28,7 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 ### 🧪 Simulation + colony behavior
 - Deterministic runs via seed-based reset.
 - Queen-led reproduction and worker/soldier caste dynamics.
+- Nurse workers tend the brood chamber: they feed the queen when her hunger or health drops, spread overcrowded larvae (reducing crowding slows gestation by up to 40%), and patrol distributed sub-areas of the chamber rather than piling on one tile.
 - Auto-dig tunnels with optional forced chamber carving.
 - Pheromone channels for food/home/danger with runtime overlay toggles.
 
