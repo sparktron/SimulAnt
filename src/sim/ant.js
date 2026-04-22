@@ -815,13 +815,17 @@ export class Ant {
       colony.spreadLarvae(rng);
     }
 
-    // Tend brood: move toward the brood area
+    // Tend brood: move toward the brood area.
+    // Each nurse gets a stable per-ant offset so they spread across the chamber
+    // rather than all converging on the same tile.
     if (colony.larvae.length > 0) {
-      const broodX = Math.max(0, Math.min(world.width - 1, world.nestX + 4));
-      const broodY = Math.max(world.nestY + 2, Math.min(world.height - 1, world.nestY + 8));
+      const idSeed = parseInt(this.id.replace(/\D/g, ''), 10) || 0;
+      const offsetX = (idSeed % 7) - 3;            // -3 to +3
+      const offsetY = (Math.floor(idSeed / 7) % 5) - 2;  // -2 to +2
+      const broodX = Math.max(0, Math.min(world.width - 1, world.nestX + 4 + offsetX));
+      const broodY = Math.max(world.nestY + 2, Math.min(world.height - 1, world.nestY + 5 + offsetY));
       const distToBrood = Math.hypot(this.x - broodX, this.y - broodY);
-      // Stay near the brood but don't pile on top — wander within 6 tiles
-      if (distToBrood > 6) {
+      if (distToBrood > 3) {
         this.state = 'NURSE_TEND_BROOD';
         return this.#moveToward(world, broodX, broodY, rng);
       }
