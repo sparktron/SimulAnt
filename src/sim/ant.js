@@ -788,10 +788,12 @@ export class Ant {
       this.carryingType = 'none';
     }
 
-    // Feed the queen if she's actually hungry and not enough couriers already
+    // Feed the queen if she is hungry or her health is declining
     const queen = colony.queen;
+    const queenNeedsFood = queen.hunger < queen.hungerMax * 0.25
+      || queen.health < queen.healthMax * 0.6;
     if (queen?.alive && !this.carrying?.type
-        && queen.hunger < queen.hungerMax * 0.4
+        && queenNeedsFood
         && colony.foodStored > 2
         && colony.countQueenFoodCouriers() < 2) {
       const pickupAmount = config.queenCourierPickupNutrition ?? 6;
