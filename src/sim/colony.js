@@ -42,6 +42,7 @@ export class Colony {
     };
 
     this.larvae = [];  // array of { stage: 1-4, progress: 0-1 }
+    this.larvaeCrowding = 0;  // 0–1; slows gestation when brood is dense and untended
     this.excavatedTiles = 0;
     this.onExcavate = null;
     this.onDepositDirt = null;
@@ -355,7 +356,18 @@ export class Colony {
     const broodFoodRequest = this.larvae.length * (config.broodFoodDrainRate ?? 0) * dt;
     const broodFoodConsumed = this.consumeFromStore(broodFoodRequest);
     const broodFeedRatio = broodFoodRequest > 0 ? broodFoodConsumed / broodFoodRequest : 1;
-    const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio));
+
+    // Crowding: brood chambers with more larvae than nurses can tend develop slower.
+    // Accumulates when count exceeds the threshold; decays naturally when not overcrowded.
+    // Nurse calls to spreadLarvae() actively drive it down.
+    const crowdingThreshold = config.larvaeCrowdingThreshold ?? 8;
+    if (this.larvae.length > crowdingThreshold) {
+      this.larvaeCrowding = Math.min(1, this.larvaeCrowding + 0.002);
+    } else {
+      this.larvaeCrowding = Math.max(0, this.larvaeCrowding - 0.001);
+    }
+
+    const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio) * (1 - this.larvaeCrowding * 0.4));
 
     // Track how long larvae have been severely underfed (feed ratio < 30%).
     // Each tick at that level increments a counter; adequate feeding resets it.
@@ -516,12 +528,9 @@ export class Colony {
    * Called by nurse ants periodically.
    */
   spreadLarvae(rng) {
-    if (this.larvae.length <= 4) return; // Not overcrowded
-
-    // Larvae are rendered in a grid from a fixed brood position.
-    // "Spreading" is a conceptual action — the real effect is that nurses
-    // tend the brood, which in the future could affect development speed.
-    // For now, this is a placeholder that validates the nurse-brood interaction.
+    if (this.larvae.length <= 4) return;
+    // Each nurse tending pass reduces crowding, accelerating brood development.
+    this.larvaeCrowding = Math.max(0, this.larvaeCrowding - 0.05);
   }
 
   /**
