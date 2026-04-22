@@ -502,10 +502,13 @@ export class Colony {
   }
 
   countQueenFoodCouriers() {
+    // Count assigned courier slots that still have a living ant, not in-flight
+    // carriers — so the suppression check is stable across the whole delivery cycle.
     let count = 0;
-    for (let i = 0; i < this.ants.length; i += 1) {
-      if (this.ants[i].carrying?.type === 'queen-food') count += 1;
-    }
+    if (this.queen.foodCourierAntId != null
+        && this.ants.some((a) => a.id === this.queen.foodCourierAntId && a.alive)) count += 1;
+    if (this.queen.foodCourierAntId2 != null
+        && this.ants.some((a) => a.id === this.queen.foodCourierAntId2 && a.alive)) count += 1;
     return count;
   }
 
