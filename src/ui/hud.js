@@ -37,7 +37,10 @@ export function updateHud(stats) {
   setText('hudPherAvg', `F:${Math.round(pher.avgFood)} H:${Math.round(pher.avgHome)}`);
   setText('hudFollow', `F:${stats.followingFood || 0} H:${stats.followingHome || 0}`);
   const healthStats = normalizeHealthStats(stats.antHealthStats);
-  setText('hudHealthStats', `MIN:${Math.round(healthStats.min)} AVG:${Math.round(healthStats.avg)} MAX:${Math.round(healthStats.max)}`);
+  setText(
+    'hudHealthStats',
+    `MIN:${formatNumber(healthStats.min)} AVG:${formatNumber(healthStats.avg)} MAX:${formatNumber(healthStats.max)}`,
+  );
 
   const focusHealth = Number.isFinite(stats.selectedAntHealth) ? stats.selectedAntHealth : healthStats.avg;
   setBar('healthYellow', clampPercent(focusHealth));
@@ -62,7 +65,7 @@ function asNonNegativeInt(value) {
 
 function formatNumber(value) {
   const number = Number.isFinite(value) ? value : 0;
-  return number.toFixed(0);
+  return number.toFixed(1);
 }
 
 function setText(id, value) {

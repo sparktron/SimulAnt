@@ -387,3 +387,33 @@ test('same seed produces identical results after many ticks', () => {
 
   assert.deepEqual(snapA, snapB, 'Same seed should produce identical state');
 });
+
+function hashString(value) {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash << 5) + hash) ^ value.charCodeAt(i);
+  }
+  return hash >>> 0;
+}
+
+test('deterministic replay hash remains stable for fixed seed + ticks', () => {
+  const config = createConfig();
+  const ticks = 90;
+
+  const simA = new SimulationCore('replay-hash-seed');
+  const simB = new SimulationCore('replay-hash-seed');
+  const simC = new SimulationCore('replay-hash-seed-alt');
+
+  for (let i = 0; i < ticks; i += 1) {
+    simA.update(config);
+    simB.update(config);
+    simC.update(config);
+  }
+
+  const hashA = hashString(JSON.stringify(simA.serialize({})));
+  const hashB = hashString(JSON.stringify(simB.serialize({})));
+  const hashC = hashString(JSON.stringify(simC.serialize({})));
+
+  assert.equal(hashA, hashB, 'Replay hash should match for identical seed and tick count');
+  assert.notEqual(hashA, hashC, 'Replay hash should differ for a different seed');
+});

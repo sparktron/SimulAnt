@@ -1,4 +1,5 @@
 import { TERRAIN } from './world.js';
+import { isInNestSpatial } from './behavior/NestState.js';
 
 const DEBUG_ANT_FLOW_LOGS = false;
 
@@ -114,7 +115,7 @@ export class Ant {
     // exit-nest logic at the shaft's boundary. Use terrain so any ant
     // standing on a tunnel/chamber tile is treated as inside the nest,
     // regardless of vertical band.
-    const inNest = world.isUndergroundTile(this.x, this.y) || world.isBelowSurface(this.x, this.y);
+    const inNest = isInNestSpatial(world, this.x, this.y);
     const entrance = colony.nearestEntrance(this.x, this.y);
 
     if (inNest) this.failedSurfaceFoodSearchTicks = 0;
@@ -230,7 +231,7 @@ export class Ant {
             colony.depositFoodFromAnt(this, context.entrance, dropPoint);
             // Stagger nest departures: random delay after depositing food
             // so ants don't all rush the entrance at once.
-            this._nestDepartureDelay = 5 + Math.floor(Math.random() * 16);
+            this._nestDepartureDelay = 5 + rng.int(16);
             return didMove;
           }
 
@@ -988,8 +989,8 @@ export class Ant {
 
   #tryEatFromNest(colony, inNest, config) {
     if (!inNest) return false;
-    // Only workers and soldiers eat from nest stores; other roles (nurses, etc.) feed separately.
-    if (this.role !== 'worker' && this.role !== 'soldier') return false;
+    // Only workers eat from nest stores.
+    if (this.role !== 'worker') return false;
 
     // Cooldown: prevent ants from eating every single tick in the nest.
     // 30 ticks between meals unless critically starving.
@@ -1062,6 +1063,24 @@ export class Ant {
       };
       this.carryingType = 'food';
     }
+  }
+
+  #consumePelletForHealth(colony, pellet, config) {
+    const nutrition = Math.max(0, pellet?.nutrition || 0);
+    if (nutrition <= 0) {
+      colony.removePelletById(pellet.id);
+      return;
+    }
+
+    const requested = this.#isCriticalHealth()
+      ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition ?? nutrition)
+      : (config.workerEatNutrition ?? nutrition);
+    const consumed = Math.min(nutrition, requested);
+    const healthRecoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
+
+    this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
+    this.health = Math.min(this.healthMax, this.health + consumed * healthRecoveryRate);
+    colony.removePelletById(pellet.id);
   }
 
   #consumeCarriedFoodForHealth(config) {

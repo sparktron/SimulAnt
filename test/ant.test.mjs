@@ -388,7 +388,7 @@ test('soldier ant does not eat from nest (worker-only behavior)', () => {
 
   // Master design: only workers eat from nest stores, soldiers don't
   assert.equal(colony.foodStored, foodBefore, 'Soldier should NOT consume food from colony store');
-  assert.equal(soldier.hunger, 10, 'Soldier hunger should remain unchanged');
+  assert.ok(soldier.hunger < 10, 'Soldier hunger should drain naturally without nest feeding');
 });
 
 test('worker standing on entrance tile is treated as surface and does not consume nest food', () => {

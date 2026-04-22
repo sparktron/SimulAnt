@@ -7,6 +7,7 @@ import { MacroEngine } from './core/MacroEngine.js';
 import { MicroPatchEngine } from './core/MicroPatchEngine.js';
 import { TickScheduler } from './core/TickScheduler.js';
 import { ColonyStats } from './ColonyStats.js';
+import { FoodEconomySystem } from './systems/FoodEconomySystem.js';
 
 const SURFACE_DEPOSIT_RATIO = 0.7;
 
@@ -50,6 +51,12 @@ export class SimulationCore {
     this.digSystem.onNewEntrance = (x, y) => this.#registerNewEntrance(x, y);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.reset();
+    this.foodEconomySystem = new FoodEconomySystem({
+      world: this.world,
+      colony: this.colony,
+      rng: this.rng,
+      spawnFoodCluster: (...args) => this.spawnFoodCluster(...args),
+    });
     this.#rebuildTickPipeline();
 
     this.nestEntrances = [
@@ -84,39 +91,10 @@ export class SimulationCore {
       nestEntrances: this.nestEntrances,
     });
 
-    // Respawn food clusters to sustain the colony.
-    // Check frequently and scale supply with colony size so the colony
-    // never starves between respawn windows.
-    const antCount = this.colony.ants.length;
-    const availableFoodCount = this.foodPellets.filter((p) => !p.takenByAntId).length;
-    // Target ~1 unclaimed pellet per ant so foragers always have something to find.
-    const pelletTarget = Math.max(20, antCount);
-    // Emergency spawn: if food on map AND in store is both critically low,
-    // spawn immediately regardless of tick interval.
-    const totalFoodAvailable = availableFoodCount + this.colony.foodStored;
-    const criticalShortage = totalFoodAvailable < Math.max(10, antCount * 0.5);
-    const regularInterval = antCount > 100 ? 60 : 120;
-
-    if (criticalShortage || this.tick % regularInterval === 0) {
-      if (availableFoodCount < pelletTarget) {
-        const deficit = pelletTarget - availableFoodCount;
-        // Near cluster: 10-25 tiles from nest (easy to find, reinforces trails)
-        const angleNear = this.rng.range(0, Math.PI * 2);
-        const distNear = 10 + this.rng.range(0, 15);
-        const xNear = Math.round(this.world.nestX + Math.cos(angleNear) * distNear);
-        const yNear = Math.round(this.world.nestY - Math.abs(Math.sin(angleNear) * distNear));
-        const nearCount = Math.ceil(deficit * 0.4);
-        this.spawnFoodCluster(xNear, Math.min(yNear, this.world.nestY - 2), 8, nearCount);
-
-        // Far cluster: 30-60 tiles from nest (rewards exploration)
-        const angleFar = angleNear + Math.PI * (0.5 + this.rng.range(0, 1));
-        const distFar = 30 + this.rng.range(0, 30);
-        const xFar = Math.round(this.world.nestX + Math.cos(angleFar) * distFar);
-        const yFar = Math.round(this.world.nestY - Math.abs(Math.sin(angleFar) * distFar));
-        const farCount = Math.ceil(deficit * 0.6);
-        this.spawnFoodCluster(xFar, Math.min(yFar, this.world.nestY - 2), 12, farCount);
-      }
-    }
+    this.foodEconomySystem.update({
+      tick: this.tick,
+      foodPellets: this.foodPellets,
+    });
 
     // Record stats every 30 ticks (~1 second)
     if (this.tick % 30 === 0) {
@@ -382,6 +360,12 @@ export class SimulationCore {
     this.digSystem.loadFromSerialized(data.digSystem);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.loadFromSerialized(data.macro);
+    this.foodEconomySystem = new FoodEconomySystem({
+      world: this.world,
+      colony: this.colony,
+      rng: this.rng,
+      spawnFoodCluster: (...args) => this.spawnFoodCluster(...args),
+    });
     this.stats = new ColonyStats();
     this.stats.loadFromSerialized(data.stats);
     this.#syncMacroHomeTerritory();

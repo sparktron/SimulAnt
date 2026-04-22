@@ -59,7 +59,7 @@ test('colony initializes with correct ant count', () => {
   assert.equal(colony.ants.length, 50);
   assert.equal(colony.births, 50);
   assert.equal(colony.deaths, 0);
-  assert.equal(colony.foodStored, 5000);  // Colony starts with bootstrap food
+  assert.equal(colony.foodStored, 150);  // Colony starts with scaled bootstrap food
 });
 
 test('colony queen starts alive with full vitals', () => {
@@ -296,6 +296,20 @@ test('consumeFromStore returns 0 for empty store', () => {
   colony.foodStored = 0;
 
   assert.equal(colony.consumeFromStore(5), 0);
+});
+
+test('getTotalStoredFood returns canonical max across store and pellets', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('food-ledger-total');
+  const colony = new Colony(world, rng, 0);
+
+  colony.foodStored = 10;
+  colony.nestFoodPellets = [{ x: world.nestX, y: world.nestY + 2, amount: 6 }];
+  assert.equal(colony.getTotalStoredFood(), 10);
+
+  colony.foodStored = 4;
+  colony.nestFoodPellets = [{ x: world.nestX, y: world.nestY + 2, amount: 7 }];
+  assert.equal(colony.getTotalStoredFood(), 7);
 });
 
 // --- Nearest Entrance ---
