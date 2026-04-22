@@ -3,6 +3,7 @@ import { updateHud } from './ui/hud.js';
 import { SurfaceRenderer } from './render/SurfaceRenderer.js';
 import { NestRenderer } from './render/NestRenderer.js';
 import { SimulationCore } from './sim/SimulationCore.js';
+import { sanitizeTickConfig } from './sim/core/SimulationTypes.js';
 import { ViewManager, VIEW } from './ui/ViewManager.js';
 import { InputRouter } from './input/InputRouter.js';
 import { normalizeUnhandledRejectionReason, shouldReportFatalWindowError } from './ui/runtimeErrorGate.js';
@@ -205,6 +206,16 @@ createControls(state, {
     const carved = simCore.forceChamberAtDigFront(state.config);
     state.debug.digStatus = carved ? 'AUTO-DIG: CHAMBER CARVED' : 'AUTO-DIG: CHAMBER FAILED';
   },
+  onLegacyCasteSliderChange: ({ workers, soldiers }) => {
+    state.colonyStatus.casteAllocation.workers = workers;
+    state.colonyStatus.casteAllocation.soldiers = soldiers;
+    state.colonyStatus.casteAllocation.breeders = 0;
+    applyColonyStatusToConfig();
+    colonyStatusPanel.sync({
+      work: state.colonyStatus.workAllocation,
+      caste: state.colonyStatus.casteAllocation,
+    });
+  },
 });
 
 const colonyStatusPanel = new ColonyStatusPanel({
@@ -234,6 +245,8 @@ const colonyStatusPanel = new ColonyStatusPanel({
       soldiers: percentages.b,
       breeders: percentages.c,
     };
+    state.casteTargets.workers = percentages.a;
+    state.casteTargets.soldiers = percentages.b;
     applyColonyStatusToConfig();
   },
 });
@@ -645,6 +658,7 @@ function loadState() {
   syncRenderWorld();
 
   Object.assign(state.config, data.state?.config || {});
+  Object.assign(state.config, sanitizeTickConfig(state.config));
   Object.assign(state.overlays, data.state?.overlays || {});
   Object.assign(state.casteTargets, data.state?.casteTargets || {});
   if (data.state?.colonyStatus) {

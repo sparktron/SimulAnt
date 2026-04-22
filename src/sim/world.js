@@ -162,11 +162,16 @@ export class World {
 
   updatePheromones(config, tick) {
     const dt = config.tickSeconds || 1 / 30;
+    const cadence = Math.max(1, Math.floor(config.diffIntervalTicks || 1));
+    const shouldDiffuse = Number.isInteger(tick) ? tick % cadence === 0 : true;
+    const foodDiff = shouldDiffuse ? config.diffFood : 0;
+    const homeDiff = shouldDiffuse ? config.diffHome : 0;
+    const dangerDiff = shouldDiffuse ? config.diffDanger : 0;
     // Use discrete diffusion equation: P_i^{t+1} = (1 - λ - 4D) * P_i^t + D * (neighbors sum)
     // where λ is evaporation per tick and D is diffusion coefficient
-    this.#updatePheromonesField(this.toFood, this._toFoodNext, config.evapFood, config.diffFood, config.pheromoneMaxClamp, dt);
-    this.#updatePheromonesField(this.toHome, this._toHomeNext, config.evapHome, config.diffHome, config.pheromoneMaxClamp, dt);
-    this.#updatePheromonesField(this.danger, this._dangerNext, config.evapDanger, config.diffDanger, config.pheromoneMaxClamp, dt);
+    this.#updatePheromonesField(this.toFood, this._toFoodNext, config.evapFood, foodDiff, config.pheromoneMaxClamp, dt);
+    this.#updatePheromonesField(this.toHome, this._toHomeNext, config.evapHome, homeDiff, config.pheromoneMaxClamp, dt);
+    this.#updatePheromonesField(this.danger, this._dangerNext, config.evapDanger, dangerDiff, config.pheromoneMaxClamp, dt);
   }
 
   #updatePheromonesField(srcField, dstField, evaporationLambda, diffusionRate, clampMax, dt) {

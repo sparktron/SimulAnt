@@ -220,6 +220,38 @@ test('pheromone diffusion spreads values to passable neighbors', () => {
   assert.ok(world.toFood[world.index(5, 6)] > 0, 'Pheromone should diffuse down');
 });
 
+test('diffIntervalTicks gates diffusion while preserving evaporation', () => {
+  const world = new World(16, 16);
+  for (let y = 3; y <= 7; y += 1) {
+    for (let x = 3; x <= 7; x += 1) {
+      world.terrain[world.index(x, y)] = TERRAIN.GROUND;
+    }
+  }
+
+  const center = world.index(5, 5);
+  const left = world.index(4, 5);
+  world.toFood[center] = 8.0;
+
+  const config = {
+    tickSeconds: 1 / 30,
+    evapFood: 0.1,
+    evapHome: 0,
+    evapDanger: 0,
+    diffFood: 0.5,
+    diffHome: 0,
+    diffDanger: 0,
+    diffIntervalTicks: 2,
+    pheromoneMaxClamp: 10,
+  };
+
+  world.updatePheromones(config, 1);
+  assert.equal(world.toFood[left], 0, 'No diffusion should occur on non-cadence ticks');
+  assert.ok(world.toFood[center] < 8.0, 'Evaporation should still occur on non-cadence ticks');
+
+  world.updatePheromones(config, 2);
+  assert.ok(world.toFood[left] > 0, 'Diffusion should occur on cadence ticks');
+});
+
 test('pheromone diffusion does not spread through walls', () => {
   const world = new World(16, 16);
   for (let y = 3; y <= 7; y += 1) {
