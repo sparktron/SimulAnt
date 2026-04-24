@@ -635,7 +635,22 @@ export class Ant {
 
       const noise = rng.range(0, config.wanderNoise * noiseReduction);
       const boostedPherContribution = pherContribution * pherBoost;
-      const weight = Math.max(0, boostedPherContribution + momentum + tieBias + noise + reacquireBias + trailAttraction - reversePenalty - dangerPenalty - crowdingPenalty);
+
+      // Heading alignment: soft bias toward the persistent exploration heading
+      // (this.theta, maintained by #updateWanderHeading).  Uses the dot product
+      // so alignment decays smoothly as the candidate direction diverges from
+      // theta.  Only applied to the food channel during free search so it does
+      // not fight goal-directed home-pheromone steering.
+      let headingContrib = 0;
+      if (channel === 'food') {
+        const headingBias = config.headingBias ?? 0.20;
+        const dirLen = Math.hypot(DIRS[d][0], DIRS[d][1]);
+        const dot = (DIRS[d][0] / dirLen) * Math.cos(this.theta)
+                  + (DIRS[d][1] / dirLen) * Math.sin(this.theta);
+        headingContrib = Math.max(0, dot) * headingBias;
+      }
+
+      const weight = Math.max(0, boostedPherContribution + momentum + tieBias + noise + reacquireBias + trailAttraction + headingContrib - reversePenalty - dangerPenalty - crowdingPenalty);
       weights.push({
         d,
         w: weight,
@@ -1228,7 +1243,12 @@ export class Ant {
 
     this.prevTurn = clamped;
     this.theta   += clamped;
-    this.dir      = this.#thetaToDir(this.theta);
+    // NOTE: this.dir is intentionally NOT updated here.  Keeping this.dir on
+    // the actual last-moved direction ensures that (a) the momentum bias in
+    // #moveByPheromone reflects where the ant really came from, and (b) the
+    // reversal penalty targets the true reverse of that direction rather than
+    // the wander heading's opposite.  Theta steers via the headingBias term
+    // added to #moveByPheromone's weight calculation instead.
   }
 
   #pickDirectionalCandidate(candidates, rng) {

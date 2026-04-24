@@ -118,6 +118,7 @@ const state = {
     walkMaxTurnRate: 0.45,  // hard clamp on total turn per tick (radians)
     meanderAmplitude: 0.05, // meander bias magnitude (radians)
     pTurnSignFlip: 0.85,    // probability meander sign PERSISTS each tick (no flip)
+    headingBias: 0.20,      // max additive weight toward persistent theta in food-channel search
   },
   casteTargets: {
     workers: 100,

@@ -669,3 +669,84 @@ test('dead ant is skipped during update', () => {
   // Step counter should not have incremented since ant is dead
   assert.equal(ant.stepCounter, 0, 'Dead ant should not update');
 });
+
+// --- Phase 1: correlated random walk ---
+
+test('foraging ant has persistent heading state initialized from direction', () => {
+  const rng = new SeededRng('heading-init-seed');
+  const ant = new Ant(10, 10, rng, 'worker');
+  // theta should be derived from the initial dir angle
+  const [dx, dy] = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]][ant.dir];
+  const expectedTheta = Math.atan2(dy, dx);
+  assert.ok(
+    Math.abs(ant.theta - expectedTheta) < 0.001,
+    `theta (${ant.theta.toFixed(3)}) should match dir ${ant.dir} angle (${expectedTheta.toFixed(3)})`,
+  );
+  assert.equal(ant.prevTurn, 0, 'prevTurn should start at zero');
+  assert.equal(ant.turnSign, 1, 'turnSign should start positive');
+});
+
+test('foraging ant correlated walk: prevTurn stays within maxTurnRate and reversals are rare', () => {
+  // Two core properties of the correlated random walk:
+  // 1. prevTurn is always clamped to [-maxTurnRate, maxTurnRate].
+  // 2. Direction reversals (180°) are very rare because the reversal penalty
+  //    targets the actual last-moved direction (not the wander heading).
+  const rng = new SeededRng('correlation-seed');
+  const world = createTestWorld(128, 128);
+  const colony = createTestColony(world, rng, 0);
+  const config = createTestConfig();
+  config.walkRho = 0.75;
+  config.walkSigma = 0.05;
+  config.walkMaxTurnRate = 0.45;
+  config.meanderAmplitude = 0.05;
+  config.pTurnSignFlip = 0.85;
+  config.headingBias = 0.20;
+  config.nearEntranceScatterRadius = 0;
+  config.surfaceFoodSearchMaxMissTicks = 9999;
+
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 0;
+
+  // Place ant in open surface well away from world edges and nest
+  const ant = new Ant(world.nestX, Math.max(5, world.nestY - 25), rng, 'worker');
+  ant.workFocus = 'forage';
+  ant.hunger = 80;
+  ant.health = ant.healthMax;
+  colony.ants.push(ant);
+
+  const DIRS_COUNT = 8;
+  let reversals = 0;  // exact 180° flips (4-step change)
+  let anyChanges = 0;
+  let prevDir = ant.dir;
+  const ticks = 150;
+
+  for (let i = 0; i < ticks; i += 1) {
+    ant.update(world, colony, rng, config);
+
+    // prevTurn must never exceed the clamp bound
+    assert.ok(
+      Math.abs(ant.prevTurn) <= config.walkMaxTurnRate + 1e-9,
+      `prevTurn (${ant.prevTurn.toFixed(4)}) must stay within ±${config.walkMaxTurnRate}`,
+    );
+
+    const delta = Math.min(
+      (ant.dir - prevDir + DIRS_COUNT) % DIRS_COUNT,
+      (prevDir - ant.dir + DIRS_COUNT) % DIRS_COUNT,
+    );
+    if (delta === 4) reversals += 1;
+    if (delta > 0) anyChanges += 1;
+    prevDir = ant.dir;
+  }
+
+  const reversalRate = reversals / ticks;
+  assert.ok(
+    reversalRate < 0.05,
+    `Reversal rate (${(reversalRate * 100).toFixed(1)}%) should be < 5% — reversal penalty must hold`,
+  );
+  assert.ok(
+    anyChanges > 5,
+    `Ant should turn at least a few times in ${ticks} ticks (turned ${anyChanges} times)`,
+  );
+});
