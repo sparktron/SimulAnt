@@ -440,9 +440,10 @@ export class Ant {
     }
 
     this.state = 'FORAGE_SEARCH';
-    // Update persistent heading via correlated random walk.  This sets
-    // this.dir to the desired direction; #moveByPheromone then biases toward
-    // it via momentumBias, with pheromone/obstacle terms able to override.
+    // Advance the persistent heading (this.theta) via correlated random walk.
+    // The heading then steers #moveByPheromone through the headingBias weight
+    // term; this.dir stays on the actual last-moved direction for momentum/
+    // reversal-penalty correctness.
     this.#updateWanderHeading(rng, config);
     if (this.stepCounter % config.homeDepositIntervalTicks === 0) {
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
@@ -1211,9 +1212,9 @@ export class Ant {
     return bestDir;
   }
 
-  // Correlated random walk: updates this.theta by a bounded, smoothed turn
-  // and sets this.dir to the nearest grid direction.  Only called in the
-  // FORAGE_SEARCH path so goal-directed states are unaffected.
+  // Correlated random walk: advances this.theta by a bounded, smoothed turn.
+  // this.dir is intentionally left unchanged here — see the NOTE below.
+  // Only called in the FORAGE_SEARCH path; goal-directed states are unaffected.
   //
   // Turn model (per tick):
   //   meanderTurn = turnSign * meanderAmplitude * U(0.4, 1.0)
