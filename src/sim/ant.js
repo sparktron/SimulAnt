@@ -3,6 +3,14 @@ import { isInNestSpatial } from './behavior/NestState.js';
 
 const DEBUG_ANT_FLOW_LOGS = false;
 
+// Box-Muller transform — normally distributed variate via the seeded rng.
+// Must use rng, not Math.random(), to preserve simulation determinism.
+function gaussianRandom(rng) {
+  const u = Math.max(1e-10, rng.range(0, 1));
+  const v = rng.range(0, 1);
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
 const DIRS = [
   [1, 0],
   [1, 1],
@@ -67,6 +75,12 @@ export class Ant {
     this._ticksSinceOnTrail = Infinity;
     // Stagger nest departures to avoid traffic jams at the entrance.
     this._nestDepartureDelay = 0;
+    // Phase 1: persistent heading for correlated random walk.
+    // theta is a continuous angle in radians; prevTurn and turnSign carry
+    // inter-tick correlation state for the meander model.
+    this.theta = Math.atan2(DIRS[this.dir][1], DIRS[this.dir][0]);
+    this.prevTurn = 0;
+    this.turnSign = 1;
   }
 
   /**
@@ -143,9 +157,8 @@ export class Ant {
       }
     }
 
-    if (this.role === 'worker' && !this.carrying?.type && rng.chance(config.randomTurnChance)) {
-      this.dir = (this.dir + (rng.chance(0.5) ? 1 : DIRS.length - 1)) % DIRS.length;
-    }
+    // randomTurnChance is superseded by the correlated random walk in
+    // #updateWanderHeading; the memoryless random-kick is intentionally removed.
   }
 
   /**
@@ -427,6 +440,10 @@ export class Ant {
     }
 
     this.state = 'FORAGE_SEARCH';
+    // Update persistent heading via correlated random walk.  This sets
+    // this.dir to the desired direction; #moveByPheromone then biases toward
+    // it via momentumBias, with pheromone/obstacle terms able to override.
+    this.#updateWanderHeading(rng, config);
     if (this.stepCounter % config.homeDepositIntervalTicks === 0) {
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
     }
@@ -696,6 +713,9 @@ export class Ant {
     this.x = tx;
     this.y = ty;
     this.dir = chosenDir;
+    // Keep theta consistent with the direction actually taken so the correlated
+    // walk in #updateWanderHeading builds on real movement, not desired heading.
+    this.theta = Math.atan2(DIRS[this.dir][1], DIRS[this.dir][0]);
     if (colony && (prevX !== this.x || prevY !== this.y)) {
       colony.moveAntInGrid(prevX, prevY, this.x, this.y);
     }
@@ -1151,6 +1171,7 @@ export class Ant {
       this.x += DIRS[bestDir][0];
       this.y += DIRS[bestDir][1];
       this.dir = bestDir;
+      this.theta = Math.atan2(DIRS[this.dir][1], DIRS[this.dir][0]);
       if (colony && (prevX !== this.x || prevY !== this.y)) {
         colony.moveAntInGrid(prevX, prevY, this.x, this.y);
       }
@@ -1158,6 +1179,56 @@ export class Ant {
     }
 
     return false;
+  }
+
+  // Convert a continuous heading angle (radians) to the nearest of the 8 DIRS.
+  #thetaToDir(theta) {
+    let bestDir = 0;
+    let bestDot = -Infinity;
+    const cx = Math.cos(theta);
+    const cy = Math.sin(theta);
+    for (let i = 0; i < DIRS.length; i++) {
+      const d = DIRS[i];
+      const len = Math.hypot(d[0], d[1]);
+      const dot = (d[0] / len) * cx + (d[1] / len) * cy;
+      if (dot > bestDot) { bestDot = dot; bestDir = i; }
+    }
+    return bestDir;
+  }
+
+  // Correlated random walk: updates this.theta by a bounded, smoothed turn
+  // and sets this.dir to the nearest grid direction.  Only called in the
+  // FORAGE_SEARCH path so goal-directed states are unaffected.
+  //
+  // Turn model (per tick):
+  //   meanderTurn = turnSign * meanderAmplitude * U(0.4, 1.0)
+  //   noiseTurn   = sigma * N(0, 1)
+  //   rawTurn     = rho * prevTurn + noiseTurn + meanderTurn
+  //   clampedTurn = clamp(rawTurn, -maxTurnRate, maxTurnRate)
+  //   theta      += clampedTurn
+  #updateWanderHeading(rng, config) {
+    // NOTE: spec defaults (sigma=0.35, meanderAmp=0.25) are calibrated for a
+    // continuous-position system moving a fraction of a tile per tick.  In our
+    // discrete 1-tile/tick system those values cause the ant to turn ~30°/tick
+    // and trace tight circles.  Defaults here are scaled ~7× smaller so that
+    // direction changes occur roughly every 5-10 ticks, producing organic arcs.
+    const rho           = config.walkRho           ?? 0.75;
+    const sigma         = config.walkSigma         ?? 0.05;
+    const maxTurnRate   = config.walkMaxTurnRate   ?? 0.45;
+    const meanderAmp    = config.meanderAmplitude  ?? 0.05;
+    // pTurnSignFlip: probability the sign PERSISTS this tick (no flip).
+    const pPersist      = config.pTurnSignFlip     ?? 0.85;
+
+    if (rng.chance(1 - pPersist)) this.turnSign *= -1;
+
+    const meanderTurn = this.turnSign * meanderAmp * rng.range(0.4, 1.0);
+    const noiseTurn   = sigma * gaussianRandom(rng);
+    const rawTurn     = rho * this.prevTurn + noiseTurn + meanderTurn;
+    const clamped     = Math.max(-maxTurnRate, Math.min(maxTurnRate, rawTurn));
+
+    this.prevTurn = clamped;
+    this.theta   += clamped;
+    this.dir      = this.#thetaToDir(this.theta);
   }
 
   #pickDirectionalCandidate(candidates, rng) {

@@ -108,6 +108,16 @@ const state = {
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,
+    // Phase 1: correlated random walk tuning constants (ant movement core).
+    // These are calibrated for 1-tile/tick discrete movement.  The spec values
+    // (sigma=0.35, meanderAmp=0.25) assume a continuous sub-tile step size;
+    // using them directly produces tight circles.  Reduce meanderAmplitude
+    // first if ants look too twitchy; raise it if paths look too linear.
+    walkRho: 0.75,          // turn-to-turn correlation (0 = memoryless, 1 = fixed arc)
+    walkSigma: 0.05,        // Gaussian noise scale (radians per tick)
+    walkMaxTurnRate: 0.45,  // hard clamp on total turn per tick (radians)
+    meanderAmplitude: 0.05, // meander bias magnitude (radians)
+    pTurnSignFlip: 0.85,    // probability meander sign PERSISTS each tick (no flip)
   },
   casteTargets: {
     workers: 100,
