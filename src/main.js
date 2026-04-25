@@ -122,6 +122,9 @@ const state = {
     // Phase 2: smooth obstacle avoidance composed into the wander turn sum.
     obstacleLookahead: 2,   // tiles ahead of theta to probe for walls
     obstacleTurnGain: 0.30, // base radians/tick of corrective turn (×1.5 when ahead is blocked)
+    // Phase 4: smooth danger avoidance composed into the wander turn sum.
+    dangerTurnLookahead: 2, // tiles off theta to probe danger pheromone
+    dangerTurnGain: 0.40,   // max radians/tick when one side fully dominates
   },
   casteTargets: {
     workers: 100,

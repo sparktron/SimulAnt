@@ -1220,6 +1220,39 @@ export class Ant {
     return bestDir;
   }
 
+  // Phase 4: smooth danger avoidance as a turn term.
+  //
+  // Samples world.danger at +/-45° off theta at `dangerTurnLookahead` tiles
+  // and returns a signed turn proportional to the lateral gradient.  The
+  // ant smoothly curves away from rising danger before the discrete
+  // dangerPenalty in #moveByPheromone has to scatter it at the boundary.
+  //
+  // Returns 0 when both sides read negligible danger so we don't burn turn
+  // budget on noise far from any hazard.
+  #computeDangerTurn(world, config) {
+    const lookahead = config.dangerTurnLookahead ?? 2;
+    const gain      = config.dangerTurnGain      ?? 0.40;
+    const sideAngle = Math.PI / 4;
+
+    const sampleAt = (angle) => {
+      const tx = Math.round(this.x + Math.cos(angle) * lookahead);
+      const ty = Math.round(this.y + Math.sin(angle) * lookahead);
+      if (!world.inBounds(tx, ty)) return 0;
+      return world.danger[world.index(tx, ty)] || 0;
+    };
+
+    const leftDanger  = sampleAt(this.theta + sideAngle);
+    const rightDanger = sampleAt(this.theta - sideAngle);
+
+    if (leftDanger < 1e-6 && rightDanger < 1e-6) return 0;
+
+    // Positive gradient → more danger on the left → turn right (negative).
+    // Normalize by (sum + epsilon) so the term saturates instead of growing
+    // unboundedly with strong fields; the outer clamp finishes the job.
+    const gradient = (leftDanger - rightDanger) / (leftDanger + rightDanger + 1e-6);
+    return -gradient * gain;
+  }
+
   // Phase 2: smooth obstacle avoidance as a turn term.
   //
   // Probes three points at `obstacleLookahead` tiles ahead of the persistent
@@ -1277,7 +1310,8 @@ export class Ant {
   //   meanderTurn  = turnSign * meanderAmplitude * U(0.4, 1.0)
   //   noiseTurn    = sigma * N(0, 1)
   //   obstacleTurn = #computeObstacleTurn(world, config)   (Phase 2)
-  //   rawTurn      = rho * prevTurn + noiseTurn + meanderTurn + obstacleTurn
+  //   dangerTurn   = #computeDangerTurn(world, config)     (Phase 4)
+  //   rawTurn      = rho * prevTurn + noiseTurn + meanderTurn + obstacleTurn + dangerTurn
   //   clampedTurn  = clamp(rawTurn, -maxTurnRate, maxTurnRate)
   //   theta       += clampedTurn
   //
@@ -1307,7 +1341,8 @@ export class Ant {
     const meanderTurn  = this.turnSign * meanderAmp * rng.range(0.4, 1.0);
     const noiseTurn    = sigma * gaussianRandom(rng);
     const obstacleTurn = world ? this.#computeObstacleTurn(world, config) : 0;
-    const rawTurn      = rho * this.prevTurn + noiseTurn + meanderTurn + obstacleTurn;
+    const dangerTurn   = world ? this.#computeDangerTurn(world, config)   : 0;
+    const rawTurn      = rho * this.prevTurn + noiseTurn + meanderTurn + obstacleTurn + dangerTurn;
     const clamped      = Math.max(-maxTurnRate, Math.min(maxTurnRate, rawTurn));
 
     this.prevTurn = clamped;

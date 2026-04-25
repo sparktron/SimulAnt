@@ -849,3 +849,57 @@ test('Phase 3: soldier patrol fallback advances correlated wander heading', () =
     'Soldier prevTurn should become non-zero — proves wander is wired into patrol',
   );
 });
+
+test('Phase 4: dangerTurn steers ant away from one-sided danger pheromone', () => {
+  // Isolate dangerTurn by zeroing every other wander term.  With theta=0
+  // (facing +x) and danger deposited on the (+x, +y) diagonal at the
+  // lookahead tile, the left-side sample dominates and #computeDangerTurn
+  // should return a negative value (turn toward -y).  prevTurn after one
+  // tick is therefore negative, and stays clamped to ±maxTurnRate.
+  const rng = new SeededRng('danger-turn-seed');
+  const world = createTestWorld(128, 128);
+  const colony = createTestColony(world, rng, 0);
+  const config = createTestConfig();
+  config.walkRho = 0;
+  config.walkSigma = 0;
+  config.meanderAmplitude = 0;
+  config.walkMaxTurnRate = 0.45;
+  config.pTurnSignFlip = 1.0;
+  config.headingBias = 0;
+  config.obstacleLookahead = 2;
+  config.obstacleTurnGain = 0;          // disable obstacle term too
+  config.dangerTurnLookahead = 2;
+  config.dangerTurnGain = 0.40;
+  config.nearEntranceScatterRadius = 0;
+  config.surfaceFoodSearchMaxMissTicks = 9999;
+
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 0;
+
+  const ax = 40;
+  const ay = 40;
+  const ant = new Ant(ax, ay, rng, 'worker');
+  ant.dir = 0;
+  ant.theta = 0;
+  ant.workFocus = 'forage';
+  ant.hunger = 80;
+  ant.health = ant.healthMax;
+  colony.ants.push(ant);
+
+  // Deposit danger on the +y side at the lookahead tile (theta + 45°).
+  // round(ax + cos(π/4)*2) = ax+1, round(ay + sin(π/4)*2) = ay+1.
+  world.danger[world.index(ax + 1, ay + 1)] = 5.0;
+
+  ant.update(world, colony, rng, config);
+
+  assert.ok(
+    ant.prevTurn < -0.10,
+    `prevTurn (${ant.prevTurn.toFixed(4)}) should be substantially negative — danger on the left should turn the ant right`,
+  );
+  assert.ok(
+    Math.abs(ant.prevTurn) <= config.walkMaxTurnRate + 1e-9,
+    `prevTurn (${ant.prevTurn.toFixed(4)}) must respect the maxTurnRate clamp`,
+  );
+});
