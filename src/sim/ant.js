@@ -183,6 +183,10 @@ export class Ant {
         }
       }
       if (!didMove) {
+        // Phase 3: soldier food-channel fallback is a wandering context.
+        // Advance theta so headingContrib in #moveByPheromone steers it
+        // with the same smoothness as worker FORAGE_SEARCH.
+        this.#updateWanderHeading(rng, world, config);
         didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance, colony);
       }
       // Soldiers deposit home pheromone while patrolling
@@ -868,7 +872,9 @@ export class Ant {
       }
     }
 
-    // Default: wander nest exploring
+    // Default: wander nest exploring.
+    // Phase 3: nurse idle wander uses the correlated random walk too.
+    this.#updateWanderHeading(rng, world, config);
     return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
   }
 
@@ -906,7 +912,9 @@ export class Ant {
       this.state = 'DIG_AT_FRONT';
     }
 
-    // Wander near current position in tunnels
+    // Wander near current position in tunnels.
+    // Phase 3: digger at-front wander uses the correlated random walk too.
+    this.#updateWanderHeading(rng, world, config);
     return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
   }
 
@@ -1259,7 +1267,11 @@ export class Ant {
 
   // Correlated random walk: advances this.theta by a bounded, smoothed turn.
   // this.dir is intentionally left unchanged here — see the NOTE below.
-  // Only called in the FORAGE_SEARCH path; goal-directed states are unaffected.
+  // Called from every wandering context (worker FORAGE_SEARCH, soldier patrol
+  // food-channel fallback, nurse idle wander, digger at-front wander).
+  // Goal-directed states (#moveToward, return-to-nest, deliver-food, etc.)
+  // deliberately skip the wander update so theta does not drift while the
+  // ant has an explicit destination.
   //
   // Turn model (per tick):
   //   meanderTurn  = turnSign * meanderAmplitude * U(0.4, 1.0)

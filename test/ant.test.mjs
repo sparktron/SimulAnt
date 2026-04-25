@@ -803,3 +803,49 @@ test('Phase 2: obstacleTurn drives prevTurn away from a wall ahead', () => {
     `prevTurn (${ant.prevTurn.toFixed(4)}) must respect the maxTurnRate clamp`,
   );
 });
+
+test('Phase 3: soldier patrol fallback advances correlated wander heading', () => {
+  // Soldiers in PATROL state previously never invoked #updateWanderHeading,
+  // so prevTurn stayed at 0 forever.  Phase 3 wires the wander into the
+  // food-channel fallback branch — proven by prevTurn becoming non-zero
+  // after a few ticks AND staying within the clamp throughout.
+  const rng = new SeededRng('soldier-wander-seed');
+  const world = createTestWorld(64, 64);
+  const colony = createTestColony(world, rng, 0);
+  const config = createTestConfig();
+  config.walkRho = 0.75;
+  config.walkSigma = 0.10;
+  config.walkMaxTurnRate = 0.45;
+  config.meanderAmplitude = 0.10;
+  config.pTurnSignFlip = 0.85;
+  config.headingBias = 0.20;
+  config.obstacleLookahead = 2;
+  config.obstacleTurnGain = 0.30;
+  config.nearEntranceScatterRadius = 4;
+
+  // Intentionally leave nest entrances empty: the soldier patrol branch only
+  // runs goal-directed home steering when an entrance exists.  Without one,
+  // it falls through to the food-channel wander fallback — the path Phase 3
+  // wires the correlated walk into.
+  colony.setNestEntrances([]);
+
+  const soldier = new Ant(20, 20, rng, 'soldier');
+  soldier.hunger = 80;
+  soldier.health = soldier.healthMax;
+  colony.ants.push(soldier);
+
+  let prevTurnEverNonZero = false;
+  for (let i = 0; i < 30; i += 1) {
+    soldier.update(world, colony, rng, config);
+    assert.ok(
+      Math.abs(soldier.prevTurn) <= config.walkMaxTurnRate + 1e-9,
+      `prevTurn (${soldier.prevTurn.toFixed(4)}) must respect the clamp`,
+    );
+    if (Math.abs(soldier.prevTurn) > 1e-6) prevTurnEverNonZero = true;
+  }
+
+  assert.ok(
+    prevTurnEverNonZero,
+    'Soldier prevTurn should become non-zero — proves wander is wired into patrol',
+  );
+});
