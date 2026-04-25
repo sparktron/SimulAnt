@@ -750,3 +750,56 @@ test('foraging ant correlated walk: prevTurn stays within maxTurnRate and revers
     `Ant should turn at least a few times in ${ticks} ticks (turned ${anyChanges} times)`,
   );
 });
+
+test('Phase 2: obstacleTurn drives prevTurn away from a wall ahead', () => {
+  // Isolate the obstacleTurn term by zeroing walkRho, walkSigma, and
+  // meanderAmplitude.  With those off, prevTurn after one tick equals the
+  // clamped obstacleTurn alone — so a non-zero magnitude proves the new
+  // composition is wired and the wall probe fires.
+  const rng = new SeededRng('obstacle-seed');
+  const world = createTestWorld(128, 128);
+  const colony = createTestColony(world, rng, 0);
+  const config = createTestConfig();
+  config.walkRho = 0;
+  config.walkSigma = 0;
+  config.meanderAmplitude = 0;
+  config.walkMaxTurnRate = 0.45;
+  config.pTurnSignFlip = 1.0;        // never flip turnSign — keeps it deterministic
+  config.headingBias = 0;
+  config.obstacleLookahead = 2;
+  config.obstacleTurnGain = 0.30;
+  config.nearEntranceScatterRadius = 0;
+  config.surfaceFoodSearchMaxMissTicks = 9999;
+
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 0;
+
+  // Place ant on surface, facing east (dir=0 → theta=0).
+  const ax = 30;
+  const ay = 20;
+  const ant = new Ant(ax, ay, rng, 'worker');
+  ant.dir = 0;
+  ant.theta = 0;
+  ant.workFocus = 'forage';
+  ant.hunger = 80;
+  ant.health = ant.healthMax;
+  colony.ants.push(ant);
+
+  // Wall directly ahead at lookahead distance.  Sides remain clear.
+  world.terrain[world.index(ax + 2, ay)] = TERRAIN.WALL;
+
+  // Run one tick.  obstacleTurn should fire (ahead blocked, both sides open
+  // → returns sign(prevTurn) * gain * 1.5 = +0.45, clamped to 0.45).
+  ant.update(world, colony, rng, config);
+
+  assert.ok(
+    Math.abs(ant.prevTurn) >= 0.20,
+    `prevTurn (${ant.prevTurn.toFixed(4)}) should be substantially non-zero from obstacleTurn alone`,
+  );
+  assert.ok(
+    Math.abs(ant.prevTurn) <= config.walkMaxTurnRate + 1e-9,
+    `prevTurn (${ant.prevTurn.toFixed(4)}) must respect the maxTurnRate clamp`,
+  );
+});

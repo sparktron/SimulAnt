@@ -444,7 +444,7 @@ export class Ant {
     // The heading then steers #moveByPheromone through the headingBias weight
     // term; this.dir stays on the actual last-moved direction for momentum/
     // reversal-penalty correctness.
-    this.#updateWanderHeading(rng, config);
+    this.#updateWanderHeading(rng, world, config);
     if (this.stepCounter % config.homeDepositIntervalTicks === 0) {
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
     }
@@ -1212,17 +1212,72 @@ export class Ant {
     return bestDir;
   }
 
+  // Phase 2: smooth obstacle avoidance as a turn term.
+  //
+  // Probes three points at `obstacleLookahead` tiles ahead of the persistent
+  // heading (theta): straight-ahead, +45°, -45°.  Returns a signed turn
+  // (radians) that nudges theta away from impassable tiles.  Magnitude is
+  // controlled by `obstacleTurnGain`.  The result is small enough to compose
+  // additively with the meander/noise terms; the outer clamp keeps total
+  // turn-per-tick bounded.
+  //
+  // This catches walls *before* the ant moves into them so the correlated
+  // walk curves smoothly along corridors and around obstacles, rather than
+  // relying solely on #moveByPheromone's wall-passability rejection (which
+  // produces abrupt scattering when the ant is shoved against a wall).
+  #computeObstacleTurn(world, config) {
+    const lookahead = config.obstacleLookahead ?? 2;
+    const sideAngle = Math.PI / 4;
+    const gain      = config.obstacleTurnGain ?? 0.30;
+
+    const blockedAt = (angle) => {
+      const tx = Math.round(this.x + Math.cos(angle) * lookahead);
+      const ty = Math.round(this.y + Math.sin(angle) * lookahead);
+      return !world.isPassable(tx, ty);
+    };
+
+    const aheadBlocked = blockedAt(this.theta);
+    const leftBlocked  = blockedAt(this.theta + sideAngle);
+    const rightBlocked = blockedAt(this.theta - sideAngle);
+
+    if (aheadBlocked) {
+      // Strong avoidance when wall is straight ahead — turn whichever side
+      // is open.  When both sides are open, break the tie by continuing the
+      // current rotation (prevTurn sign) so we don't oscillate.  When both
+      // are blocked we leave the turn at zero and let the outer pipeline
+      // (meander noise + #moveByPheromone wall rejection) handle the dead
+      // end without locking us into a hard turn that just hits another wall.
+      if (!leftBlocked && rightBlocked)        return +gain * 1.5;
+      if (!rightBlocked && leftBlocked)        return -gain * 1.5;
+      if (!leftBlocked && !rightBlocked)       return (this.prevTurn >= 0 ? +1 : -1) * gain * 1.5;
+      return 0;
+    }
+    if (leftBlocked  && !rightBlocked) return -gain;
+    if (rightBlocked && !leftBlocked) return +gain;
+    return 0;
+  }
+
   // Correlated random walk: advances this.theta by a bounded, smoothed turn.
   // this.dir is intentionally left unchanged here — see the NOTE below.
   // Only called in the FORAGE_SEARCH path; goal-directed states are unaffected.
   //
   // Turn model (per tick):
-  //   meanderTurn = turnSign * meanderAmplitude * U(0.4, 1.0)
-  //   noiseTurn   = sigma * N(0, 1)
-  //   rawTurn     = rho * prevTurn + noiseTurn + meanderTurn
-  //   clampedTurn = clamp(rawTurn, -maxTurnRate, maxTurnRate)
-  //   theta      += clampedTurn
-  #updateWanderHeading(rng, config) {
+  //   meanderTurn  = turnSign * meanderAmplitude * U(0.4, 1.0)
+  //   noiseTurn    = sigma * N(0, 1)
+  //   obstacleTurn = #computeObstacleTurn(world, config)   (Phase 2)
+  //   rawTurn      = rho * prevTurn + noiseTurn + meanderTurn + obstacleTurn
+  //   clampedTurn  = clamp(rawTurn, -maxTurnRate, maxTurnRate)
+  //   theta       += clampedTurn
+  //
+  // pheromoneTurn and goalTurn from the spec are intentionally NOT added as
+  // turn terms here.  They are handled elsewhere: the food/home pheromone
+  // gradient steers via the weighted-direction selection in #moveByPheromone
+  // (where headingContrib also lives), and explicit goal-directed movement
+  // (return-to-nest, go-to-food) is handled by #moveToward, which redirects
+  // motion outright rather than nudging the wander heading.  Composing all
+  // four into a single turn-sum would double-count the goal/pheromone signal
+  // and fight #moveByPheromone's selection.
+  #updateWanderHeading(rng, world, config) {
     // NOTE: spec defaults (sigma=0.35, meanderAmp=0.25) are calibrated for a
     // continuous-position system moving a fraction of a tile per tick.  In our
     // discrete 1-tile/tick system those values cause the ant to turn ~30°/tick
@@ -1237,10 +1292,11 @@ export class Ant {
 
     if (rng.chance(1 - pPersist)) this.turnSign *= -1;
 
-    const meanderTurn = this.turnSign * meanderAmp * rng.range(0.4, 1.0);
-    const noiseTurn   = sigma * gaussianRandom(rng);
-    const rawTurn     = rho * this.prevTurn + noiseTurn + meanderTurn;
-    const clamped     = Math.max(-maxTurnRate, Math.min(maxTurnRate, rawTurn));
+    const meanderTurn  = this.turnSign * meanderAmp * rng.range(0.4, 1.0);
+    const noiseTurn    = sigma * gaussianRandom(rng);
+    const obstacleTurn = world ? this.#computeObstacleTurn(world, config) : 0;
+    const rawTurn      = rho * this.prevTurn + noiseTurn + meanderTurn + obstacleTurn;
+    const clamped      = Math.max(-maxTurnRate, Math.min(maxTurnRate, rawTurn));
 
     this.prevTurn = clamped;
     this.theta   += clamped;

@@ -119,6 +119,9 @@ const state = {
     meanderAmplitude: 0.05, // meander bias magnitude (radians)
     pTurnSignFlip: 0.85,    // probability meander sign PERSISTS each tick (no flip)
     headingBias: 0.20,      // max additive weight toward persistent theta in food-channel search
+    // Phase 2: smooth obstacle avoidance composed into the wander turn sum.
+    obstacleLookahead: 2,   // tiles ahead of theta to probe for walls
+    obstacleTurnGain: 0.30, // base radians/tick of corrective turn (×1.5 when ahead is blocked)
   },
   casteTargets: {
     workers: 100,
