@@ -412,6 +412,29 @@ test('worker standing on entrance tile is treated as surface and does not consum
   assert.equal(colony.foodStored, beforeFood, 'Entrance tile should not count as in-nest feeding location');
 });
 
+test('worker in upper entrance shaft keeps EXIT_NEST intent instead of surface foraging', () => {
+  const rng = new SeededRng('shaft-exit-intent');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.entranceY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 0;
+  colony.foodStoreTarget = 100;
+
+  const shaftY = Math.max(0, world.nestY - 5);
+  const ant = new Ant(world.nestX, shaftY, rng, 'worker');
+  ant.workFocus = 'forage';
+  ant.hunger = 80;
+  ant.health = ant.healthMax;
+  colony.ants.push(ant);
+
+  ant.update(world, colony, rng, config);
+
+  assert.equal(ant.state, 'EXIT_NEST', 'Ant in carved shaft should continue exiting toward open surface');
+});
+
 test('worker nest feeding only consumes hunger deficit from store', () => {
   const rng = new SeededRng('bounded-nest-eat');
   const world = createTestWorld();
