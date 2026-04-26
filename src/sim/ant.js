@@ -479,7 +479,7 @@ export class Ant {
     // foragers cycling through that field at low radius; they rarely make it
     // out to the food source. Override pheromone steering with a hard outward
     // push until the ant is well clear of the entrance basin.
-    const innerScatterRadius = 12;
+    const innerScatterRadius = 20;
     const nearEntranceScatter = !context.inNest && context.entrance && (
       distFromEntrance < innerScatterRadius
       || (!onFoodTrail && distFromEntrance < (config.nearEntranceScatterRadius ?? 8))
