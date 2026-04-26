@@ -473,11 +473,13 @@ export class Ant {
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
       : 0;
     const onFoodTrail = world.toFood[context.idx] > 0.5;
-    // Within a tight ring around the entrance, scatter outward unconditionally —
-    // returners deposit food pheromone right at the entrance, which would
-    // otherwise lead fresh foragers to "follow" the trail straight back into
-    // the nest. Beyond that ring, only scatter if no real trail is available.
-    const innerScatterRadius = 5;
+    // Within a wide ring around the entrance, scatter outward unconditionally —
+    // returners deposit food pheromone *along the entire return path*, with a
+    // local maximum at the entrance. Pheromone-following alone keeps fresh
+    // foragers cycling through that field at low radius; they rarely make it
+    // out to the food source. Override pheromone steering with a hard outward
+    // push until the ant is well clear of the entrance basin.
+    const innerScatterRadius = 12;
     const nearEntranceScatter = !context.inNest && context.entrance && (
       distFromEntrance < innerScatterRadius
       || (!onFoodTrail && distFromEntrance < (config.nearEntranceScatterRadius ?? 8))
