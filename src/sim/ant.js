@@ -449,7 +449,17 @@ export class Ant {
     // term; this.dir stays on the actual last-moved direction for momentum/
     // reversal-penalty correctness.
     this.#updateWanderHeading(rng, world, config);
-    if (this.stepCounter % config.homeDepositIntervalTicks === 0) {
+    // Home pheromone is meant to be a *gradient toward the entrance*, not a
+    // uniform background. If searching ants paint it everywhere they wander,
+    // diffusion saturates the foraging area and the gradient flattens — which
+    // (a) makes returning ants drift instead of commute, and (b) elevates the
+    // food trail's contrast vs noise. Restrict deposition to a band around
+    // the entrance so the field stays peaked there.
+    const distToEntranceForDeposit = context.entrance
+      ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
+      : 0;
+    if (this.stepCounter % config.homeDepositIntervalTicks === 0
+        && distToEntranceForDeposit < (config.homeDepositMinDistance ?? 20)) {
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
     }
 
