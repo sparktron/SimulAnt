@@ -471,8 +471,15 @@ export class Ant {
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
       : 0;
     const onFoodTrail = world.toFood[context.idx] > 0.5;
-    const nearEntranceScatter = !onFoodTrail && !context.inNest && context.entrance
-      && distFromEntrance < (config.nearEntranceScatterRadius ?? 8);
+    // Within a tight ring around the entrance, scatter outward unconditionally —
+    // returners deposit food pheromone right at the entrance, which would
+    // otherwise lead fresh foragers to "follow" the trail straight back into
+    // the nest. Beyond that ring, only scatter if no real trail is available.
+    const innerScatterRadius = 5;
+    const nearEntranceScatter = !context.inNest && context.entrance && (
+      distFromEntrance < innerScatterRadius
+      || (!onFoodTrail && distFromEntrance < (config.nearEntranceScatterRadius ?? 8))
+    );
     if (nearEntranceScatter && context.entrance) {
       const ax = this.x + (this.x - context.entrance.x) + rng.int(20) - 10;
       const ay = this.y + (this.y - context.entrance.y) + rng.int(20) - 10;
