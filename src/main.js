@@ -138,6 +138,7 @@ const state = {
 
 const canvas = mustById('simCanvas');
 const simCore = new SimulationCore(state.seed);
+if (typeof window !== 'undefined') window.__sim = { simCore, state };
 const viewManager = new ViewManager(VIEW.SURFACE);
 const surfaceRenderer = new SurfaceRenderer(canvas, simCore.world);
 const nestRenderer = new NestRenderer(canvas, simCore.world);
