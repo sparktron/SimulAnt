@@ -79,7 +79,7 @@ const state = {
     healthWorkFightDrainRate: 0.6,
     healthEatRecoveryRate: 0.45,
     workerEmergencyEatNutrition: 35,
-    carryingHungerDrainRate: 1.5,
+    carryingHungerDrainRate: 0.5,
     fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.05,  // 5% chance for soldiers to spawn via brood
     foodVisionRadius: 10,
@@ -104,7 +104,7 @@ const state = {
     homeScentMinFalloff: 0.1,
     homeScentMaxContributionPerStep: 999,
     homeTieBiasScale: 0.05,
-    foodTieBiasScale: 0.10,
+    foodTieBiasScale: 0.18,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,
