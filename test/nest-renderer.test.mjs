@@ -212,10 +212,11 @@ test('NestRenderer only draws underground ants in nest view', () => {
     };
 
     const renderer = new NestRenderer(canvas, world);
+    world.terrain[world.index(3, world.nestY)] = TERRAIN.TUNNEL;
     const colony = {
       ants: [
         { id: 'surface-ant', x: 2, y: world.nestY - 2, baseColor: '#111111', carryingType: 'none', hunger: 80, health: 90 },
-        { id: 'horizon-ant', x: 3, y: world.nestY, baseColor: '#333333', carryingType: 'none', hunger: 75, health: 88 },
+        { id: 'shaft-ant', x: 3, y: world.nestY, baseColor: '#333333', carryingType: 'none', hunger: 75, health: 88 },
         { id: 'nest-ant', x: 4, y: world.nestY + 2, baseColor: '#222222', carryingType: 'none', hunger: 70, health: 85 },
       ],
       nestFoodPellets: [],
@@ -231,8 +232,8 @@ test('NestRenderer only draws underground ants in nest view', () => {
     );
 
     assert.ok(
-      !mainCtx.fillRectCalls.some((call) => call.x === 3 && call.y === world.nestY && call.w === 1 && call.h === 1),
-      'horizon ant at nestY is owned by the surface view — nest view must skip it to keep filters complementary',
+      mainCtx.fillRectCalls.some((call) => call.x === 3 && call.y === world.nestY && call.w === 1 && call.h === 1),
+      'shaft ant on carved tunnel at horizon should be rendered in nest view',
     );
 
     assert.ok(
