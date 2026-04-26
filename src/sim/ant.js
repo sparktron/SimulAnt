@@ -246,9 +246,11 @@ export class Ant {
         if (dropPoint) {
           if (this.x === dropPoint.x && this.y === dropPoint.y) {
             colony.depositFoodFromAnt(this, context.entrance, dropPoint);
-            // Stagger nest departures: random delay after depositing food
-            // so ants don't all rush the entrance at once.
-            this._nestDepartureDelay = 5 + rng.int(16);
+            // Stagger nest departures: small random delay so ants don't all
+            // rush the entrance on the same tick. The previous 5-20 tick
+            // window was long enough that hungry waves serialized through
+            // the eat → idle → exit pipeline and clogged the entrance.
+            this._nestDepartureDelay = 2 + rng.int(4);
             return didMove;
           }
 
