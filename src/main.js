@@ -84,7 +84,7 @@ const state = {
     soldierSpawnChance: 0.05,  // 5% chance for soldiers to spawn via brood
     foodVisionRadius: 10,
     surfaceFoodSearchMaxMissTicks: 400,  // Give foragers much more time to find food
-    surfaceReturnToNestHungerThreshold: 0.35,  // Only return when genuinely hungry
+    surfaceReturnToNestHungerThreshold: 0.6,  // Return after timeout with safety margin
     followAlpha: 1.5,
     followBeta: 8.0,
     wanderNoise: 0.06,
