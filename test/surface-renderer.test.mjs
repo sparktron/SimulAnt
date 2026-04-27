@@ -85,21 +85,26 @@ test('SurfaceRenderer only draws surface ants and pellets', () => {
     const renderer = new SurfaceRenderer(canvas, world);
     const colony = {
       ants: [
-        { id: 'surface-ant', x: 4, y: 6, baseColor: '#111111', carryingType: 'none', hunger: 80, health: 90 },
+        { id: 'surface-ant', x: 4, y: 4, baseColor: '#111111', carryingType: 'none', hunger: 80, health: 90 },
         { id: 'nest-ant', x: 5, y: 10, baseColor: '#222222', carryingType: 'none', hunger: 75, health: 88 },
+        { id: 'shaft-ant', x: 6, y: 6, baseColor: '#333333', carryingType: 'none', hunger: 70, health: 85 },
+        { id: 'below-mouth-ant', x: 10, y: 6, baseColor: '#444444', carryingType: 'none', hunger: 70, health: 85 },
       ],
       foodStored: 0,
     };
+    world.terrain[world.index(6, 6)] = TERRAIN.TUNNEL;
 
-    renderer.draw(colony, { showToFood: false, showScent: false, showToHome: false, showDanger: false }, [{ x: 8, y: 7, id: 'e0', soilOnSurface: 0 }], [
+    renderer.draw(colony, { showToFood: false, showScent: false, showToHome: false, showDanger: false }, [{ x: 8, y: 5, id: 'e0', soilOnSurface: 0 }], [
       { x: 3, y: 5 },
       { x: 3, y: 10 },
     ]);
 
     const unitRects = mainCtx.fillRectCalls.filter((call) => call.w === 1 && call.h === 1);
 
-    assert.ok(unitRects.some((call) => call.x === 4 && call.y === 6), 'surface ant should render');
+    assert.ok(unitRects.some((call) => call.x === 4 && call.y === 4), 'surface ant above mouth should render');
     assert.ok(!unitRects.some((call) => call.x === 5 && call.y === 10), 'underground ant should not render in surface view');
+    assert.ok(!unitRects.some((call) => call.x === 6 && call.y === 6), 'shaft ant on carved tunnel should not render in surface view');
+    assert.ok(!unitRects.some((call) => call.x === 10 && call.y === 6), 'ants below entrance mouth should not render in surface view');
     assert.ok(unitRects.some((call) => call.x === 3 && call.y === 5), 'surface pellet should render');
     assert.ok(!unitRects.some((call) => call.x === 3 && call.y === 10), 'underground pellet should not render in surface view');
   } finally {

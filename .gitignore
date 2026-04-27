@@ -1,3 +1,5 @@
 # Prevent unsupported binary exports in repo/PRs
 exports/*.zip
 *.zip
+.claude/*
+.venv/*

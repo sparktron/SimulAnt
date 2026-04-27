@@ -122,20 +122,27 @@ export class Ant {
   #sense(world, colony, config) {
     const dt = config.tickSeconds || 1 / 30;
     const idx = world.index(this.x, this.y);
-    // "inNest" means the ant is inside the carved nest structure (tunnel
-    // or chamber). Using y >= nestY mis-classified the 16-row shaft band
-    // between entranceY and nestY-1 as "surface" even though the ant was
-    // visually inside the shaft, which broke food drop / eat-from-nest /
-    // exit-nest logic at the shaft's boundary. Use terrain so any ant
-    // standing on a tunnel/chamber tile is treated as inside the nest,
-    // regardless of vertical band.
-    const inNest = isInNestSpatial(world, this.x, this.y);
     const entrance = colony.nearestEntrance(this.x, this.y);
+    const inNestSpatial = isInNestSpatial(world, this.x, this.y);
+    const inNestStructure = world.isUndergroundTile(this.x, this.y);
+    // Treat tunnel/chamber tiles below the entrance mouth as "in nest" for
+    // behavior routing so ants in the vertical shaft keep EXIT_NEST/RETURN
+    // intent instead of running surface-forage logic in a chokepoint.
+    // Keep the exact mouth row as surface to preserve no-feeding-on-mouth
+    // behavior and avoid ants camping at the exit tile.
+    const aboveOrAtMouth = entrance ? this.y <= entrance.y : false;
+    const inNest = inNestSpatial || (inNestStructure && !aboveOrAtMouth);
 
     if (inNest) this.failedSurfaceFoodSearchTicks = 0;
     this.stepCounter += 1;
 
-    return { dt, idx, inNest, entrance };
+    return {
+      dt,
+      idx,
+      inNest,
+      inNestInterior: inNestSpatial,
+      entrance,
+    };
   }
 
   /**
@@ -148,7 +155,7 @@ export class Ant {
     // Skip eating when already carrying something — prevents double-dipping
     // (eating from nest store while simultaneously carrying food to deposit)
     if (!this.carrying?.type) {
-      if (this.#tryEatFromNest(colony, context.inNest, config)) {
+      if (this.#tryEatFromNest(colony, context.inNestInterior, config)) {
         this.state = 'EAT';
       }
 
@@ -298,6 +305,23 @@ export class Ant {
 
     // Foragers exit nest when not carrying anything
     if (this.workFocus === 'forage' && context.inNest && context.entrance) {
+      const returnHungerThreshold = Math.max(
+        0,
+        Math.min(1, config.surfaceReturnToNestHungerThreshold ?? 0.65),
+      );
+      const shouldContinueIntoNestForFood = !context.inNestInterior
+        && colony.foodStored > 0
+        && this.hunger < this.hungerMax * returnHungerThreshold;
+      if (shouldContinueIntoNestForFood) {
+        this.state = 'RETURN_NEST_TO_EAT';
+        return this.#moveToward(
+          world,
+          context.entrance.x,
+          this.#getNestEntryTargetY(world, context.entrance),
+          rng,
+        );
+      }
+
       // Stagger departures: after eating, wait a random delay before leaving
       // so ants don't all rush the entrance at once.
       if (this._nestDepartureDelay > 0) {

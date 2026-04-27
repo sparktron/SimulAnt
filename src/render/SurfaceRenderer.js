@@ -72,7 +72,7 @@ export class SurfaceRenderer {
     this.#drawTerrain(ctx, overlays);
     this.#drawFoodPellets(ctx, foodPellets);
     this.#drawEntranceMounds(ctx, nestEntrances);
-    this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats);
+    this.#drawAnts(ctx, colony, nestEntrances, options.selectedAntId, options.showDebugStats);
     if (options.showDebugStats && options.cursor) this.#drawCursorDebug(ctx, options.cursor);
     if (options.showEntranceInfo) this.#drawEntranceDebug(ctx, nestEntrances);
 
@@ -173,7 +173,7 @@ export class SurfaceRenderer {
     for (const entrance of nestEntrances) drawSoilMound(ctx, entrance);
   }
 
-  #drawAnts(ctx, colony, selectedAntId, showDebugStats) {
+  #drawAnts(ctx, colony, nestEntrances, selectedAntId, showDebugStats) {
     const { world } = this;
     const halfViewW = this.canvas.clientWidth / this.zoom * 0.5;
     const halfViewH = this.canvas.clientHeight / this.zoom * 0.5;
@@ -184,7 +184,18 @@ export class SurfaceRenderer {
 
     ctx.font = '2.8px monospace';
     for (const ant of colony.ants) {
-      if (ant.y > world.nestY) continue;
+      const antTerrain = world.terrain?.[world.index(ant.x, ant.y)];
+      const antInCarvedNest = antTerrain === TERRAIN.TUNNEL || antTerrain === TERRAIN.CHAMBER;
+      const nearestEntrance = Array.isArray(nestEntrances) && nestEntrances.length > 0
+        ? nestEntrances.reduce((best, candidate) => {
+          if (!best) return candidate;
+          const bestDist = Math.hypot(ant.x - best.x, ant.y - best.y);
+          const nextDist = Math.hypot(ant.x - candidate.x, ant.y - candidate.y);
+          return nextDist < bestDist ? candidate : best;
+        }, null)
+        : null;
+      const belowEntranceMouth = nearestEntrance ? ant.y > nearestEntrance.y : false;
+      if (ant.y > world.nestY || antInCarvedNest || belowEntranceMouth) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
