@@ -226,9 +226,9 @@ export class Ant {
 
         const targetY = context.inNest ? context.entrance.y - 1 : Math.min(this.y, context.entrance.y - 1);
         if (world.isPassable(context.entrance.x, targetY)) {
-          didMove = this.#moveToward(world, context.entrance.x, targetY, rng);
+          didMove = this.#moveThroughEntranceShaft(world, context.entrance, targetY, rng);
         }
-        if (!didMove) didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        if (!didMove) didMove = this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y, rng);
         if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
         return didMove;
       }
@@ -269,7 +269,7 @@ export class Ant {
         // Exit back to the surface so the ant doesn't freeze at the entrance boundary.
         this.state = 'RETURN_HOME';
         if (context.entrance) {
-          didMove = this.#moveToward(world, context.entrance.x, context.entrance.y - 1, rng);
+          didMove = this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y - 1, rng);
           if (didMove) return didMove;
         }
       }
@@ -375,7 +375,7 @@ export class Ant {
     }
     if (this.#isCriticalHealth()) {
       this.state = 'RETURN_TO_NEST_HEAL';
-      if (context.entrance) didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      if (context.entrance) didMove = this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y, rng);
       return didMove;
     }
 
@@ -608,6 +608,7 @@ export class Ant {
     const epsilon = 0.001;
     const reverseDir = (this.dir + 4) % DIRS.length;
     const homeScentWeight = this.#getHomeScentWeight(config, entrance);
+    const enforceEntranceCorridor = this.#isEntranceTransitState() && !!entrance;
     const weights = [];
     let total = 0;
 
@@ -616,6 +617,10 @@ export class Ant {
       const nx = this.x + DIRS[d][0];
       const ny = this.y + DIRS[d][1];
       if (!world.isPassable(nx, ny)) {
+        weights.push({ d, w: 0 });
+        continue;
+      }
+      if (enforceEntranceCorridor && this.#violatesEntranceCorridor(nx, ny, entrance)) {
         weights.push({ d, w: 0 });
         continue;
       }
@@ -1005,6 +1010,32 @@ export class Ant {
     });
   }
 
+  #isEntranceTransitState() {
+    return this.state === 'RETURN_HOME'
+      || this.state === 'RETURN_NEST_TO_EAT'
+      || this.state === 'RETURN_TO_NEST_HEAL'
+      || this.state === 'EXIT_NEST'
+      || this.state === 'STORE_FOOD_IN_NEST'
+      || this.state === 'HAUL_DIRT'
+      || this.state === 'NURSE_ENTER_NEST'
+      || this.state === 'DIG_ENTER_NEST'
+      || this.state === 'RETURN_NEST_FOR_QUEEN_FOOD';
+  }
+
+  #violatesEntranceCorridor(nextX, nextY, entrance) {
+    if (!entrance) return false;
+    if (!(nextY > entrance.y)) return false;
+
+    const shaftHalfWidth = Math.max(1, (entrance.radius ?? 1) + 1);
+    const currentDx = Math.abs(this.x - entrance.x);
+    const nextDx = Math.abs(nextX - entrance.x);
+    if (nextDx <= shaftHalfWidth) return false;
+
+    const movingTowardCorridor = nextDx < currentDx;
+    const climbingTowardMouth = nextY < this.y;
+    return !movingTowardCorridor && !climbingTowardMouth;
+  }
+
   #distanceToEntrance(colony) {
     const entrance = colony?.nearestEntrance?.(this.x, this.y);
     if (!entrance) return 0;
@@ -1244,16 +1275,15 @@ export class Ant {
       if (constraints) {
         const entranceX = constraints.entranceX;
         const entranceY = constraints.entranceY;
-        const shaftHalfWidth = constraints.shaftHalfWidth;
-        const inShaftBand = Number.isFinite(entranceY) ? ny > entranceY : false;
-        if (Number.isFinite(entranceX) && Number.isFinite(shaftHalfWidth) && inShaftBand) {
-          const currentDx = Math.abs(this.x - entranceX);
-          const nextDx = Math.abs(nx - entranceX);
-          if (nextDx > shaftHalfWidth) {
-            const movingTowardCorridor = nextDx < currentDx;
-            const climbingTowardMouth = ny < this.y;
-            if (!movingTowardCorridor && !climbingTowardMouth) continue;
-          }
+        const hasCorridor = Number.isFinite(entranceX)
+          && Number.isFinite(entranceY)
+          && Number.isFinite(constraints.shaftHalfWidth);
+        if (hasCorridor && this.#violatesEntranceCorridor(nx, ny, {
+          x: entranceX,
+          y: entranceY,
+          radius: Math.max(0, constraints.shaftHalfWidth - 1),
+        })) {
+          continue;
         }
       }
       const d = Math.hypot(tx - nx, ty - ny);
