@@ -184,7 +184,9 @@ export class SurfaceRenderer {
 
     ctx.font = '2.8px monospace';
     for (const ant of colony.ants) {
-      if (ant.y > world.nestY) continue;
+      const antTerrain = world.terrain?.[world.index(ant.x, ant.y)];
+      const antInCarvedNest = antTerrain === TERRAIN.TUNNEL || antTerrain === TERRAIN.CHAMBER;
+      if (ant.y > world.nestY || antInCarvedNest) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       ctx.fillStyle = ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);

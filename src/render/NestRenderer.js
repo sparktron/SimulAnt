@@ -270,10 +270,13 @@ export class NestRenderer {
     const maxY = this.cameraY + halfViewH + 1;
 
     for (const ant of colony.ants) {
-      // Nest view owns rows strictly below the horizon. Row nestY is the
-      // green surface strip and belongs to the surface view so ants don't
-      // get double-drawn across the boundary.
-      if (ant.y <= world.nestY) continue;
+      const antTerrain = world.terrain?.[world.index(ant.x, ant.y)];
+      const antInCarvedNest = antTerrain === TERRAIN.TUNNEL || antTerrain === TERRAIN.CHAMBER;
+      // Nest view owns:
+      // - rows strictly below the horizon, and
+      // - carved nest tiles (tunnel/chamber), including shaft cells above
+      //   the horizon line.
+      if (ant.y <= world.nestY && !antInCarvedNest) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       const drawY = ant.y;
       ctx.fillStyle = ant.baseColor;
