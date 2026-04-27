@@ -476,6 +476,50 @@ test('returning worker already in shaft stays in entrance corridor while descend
   assert.ok(observedTransitTick, 'Expected to observe at least one lower-band entrance transit tick');
 });
 
+test('nest-transit states rarely appear on non-carved tiles below entrance mouth', () => {
+  const rng = new SeededRng('nest-transit-surface-leak');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+
+  const entrance = { id: 'e', x: world.nestX, y: world.entranceY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 100;
+
+  const ant = new Ant(world.nestX + 14, Math.max(0, entrance.y - 3), rng, 'worker');
+  ant.workFocus = 'forage';
+  ant.carrying = { type: 'food', pelletId: 'p', pelletNutrition: 12, pickupDistance: 8 };
+  ant.carryingType = 'food';
+  colony.ants = [ant];
+
+  const transitStates = new Set([
+    'RETURN_HOME',
+    'RETURN_NEST_TO_EAT',
+    'RETURN_TO_NEST_HEAL',
+    'HAUL_DIRT',
+    'STORE_FOOD_IN_NEST',
+    'DIG_ENTER_NEST',
+    'NURSE_ENTER_NEST',
+    'RETURN_NEST_FOR_QUEEN_FOOD',
+  ]);
+
+  let leakedTicks = 0;
+  for (let i = 0; i < 220; i += 1) {
+    ant.update(world, colony, rng, config);
+    const idx = world.index(ant.x, ant.y);
+    const terrain = world.terrain[idx];
+    const nonCarved = terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER;
+    const belowMouthBand = ant.y > entrance.y && ant.y <= world.nestY;
+    if (transitStates.has(ant.state) && belowMouthBand && nonCarved) leakedTicks += 1;
+  }
+
+  assert.ok(
+    leakedTicks <= 2,
+    `Nest transit should stay in the entrance shaft (observed ${leakedTicks} leaked ticks in lower surface band)`,
+  );
+});
+
 test('worker nest feeding only consumes hunger deficit from store', () => {
   const rng = new SeededRng('bounded-nest-eat');
   const world = createTestWorld();

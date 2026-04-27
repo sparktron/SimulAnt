@@ -1031,6 +1031,10 @@ export class Ant {
     const nextDx = Math.abs(nextX - entrance.x);
     if (nextDx <= shaftHalfWidth) return false;
 
+    // Never allow a descent from mouth-or-above into the lower band unless
+    // the ant is already aligned with the shaft corridor.
+    if (this.y <= entrance.y) return true;
+
     const movingTowardCorridor = nextDx < currentDx;
     const climbingTowardMouth = nextY < this.y;
     return !movingTowardCorridor && !climbingTowardMouth;
