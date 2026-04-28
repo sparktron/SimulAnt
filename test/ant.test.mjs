@@ -423,7 +423,7 @@ test('worker in upper entrance shaft keeps EXIT_NEST intent instead of surface f
   colony.foodStored = 0;
   colony.foodStoreTarget = 100;
 
-  const shaftY = Math.max(0, world.nestY - 5);
+  const shaftY = Math.min(world.height - 1, world.entranceY + 2);
   const ant = new Ant(world.nestX, shaftY, rng, 'worker');
   ant.workFocus = 'forage';
   ant.hunger = 80;

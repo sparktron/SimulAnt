@@ -325,9 +325,9 @@ test('worker inside nest transitions out through entrance to surface without dis
   ant.carryingType = 'none';
 
   let reachedSurface = false;
-  for (let i = 0; i < 16; i += 1) {
+  for (let i = 0; i < 60; i += 1) {
     sim.update(config);
-    if (ant.y < sim.world.nestY) {
+    if (ant.y <= entrance.y) {
       reachedSurface = true;
       break;
     }

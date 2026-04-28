@@ -28,12 +28,9 @@ export class World {
 
     this.nestX = Math.floor(width * 0.5);
     this.nestY = Math.floor(height * 0.5);
-    // Entrance sits inside the surface band, above the surface/underground
-    // boundary, so the surface "yard" extends in all directions around it.
-    // The starter shaft connects entranceY down through the yard into the soil.
-    // Offset is kept modest so ants don't spend too long traversing the shaft
-    // (each extra row of yard adds two trip-rows of shaft for every forager).
-    this.entranceY = Math.max(0, this.nestY - 16);
+    // Entrance sits at the surface boundary row (bottom of surface view).
+    // This keeps nest entry/exit anchored at the visible horizon.
+    this.entranceY = this.nestY;
     this.nestRadius = 8;
     this.nestInfluence = new Float32Array(this.size);
 
@@ -95,7 +92,7 @@ export class World {
   setNest(x, y) {
     this.nestX = Math.max(0, Math.min(this.width - 1, x));
     this.nestY = Math.max(0, Math.min(this.height - 1, y));
-    this.entranceY = Math.max(0, this.nestY - 16);
+    this.entranceY = this.nestY;
     this.recomputeNestInfluence();
     this.#carveStarterNest();
   }
@@ -276,7 +273,7 @@ export class World {
     const world = new World(data.width, data.height);
     world.nestX = data.nestX;
     world.nestY = data.nestY;
-    world.entranceY = Number.isFinite(data.entranceY) ? data.entranceY : Math.max(0, world.nestY - 16);
+    world.entranceY = Number.isFinite(data.entranceY) ? data.entranceY : world.nestY;
     world.nestRadius = data.nestRadius;
     world.terrain.set(data.terrain);
     world.food.set(data.food);
