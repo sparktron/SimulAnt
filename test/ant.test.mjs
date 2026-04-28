@@ -827,6 +827,55 @@ test('Phase 2: obstacleTurn drives prevTurn away from a wall ahead', () => {
   );
 });
 
+test('forager still follows a strong outbound trail under heavy local crowding near nest', () => {
+  const rng = new SeededRng('crowd-near-nest-trail');
+  const world = createTestWorld(96, 96);
+  const colony = createTestColony(world, rng, 0);
+  const config = createTestConfig();
+  config.nearEntranceScatterRadius = 0;
+  config.wanderNoise = 0;
+  config.momentumBias = 0;
+  config.reversePenalty = 0;
+  config.headingBias = 0;
+  config.surfaceFoodSearchMaxMissTicks = 9999;
+
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 0;
+
+  const ant = new Ant(world.nestX + 6, world.nestY - 1, rng, 'worker');
+  ant.workFocus = 'forage';
+  ant.hunger = 90;
+  ant.health = ant.healthMax;
+  ant.dir = 0; // facing east
+  ant.theta = 0;
+  colony.ants.push(ant);
+
+  // Create dense traffic in the local neighborhood to emulate the
+  // entrance-basin congestion seen in gameplay.
+  colony._antGrid = new Map();
+  for (let x = ant.x - 2; x <= ant.x + 2; x += 1) {
+    for (let y = ant.y - 2; y <= ant.y + 2; y += 1) {
+      colony._antGrid.set(`${x},${y}`, 8);
+    }
+  }
+  colony._antGrid.set(`${ant.x},${ant.y}`, 1);
+
+  // Lay a strong food trail directly east of the ant.
+  for (let step = 1; step <= 4; step += 1) {
+    world.toFood[world.index(ant.x + step, ant.y)] = 20;
+  }
+
+  const startX = ant.x;
+  ant.update(world, colony, rng, config);
+
+  assert.ok(
+    ant.x > startX,
+    `Ant should advance along strong outbound trail even in crowd (x ${startX} -> ${ant.x})`,
+  );
+});
+
 test('Phase 3: soldier patrol fallback advances correlated wander heading', () => {
   // Soldiers in PATROL state previously never invoked #updateWanderHeading,
   // so prevTurn stayed at 0 forever.  Phase 3 wires the wander into the

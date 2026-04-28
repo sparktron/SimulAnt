@@ -509,8 +509,16 @@ export class Ant {
       || (!onFoodTrail && distFromEntrance < (config.nearEntranceScatterRadius ?? 8))
     );
     if (nearEntranceScatter && context.entrance) {
-      const ax = this.x + (this.x - context.entrance.x) + rng.int(20) - 10;
-      const ay = this.y + (this.y - context.entrance.y) + rng.int(20) - 10;
+      // Preserve a strong radial push away from the entrance and keep jitter
+      // small so ants don't get kicked back inward by noise near the mouth.
+      const awayX = this.x - context.entrance.x;
+      const awayY = this.y - context.entrance.y;
+      const awayLen = Math.max(1, Math.hypot(awayX, awayY));
+      const pushDistance = 10 + rng.int(7);
+      const jitterX = rng.int(5) - 2;
+      const jitterY = rng.int(5) - 2;
+      const ax = this.x + Math.round((awayX / awayLen) * pushDistance) + jitterX;
+      const ay = this.y + Math.round((awayY / awayLen) * pushDistance) + jitterY;
       didMove = this.#moveToward(world, ax, ay, rng);
     }
     if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance);
@@ -1045,9 +1053,13 @@ export class Ant {
         nearbyAntCount += colony.countAntsAt(checkX, checkY);
       }
     }
-    // Exponential penalty: scales quadratically with ant count
-    // Single ant nearby = 1.5 penalty, 2 ants = 6.0, 3 ants = 13.5, etc.
-    return nearbyAntCount * nearbyAntCount * 1.5;
+    // Keep crowding avoidance soft and bounded. A hard quadratic penalty
+    // can zero out all pheromone weights near dense nest traffic, causing
+    // ants to ignore trails and mill around the entrance basin.
+    const onTileCount = colony.countAntsAt(x, y);
+    const localPenalty = Math.max(0, onTileCount - 1) * 0.35;
+    const nearbyPenalty = nearbyAntCount * 0.05;
+    return Math.min(3, localPenalty + nearbyPenalty);
   }
 
   #needsForage(colony) {
