@@ -253,9 +253,11 @@ export class Ant {
         if (dropPoint) {
           if (this.x === dropPoint.x && this.y === dropPoint.y) {
             colony.depositFoodFromAnt(this, context.entrance, dropPoint);
-            // Stagger nest departures: random delay after depositing food
-            // so ants don't all rush the entrance at once.
-            this._nestDepartureDelay = 5 + rng.int(16);
+            // Stagger nest departures: small random delay so ants don't all
+            // rush the entrance on the same tick. The previous 5-20 tick
+            // window was long enough that hungry waves serialized through
+            // the eat → idle → exit pipeline and clogged the entrance.
+            this._nestDepartureDelay = 2 + rng.int(4);
             return didMove;
           }
 
@@ -490,7 +492,17 @@ export class Ant {
     // term; this.dir stays on the actual last-moved direction for momentum/
     // reversal-penalty correctness.
     this.#updateWanderHeading(rng, world, config);
-    if (this.stepCounter % config.homeDepositIntervalTicks === 0) {
+    // Home pheromone is meant to be a *gradient toward the entrance*, not a
+    // uniform background. If searching ants paint it everywhere they wander,
+    // diffusion saturates the foraging area and the gradient flattens — which
+    // (a) makes returning ants drift instead of commute, and (b) elevates the
+    // food trail's contrast vs noise. Restrict deposition to a band around
+    // the entrance so the field stays peaked there.
+    const distToEntranceForDeposit = context.entrance
+      ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
+      : 0;
+    if (this.stepCounter % config.homeDepositIntervalTicks === 0
+        && distToEntranceForDeposit < (config.homeDepositMinDistance ?? 20)) {
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
     }
 
@@ -502,11 +514,28 @@ export class Ant {
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
       : 0;
     const onFoodTrail = world.toFood[context.idx] > 0.5;
-    const nearEntranceScatter = !onFoodTrail && !context.inNest && context.entrance
-      && distFromEntrance < (config.nearEntranceScatterRadius ?? 8);
+    // Within a wide ring around the entrance, scatter outward unconditionally —
+    // returners deposit food pheromone *along the entire return path*, with a
+    // local maximum at the entrance. Pheromone-following alone keeps fresh
+    // foragers cycling through that field at low radius; they rarely make it
+    // out to the food source. Override pheromone steering with a hard outward
+    // push until the ant is well clear of the entrance basin.
+    const innerScatterRadius = 20;
+    const nearEntranceScatter = !context.inNest && context.entrance && (
+      distFromEntrance < innerScatterRadius
+      || (!onFoodTrail && distFromEntrance < (config.nearEntranceScatterRadius ?? 8))
+    );
     if (nearEntranceScatter && context.entrance) {
-      const ax = this.x + (this.x - context.entrance.x) + rng.int(20) - 10;
-      const ay = this.y + (this.y - context.entrance.y) + rng.int(20) - 10;
+      // Preserve a strong radial push away from the entrance and keep jitter
+      // small so ants don't get kicked back inward by noise near the mouth.
+      const awayX = this.x - context.entrance.x;
+      const awayY = this.y - context.entrance.y;
+      const awayLen = Math.max(1, Math.hypot(awayX, awayY));
+      const pushDistance = 10 + rng.int(7);
+      const jitterX = rng.int(5) - 2;
+      const jitterY = rng.int(5) - 2;
+      const ax = this.x + Math.round((awayX / awayLen) * pushDistance) + jitterX;
+      const ay = this.y + Math.round((awayY / awayLen) * pushDistance) + jitterY;
       didMove = this.#moveToward(world, ax, ay, rng);
     }
     if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance);
@@ -1103,9 +1132,13 @@ export class Ant {
         nearbyAntCount += colony.countAntsAt(checkX, checkY);
       }
     }
-    // Exponential penalty: scales quadratically with ant count
-    // Single ant nearby = 1.5 penalty, 2 ants = 6.0, 3 ants = 13.5, etc.
-    return nearbyAntCount * nearbyAntCount * 1.5;
+    // Keep crowding avoidance soft and bounded. A hard quadratic penalty
+    // can zero out all pheromone weights near dense nest traffic, causing
+    // ants to ignore trails and mill around the entrance basin.
+    const onTileCount = colony.countAntsAt(x, y);
+    const localPenalty = Math.max(0, onTileCount - 1) * 0.35;
+    const nearbyPenalty = nearbyAntCount * 0.05;
+    return Math.min(3, localPenalty + nearbyPenalty);
   }
 
   #needsForage(colony) {

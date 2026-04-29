@@ -65,7 +65,7 @@ export class Colony {
     // With food respawning every 300 ticks when < 8 pellets, this gives stability
     // Bootstrap food scales with colony size so a smaller start doesn't
     // immediately starve before foragers establish trails.
-    const bootstrapFood = Math.max(150, initialAnts * 3);
+    const bootstrapFood = Math.max(500, initialAnts * 8);
     this.foodStored = bootstrapFood;
     this._virtualFoodStored = bootstrapFood;  // consumed before physical pellets so deposits accumulate visibly
 

@@ -79,12 +79,12 @@ const state = {
     healthWorkFightDrainRate: 0.6,
     healthEatRecoveryRate: 0.45,
     workerEmergencyEatNutrition: 35,
-    carryingHungerDrainRate: 1.5,
+    carryingHungerDrainRate: 0.5,
     fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.05,  // 5% chance for soldiers to spawn via brood
-    foodVisionRadius: 10,
+    foodVisionRadius: 20,
     surfaceFoodSearchMaxMissTicks: 400,  // Give foragers much more time to find food
-    surfaceReturnToNestHungerThreshold: 0.35,  // Only return when genuinely hungry
+    surfaceReturnToNestHungerThreshold: 0.6,  // Return after timeout with safety margin
     followAlpha: 1.5,
     followBeta: 8.0,
     wanderNoise: 0.06,
@@ -93,18 +93,18 @@ const state = {
     reversePenalty: 0.9,
     homeDepositIntervalTicks: 3,
     homeDepositMinDistance: 20,
-    nearEntranceScatterRadius: 18,
+    nearEntranceScatterRadius: 25,
     foodTrailDecayPerStep: 0.92,
     maxFoodTrailScale: 4.0,
     homeScentBaseWeight: 1.0,
     homeScentSearchStateScale: 0.3,
     homeScentReturnStateScale: 1.0,
     homeScentFalloffStartDist: 10,
-    homeScentFalloffEndDist: 9999,
-    homeScentMinFalloff: 1.0,
+    homeScentFalloffEndDist: 100,
+    homeScentMinFalloff: 0.1,
     homeScentMaxContributionPerStep: 999,
     homeTieBiasScale: 0.05,
-    foodTieBiasScale: 0.02,
+    foodTieBiasScale: 0.18,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,
@@ -138,6 +138,7 @@ const state = {
 
 const canvas = mustById('simCanvas');
 const simCore = new SimulationCore(state.seed);
+if (typeof window !== 'undefined') window.__sim = { simCore, state };
 const viewManager = new ViewManager(VIEW.SURFACE);
 const surfaceRenderer = new SurfaceRenderer(canvas, simCore.world);
 const nestRenderer = new NestRenderer(canvas, simCore.world);
