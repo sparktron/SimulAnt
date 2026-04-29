@@ -59,7 +59,7 @@ test('colony initializes with correct ant count', () => {
   assert.equal(colony.ants.length, 50);
   assert.equal(colony.births, 50);
   assert.equal(colony.deaths, 0);
-  assert.equal(colony.foodStored, 150);  // Colony starts with scaled bootstrap food
+  assert.equal(colony.foodStored, 500);  // Colony starts with bootstrap food: Math.max(500, initialAnts * 8)
 });
 
 test('colony queen starts alive with full vitals', () => {
