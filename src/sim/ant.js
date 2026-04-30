@@ -226,9 +226,9 @@ export class Ant {
 
         const targetY = context.inNest ? context.entrance.y - 1 : Math.min(this.y, context.entrance.y - 1);
         if (world.isPassable(context.entrance.x, targetY)) {
-          didMove = this.#moveToward(world, context.entrance.x, targetY, rng);
+          didMove = this.#moveThroughEntranceShaft(world, context.entrance, targetY, rng);
         }
-        if (!didMove) didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        if (!didMove) didMove = this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y, rng);
         if (!didMove) didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance);
         return didMove;
       }
@@ -271,7 +271,7 @@ export class Ant {
         // Exit back to the surface so the ant doesn't freeze at the entrance boundary.
         this.state = 'RETURN_HOME';
         if (context.entrance) {
-          didMove = this.#moveToward(world, context.entrance.x, context.entrance.y - 1, rng);
+          didMove = this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y - 1, rng);
           if (didMove) return didMove;
         }
       }
@@ -293,11 +293,16 @@ export class Ant {
       // with food-trail gravitation so returning ants reinforce existing trails
       // rather than carving new paths.
       if (distToNest < 40 && context.entrance) {
-        didMove = this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
+        didMove = this.#moveThroughEntranceShaft(
+          world,
+          context.entrance,
+          this.#getNestEntryTargetY(world, context.entrance),
+          rng,
+        );
       } else {
         didMove = this.#moveByPheromone(world, rng, config, 'home', context.entrance, null, world.toFood);
         if (!didMove && context.entrance) {
-          didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+          didMove = this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y, rng);
         }
       }
       return didMove;
@@ -314,9 +319,9 @@ export class Ant {
         && this.hunger < this.hungerMax * returnHungerThreshold;
       if (shouldContinueIntoNestForFood) {
         this.state = 'RETURN_NEST_TO_EAT';
-        return this.#moveToward(
+        return this.#moveThroughEntranceShaft(
           world,
-          context.entrance.x,
+          context.entrance,
           this.#getNestEntryTargetY(world, context.entrance),
           rng,
         );
@@ -341,14 +346,21 @@ export class Ant {
         return this.#moveToward(world, scatteredX, exitTargetY, rng);
       }
       if (world.isPassable(context.entrance.x, exitTargetY)) {
-        return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
+        return this.#moveThroughEntranceShaft(world, context.entrance, exitTargetY, rng);
       }
-      return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      return this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y, rng);
     }
 
     if (this.#isLowHealth() && !context.inNest) {
       this.state = 'RETURN_TO_NEST_HEAL';
-      if (context.entrance) return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
+      if (context.entrance) {
+        return this.#moveThroughEntranceShaft(
+          world,
+          context.entrance,
+          this.#getNestEntryTargetY(world, context.entrance),
+          rng,
+        );
+      }
       return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
     }
 
@@ -365,7 +377,7 @@ export class Ant {
     }
     if (this.#isCriticalHealth()) {
       this.state = 'RETURN_TO_NEST_HEAL';
-      if (context.entrance) didMove = this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+      if (context.entrance) didMove = this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y, rng);
       return didMove;
     }
 
@@ -373,13 +385,13 @@ export class Ant {
       const distanceToEntrance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
       if (distanceToEntrance > (context.entrance.radius ?? 1)) {
         this.state = 'EXIT_NEST';
-        return this.#moveToward(world, context.entrance.x, context.entrance.y, rng);
+        return this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y, rng);
       }
 
       this.state = 'EXIT_NEST';
       const exitTargetY = context.entrance.y - 1;
       if (world.isPassable(context.entrance.x, exitTargetY)) {
-        return this.#moveToward(world, context.entrance.x, exitTargetY, rng);
+        return this.#moveThroughEntranceShaft(world, context.entrance, exitTargetY, rng);
       }
     }
 
@@ -465,7 +477,12 @@ export class Ant {
 
       if (shouldReturnToNestForFood && context.entrance) {
         this.state = 'RETURN_NEST_TO_EAT';
-        return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
+        return this.#moveThroughEntranceShaft(
+          world,
+          context.entrance,
+          this.#getNestEntryTargetY(world, context.entrance),
+          rng,
+        );
       }
     }
 
@@ -620,6 +637,7 @@ export class Ant {
     const epsilon = 0.001;
     const reverseDir = (this.dir + 4) % DIRS.length;
     const homeScentWeight = this.#getHomeScentWeight(config, entrance);
+    const enforceEntranceCorridor = this.#isEntranceTransitState() && !!entrance;
     const weights = [];
     let total = 0;
 
@@ -628,6 +646,10 @@ export class Ant {
       const nx = this.x + DIRS[d][0];
       const ny = this.y + DIRS[d][1];
       if (!world.isPassable(nx, ny)) {
+        weights.push({ d, w: 0 });
+        continue;
+      }
+      if (enforceEntranceCorridor && this.#violatesEntranceCorridor(nx, ny, entrance)) {
         weights.push({ d, w: 0 });
         continue;
       }
@@ -839,7 +861,14 @@ export class Ant {
     }
 
     this.state = 'RETURN_NEST_FOR_QUEEN_FOOD';
-    if (context.entrance) return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
+    if (context.entrance) {
+      return this.#moveThroughEntranceShaft(
+        world,
+        context.entrance,
+        this.#getNestEntryTargetY(world, context.entrance),
+        rng,
+      );
+    }
     return this.#moveByPheromone(world, rng, config, 'home', context.entrance, colony);
   }
 
@@ -859,7 +888,12 @@ export class Ant {
     // Enter the nest if outside
     if (!context.inNest && context.entrance) {
       this.state = 'NURSE_ENTER_NEST';
-      return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
+      return this.#moveThroughEntranceShaft(
+        world,
+        context.entrance,
+        this.#getNestEntryTargetY(world, context.entrance),
+        rng,
+      );
     }
 
     // If carrying queen-food, deliver it
@@ -946,7 +980,12 @@ export class Ant {
     // Enter the nest if outside
     if (!context.inNest && context.entrance) {
       this.state = 'DIG_ENTER_NEST';
-      return this.#moveToward(world, context.entrance.x, this.#getNestEntryTargetY(world, context.entrance), rng);
+      return this.#moveThroughEntranceShaft(
+        world,
+        context.entrance,
+        this.#getNestEntryTargetY(world, context.entrance),
+        rng,
+      );
     }
 
     // Deposit home pheromone to help navigation
@@ -988,6 +1027,46 @@ export class Ant {
       }
     }
     return searchFrom;
+  }
+
+  #moveThroughEntranceShaft(world, entrance, targetY, rng) {
+    if (!entrance) return false;
+    const shaftHalfWidth = Math.max(1, (entrance.radius ?? 1) + 1);
+    return this.#moveToward(world, entrance.x, targetY, rng, {
+      entranceX: entrance.x,
+      entranceY: entrance.y,
+      shaftHalfWidth,
+    });
+  }
+
+  #isEntranceTransitState() {
+    return this.state === 'RETURN_HOME'
+      || this.state === 'RETURN_NEST_TO_EAT'
+      || this.state === 'RETURN_TO_NEST_HEAL'
+      || this.state === 'EXIT_NEST'
+      || this.state === 'STORE_FOOD_IN_NEST'
+      || this.state === 'HAUL_DIRT'
+      || this.state === 'NURSE_ENTER_NEST'
+      || this.state === 'DIG_ENTER_NEST'
+      || this.state === 'RETURN_NEST_FOR_QUEEN_FOOD';
+  }
+
+  #violatesEntranceCorridor(nextX, nextY, entrance) {
+    if (!entrance) return false;
+    if (!(nextY > entrance.y)) return false;
+
+    const shaftHalfWidth = Math.max(1, (entrance.radius ?? 1) + 1);
+    const currentDx = Math.abs(this.x - entrance.x);
+    const nextDx = Math.abs(nextX - entrance.x);
+    if (nextDx <= shaftHalfWidth) return false;
+
+    // Never allow a descent from mouth-or-above into the lower band unless
+    // the ant is already aligned with the shaft corridor.
+    if (this.y <= entrance.y) return true;
+
+    const movingTowardCorridor = nextDx < currentDx;
+    const climbingTowardMouth = nextY < this.y;
+    return !movingTowardCorridor && !climbingTowardMouth;
   }
 
   #distanceToEntrance(colony) {
@@ -1218,7 +1297,7 @@ export class Ant {
     return this.health < this.healthMax * 0.25;
   }
 
-  #moveToward(world, tx, ty, rng) {
+  #moveToward(world, tx, ty, rng, constraints = null) {
     // Score each passable neighbor by distance-to-target plus a crowding penalty.
     // Without the crowding term, every exit/enter goal sends ants to the exact
     // same tile and they stack indefinitely at the entrance column.
@@ -1230,6 +1309,20 @@ export class Ant {
       const nx = this.x + DIRS[i][0];
       const ny = this.y + DIRS[i][1];
       if (!world.isPassable(nx, ny)) continue;
+      if (constraints) {
+        const entranceX = constraints.entranceX;
+        const entranceY = constraints.entranceY;
+        const hasCorridor = Number.isFinite(entranceX)
+          && Number.isFinite(entranceY)
+          && Number.isFinite(constraints.shaftHalfWidth);
+        if (hasCorridor && this.#violatesEntranceCorridor(nx, ny, {
+          x: entranceX,
+          y: entranceY,
+          radius: Math.max(0, constraints.shaftHalfWidth - 1),
+        })) {
+          continue;
+        }
+      }
       const d = Math.hypot(tx - nx, ty - ny);
       const crowd = colony ? colony.countAntsAt(nx, ny) : 0;
       // Each already-present ant costs ~0.6 units of distance equivalence.
