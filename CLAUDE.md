@@ -17,6 +17,10 @@ Include the new version in the commit message (e.g. `fix(ant): clamp prevTurn �
 
 **Verify UI changes in the browser preview** before reporting them complete. The simulation is canvas-rendered — type checking alone cannot confirm visual correctness. Use `preview_screenshot` or `preview_snapshot` as proof.
 
+**Push all changes to the user's local branch.** After committing in the worktree, fast-forward-merge into the user's checked-out branch so their running dev server picks up the change. If you can't push for any reason, tell them in ALL CAPS.
+
+**Announce the expected version after every change.** After each code change, tell the user what version string they should see in the running browser (e.g. "→ should show v0.10.17"). This helps them spot stale tabs or servers.
+
 **Read docs before touching core systems.** `docs/core-simulation-architecture.md` documents the deterministic tick contract in detail. Read it before editing `TickScheduler`, `MacroEngine`, or `MicroPatchEngine`.
 
 ## Key Entry Points

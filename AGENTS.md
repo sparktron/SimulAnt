@@ -70,6 +70,8 @@ const evap = state.config.pheromoneEvapRate;
   - **MAJOR** — incompatible change to public API or saved-state format
   - Include the new version in the commit message, e.g. `fix(ant): clamp prevTurn — v0.1.1`
   - Pure docs or test-only changes do not require a version bump
+- Push all commits to the user's local branch (fast-forward-merge the worktree branch into the user's checked-out branch). If you cannot push, tell the user in ALL CAPS.
+- After each code change, announce the expected version the user should see in the browser (e.g. "→ should show v0.10.17").
 - Use `SeededRng` for all in-simulation randomness.
 - Run `node --test test/*.mjs` before committing simulation or world changes.
 
