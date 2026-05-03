@@ -810,6 +810,8 @@ test('foraging ant correlated walk: prevTurn stays within maxTurnRate and revers
   config.pTurnSignFlip = 0.85;
   config.headingBias = 0.20;
   config.nearEntranceScatterRadius = 0;
+  config.innerScatterRadius = 0;
+  config.foodTieBiasScale = 0;
   config.surfaceFoodSearchMaxMissTicks = 9999;
 
   const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
