@@ -641,16 +641,15 @@ export class Ant {
     const homeScentWeight = this.#getHomeScentWeight(config, entrance);
     const enforceEntranceCorridor = this.#isEntranceTransitState() && !!entrance;
 
-    // No-trail home fallback: if a food-laden ant is steering home but stands
-    // on a tile with negligible home pheromone, momentum (0.3) overwhelms the
+    // No-trail home fallback: when a food-laden ant is steering home but the
+    // local home pheromone is weak or absent, momentum (0.3) overwhelms the
     // small homeTieBias (0.05) and the ant just continues whatever wander
-    // direction it had — often straight off the map. Bypass the weighted
-    // steering and head directly toward the entrance instead.
-    if (channel === 'home' && entrance && this.carrying?.type === 'food') {
-      const localHome = field[world.index(this.x, this.y)] ?? 0;
-      if (localHome < 0.05) {
-        return this.#moveToward(world, entrance.x, entrance.y, rng);
-      }
+    // direction it had — often straight off the map. Bypass weighted steering
+    // and head directly toward the entrance via greedy descent.
+    const carryingFoodReturn = channel === 'home' && !!entrance && this.carrying?.type === 'food';
+    const localHomeAtAnt = carryingFoodReturn ? (field[world.index(this.x, this.y)] ?? 0) : 0;
+    if (carryingFoodReturn && localHomeAtAnt < 0.5) {
+      return this.#moveToward(world, entrance.x, entrance.y, rng);
     }
 
     const weights = [];
@@ -696,7 +695,14 @@ export class Ant {
           const antDist = Math.hypot(this.x - entrance.x, this.y - entrance.y) + 0.001;
           const stepLen = Math.hypot(DIRS[d][0], DIRS[d][1]);
           const progress = (antDist - neighborDist) / stepLen;
-          tieBias = progress * (config.homeTieBiasScale ?? 0.05);
+          // Boost the home goal-vector bias when carrying food so the nest
+          // direction reliably beats momentum (0.3) even on a weakly-trailed
+          // tile — otherwise carriers drift in their last wander direction.
+          const carrying = this.carrying?.type === 'food';
+          const scale = carrying
+            ? (config.homeTieBiasScaleCarrying ?? 0.6)
+            : (config.homeTieBiasScale ?? 0.05);
+          tieBias = progress * scale;
         } else {
           tieBias = neighborDist * (config.foodTieBiasScale ?? 0.18);
         }
