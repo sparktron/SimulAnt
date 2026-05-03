@@ -659,7 +659,7 @@ export class Ant {
       const scentScale = channel === 'home' ? homeScentWeight : 1;
       const uncappedPherContribution = rawPher * config.followBeta * scentScale;
       const pherContribution = channel === 'home'
-        ? Math.min(uncappedPherContribution, config.homeScentMaxContributionPerStep)
+        ? Math.min(uncappedPherContribution, config.homeScentMaxContributionPerStep ?? 999)
         : uncappedPherContribution;
       const momentum = d === this.dir ? config.momentumBias : 0;
       const reversePenalty = d === reverseDir ? config.reversePenalty : 0;
@@ -681,9 +681,9 @@ export class Ant {
           const antDist = Math.hypot(this.x - entrance.x, this.y - entrance.y) + 0.001;
           const stepLen = Math.hypot(DIRS[d][0], DIRS[d][1]);
           const progress = (antDist - neighborDist) / stepLen;
-          tieBias = progress * config.homeTieBiasScale;
+          tieBias = progress * (config.homeTieBiasScale ?? 0.05);
         } else {
-          tieBias = neighborDist * config.foodTieBiasScale;
+          tieBias = neighborDist * (config.foodTieBiasScale ?? 0.18);
         }
       }
 
@@ -1087,12 +1087,12 @@ export class Ant {
   }
 
   #getHomeScentWeight(config, entrance) {
-    if (!entrance) return config.homeScentBaseWeight;
+    if (!entrance) return config.homeScentBaseWeight ?? 1.0;
 
     const distance = Math.hypot(this.x - entrance.x, this.y - entrance.y);
-    const falloffStart = Math.max(0, config.homeScentFalloffStartDist);
-    const falloffEnd = Math.max(falloffStart + 0.0001, config.homeScentFalloffEndDist);
-    const minFalloff = Math.min(1, Math.max(0, config.homeScentMinFalloff));
+    const falloffStart = Math.max(0, config.homeScentFalloffStartDist ?? 10);
+    const falloffEnd = Math.max(falloffStart + 0.0001, config.homeScentFalloffEndDist ?? 100);
+    const minFalloff = Math.min(1, Math.max(0, config.homeScentMinFalloff ?? 0.1));
     const t = Math.min(1, Math.max(0, (distance - falloffStart) / (falloffEnd - falloffStart)));
     const distanceFalloff = 1 - (1 - minFalloff) * t;
 
@@ -1100,7 +1100,7 @@ export class Ant {
       || this.state === 'RETURN_HOME'
       || this.state === 'RETURN_TO_NEST_HEAL'
       || this.state === 'RETURN_NEST_TO_EAT';
-    const stateScale = returningToNest ? config.homeScentReturnStateScale : config.homeScentSearchStateScale;
+    const stateScale = returningToNest ? (config.homeScentReturnStateScale ?? 1.0) : (config.homeScentSearchStateScale ?? 0.3);
 
     // Boost scent weight when carrying food and close to entrance
     let proximityBoost = 1.0;
@@ -1108,7 +1108,7 @@ export class Ant {
       proximityBoost = 1 + (1 - distance / 60) * 3.0;  // up to 4x boost at entrance
     }
 
-    return config.homeScentBaseWeight * distanceFalloff * stateScale * proximityBoost;
+    return (config.homeScentBaseWeight ?? 1.0) * distanceFalloff * stateScale * proximityBoost;
   }
 
   #getCrowdingPenalty(x, y, colony) {
