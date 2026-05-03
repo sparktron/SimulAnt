@@ -86,9 +86,9 @@ export class SimulationCore {
     ];
     this.foodPellets = [];
     this.nextPelletId = 1;
-    this.spawnFoodCluster(this.world.nestX + 50, this.world.nestY - 15, 15, 45);
-    this.spawnFoodCluster(this.world.nestX - 70, this.world.nestY - 25, 15, 45);
-    this.spawnFoodCluster(this.world.nestX, this.world.nestY - 70, 12, 38);
+    this.spawnFoodCluster(this.world.nestX + 50, this.world.nestY - 15, 15, 90);
+    this.spawnFoodCluster(this.world.nestX - 70, this.world.nestY - 25, 15, 90);
+    this.spawnFoodCluster(this.world.nestX, this.world.nestY - 70, 12, 76);
     this.tick = 0;
   }
 
