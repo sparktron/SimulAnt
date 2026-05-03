@@ -95,7 +95,7 @@ const state = {
     homeDepositMinDistance: 20,
     innerScatterRadius: 6,
     nearEntranceScatterRadius: 8,
-    foodDepositFadeDistMax: 50,
+    foodDepositFadeDistMax: 20,
     foodTrailDecayPerStep: 0.92,
     maxFoodTrailScale: 4.0,
     homeScentBaseWeight: 1.0,
