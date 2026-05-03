@@ -1062,3 +1062,95 @@ test('Phase 4: dangerTurn steers ant away from one-sided danger pheromone', () =
     `prevTurn (${ant.prevTurn.toFixed(4)}) must respect the maxTurnRate clamp`,
   );
 });
+
+// Regression test for the foodTieBiasScale swamping bug (fixed in v0.10.18).
+//
+// The old tieBias formula was `neighborDist * foodTieBiasScale`.  At realistic
+// search distances (50+ tiles) with foodTieBiasScale=0.18 this produced weights
+// of ~9 for every direction, swamping headingBias (0.20) and momentum (0.3).
+// All 8 directions had nearly equal probability (~12.5%) and ants appeared to
+// bounce randomly with no directional memory.
+//
+// The fix normalises by step length so tieBias ≈ ±scale (like the home channel),
+// making headingBias and momentum competitive again.
+//
+// Two properties are tested:
+//   1. Forward-continuation rate > 20% at both close (d≈30) and far (d≈65)
+//      distances — well above the 12.5% baseline for uniform random choice.
+//   2. Forward-continuation rates at close and far distances are similar (within
+//      10 pp), proving the bias no longer grows with absolute distance.
+test('food-channel tieBias does not swamp correlated walk at realistic foodTieBiasScale', () => {
+  const DIRS_COUNT = 8;
+  const TICKS = 300;
+
+  function measureForwardRate(seed, startX, startY) {
+    const rng = new SeededRng(seed);
+    const world = createTestWorld(160, 160);
+    const colony = createTestColony(world, rng, 0);
+    const config = createTestConfig();
+    // Use production values that triggered the regression
+    config.foodTieBiasScale = 0.18;
+    config.headingBias = 0.20;
+    config.momentumBias = 0.3;
+    config.reversePenalty = 0.9;
+    config.walkRho = 0.75;
+    config.walkSigma = 0.05;
+    config.walkMaxTurnRate = 0.45;
+    config.meanderAmplitude = 0.05;
+    config.pTurnSignFlip = 0.85;
+    // Disable scatter so the ant stays in free pheromone-search the whole time
+    config.nearEntranceScatterRadius = 0;
+    config.innerScatterRadius = 0;
+    config.surfaceFoodSearchMaxMissTicks = 9999;
+
+    const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+    colony.setNestEntrances([entrance]);
+    colony.setSurfaceFoodPellets([]);
+    colony.foodStored = 0;
+
+    const ant = new Ant(startX, startY, rng, 'worker');
+    ant.workFocus = 'forage';
+    ant.hunger = 80;
+    ant.health = ant.healthMax;
+    colony.ants.push(ant);
+
+    let forwardCount = 0;
+    let prevDir = ant.dir;
+
+    for (let i = 0; i < TICKS; i++) {
+      ant.update(world, colony, rng, config);
+      const delta = Math.min(
+        (ant.dir - prevDir + DIRS_COUNT) % DIRS_COUNT,
+        (prevDir - ant.dir + DIRS_COUNT) % DIRS_COUNT,
+      );
+      if (delta === 0) forwardCount++;
+      prevDir = ant.dir;
+    }
+
+    return forwardCount / TICKS;
+  }
+
+  const nestX = 80;
+  const nestY = 80;
+  // Close ant: ~30 tiles from nest.  Far ant: ~65 tiles from nest.
+  const closeRate = measureForwardRate('tiebias-close', nestX + 30, nestY - 2);
+  const farRate   = measureForwardRate('tiebias-far',   nestX + 65, nestY - 2);
+
+  // Both should show meaningful forward bias — well above 12.5% uniform random.
+  assert.ok(
+    closeRate > 0.20,
+    `Close ant forward-continuation rate (${(closeRate * 100).toFixed(1)}%) must exceed 20% — correlated walk must influence direction selection`,
+  );
+  assert.ok(
+    farRate > 0.20,
+    `Far ant forward-continuation rate (${(farRate * 100).toFixed(1)}%) must exceed 20% — tieBias must not swamp heading/momentum at large distances`,
+  );
+
+  // The two rates must be similar: if tieBias scaled with absolute distance
+  // the far ant would behave much more randomly than the close one.
+  const diff = Math.abs(closeRate - farRate);
+  assert.ok(
+    diff < 0.10,
+    `Close (${(closeRate * 100).toFixed(1)}%) and far (${(farRate * 100).toFixed(1)}%) forward rates should be within 10 pp — bias must not grow with distance`,
+  );
+});
