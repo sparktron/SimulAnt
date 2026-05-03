@@ -75,6 +75,10 @@ export class Ant {
     this._ticksSinceOnTrail = Infinity;
     // Stagger nest departures to avoid traffic jams at the entrance.
     this._nestDepartureDelay = 0;
+    // Initial scatter is a one-time push to disperse ants at simulation start.
+    // Once an ant has cleared the scatter radius, this is set true and all
+    // subsequent exits skip straight to pheromone-guided foraging.
+    this._hasInitiallyScattered = false;
     // Phase 1: persistent heading for correlated random walk.
     // theta is a continuous angle in radians; prevTurn and turnSign carry
     // inter-tick correlation state for the meander model.
@@ -508,28 +512,27 @@ export class Ant {
       world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
     }
 
-    // Only scatter ants that are very close to the entrance AND not already
-    // on a food trail. A wider unconditional scatter covered most of the foraging
-    // range and overrode pheromone following entirely — ants would drift randomly
-    // instead of walking the trail to the food source.
     const distFromEntrance = context.entrance
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
       : 0;
-    const onFoodTrail = world.toFood[context.idx] > 0.5;
-    // Within a wide ring around the entrance, scatter outward unconditionally —
-    // returners deposit food pheromone *along the entire return path*, with a
-    // local maximum at the entrance. Pheromone-following alone keeps fresh
-    // foragers cycling through that field at low radius; they rarely make it
-    // out to the food source. Override pheromone steering with a hard outward
-    // push until the ant is well clear of the entrance basin.
     const innerScatterRadius = config.innerScatterRadius ?? 20;
-    const nearEntranceScatter = !context.inNest && context.entrance && (
-      distFromEntrance < innerScatterRadius
-      || (!onFoodTrail && distFromEntrance < (config.nearEntranceScatterRadius ?? 8))
-    );
+
+    // Mark the initial scatter complete once the ant has cleared the radius.
+    if (!this._hasInitiallyScattered && distFromEntrance >= innerScatterRadius) {
+      this._hasInitiallyScattered = true;
+    }
+
+    // Scatter push is a one-time dispersal at simulation start. Once an ant has
+    // cleared the radius (flag set above), all subsequent exits go straight to
+    // pheromone-guided foraging so ants immediately follow food trails.
+    const onFoodTrail = world.toFood[context.idx] > 0.5;
+    const nearEntranceScatter = !this._hasInitiallyScattered
+      && !context.inNest && context.entrance
+      && (
+        distFromEntrance < innerScatterRadius
+        || (!onFoodTrail && distFromEntrance < (config.nearEntranceScatterRadius ?? 8))
+      );
     if (nearEntranceScatter && context.entrance) {
-      // Preserve a strong radial push away from the entrance and keep jitter
-      // small so ants don't get kicked back inward by noise near the mouth.
       const awayX = this.x - context.entrance.x;
       const awayY = this.y - context.entrance.y;
       const awayLen = Math.max(1, Math.hypot(awayX, awayY));
