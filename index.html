@@ -336,8 +336,13 @@
       </div>
     </dialog>
 
-    <div id="versionLabel">v1.0.0</div>
+    <div id="versionLabel">v…</div>
 
+    <script>
+      fetch('/VERSION').then(r => r.text()).then(t => {
+        document.getElementById('versionLabel').textContent = 'v' + t.trim();
+      }).catch(() => {});
+    </script>
     <script type="module" src="src/main.js"></script>
   </body>
 </html>
