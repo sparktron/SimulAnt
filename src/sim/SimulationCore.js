@@ -38,9 +38,24 @@ export class SimulationCore {
     this.rng = new SeededRng(this.seed);
     this.world = new World(256, 256);
 
-    this.world.paintCircle(this.world.nestX + 70, this.world.nestY - 50, 14, (idx) => {
-      this.world.terrain[idx] = TERRAIN.HAZARD;
-    });
+    const wallCount = 6 + Math.floor(this.rng.next() * 5);
+    const margin = 10;
+    const nestClearRadius = 30;
+    for (let i = 0; i < wallCount; i++) {
+      let wx, wy, attempts = 0;
+      do {
+        wx = margin + Math.floor(this.rng.next() * (this.world.width - margin * 2));
+        wy = margin + Math.floor(this.rng.next() * (this.world.nestY - margin));
+        attempts++;
+      } while (
+        attempts < 20 &&
+        Math.hypot(wx - this.world.nestX, wy - this.world.nestY) < nestClearRadius
+      );
+      const r = 2 + Math.floor(this.rng.next() * 3);
+      this.world.paintCircle(wx, wy, r, (idx) => {
+        this.world.terrain[idx] = TERRAIN.WALL;
+      });
+    }
 
     this.world.setNest(this.world.nestX, this.world.nestY);
     this.colony = new Colony(this.world, this.rng, 80);
