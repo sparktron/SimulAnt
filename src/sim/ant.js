@@ -281,18 +281,20 @@ export class Ant {
       }
 
       const distToNest = context.entrance ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) : 0;
-      // Only deposit food pheromone when far enough from the entrance.
-      // Depositing all the way to the nest mouth creates a pheromone peak AT the
-      // entrance — outgoing foragers then follow the gradient back toward the nest
-      // instead of outward toward food.  Keeping the near-entrance zone dry lets
-      // the gradient point the right way: food source (strong) → entrance (weak).
-      const foodDepositMinDist = config.foodDepositMinDistFromEntrance ?? 15;
-      if (distToNest >= foodDepositMinDist) {
+      // Deposit food pheromone scaled by distance from the nest so the gradient
+      // naturally runs strong-at-food-source → weak-at-entrance.  A hard cutoff
+      // gets undermined by diffusion bleeding back in; a linear fade avoids the
+      // cliff and creates a smooth outward signal that foragers can follow.
+      // Trail amplification (1.25×) is only applied at full-strength zones so
+      // popular far-away corridors consolidate without pumping up the near-nest area.
+      const fadeMax = config.foodDepositFadeDistMax ?? 50;
+      const depositFraction = Math.min(1.0, distToNest / fadeMax);
+      const scaledDeposit = config.depositFood * depositFraction;
+      if (scaledDeposit > 1e-4) {
         const existingFood = world.toFood[context.idx];
-        const foodDeposit = config.depositFood;
-        const amplified = existingFood > 0.1
-          ? existingFood * 1.25 + foodDeposit
-          : existingFood + foodDeposit;
+        const amplified = (existingFood > 0.1 && depositFraction >= 0.8)
+          ? existingFood * 1.25 + scaledDeposit
+          : existingFood + scaledDeposit;
         world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, amplified);
       }
 
