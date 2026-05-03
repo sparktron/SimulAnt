@@ -507,9 +507,9 @@ export class Ant {
     }
 
     // Only scatter ants that are very close to the entrance AND not already
-    // on a food trail. Previously the scatter radius was 30 tiles, covering
-    // most of the foraging range and overriding pheromone following entirely —
-    // ants would drift randomly instead of walking the trail to the food source.
+    // on a food trail. A wider unconditional scatter covered most of the foraging
+    // range and overrode pheromone following entirely — ants would drift randomly
+    // instead of walking the trail to the food source.
     const distFromEntrance = context.entrance
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
       : 0;
