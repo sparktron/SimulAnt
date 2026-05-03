@@ -93,6 +93,7 @@ const state = {
     reversePenalty: 0.9,
     homeDepositIntervalTicks: 3,
     homeDepositMinDistance: 20,
+    innerScatterRadius: 20,
     nearEntranceScatterRadius: 25,
     foodTrailDecayPerStep: 0.92,
     maxFoodTrailScale: 4.0,
