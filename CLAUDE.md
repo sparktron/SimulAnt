@@ -6,6 +6,13 @@ See [AGENTS.md](AGENTS.md) for project-wide agent instructions (commands, patter
 
 **Commit immediately after every code change.** This is a hard project rule. Don't batch changes — commit each logical edit as soon as it's complete.
 
+**Bump the version on every code change.** Edit `VERSION` (repo root) using [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.PATCH`:
+- **PATCH** — backward-compatible bug fix (e.g. `0.1.0 → 0.1.1`)
+- **MINOR** — backward-compatible new feature or behavior (e.g. `0.1.0 → 0.2.0`)
+- **MAJOR** — incompatible change to a public API or saved-state format (e.g. `0.1.0 → 1.0.0`)
+
+Include the new version in the commit message (e.g. `fix(ant): clamp prevTurn — v0.1.1`). Pure docs or test-only changes do not require a version bump.
+
 **Dev server is pre-configured.** `.claude/launch.json` points to `node server.js` on port 8000. Use the built-in preview tools rather than manually managing the server process.
 
 **Verify UI changes in the browser preview** before reporting them complete. The simulation is canvas-rendered — type checking alone cannot confirm visual correctness. Use `preview_screenshot` or `preview_snapshot` as proof.

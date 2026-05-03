@@ -64,6 +64,12 @@ const evap = state.config.pheromoneEvapRate;
 
 **Always:**
 - Commit changes immediately after completing any code edit (project rule).
+- Bump `VERSION` (repo root) on every code change using Semantic Versioning (`MAJOR.MINOR.PATCH`):
+  - **PATCH** — backward-compatible bug fix
+  - **MINOR** — backward-compatible new feature or behavior
+  - **MAJOR** — incompatible change to public API or saved-state format
+  - Include the new version in the commit message, e.g. `fix(ant): clamp prevTurn — v0.1.1`
+  - Pure docs or test-only changes do not require a version bump
 - Use `SeededRng` for all in-simulation randomness.
 - Run `node --test test/*.mjs` before committing simulation or world changes.
 
