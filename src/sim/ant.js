@@ -423,6 +423,7 @@ export class Ant {
           this.carryingType = 'food';
           colony.removePelletById(visible.id);
           this.state = 'PICKUP';
+          this.#aimThetaAtEntrance(colony);
         }
       } else {
         this.state = this.#isLowHealth() ? 'SEEK_FOOD_HEAL' : 'GO_TO_FOOD';
@@ -453,6 +454,7 @@ export class Ant {
         this.carryingType = 'food';
         colony.removePelletById(onPellet.id);
         this.state = 'PICKUP';
+        this.#aimThetaAtEntrance(colony);
       }
       return didMove;
     }
@@ -638,6 +640,19 @@ export class Ant {
     const reverseDir = (this.dir + 4) % DIRS.length;
     const homeScentWeight = this.#getHomeScentWeight(config, entrance);
     const enforceEntranceCorridor = this.#isEntranceTransitState() && !!entrance;
+
+    // No-trail home fallback: if a food-laden ant is steering home but stands
+    // on a tile with negligible home pheromone, momentum (0.3) overwhelms the
+    // small homeTieBias (0.05) and the ant just continues whatever wander
+    // direction it had — often straight off the map. Bypass the weighted
+    // steering and head directly toward the entrance instead.
+    if (channel === 'home' && entrance && this.carrying?.type === 'food') {
+      const localHome = field[world.index(this.x, this.y)] ?? 0;
+      if (localHome < 0.05) {
+        return this.#moveToward(world, entrance.x, entrance.y, rng);
+      }
+    }
+
     const weights = [];
     let total = 0;
 
@@ -1073,6 +1088,12 @@ export class Ant {
     const entrance = colony?.nearestEntrance?.(this.x, this.y);
     if (!entrance) return 0;
     return Math.hypot(this.x - entrance.x, this.y - entrance.y);
+  }
+
+  #aimThetaAtEntrance(colony) {
+    const entrance = colony?.nearestEntrance?.(this.x, this.y);
+    if (!entrance) return;
+    this.theta = Math.atan2(entrance.y - this.y, entrance.x - this.x);
   }
 
   #entranceColumnOffset(radius) {
