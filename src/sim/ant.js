@@ -281,17 +281,20 @@ export class Ant {
       }
 
       const distToNest = context.entrance ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) : 0;
-      // Food-trail reinforcement: when a returning ant walks over an existing
-      // food trail, the pheromone is multiplied by 1.25× AND the normal deposit
-      // is added.  This makes popular trails grow exponentially stronger while
-      // unused branches fade away — a positive feedback loop that consolidates
-      // foraging traffic onto the best routes.
-      const existingFood = world.toFood[context.idx];
-      const foodDeposit = config.depositFood;
-      const amplified = existingFood > 0.1
-        ? existingFood * 1.25 + foodDeposit
-        : existingFood + foodDeposit;
-      world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, amplified);
+      // Only deposit food pheromone when far enough from the entrance.
+      // Depositing all the way to the nest mouth creates a pheromone peak AT the
+      // entrance — outgoing foragers then follow the gradient back toward the nest
+      // instead of outward toward food.  Keeping the near-entrance zone dry lets
+      // the gradient point the right way: food source (strong) → entrance (weak).
+      const foodDepositMinDist = config.foodDepositMinDistFromEntrance ?? 15;
+      if (distToNest >= foodDepositMinDist) {
+        const existingFood = world.toFood[context.idx];
+        const foodDeposit = config.depositFood;
+        const amplified = existingFood > 0.1
+          ? existingFood * 1.25 + foodDeposit
+          : existingFood + foodDeposit;
+        world.toFood[context.idx] = Math.min(config.pheromoneMaxClamp, amplified);
+      }
 
       // When reasonably close to nest, navigate directly; farther out, follow pheromone
       // with food-trail gravitation so returning ants reinforce existing trails
