@@ -109,7 +109,7 @@ const state = {
     homeScentMaxContributionPerStep: 999,
     homeTieBiasScale: 0.05,
     homeTieBiasScaleCarrying: 2.5,
-    returnCarryNoiseScale: 0.15,
+    returnCarryNoiseScale: 0.05,
     returnTrailBoostScale: 0.15,
     returnTrailBoostMax: 3.0,
     foodTieBiasScale: 0.18,
