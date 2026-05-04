@@ -67,10 +67,9 @@ export class Ant {
       case 'SEEK_QUEEN_FOOD':
         return '#ff1493';
 
-      // Idle/transit - gray
+      // Transit/exit - gray (IDLE is temporary departure stagger, should be brief)
       case 'IDLE':
       case 'EXIT_NEST':
-      case 'PATROL':
       default:
         return '#a0a0a0';
     }
