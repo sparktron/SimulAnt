@@ -763,7 +763,7 @@ export class Ant {
       const trailLockThreshold = config.trailLockThreshold ?? 1.0;
       const onClearTrail = !carryingFood && channel === 'food' && currentTrailValue > trailLockThreshold;
       const onWeakTrail = !carryingFood && channel === 'food' && currentTrailValue > 0.1;
-      const noiseReduction = carryingFood ? (config.returnCarryNoiseScale ?? 0.15) : onClearTrail ? 0.0 : onWeakTrail ? 0.25 : 1.0;
+      const noiseReduction = carryingFood ? 0.2 : onClearTrail ? 0.0 : onWeakTrail ? 0.25 : 1.0;
       const pherBoost = carryingFood && channel === 'home' ? 2.0 : 1.0;  // 2x home pheromone boost
 
       // Trail re-acquisition: if this ant was on a trail recently but lost it,
@@ -771,17 +771,6 @@ export class Ant {
       let reacquireBias = 0;
       if (!onWeakTrail && channel === 'food' && this._ticksSinceOnTrail < 5 && this._lastTrailDir >= 0) {
         reacquireBias = d === this._lastTrailDir ? 0.4 : 0;
-      }
-
-      // Trail-reinforcement gravitation: when returning with food, bias toward
-      // tiles that already have food pheromone so the ant walks along the
-      // existing trail corridor instead of creating a parallel path.
-      let trailAttraction = 0;
-      if (trailAttractionField) {
-        const attractValue = trailAttractionField[nidx] ?? 0;
-        if (attractValue > 0.1) {
-          trailAttraction = Math.min(attractValue * 0.3, 2.0);
-        }
       }
 
       const noise = rng.range(0, config.wanderNoise * noiseReduction);
@@ -801,11 +790,23 @@ export class Ant {
         headingContrib = Math.max(0, dot) * headingBias;
       }
 
+      // Trail corridor lock: when returning with food, multiply this candidate's
+      // weight by a boost proportional to the food trail value on that tile.
+      // Multiplicative so it scales with the dominant home-pheromone signal and
+      // always tips the balance toward the existing corridor over a blank tile.
+      let trailBoost = 1.0;
+      if (trailAttractionField) {
+        const tv = trailAttractionField[nidx] ?? 0;
+        if (tv > 0.1) {
+          trailBoost = 1.0 + Math.min(tv * (config.returnTrailBoostScale ?? 0.15), config.returnTrailBoostMax ?? 3.0);
+        }
+      }
+
       // Apply the directional multiplier to the steering signal so the gait
       // term overrides pheromone differences smaller than ~3×.  Reverse is
       // killed outright (mult=0); back-45° barely survives.  Penalties are
       // applied AFTER the multiplier so danger/reverse subtractions still bite.
-      const steerSignal = (boostedPherContribution + tieBias + reacquireBias + trailAttraction + headingContrib) * directionalMult;
+      const steerSignal = (boostedPherContribution + tieBias + reacquireBias + headingContrib) * directionalMult * trailBoost;
       const weight = Math.max(0, steerSignal + noise - reversePenalty - dangerPenalty - crowdingPenalty);
       weights.push({
         d,
