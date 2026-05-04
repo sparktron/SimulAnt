@@ -87,7 +87,7 @@ const state = {
     surfaceReturnToNestHungerThreshold: 0.6,  // Return after timeout with safety margin
     followAlpha: 1.5,
     followBeta: 8.0,
-    wanderNoise: 0.06,
+    wanderNoise: 0.02,
     randomTurnChance: 0.02,
     momentumBias: 0.3,
     reversePenalty: 0.9,

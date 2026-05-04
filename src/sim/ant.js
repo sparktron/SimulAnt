@@ -695,7 +695,22 @@ export class Ant {
       const pherContribution = channel === 'home'
         ? Math.min(uncappedPherContribution, config.homeScentMaxContributionPerStep ?? 999)
         : uncappedPherContribution;
-      const momentum = d === this.dir ? config.momentumBias : 0;
+      // Angular distance from the ant's last-moved direction.  delta=0 forward,
+      // 1 forward-45°, 2 sideways, 3 back-45°, 4 reverse.  Hard-block reverse so
+      // ants never flip 180°; strongly discourage back-diagonals.  Net effect:
+      // the candidate set is effectively forward, forward-45°, or sideways —
+      // a smooth gait instead of pheromone-driven jitter.
+      const delta = Math.min(
+        (d - this.dir + DIRS.length) % DIRS.length,
+        (this.dir - d + DIRS.length) % DIRS.length,
+      );
+      let directionalMult;
+      if (delta === 0) directionalMult = 1.6;        // forward
+      else if (delta === 1) directionalMult = 1.3;   // forward-45°
+      else if (delta === 2) directionalMult = 0.5;   // sideways
+      else if (delta === 3) directionalMult = 0.05;  // back-45°
+      else directionalMult = 0;                      // reverse — forbidden
+      const momentum = 0;
       const reversePenalty = d === reverseDir ? config.reversePenalty : 0;
 
       // Danger avoidance: reduce weight for tiles with danger pheromone.
@@ -786,7 +801,12 @@ export class Ant {
         headingContrib = Math.max(0, dot) * headingBias;
       }
 
-      const weight = Math.max(0, boostedPherContribution + momentum + tieBias + noise + reacquireBias + trailAttraction + headingContrib - reversePenalty - dangerPenalty - crowdingPenalty);
+      // Apply the directional multiplier to the steering signal so the gait
+      // term overrides pheromone differences smaller than ~3×.  Reverse is
+      // killed outright (mult=0); back-45° barely survives.  Penalties are
+      // applied AFTER the multiplier so danger/reverse subtractions still bite.
+      const steerSignal = (boostedPherContribution + tieBias + reacquireBias + trailAttraction + headingContrib) * directionalMult;
+      const weight = Math.max(0, steerSignal + noise - reversePenalty - dangerPenalty - crowdingPenalty);
       weights.push({
         d,
         w: weight,
