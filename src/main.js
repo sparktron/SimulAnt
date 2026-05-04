@@ -8,6 +8,7 @@ import { ViewManager, VIEW } from './ui/ViewManager.js';
 import { InputRouter } from './input/InputRouter.js';
 import { normalizeUnhandledRejectionReason, shouldReportFatalWindowError } from './ui/runtimeErrorGate.js';
 import { ColonyStatusPanel } from './ui/ColonyStatusPanel.js';
+import { ParameterEditor } from './ui/ParameterEditor.js';
 
 const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
@@ -44,12 +45,12 @@ const state = {
     evapDanger: 0.08,
     // Food diffusion is moderate so trails have a detectable width (ants
     // sense only 8 immediate neighbors) while still staying legible.
-    diffFood: 0.01,
-    diffHome: 0.052,
+    diffFood: 0.02,
+    diffHome: 0.18,
     diffDanger: 0.12,
     diffIntervalTicks: 2,
     depositFood: 0.35,
-    depositHome: 0.27,
+    depositHome: 0.15,
     dangerDeposit: 0.3,
     hazardDeathChance: 0.02,
     foodPickupRate: 0.7,
@@ -109,8 +110,8 @@ const state = {
     homeScentMaxContributionPerStep: 999,
     homeTieBiasScale: 0.05,
     homeTieBiasScaleCarrying: 2.5,
-    returnCarryNoiseScale: 0.01,
-    returnTrailBoostScale: 0.6,
+    returnCarryNoiseScale: 0.05,
+    returnTrailBoostScale: 0.15,
     returnTrailBoostMax: 3.0,
     foodTieBiasScale: 0.18,
     debugSteeringContributions: false,
@@ -276,6 +277,35 @@ const colonyStatusPanel = new ColonyStatusPanel({
     applyColonyStatusToConfig();
   },
 });
+
+// Initialize parameter editor
+const parameterEditor = new ParameterEditor('#parameterEditorContainer', state, () => {
+  // Parameters are already mutated in state.config, just ensure they're sanitized
+  sanitizeTickConfig(state.config);
+});
+
+// Setup tab switching
+function switchTab(tabName) {
+  const statsView = document.getElementById('statsView');
+  const paramsView = document.getElementById('paramsView');
+  const statsBtn = document.getElementById('statsTabBtn');
+  const paramsBtn = document.getElementById('paramsTabBtn');
+
+  if (tabName === 'stats') {
+    statsView.classList.add('active');
+    paramsView.classList.remove('active');
+    statsBtn.classList.add('active');
+    paramsBtn.classList.remove('active');
+  } else if (tabName === 'params') {
+    statsView.classList.remove('active');
+    paramsView.classList.add('active');
+    statsBtn.classList.remove('active');
+    paramsBtn.classList.add('active');
+  }
+}
+
+document.getElementById('statsTabBtn').addEventListener('click', () => switchTab('stats'));
+document.getElementById('paramsTabBtn').addEventListener('click', () => switchTab('params'));
 
 window.addEventListener('resize', () => {
   surfaceRenderer.resize();

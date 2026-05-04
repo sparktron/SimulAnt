@@ -202,6 +202,168 @@
         font-size: 11px;
       }
 
+      .hud-tabs {
+        display: flex;
+        gap: 2px;
+        flex-shrink: 0;
+        border-bottom: 2px inset #aaa;
+        padding-bottom: 2px;
+      }
+
+      .hud-tab-btn {
+        flex: 1;
+        border: 2px outset #ccc;
+        background: #d0d0d0;
+        padding: 2px 4px;
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: bold;
+        cursor: pointer;
+        text-align: center;
+      }
+      .hud-tab-btn:active { border-style: inset; }
+      .hud-tab-btn.active { border-style: inset; background: #c0c0c0; }
+
+      .hud-view {
+        display: none;
+        overflow-y: auto;
+        min-height: 0;
+        flex: 1;
+      }
+      .hud-view.active { display: flex; flex-direction: column; }
+
+      .parameter-editor {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 10px;
+      }
+
+      .preset-controls {
+        display: flex;
+        gap: 2px;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+        padding-bottom: 2px;
+        border-bottom: 1px solid #999;
+      }
+
+      .preset-controls label {
+        font-size: 9px;
+        white-space: nowrap;
+      }
+
+      .preset-controls select {
+        font-family: inherit;
+        font-size: 9px;
+        padding: 2px;
+        flex: 1;
+        min-width: 60px;
+      }
+
+      .preset-controls button {
+        padding: 2px 4px;
+        font-family: inherit;
+        font-size: 9px;
+        border: 1px outset #999;
+        background: #d0d0d0;
+        cursor: pointer;
+      }
+      .preset-controls button:active { border-style: inset; }
+
+      .preset-controls .reset-btn {
+        background: #ffc0c0;
+      }
+
+      .advanced-toggle {
+        display: flex;
+        gap: 2px;
+        align-items: center;
+        padding: 2px 0;
+        border-bottom: 1px solid #999;
+        flex-shrink: 0;
+      }
+
+      .advanced-toggle input {
+        cursor: pointer;
+      }
+
+      .advanced-toggle label {
+        cursor: pointer;
+        font-size: 9px;
+      }
+
+      .parameter-group {
+        border: 1px solid #999;
+        flex-shrink: 0;
+      }
+
+      .group-header {
+        background: #d0d0d0;
+        border-bottom: 1px solid #999;
+        padding: 2px 4px;
+        cursor: pointer;
+        user-select: none;
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        font-weight: bold;
+        font-size: 9px;
+      }
+
+      .group-header:hover {
+        background: #e0e0e0;
+      }
+
+      .expand-arrow {
+        display: inline-block;
+        width: 8px;
+        text-align: center;
+      }
+
+      .group-content {
+        padding: 2px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        background: #f5f5f5;
+      }
+
+      .parameter-item {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        padding: 2px;
+        border: 1px solid #ddd;
+        background: #fff;
+      }
+
+      .param-label {
+        font-size: 8px;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .param-input-container {
+        display: flex;
+        gap: 2px;
+        align-items: center;
+      }
+
+      .param-slider {
+        flex: 1;
+        height: 16px;
+        cursor: pointer;
+      }
+
+      .param-input {
+        width: 50px;
+        font-family: inherit;
+        font-size: 9px;
+        padding: 2px;
+        border: 1px solid #999;
+      }
+
       #versionLabel {
         position: fixed;
         bottom: 4px;
@@ -270,25 +432,36 @@
         </main>
 
         <aside class="right-panel">
-          <div class="minimap">MINI MAP<br /><small>(active view only)</small></div>
-          <div class="stat-lines">
-            <p>TICK: <span id="hudTick">0</span></p>
-            <p>ANTS: <span id="hudAnts">0</span> <span id="hudAntLocation" style="font-size:11px; opacity:0.7"></span></p>
-            <p>FOOD: <span id="hudFood">0</span></p>
-            <p>WORKERS: <span id="hudWorkers">0</span></p>
-            <p>SOLDIERS: <span id="hudSoldiers">0</span></p>
-            <p>BREEDERS: <span id="hudBreeders">0</span></p>
-            <p>NURSES: <span id="hudNurses">0</span></p>
-            <p>FORAGERS: <span id="hudForagers">0</span></p>
-            <p>DIGGERS: <span id="hudDiggers">0</span></p>
-            <p>JOBS F/D/N: <span id="hudJobs">0 / 0 / 0</span></p>
-            <p>QUEEN HP: <span id="hudQueenHealth">0.0</span></p>
-            <p>FPS: <span id="hudFps">0</span></p>
-            <p>DIG: <span id="hudDig">AUTO-DIG: OFF</span></p>
-            <p>PHER MAX: <span id="hudPherMax">F:0.00 H:0.00</span></p>
-            <p>PHER AVG: <span id="hudPherAvg">F:0.00 H:0.00</span></p>
-            <p>FOLLOW: <span id="hudFollow">F:0 H:0</span></p>
-            <p>HEALTH: <span id="hudHealthStats">MIN:0.0 AVG:0.0 MAX:0.0</span></p>
+          <div class="hud-tabs">
+            <button id="statsTabBtn" class="hud-tab-btn active" data-tab="stats">STATS</button>
+            <button id="paramsTabBtn" class="hud-tab-btn" data-tab="params">PARAMS</button>
+          </div>
+
+          <div id="statsView" class="hud-view active">
+            <div class="minimap">MINI MAP<br /><small>(active view only)</small></div>
+            <div class="stat-lines">
+              <p>TICK: <span id="hudTick">0</span></p>
+              <p>ANTS: <span id="hudAnts">0</span> <span id="hudAntLocation" style="font-size:11px; opacity:0.7"></span></p>
+              <p>FOOD: <span id="hudFood">0</span></p>
+              <p>WORKERS: <span id="hudWorkers">0</span></p>
+              <p>SOLDIERS: <span id="hudSoldiers">0</span></p>
+              <p>BREEDERS: <span id="hudBreeders">0</span></p>
+              <p>NURSES: <span id="hudNurses">0</span></p>
+              <p>FORAGERS: <span id="hudForagers">0</span></p>
+              <p>DIGGERS: <span id="hudDiggers">0</span></p>
+              <p>JOBS F/D/N: <span id="hudJobs">0 / 0 / 0</span></p>
+              <p>QUEEN HP: <span id="hudQueenHealth">0.0</span></p>
+              <p>FPS: <span id="hudFps">0</span></p>
+              <p>DIG: <span id="hudDig">AUTO-DIG: OFF</span></p>
+              <p>PHER MAX: <span id="hudPherMax">F:0.00 H:0.00</span></p>
+              <p>PHER AVG: <span id="hudPherAvg">F:0.00 H:0.00</span></p>
+              <p>FOLLOW: <span id="hudFollow">F:0 H:0</span></p>
+              <p>HEALTH: <span id="hudHealthStats">MIN:0.0 AVG:0.0 MAX:0.0</span></p>
+            </div>
+          </div>
+
+          <div id="paramsView" class="hud-view">
+            <div id="parameterEditorContainer"></div>
           </div>
         </aside>
       </div>
