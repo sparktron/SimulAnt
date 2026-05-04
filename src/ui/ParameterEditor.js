@@ -167,9 +167,25 @@ export class ParameterEditor {
     const paramDiv = document.createElement('div');
     paramDiv.className = 'parameter-item';
 
+    // Label with help icon
+    const labelContainer = document.createElement('div');
+    labelContainer.className = 'param-label-container';
+
     const label = document.createElement('label');
     label.className = 'param-label';
     label.textContent = param.label;
+
+    // Add help icon if description exists
+    if (param.description) {
+      const helpIcon = document.createElement('span');
+      helpIcon.className = 'param-help-icon';
+      helpIcon.textContent = '?';
+      helpIcon.title = param.description;
+      labelContainer.appendChild(label);
+      labelContainer.appendChild(helpIcon);
+    } else {
+      labelContainer.appendChild(label);
+    }
 
     const inputContainer = document.createElement('div');
     inputContainer.className = 'param-input-container';
@@ -208,7 +224,7 @@ export class ParameterEditor {
     inputContainer.appendChild(slider);
     inputContainer.appendChild(input);
 
-    paramDiv.appendChild(label);
+    paramDiv.appendChild(labelContainer);
     paramDiv.appendChild(inputContainer);
 
     return paramDiv;
