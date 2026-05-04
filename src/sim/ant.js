@@ -76,11 +76,14 @@ export class Ant {
       case 'NURSE':
         return '#66ff99';
 
-      // Transit/exit - gray (IDLE is temporary departure stagger, should be brief)
-      case 'IDLE':
+      // Leaving nest - light gray
       case 'EXIT_NEST':
+        return '#d3d3d3';
+
+      // Fallback/other - dark gray
+      case 'IDLE':
       default:
-        return '#a0a0a0';
+        return '#808080';
     }
   }
 
