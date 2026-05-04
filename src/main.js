@@ -97,6 +97,7 @@ const state = {
     nearEntranceScatterRadius: 8,
     foodTrailDistanceScale: 1.0,
     maxFoodTrailScale: 3.0,
+    trailLockThreshold: 1.0,
     foodTrailDecayPerStep: 0.92,
     maxFoodTrailScale: 4.0,
     homeScentBaseWeight: 1.0,

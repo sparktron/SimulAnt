@@ -293,10 +293,11 @@ export class Ant {
         world.toFood[context.idx] + config.depositFood * trailScale,
       );
 
-      // When reasonably close to nest, navigate directly; farther out, follow pheromone
-      // with food-trail gravitation so returning ants reinforce existing trails
-      // rather than carving new paths.
-      if (distToNest < 40 && context.entrance) {
+      // Follow the existing food trail back to the nest so all returners share
+      // a single corridor instead of cutting their own diagonal shortcuts.
+      // Only switch to direct shaft entry when right at the entrance mouth.
+      const entranceShaftRadius = (context.entrance?.radius ?? 1) + 2;
+      if (distToNest < entranceShaftRadius && context.entrance) {
         didMove = this.#moveThroughEntranceShaft(
           world,
           context.entrance,
@@ -494,10 +495,14 @@ export class Ant {
 
     this.state = 'FORAGE_SEARCH';
     // Advance the persistent heading (this.theta) via correlated random walk.
-    // The heading then steers #moveByPheromone through the headingBias weight
-    // term; this.dir stays on the actual last-moved direction for momentum/
-    // reversal-penalty correctness.
-    this.#updateWanderHeading(rng, world, config);
+    // Skip the update when the ant is on a strong food trail — its theta
+    // shouldn't keep drifting against pheromone steering, otherwise the
+    // headingBias term injects sporadic course changes on a clear trail.
+    const trailAtAnt = world.toFood[context.idx] ?? 0;
+    const onClearTrail = trailAtAnt > (config.trailLockThreshold ?? 1.0);
+    if (!onClearTrail) {
+      this.#updateWanderHeading(rng, world, config);
+    }
     // Home pheromone is meant to be a *gradient toward the entrance*, not a
     // uniform background. If searching ants paint it everywhere they wander,
     // diffusion saturates the foraging area and the gradient flattens — which
@@ -646,7 +651,14 @@ export class Ant {
     // and head directly toward the entrance via greedy descent.
     const carryingFoodReturn = channel === 'home' && !!entrance && this.carrying?.type === 'food';
     const localHomeAtAnt = carryingFoodReturn ? (field[world.index(this.x, this.y)] ?? 0) : 0;
-    if (carryingFoodReturn && localHomeAtAnt < 0.5) {
+    const localFoodTrailAtAnt = carryingFoodReturn
+      ? (world.toFood[world.index(this.x, this.y)] ?? 0)
+      : 0;
+    // Only fall back to greedy direct-to-entrance when BOTH the home gradient
+    // and the food trail are absent.  Otherwise let the weighted steering
+    // (which uses world.toFood as trailAttractionField) keep returners on the
+    // existing corridor — preventing the diagonal shortcut + bottom-row swarm.
+    if (carryingFoodReturn && localHomeAtAnt < 0.5 && localFoodTrailAtAnt < 0.5) {
       return this.#moveToward(world, entrance.x, entrance.y, rng);
     }
 
@@ -719,10 +731,14 @@ export class Ant {
 
       // Reduce wander noise when the ant is already locked onto a trail so it
       // follows pheromone all the way to the source instead of drifting off.
+      // Strong-trail noise is essentially zero so foragers walk a clean line
+      // along the corridor instead of jittering off and on it every few ticks.
       const carryingFood = this.carrying?.type === 'food';
       const currentTrailValue = field[world.index(this.x, this.y)] ?? 0;
-      const onStrongTrail = !carryingFood && channel === 'food' && currentTrailValue > 0.1;
-      const noiseReduction = carryingFood ? 0.2 : onStrongTrail ? 0.25 : 1.0;
+      const trailLockThreshold = config.trailLockThreshold ?? 1.0;
+      const onClearTrail = !carryingFood && channel === 'food' && currentTrailValue > trailLockThreshold;
+      const onWeakTrail = !carryingFood && channel === 'food' && currentTrailValue > 0.1;
+      const noiseReduction = carryingFood ? 0.2 : onClearTrail ? 0.0 : onWeakTrail ? 0.25 : 1.0;
       const pherBoost = carryingFood && channel === 'home' ? 2.0 : 1.0;  // 2x home pheromone boost
 
       // Trail re-acquisition: if this ant was on a trail recently but lost it,
