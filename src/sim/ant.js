@@ -101,7 +101,7 @@ export class Ant {
       dig: 5.0,
       fight: 7.0,
     };
-    this.state = 'IDLE';
+    this.state = role === 'soldier' ? 'PATROL' : 'FORAGE_SEARCH';
     this.carrying = null;
     this.carryingType = 'none';
     this.baseColor = Ant.getDefaultBaseColor(role);
@@ -384,12 +384,11 @@ export class Ant {
 
       // Stagger departures: after eating, wait a random delay before leaving
       // so ants don't all rush the entrance at once.
+      this.state = 'EXIT_NEST';
       if (this._nestDepartureDelay > 0) {
         this._nestDepartureDelay -= 1;
-        this.state = 'IDLE';
         return false;
       }
-      this.state = 'EXIT_NEST';
       const exitTargetY = context.entrance.y - 1;
       // Scatter exits along a wider band so foragers fan out instead of
       // clustering at the same few tiles.  Uses double the entrance radius
