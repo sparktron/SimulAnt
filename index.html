@@ -433,6 +433,44 @@
         border: 1px solid #333;
         z-index: 10;
       }
+
+      #jobLegend {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        background: rgba(0, 0, 0, 0.85);
+        border: 2px solid #ccc;
+        padding: 6px 10px;
+        font-size: 10px;
+        font-family: 'Courier New', monospace;
+        color: #fff;
+        z-index: 100;
+        display: none;
+        min-width: 140px;
+      }
+
+      #jobLegend.active {
+        display: block;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+        white-space: nowrap;
+      }
+
+      .legend-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .legend-color {
+        width: 12px;
+        height: 12px;
+        border: 1px solid #666;
+        flex-shrink: 0;
+      }
     </style>
   </head>
   <body>
@@ -488,6 +526,15 @@
 
         <main class="playfield">
           <span id="modeIndicator" style="display:none">SURFACE</span>
+          <div id="jobLegend">
+            <div class="legend-item"><div class="legend-color" style="background: #ffd700;"></div><span>Forage</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #00d4ff;"></div><span>Return</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #00ff00;"></div><span>Eat</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #ff8c00;"></div><span>Haul</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #ff1493;"></div><span>Queen</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #9a5aff;"></div><span>Patrol</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #a0a0a0;"></div><span>Idle</span></div>
+          </div>
           <canvas id="simCanvas" width="960" height="640"></canvas>
         </main>
 

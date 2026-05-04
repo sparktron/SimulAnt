@@ -87,6 +87,8 @@ export function createControls(state, actions) {
   });
   jobsBtn.addEventListener('click', () => {
     state.overlays.showAntJobs = !state.overlays.showAntJobs;
+    const legend = byId('jobLegend');
+    legend.classList.toggle('active', state.overlays.showAntJobs);
   });
   byId('closeHelpBtn').addEventListener('click', () => helpPanel.close());
 
@@ -125,6 +127,8 @@ export function createControls(state, actions) {
       state.overlays.showDanger = !state.overlays.showDanger;
     } else if (event.key.toLowerCase() === 'j') {
       state.overlays.showAntJobs = !state.overlays.showAntJobs;
+      const legend = byId('jobLegend');
+      legend.classList.toggle('active', state.overlays.showAntJobs);
     } else if (event.code === 'F3') {
       event.preventDefault();
       if (actions.toggleDebugStats) actions.toggleDebugStats();
