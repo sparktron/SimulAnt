@@ -744,7 +744,7 @@ export class Ant {
       // Trail re-acquisition: if this ant was on a trail recently but lost it,
       // bias toward the last known trail direction for a few ticks.
       let reacquireBias = 0;
-      if (!onStrongTrail && channel === 'food' && this._ticksSinceOnTrail < 5 && this._lastTrailDir >= 0) {
+      if (!onWeakTrail && channel === 'food' && this._ticksSinceOnTrail < 5 && this._lastTrailDir >= 0) {
         reacquireBias = d === this._lastTrailDir ? 0.4 : 0;
       }
 
