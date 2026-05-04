@@ -1,4 +1,5 @@
 import { TERRAIN } from '../sim/world.js';
+import { Ant } from '../sim/ant.js';
 
 /**
  * Nest Renderer -- Side-view 2D cross-section of the underground nest.
@@ -61,7 +62,7 @@ export class NestRenderer {
     return { x, y };
   }
 
-  draw(colony, options = {}) {
+  draw(colony, overlays = {}, options = {}) {
     this.#enforceNestViewBounds();
     const { ctx } = this;
     const cw = this.canvas.clientWidth;
@@ -78,7 +79,7 @@ export class NestRenderer {
     this.#drawTerrain(ctx);
     this.#drawNestFood(ctx, colony);
     this.#drawEggs(ctx, colony);
-    this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats, options.showQueenMarker);
+    this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats, options.showQueenMarker, overlays);
 
     ctx.restore();
   }
@@ -260,7 +261,7 @@ export class NestRenderer {
   /* ------------------------------------------------------------------
    * Entities: underground ants + optional queen marker.
    * ----------------------------------------------------------------*/
-  #drawAnts(ctx, colony, selectedAntId, showDebugStats, showQueenMarker = false) {
+  #drawAnts(ctx, colony, selectedAntId, showDebugStats, showQueenMarker = false, overlays = {}) {
     const { world } = this;
     const halfViewW = this.canvas.clientWidth / this.zoom * 0.5;
     const halfViewH = this.canvas.clientHeight / this.zoom * 0.5;
@@ -279,7 +280,7 @@ export class NestRenderer {
       if (ant.y <= world.nestY && !antInCarvedNest) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       const drawY = ant.y;
-      ctx.fillStyle = ant.baseColor;
+      ctx.fillStyle = overlays.showAntJobs ? Ant.getJobColor(ant.state, ant.workFocus, ant.role) : ant.baseColor;
       ctx.fillRect(ant.x, drawY, 1, 1);
 
       const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');

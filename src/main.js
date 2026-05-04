@@ -389,7 +389,7 @@ function loop(now) {
           cursor: state.cursor.surface,
         });
       } else {
-        nestRenderer.draw(simCore.colony, {
+        nestRenderer.draw(simCore.colony, state.overlays, {
           selectedAntId: state.selectedAntId,
           showDebugStats: state.debug.showStats,
           showQueenMarker: state.debug.showQueenMarker,

@@ -67,6 +67,15 @@ export class Ant {
       case 'SEEK_QUEEN_FOOD':
         return '#ff1493';
 
+      // Digging - red/brown
+      case 'DIG':
+      case 'FORCE_DIG':
+        return '#d2691e';
+
+      // Nursing - light green/mint
+      case 'NURSE':
+        return '#66ff99';
+
       // Transit/exit - gray (IDLE is temporary departure stagger, should be brief)
       case 'IDLE':
       case 'EXIT_NEST':
