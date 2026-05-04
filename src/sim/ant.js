@@ -763,7 +763,7 @@ export class Ant {
       const trailLockThreshold = config.trailLockThreshold ?? 1.0;
       const onClearTrail = !carryingFood && channel === 'food' && currentTrailValue > trailLockThreshold;
       const onWeakTrail = !carryingFood && channel === 'food' && currentTrailValue > 0.1;
-      const noiseReduction = carryingFood ? 0.2 : onClearTrail ? 0.0 : onWeakTrail ? 0.25 : 1.0;
+      const noiseReduction = carryingFood ? (config.returnCarryNoiseScale ?? 0.15) : onClearTrail ? 0.0 : onWeakTrail ? 0.25 : 1.0;
       const pherBoost = carryingFood && channel === 'home' ? 2.0 : 1.0;  // 2x home pheromone boost
 
       // Trail re-acquisition: if this ant was on a trail recently but lost it,
