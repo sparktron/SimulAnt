@@ -25,6 +25,7 @@ export function createControls(state, actions) {
   const loadBtn = byId('loadBtn');
   const clearBtn = byId('clearBtn');
   const scentBtn = byId('scentBtn');
+  const jobsBtn = byId('jobsBtn');
   const helpPanel = byId('helpPanel');
 
   startPauseBtn.addEventListener('click', () => {
@@ -84,6 +85,9 @@ export function createControls(state, actions) {
   scentBtn.addEventListener('click', () => {
     if (actions.toggleScentOverlay) actions.toggleScentOverlay();
   });
+  jobsBtn.addEventListener('click', () => {
+    state.overlays.showAntJobs = !state.overlays.showAntJobs;
+  });
   byId('closeHelpBtn').addEventListener('click', () => helpPanel.close());
 
   document.addEventListener('keydown', (event) => {
@@ -119,6 +123,8 @@ export function createControls(state, actions) {
       state.overlays.showToHome = !state.overlays.showToHome;
     } else if (event.key.toLowerCase() === 'd') {
       state.overlays.showDanger = !state.overlays.showDanger;
+    } else if (event.key.toLowerCase() === 'j') {
+      state.overlays.showAntJobs = !state.overlays.showAntJobs;
     } else if (event.code === 'F3') {
       event.preventDefault();
       if (actions.toggleDebugStats) actions.toggleDebugStats();

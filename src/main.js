@@ -30,6 +30,7 @@ const state = {
     showToHome: false,
     showDanger: false,
     showScent: true,
+    showAntJobs: false,
   },
   debug: {
     showEntranceInfo: false,

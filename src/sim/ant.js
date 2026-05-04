@@ -34,6 +34,48 @@ export class Ant {
     return '#d93828';
   }
 
+  static getJobColor(state, workFocus, role = 'worker') {
+    if (role === 'soldier') return '#9a5aff';  // Bright purple for soldiers
+
+    switch (state) {
+      // Foraging jobs - gold/yellow
+      case 'FORAGE_SEARCH':
+      case 'GO_TO_FOOD':
+      case 'SEEK_FOOD_HEAL':
+        return '#ffd700';
+
+      // Returning home - cyan/light blue
+      case 'RETURN_HOME':
+      case 'RETURN_NEST_TO_EAT':
+      case 'RETURN_TO_NEST_HEAL':
+        return '#00d4ff';
+
+      // Eating/feeding - green
+      case 'EAT':
+        return '#00ff00';
+
+      // Hauling/storing - orange
+      case 'HAUL_DIRT':
+      case 'STORE_FOOD_IN_NEST':
+      case 'PICKUP':
+        return '#ff8c00';
+
+      // Queen-related jobs - magenta/hot pink
+      case 'FEED_QUEEN':
+      case 'DELIVER_QUEEN_FOOD':
+      case 'PICKUP_QUEEN_FOOD':
+      case 'SEEK_QUEEN_FOOD':
+        return '#ff1493';
+
+      // Idle/transit - gray
+      case 'IDLE':
+      case 'EXIT_NEST':
+      case 'PATROL':
+      default:
+        return '#a0a0a0';
+    }
+  }
+
   constructor(x, y, rng, role = 'worker') {
     this.id = `ant-${Math.floor(rng.range(0, 1e9))}`;
     this.x = x;

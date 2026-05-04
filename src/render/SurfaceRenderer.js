@@ -1,5 +1,6 @@
 import { TERRAIN } from '../sim/world.js';
 import { drawSoilMound } from './soilMound.js';
+import { Ant } from '../sim/ant.js';
 
 export function normalizeSurfaceTerrain(terrain) {
   return terrain === TERRAIN.SOIL || terrain === TERRAIN.TUNNEL ? TERRAIN.GROUND : terrain;
@@ -72,7 +73,7 @@ export class SurfaceRenderer {
     this.#drawTerrain(ctx, overlays);
     this.#drawFoodPellets(ctx, foodPellets);
     this.#drawEntranceMounds(ctx, nestEntrances);
-    this.#drawAnts(ctx, colony, nestEntrances, options.selectedAntId, options.showDebugStats);
+    this.#drawAnts(ctx, colony, nestEntrances, options.selectedAntId, options.showDebugStats, overlays);
     if (options.showDebugStats && options.cursor) this.#drawCursorDebug(ctx, options.cursor);
     if (options.showEntranceInfo) this.#drawEntranceDebug(ctx, nestEntrances);
 
@@ -173,7 +174,7 @@ export class SurfaceRenderer {
     for (const entrance of nestEntrances) drawSoilMound(ctx, entrance);
   }
 
-  #drawAnts(ctx, colony, nestEntrances, selectedAntId, showDebugStats) {
+  #drawAnts(ctx, colony, nestEntrances, selectedAntId, showDebugStats, overlays = {}) {
     const { world } = this;
     const halfViewW = this.canvas.clientWidth / this.zoom * 0.5;
     const halfViewH = this.canvas.clientHeight / this.zoom * 0.5;
@@ -197,7 +198,7 @@ export class SurfaceRenderer {
       const belowEntranceMouth = nearestEntrance ? ant.y > nearestEntrance.y : false;
       if (ant.y > world.nestY || antInCarvedNest || belowEntranceMouth) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
-      ctx.fillStyle = ant.baseColor;
+      ctx.fillStyle = overlays.showAntJobs ? Ant.getJobColor(ant.state, ant.workFocus, ant.role) : ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
 
       const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');
