@@ -512,9 +512,19 @@ export class Ant {
     const distToEntranceForDeposit = context.entrance
       ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
       : 0;
-    if (this.stepCounter % config.homeDepositIntervalTicks === 0
-        && distToEntranceForDeposit < (config.homeDepositMinDistance ?? 20)) {
-      world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome);
+    // Home deposit scales INVERSELY with distance from the entrance: full
+    // strength at the mouth, zero at homeDepositMinDistance. Without the fade,
+    // foragers walking the consolidated food corridor outward dump uniform
+    // home pheromone along it, creating a ridge that PEAKS away from the
+    // entrance — returners then climb that ridge backwards into the corridor.
+    // The fade guarantees a strict gradient pointing toward the entrance.
+    const homeFadeRadius = config.homeDepositMinDistance ?? 20;
+    const homeDepositFraction = Math.max(0, 1 - distToEntranceForDeposit / homeFadeRadius);
+    if (this.stepCounter % config.homeDepositIntervalTicks === 0 && homeDepositFraction > 0.01) {
+      world.toHome[context.idx] = Math.min(
+        config.pheromoneMaxClamp,
+        world.toHome[context.idx] + config.depositHome * homeDepositFraction,
+      );
     }
 
     const distFromEntrance = context.entrance
