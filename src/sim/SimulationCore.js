@@ -133,6 +133,8 @@ export class SimulationCore {
       // also conceptually live in the nest's horizon strip.
       const y = Math.max(0, Math.min(this.world.nestY - 1, Math.round(centerY + Math.sin(theta) * r)));
       if (!this.world.inBounds(x, y)) continue;
+      const idx = this.world.index(x, y);
+      if (this.world.terrain[idx] === TERRAIN.WALL) continue;
       this.foodPellets.push(new FoodPellet(`pellet-${this.nextPelletId++}`, x, y, DEFAULT_PELLET_NUTRITION));
     }
   }
