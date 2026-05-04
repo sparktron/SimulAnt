@@ -259,6 +259,8 @@ export class ParameterEditor {
       if (this.onConfigChange) {
         this.onConfigChange();
       }
+      // Re-render to update all sliders and inputs
+      this.render();
       // Reset the select
       document.getElementById('presetSelect').value = '';
     }
@@ -274,6 +276,7 @@ export class ParameterEditor {
       if (this.onConfigChange) {
         this.onConfigChange();
       }
+      // Re-render to update all sliders and inputs
       this.render();
     }
   }
