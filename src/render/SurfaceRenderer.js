@@ -212,13 +212,16 @@ export class SurfaceRenderer {
     const maxY = this.cameraY + halfViewH + 1;
 
     ctx.font = '2.8px monospace';
+    const terrain = world.terrain;
+    const worldW = world.width;
+    const nestY = world.nestY;
     for (const ant of colony.ants) {
-      const antTerrain = world.terrain?.[world.index(ant.x, ant.y)];
-      const antInCarvedNest = antTerrain === TERRAIN.TUNNEL || antTerrain === TERRAIN.CHAMBER;
-      const nearestEntrance = this._entranceCache.get(ant.id) || null;
-      const belowEntranceMouth = nearestEntrance ? ant.y > nearestEntrance.y : false;
-      if (ant.y > world.nestY || antInCarvedNest || belowEntranceMouth) continue;
+      if (ant.y > nestY) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
+      const antTerrain = terrain ? terrain[ant.y * worldW + ant.x] : undefined;
+      if (antTerrain === TERRAIN.TUNNEL || antTerrain === TERRAIN.CHAMBER) continue;
+      const nearestEntrance = this._entranceCache.get(ant.id);
+      if (nearestEntrance && ant.y > nearestEntrance.y) continue;
       ctx.fillStyle = overlays.showAntJobs ? Ant.getJobColor(ant.state, ant.workFocus, ant.role) : ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
 
