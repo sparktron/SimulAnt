@@ -222,7 +222,12 @@ export class SurfaceRenderer {
       if (antTerrain === TERRAIN.TUNNEL || antTerrain === TERRAIN.CHAMBER) continue;
       const nearestEntrance = this._entranceCache.get(ant.id);
       if (nearestEntrance && ant.y > nearestEntrance.y) continue;
-      ctx.fillStyle = overlays.showAntJobs ? Ant.getJobColor(ant.state, ant.workFocus, ant.role) : ant.baseColor;
+      if (overlays.showAntJobs && (ant.state !== ant._cachedJobState || ant.workFocus !== ant._cachedJobWorkFocus)) {
+        ant.jobColor = Ant.getJobColor(ant.state, ant.workFocus, ant.role);
+        ant._cachedJobState = ant.state;
+        ant._cachedJobWorkFocus = ant.workFocus;
+      }
+      ctx.fillStyle = overlays.showAntJobs ? ant.jobColor : ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
 
       const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');

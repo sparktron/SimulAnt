@@ -51,6 +51,7 @@ export class Colony {
     this._digFronts = [];  // active dig front positions, set by DigSystem each tick
     this._nestFoodTiles = new Set();  // occupied nest food tile keys: "x,y"
     this._virtualFoodStored = 0;  // bootstrap food not backed by physical pellets
+    this._aliveWorkerCount = 0;  // cache of alive worker count, updated each tick
 
     // Spawn initial ants with some soldiers for visual distinction
     const soldierCount = Math.round(initialAnts * 0.15);  // 15% soldiers
@@ -147,9 +148,11 @@ export class Colony {
     }
 
     let write = 0;
+    this._aliveWorkerCount = 0;
     for (let read = 0; read < this.ants.length; read += 1) {
       if (this.ants[read].alive) {
         this.ants[write] = this.ants[read];
+        if (this.ants[write].role === 'worker') this._aliveWorkerCount += 1;
         write += 1;
       }
     }

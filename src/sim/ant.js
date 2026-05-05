@@ -109,6 +109,9 @@ export class Ant {
     this.carryingType = 'none';
     this.baseColor = Ant.getDefaultBaseColor(role);
     this.originalBaseColor = this.baseColor;
+    this.jobColor = Ant.getJobColor(this.state, 'forage', role);
+    this._cachedJobState = this.state;
+    this._cachedJobWorkFocus = 'forage';
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;

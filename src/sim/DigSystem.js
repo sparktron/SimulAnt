@@ -34,7 +34,7 @@ export class DigSystem {
   }
 
   update(config) {
-    const workerCount = this.colony.ants.filter((ant) => ant.role === 'worker' && ant.alive).length;
+    const workerCount = this.colony._aliveWorkerCount || 0;
     if (!this.autoDig && workerCount === 0) return;
     if (this.fronts.length === 0) this.#seedInitialFronts();
 
