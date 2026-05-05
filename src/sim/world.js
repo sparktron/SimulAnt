@@ -175,14 +175,15 @@ export class World {
     const w = this.width;
     const h = this.height;
 
-    // Combined evaporation + diffusion using discrete diffusion equation
-    const lambda = Math.max(0, evaporationLambda) * dt;  // evaporation per tick
-    const D = Math.max(0, diffusionRate) / 4;            // diffusion coefficient (normalized for 4-neighbor)
+    const lambda = Math.max(0, evaporationLambda) * dt;
+    const D = Math.max(0, diffusionRate) / 4;
 
-    // Stability check: 4D should be < 1
     if (4 * D >= 1) {
       console.warn(`Pheromone diffusion instability: 4D = ${(4 * D).toFixed(3)} >= 1. Keep diffusion < 0.25.`);
     }
+
+    const decayFactor = Math.max(0, 1 - lambda - 4 * D);
+    const threshold = 1e-4;
 
     for (let y = 0; y < h; y += 1) {
       const row = y * w;
@@ -195,33 +196,62 @@ export class World {
         }
 
         const center = srcField[idx];
-        let neighborSum = 0;
+        if (center < threshold) {
+          if (D === 0) {
+            dstField[idx] = 0;
+            continue;
+          }
+          let neighborSum = 0;
+          let hasNonZeroNeighbor = false;
 
-        // Sum 4-neighbors (up, down, left, right)
-        if (x > 0 && this.isPassable(x - 1, y)) {
-          neighborSum += srcField[idx - 1];
-        }
-        if (x < w - 1 && this.isPassable(x + 1, y)) {
-          neighborSum += srcField[idx + 1];
-        }
-        if (y > 0 && this.isPassable(x, y - 1)) {
-          neighborSum += srcField[idx - w];
-        }
-        if (y < h - 1 && this.isPassable(x, y + 1)) {
-          neighborSum += srcField[idx + w];
-        }
+          if (x > 0 && this.isPassable(x - 1, y) && srcField[idx - 1] >= threshold) {
+            neighborSum += srcField[idx - 1];
+            hasNonZeroNeighbor = true;
+          }
+          if (x < w - 1 && this.isPassable(x + 1, y) && srcField[idx + 1] >= threshold) {
+            neighborSum += srcField[idx + 1];
+            hasNonZeroNeighbor = true;
+          }
+          if (y > 0 && this.isPassable(x, y - 1) && srcField[idx - w] >= threshold) {
+            neighborSum += srcField[idx - w];
+            hasNonZeroNeighbor = true;
+          }
+          if (y < h - 1 && this.isPassable(x, y + 1) && srcField[idx + w] >= threshold) {
+            neighborSum += srcField[idx + w];
+            hasNonZeroNeighbor = true;
+          }
 
-        // Discrete diffusion: P_i^{t+1} = (1 - λ - 4D) * P_i^t + D * neighborSum
-        // Source term (ant deposits) is already in center from this tick's updates
-        const decayFactor = Math.max(0, 1 - lambda - 4 * D);
-        const newValue = decayFactor * center + D * neighborSum;
+          if (!hasNonZeroNeighbor) {
+            dstField[idx] = 0;
+            continue;
+          }
 
-        const clampedValue = Math.max(0, Math.min(clampMax, newValue));
-        dstField[idx] = clampedValue < 1e-5 ? 0 : clampedValue;
+          const newValue = D * neighborSum;
+          const clampedValue = Math.max(0, Math.min(clampMax, newValue));
+          dstField[idx] = clampedValue < 1e-5 ? 0 : clampedValue;
+        } else {
+          let neighborSum = 0;
+
+          if (x > 0 && this.isPassable(x - 1, y)) {
+            neighborSum += srcField[idx - 1];
+          }
+          if (x < w - 1 && this.isPassable(x + 1, y)) {
+            neighborSum += srcField[idx + 1];
+          }
+          if (y > 0 && this.isPassable(x, y - 1)) {
+            neighborSum += srcField[idx - w];
+          }
+          if (y < h - 1 && this.isPassable(x, y + 1)) {
+            neighborSum += srcField[idx + w];
+          }
+
+          const newValue = decayFactor * center + D * neighborSum;
+          const clampedValue = Math.max(0, Math.min(clampMax, newValue));
+          dstField[idx] = clampedValue < 1e-5 ? 0 : clampedValue;
+        }
       }
     }
 
-    // Copy result back to source field
     srcField.set(dstField);
   }
 

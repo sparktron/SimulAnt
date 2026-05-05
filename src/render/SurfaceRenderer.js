@@ -29,6 +29,9 @@ export class SurfaceRenderer {
 
     this._off = document.createElement('canvas');
     this._offCtx = this._off.getContext('2d');
+
+    this._cachedEntrances = [];
+    this._entranceCache = new Map();
   }
 
   setWorld(world) {
@@ -58,6 +61,7 @@ export class SurfaceRenderer {
 
   draw(colony, overlays, nestEntrances, foodPellets, options = {}) {
     this.#enforceSurfaceViewBounds();
+    this.#buildEntranceCache(colony, nestEntrances);
     const { ctx } = this;
     const cw = this.canvas.clientWidth;
     const ch = this.canvas.clientHeight;
@@ -174,6 +178,30 @@ export class SurfaceRenderer {
     for (const entrance of nestEntrances) drawSoilMound(ctx, entrance);
   }
 
+  #buildEntranceCache(colony, nestEntrances) {
+    if (!Array.isArray(nestEntrances) || nestEntrances.length === 0) {
+      this._cachedEntrances = [];
+      this._entranceCache.clear();
+      return;
+    }
+    if (this._cachedEntrances === nestEntrances) return;
+
+    this._cachedEntrances = nestEntrances;
+    this._entranceCache.clear();
+    for (const ant of colony?.ants || []) {
+      let nearestEntrance = null;
+      let minDist = Infinity;
+      for (const entrance of nestEntrances) {
+        const dist = Math.hypot(ant.x - entrance.x, ant.y - entrance.y);
+        if (dist < minDist) {
+          minDist = dist;
+          nearestEntrance = entrance;
+        }
+      }
+      this._entranceCache.set(ant.id, nearestEntrance);
+    }
+  }
+
   #drawAnts(ctx, colony, nestEntrances, selectedAntId, showDebugStats, overlays = {}) {
     const { world } = this;
     const halfViewW = this.canvas.clientWidth / this.zoom * 0.5;
@@ -187,14 +215,7 @@ export class SurfaceRenderer {
     for (const ant of colony.ants) {
       const antTerrain = world.terrain?.[world.index(ant.x, ant.y)];
       const antInCarvedNest = antTerrain === TERRAIN.TUNNEL || antTerrain === TERRAIN.CHAMBER;
-      const nearestEntrance = Array.isArray(nestEntrances) && nestEntrances.length > 0
-        ? nestEntrances.reduce((best, candidate) => {
-          if (!best) return candidate;
-          const bestDist = Math.hypot(ant.x - best.x, ant.y - best.y);
-          const nextDist = Math.hypot(ant.x - candidate.x, ant.y - candidate.y);
-          return nextDist < bestDist ? candidate : best;
-        }, null)
-        : null;
+      const nearestEntrance = this._entranceCache.get(ant.id) || null;
       const belowEntranceMouth = nearestEntrance ? ant.y > nearestEntrance.y : false;
       if (ant.y > world.nestY || antInCarvedNest || belowEntranceMouth) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
