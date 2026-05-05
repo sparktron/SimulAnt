@@ -18,8 +18,6 @@ export function createControls(state, actions) {
   const speedSlider = byId('speedSlider');
   const brushSlider = byId('brushSlider');
   const antCapSlider = byId('antCapSlider');
-  const workerSlider = byId('workerSlider');
-  const soldierSlider = byId('soldierSlider');
 
   const saveBtn = byId('saveBtn');
   const loadBtn = byId('loadBtn');
@@ -49,28 +47,6 @@ export function createControls(state, actions) {
   antCapSlider.addEventListener('input', () => {
     state.config.antCap = Number(antCapSlider.value);
     byId('antCapLabel').textContent = `${state.config.antCap}`;
-  });
-
-  workerSlider.addEventListener('input', () => {
-    state.casteTargets.workers = Number(workerSlider.value);
-    byId('workerPct').textContent = `${state.casteTargets.workers}%`;
-    if (actions.onLegacyCasteSliderChange) {
-      actions.onLegacyCasteSliderChange({
-        workers: state.casteTargets.workers,
-        soldiers: state.casteTargets.soldiers,
-      });
-    }
-  });
-
-  soldierSlider.addEventListener('input', () => {
-    state.casteTargets.soldiers = Number(soldierSlider.value);
-    byId('soldierPct').textContent = `${state.casteTargets.soldiers}%`;
-    if (actions.onLegacyCasteSliderChange) {
-      actions.onLegacyCasteSliderChange({
-        workers: state.casteTargets.workers,
-        soldiers: state.casteTargets.soldiers,
-      });
-    }
   });
 
   document.querySelectorAll('input[name="tool"]').forEach((radio) => {
