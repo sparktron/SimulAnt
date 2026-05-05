@@ -234,6 +234,16 @@ createControls(state, {
     const carved = simCore.forceChamberAtDigFront(state.config);
     state.debug.digStatus = carved ? 'AUTO-DIG: CHAMBER CARVED' : 'AUTO-DIG: CHAMBER FAILED';
   },
+  onLegacyCasteSliderChange: ({ workers, soldiers }) => {
+    state.colonyStatus.casteAllocation.workers = workers;
+    state.colonyStatus.casteAllocation.soldiers = soldiers;
+    state.colonyStatus.casteAllocation.breeders = 0;
+    applyColonyStatusToConfig();
+    colonyStatusPanel.sync({
+      work: state.colonyStatus.workAllocation,
+      caste: state.colonyStatus.casteAllocation,
+    });
+  },
 });
 
 const colonyStatusPanel = new ColonyStatusPanel({
