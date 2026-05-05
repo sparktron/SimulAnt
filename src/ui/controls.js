@@ -24,6 +24,7 @@ export function createControls(state, actions) {
   const clearBtn = byId('clearBtn');
   const scentBtn = byId('scentBtn');
   const jobsBtn = byId('jobsBtn');
+  const pheromoneBtn = byId('pheromoneBtn');
   const helpPanel = byId('helpPanel');
 
   startPauseBtn.addEventListener('click', () => {
@@ -67,6 +68,12 @@ export function createControls(state, actions) {
     legend.classList.toggle('active', state.overlays.showAntJobs);
   });
   byId('closeHelpBtn').addEventListener('click', () => helpPanel.close());
+  pheromoneBtn.addEventListener('click', () => {
+    if (actions.togglePheromones) {
+      const enabled = actions.togglePheromones();
+      pheromoneBtn.textContent = enabled ? 'PHERO: ON' : 'PHERO: OFF';
+    }
+  });
 
   document.addEventListener('keydown', (event) => {
     if (event.code === 'Space') {
@@ -105,6 +112,11 @@ export function createControls(state, actions) {
       state.overlays.showAntJobs = !state.overlays.showAntJobs;
       const legend = byId('jobLegend');
       legend.classList.toggle('active', state.overlays.showAntJobs);
+    } else if (event.key.toLowerCase() === 'p') {
+      if (actions.togglePheromones) {
+        const enabled = actions.togglePheromones();
+        pheromoneBtn.textContent = enabled ? 'PHERO: ON' : 'PHERO: OFF';
+      }
     } else if (event.code === 'F3') {
       event.preventDefault();
       if (actions.toggleDebugStats) actions.toggleDebugStats();

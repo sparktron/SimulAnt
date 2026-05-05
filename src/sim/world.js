@@ -158,6 +158,12 @@ export class World {
   }
 
   updatePheromones(config, tick) {
+    if (config.enablePheromones === false) {
+      this.toFood.fill(0);
+      this.toHome.fill(0);
+      this.danger.fill(0);
+      return;
+    }
     const dt = config.tickSeconds || 1 / 30;
     const cadence = Math.max(1, Math.floor(config.diffIntervalTicks || 1));
     const shouldDiffuse = Number.isInteger(tick) ? tick % cadence === 0 : true;

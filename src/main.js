@@ -118,6 +118,7 @@ const state = {
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,
+    enablePheromones: true,
     // Phase 1: correlated random walk tuning constants (ant movement core).
     // These are calibrated for 1-tile/tick discrete movement.  The spec values
     // (sigma=0.35, meanderAmp=0.25) assume a continuous sub-tile step size;
@@ -225,6 +226,10 @@ createControls(state, {
   },
   addFoodToStore: () => {
     simCore.addFoodToStore(50);
+  },
+  togglePheromones: () => {
+    state.config.enablePheromones = !state.config.enablePheromones;
+    return state.config.enablePheromones;
   },
   toggleAutoDig: () => {
     const enabled = simCore.toggleAutoDig();

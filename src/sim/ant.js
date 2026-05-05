@@ -257,7 +257,7 @@ export class Ant {
         didMove = this.#moveByPheromone(world, rng, config, 'food', context.entrance, colony);
       }
       // Soldiers deposit home pheromone while patrolling
-      if (didMove && this.stepCounter % config.homeDepositIntervalTicks === 0) {
+      if (didMove && this.stepCounter % config.homeDepositIntervalTicks === 0 && config.enablePheromones !== false) {
         world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome * 0.5);
       }
       return didMove;
@@ -347,10 +347,12 @@ export class Ant {
         config.maxFoodTrailScale ?? 3.0,
         1 + distToNest * (config.foodTrailDistanceScale ?? 1.0) * 0.05,
       );
-      world.toFood[context.idx] = Math.min(
-        config.pheromoneMaxClamp,
-        world.toFood[context.idx] + config.depositFood * trailScale,
-      );
+      if (config.enablePheromones !== false) {
+        world.toFood[context.idx] = Math.min(
+          config.pheromoneMaxClamp,
+          world.toFood[context.idx] + config.depositFood * trailScale,
+        );
+      }
 
       // Follow the existing food trail back to the nest so all returners share
       // a single corridor instead of cutting their own diagonal shortcuts.
@@ -578,7 +580,7 @@ export class Ant {
     // The fade guarantees a strict gradient pointing toward the entrance.
     const homeFadeRadius = config.homeDepositMinDistance ?? 20;
     const homeDepositFraction = Math.max(0, 1 - distToEntranceForDeposit / homeFadeRadius);
-    if (this.stepCounter % config.homeDepositIntervalTicks === 0 && homeDepositFraction > 0.01) {
+    if (this.stepCounter % config.homeDepositIntervalTicks === 0 && homeDepositFraction > 0.01 && config.enablePheromones !== false) {
       world.toHome[context.idx] = Math.min(
         config.pheromoneMaxClamp,
         world.toHome[context.idx] + config.depositHome * homeDepositFraction,
@@ -625,7 +627,9 @@ export class Ant {
       return true;
     }
 
-    world.danger[idx] = Math.min(config.pheromoneMaxClamp, world.danger[idx] + config.dangerDeposit);
+    if (config.enablePheromones !== false) {
+      world.danger[idx] = Math.min(config.pheromoneMaxClamp, world.danger[idx] + config.dangerDeposit);
+    }
     return false;
   }
 
@@ -1125,7 +1129,9 @@ export class Ant {
 
     // Deposit home pheromone to help navigation
     const idx = world.index(this.x, this.y);
-    world.toHome[idx] = Math.min(config.pheromoneMaxClamp, world.toHome[idx] + config.depositHome * 1.4);
+    if (config.enablePheromones !== false) {
+      world.toHome[idx] = Math.min(config.pheromoneMaxClamp, world.toHome[idx] + config.depositHome * 1.4);
+    }
 
     // Move toward the nearest active dig front
     const digTarget = colony.getActiveDigFrontPosition(this.x, this.y);
