@@ -231,6 +231,8 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
     foodVisionRadius: 0,
     homeScentMinFalloff: 2,
     homeScentMaxContributionPerStep: -3,
+    foodTrailDistanceScale: Number.NaN,
+    maxFoodTrailScale: Number.NaN,
     debugSteeringLogIntervalTicks: 0,
   };
 
@@ -250,6 +252,8 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
   assert.equal(safe.foodVisionRadius, 1);
   assert.equal(safe.homeScentMinFalloff, 1);
   assert.equal(safe.homeScentMaxContributionPerStep, 1);
+  assert.equal(safe.foodTrailDistanceScale, 1.0);
+  assert.equal(safe.maxFoodTrailScale, 4.0);
   assert.equal(safe.debugSteeringLogIntervalTicks, 1);
 });
 
