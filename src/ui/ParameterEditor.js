@@ -19,8 +19,8 @@ export class ParameterEditor {
       throw new Error(`Container "${containerSelector}" not found`);
     }
 
+    this.initializeExpandedGroups();
     this.render();
-    this.attachEventListeners();
   }
 
   render() {
@@ -291,8 +291,9 @@ export class ParameterEditor {
     }
   }
 
-  attachEventListeners() {
-    // Initial expand of first groups for better UX
+  initializeExpandedGroups() {
+    // Initial expand of first groups for better UX. This must run before the
+    // first render so the initial DOM matches the default expanded state.
     if (this.expandedGroups.size === 0) {
       this.expandedGroups.add('Movement');
       this.expandedGroups.add('Decision-Making');

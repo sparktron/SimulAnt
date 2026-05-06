@@ -126,3 +126,37 @@ test('ParameterEditor clamps valid numeric input and notifies config changes', (
     globalThis.document = oldDocument;
   }
 });
+
+test('ParameterEditor renders initial expanded parameter groups on first paint', () => {
+  const oldDocument = globalThis.document;
+  const oldLocalStorage = globalThis.localStorage;
+  const container = new FakeElement('div');
+  globalThis.localStorage = {
+    getItem() { return null; },
+    setItem() {},
+  };
+  globalThis.document = {
+    querySelector(selector) {
+      assert.equal(selector, '#parameterEditorContainer');
+      return container;
+    },
+    createElement(tagName) {
+      return new FakeElement(tagName);
+    },
+  };
+
+  try {
+    const editor = new ParameterEditor('#parameterEditorContainer', { config: {} }, () => {});
+
+    assert.equal(editor.expandedGroups.has('Movement'), true);
+    assert.equal(editor.expandedGroups.has('Decision-Making'), true);
+    assert.ok(
+      findChild(container, (el) => el.tagName === 'input' && el.type === 'range'),
+      'initially expanded groups should render parameter sliders on first paint',
+    );
+  } finally {
+    globalThis.document = oldDocument;
+    if (oldLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = oldLocalStorage;
+  }
+});
