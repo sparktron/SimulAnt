@@ -4,6 +4,7 @@ import { SimulationCore } from '../src/sim/SimulationCore.js';
 import { TERRAIN } from '../src/sim/world.js';
 import { Ant } from '../src/sim/ant.js';
 import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
+import { getDefaultConfig, parameterDefinitions } from '../src/ui/params.js';
 
 function createConfig() {
   return {
@@ -224,6 +225,16 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
     homeDepositIntervalTicks: 0,
     hazardDeathChance: 5,
     randomTurnChance: -0.1,
+    walkRho: 2,
+    walkSigma: Number.NaN,
+    walkMaxTurnRate: -2,
+    meanderAmplitude: Number.POSITIVE_INFINITY,
+    pTurnSignFlip: -1,
+    headingBias: 5,
+    obstacleLookahead: 0,
+    obstacleTurnGain: 3,
+    dangerTurnLookahead: -3,
+    dangerTurnGain: Number.POSITIVE_INFINITY,
     queenEggTicks: 0,
     workerEatNutrition: -12,
     healthDrainRate: -1,
@@ -244,6 +255,16 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
   assert.equal(safe.homeDepositIntervalTicks, 1);
   assert.equal(safe.hazardDeathChance, 1);
   assert.equal(safe.randomTurnChance, 0);
+  assert.equal(safe.walkRho, 1);
+  assert.equal(safe.walkSigma, 0.05);
+  assert.equal(safe.walkMaxTurnRate, 0.45);
+  assert.equal(safe.meanderAmplitude, 0.05);
+  assert.equal(safe.pTurnSignFlip, 0.85);
+  assert.equal(safe.headingBias, 1);
+  assert.equal(safe.obstacleLookahead, 1);
+  assert.equal(safe.obstacleTurnGain, 1);
+  assert.equal(safe.dangerTurnLookahead, 2);
+  assert.equal(safe.dangerTurnGain, 0.40);
   assert.equal(safe.queenEggTicks, 1);
   assert.equal(safe.queenFoodRequestHealthThreshold, 0.5);
   assert.equal(safe.workerEatNutrition, 0);
@@ -255,6 +276,19 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
   assert.equal(safe.foodTrailDistanceScale, 1.0);
   assert.equal(safe.maxFoodTrailScale, 4.0);
   assert.equal(safe.debugSteeringLogIntervalTicks, 1);
+});
+
+test('tick config sanitization covers every numeric editor parameter', () => {
+  const unsafe = { ...getDefaultConfig() };
+  for (const key of Object.keys(parameterDefinitions)) {
+    unsafe[key] = Number.NaN;
+  }
+
+  const safe = sanitizeTickConfig(unsafe);
+
+  for (const key of Object.keys(parameterDefinitions)) {
+    assert.equal(Number.isFinite(safe[key]), true, `${key} should sanitize to a finite number`);
+  }
 });
 
 test('deterministic regression survives unsafe external config inputs via sanitizer', () => {

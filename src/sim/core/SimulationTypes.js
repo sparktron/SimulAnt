@@ -36,6 +36,10 @@ function clampPositiveInt(value, fallback, min = 1) {
   return Math.max(min, Math.floor(clampNonNegativeNumber(value, fallback)));
 }
 
+function clampRangeNumber(value, fallback, min, max) {
+  return Math.max(min, Math.min(max, clampNonNegativeNumber(value, fallback)));
+}
+
 /**
  * Deterministic tick config sanitizer.
  * Invalid values are clamped or replaced so simulation steps never run with undefined behavior.
@@ -65,6 +69,16 @@ export function sanitizeTickConfig(config = {}) {
 
     randomTurnChance: clamp01(config.randomTurnChance, 0),
     wanderNoise: clampNonNegativeNumber(config.wanderNoise, 0),
+    walkRho: clamp01(config.walkRho, 0.75),
+    walkSigma: clampRangeNumber(config.walkSigma, 0.05, 0, 0.2),
+    walkMaxTurnRate: clampRangeNumber(config.walkMaxTurnRate, 0.45, 0.1, 1),
+    meanderAmplitude: clampRangeNumber(config.meanderAmplitude, 0.05, 0, 0.2),
+    pTurnSignFlip: clamp01(config.pTurnSignFlip, 0.85),
+    headingBias: clamp01(config.headingBias, 0.20),
+    obstacleLookahead: clampRangeNumber(config.obstacleLookahead, 2, 1, 5),
+    obstacleTurnGain: clamp01(config.obstacleTurnGain, 0.30),
+    dangerTurnLookahead: clampRangeNumber(config.dangerTurnLookahead, 2, 1, 5),
+    dangerTurnGain: clamp01(config.dangerTurnGain, 0.40),
 
     queenEggTicks: clampPositiveInt(config.queenEggTicks, 1),
     queenEggFoodCost: clampNonNegativeNumber(config.queenEggFoodCost, 0),
