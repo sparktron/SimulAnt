@@ -447,7 +447,7 @@ export function getParametersByGroup(advancedMode = false) {
  */
 export function getDefaultConfig() {
   return {
-    tickSeconds: 0.016,
+    tickSeconds: 1 / 30,
     antCap: 2000,
     evapFood: 0.02,
     evapHome: 0.015,
@@ -523,6 +523,7 @@ export function getDefaultConfig() {
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,
+    enablePheromones: true,
     walkRho: 0.75,
     walkSigma: 0.05,
     walkMaxTurnRate: 0.45,
