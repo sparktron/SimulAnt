@@ -344,7 +344,7 @@ export class Ant {
       // outward: strong near the food source, weak near the entrance.
       // Foragers following the gradient are naturally pulled toward food.
       const trailScale = Math.min(
-        config.maxFoodTrailScale ?? 3.0,
+        config.maxFoodTrailScale ?? 4.0,
         1 + distToNest * (config.foodTrailDistanceScale ?? 1.0) * 0.05,
       );
       if (config.enablePheromones !== false) {
