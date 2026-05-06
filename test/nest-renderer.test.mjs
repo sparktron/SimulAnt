@@ -101,10 +101,10 @@ test('NestRenderer hides queen marker by default and shows it only when enabled'
       queen: { alive: true, hunger: 100, health: 100, x: world.nestX, y: world.nestY + 2 },
     };
 
-    renderer.draw(colony, { showDebugStats: false });
+    renderer.draw(colony, {}, { showDebugStats: false });
     assert.equal(mainCtx.arcCalls, 0, 'queen marker should not render by default');
 
-    renderer.draw(colony, { showDebugStats: false, showQueenMarker: true });
+    renderer.draw(colony, {}, { showDebugStats: false, showQueenMarker: true });
     assert.equal(mainCtx.arcCalls, 2, 'queen marker should render as two circles when enabled');
   } finally {
     globalThis.document = oldDocument;
@@ -160,7 +160,7 @@ test('NestRenderer renders brood eggs in a nest brood area, not attached to quee
       ],
     };
 
-    renderer.draw(colony, { showDebugStats: false });
+    renderer.draw(colony, {}, { showDebugStats: false });
     assert.equal(mainCtx.arcCalls, 6, 'brood larvae should render by default');
 
     const firstEgg = mainCtx.arcArgs[0];
@@ -224,7 +224,7 @@ test('NestRenderer only draws underground ants in nest view', () => {
       queen: { alive: false, hunger: 100, health: 100, x: world.nestX, y: world.nestY + 2 },
     };
 
-    renderer.draw(colony, { showDebugStats: false });
+    renderer.draw(colony, {}, { showDebugStats: false });
 
     assert.ok(
       !mainCtx.fillRectCalls.some((call) => call.x === 2 && call.y === world.nestY - 2 && call.w === 1 && call.h === 1),

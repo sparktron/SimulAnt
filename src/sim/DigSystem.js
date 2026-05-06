@@ -35,7 +35,11 @@ export class DigSystem {
 
   update(config) {
     const workerCount = this.colony._aliveWorkerCount || 0;
-    if (!this.autoDig && workerCount === 0) return;
+    if (!this.autoDig && workerCount === 0) {
+      this.#updateUpwardShafts(config);
+      this.colony.setDigFronts(this.fronts.map((f) => ({ x: f.x, y: f.y })));
+      return;
+    }
     if (this.fronts.length === 0) this.#seedInitialFronts();
 
     const activeWorkers = this.autoDig ? Math.max(workerCount, 30) : workerCount;
