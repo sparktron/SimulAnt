@@ -111,3 +111,75 @@ test('SurfaceRenderer only draws surface ants and pellets', () => {
     globalThis.document = oldDocument;
   }
 });
+
+
+test('SurfaceRenderer recomputes nearest entrance as ants move between draws', () => {
+  const world = {
+    width: 24,
+    height: 24,
+    nestX: 12,
+    nestY: 10,
+    terrain: new Uint8Array(24 * 24).fill(TERRAIN.GROUND),
+    toFood: new Float32Array(24 * 24),
+    toHome: new Float32Array(24 * 24),
+    danger: new Float32Array(24 * 24),
+    index(x, y) {
+      return y * this.width + x;
+    },
+  };
+
+  const mainCtx = createFakeCanvasContext();
+  const offscreenCtx = createOffscreenContext();
+  const fakeDocument = {
+    createElement(tag) {
+      assert.equal(tag, 'canvas');
+      return {
+        width: world.width,
+        height: world.nestY + 1,
+        getContext() {
+          return offscreenCtx;
+        },
+      };
+    },
+  };
+
+  const oldDocument = globalThis.document;
+  globalThis.document = fakeDocument;
+
+  try {
+    const canvas = {
+      clientWidth: 320,
+      clientHeight: 200,
+      getContext() {
+        return mainCtx;
+      },
+      getBoundingClientRect() {
+        return { width: this.clientWidth, height: this.clientHeight };
+      },
+    };
+
+    const renderer = new SurfaceRenderer(canvas, world);
+    const ant = { id: 'moving-ant', x: 3, y: 4, baseColor: '#111111', carryingType: 'none', hunger: 80, health: 90 };
+    const colony = { ants: [ant], foodStored: 0 };
+    const entrances = [
+      { x: 3, y: 5, id: 'shallow', soilOnSurface: 0 },
+      { x: 20, y: 8, id: 'deep', soilOnSurface: 0 },
+    ];
+    const overlays = { showToFood: false, showScent: false, showToHome: false, showDanger: false };
+
+    renderer.draw(colony, overlays, entrances, []);
+    mainCtx.fillRectCalls.length = 0;
+
+    ant.x = 20;
+    ant.y = 7;
+    renderer.draw(colony, overlays, entrances, []);
+
+    const unitRects = mainCtx.fillRectCalls.filter((call) => call.w === 1 && call.h === 1);
+    assert.ok(
+      unitRects.some((call) => call.x === 20 && call.y === 7),
+      'ant should render after moving above the deeper nearest entrance mouth',
+    );
+  } finally {
+    globalThis.document = oldDocument;
+  }
+});

@@ -30,7 +30,6 @@ export class SurfaceRenderer {
     this._off = document.createElement('canvas');
     this._offCtx = this._off.getContext('2d');
 
-    this._cachedEntrances = [];
     this._entranceCache = new Map();
   }
 
@@ -180,13 +179,10 @@ export class SurfaceRenderer {
 
   #buildEntranceCache(colony, nestEntrances) {
     if (!Array.isArray(nestEntrances) || nestEntrances.length === 0) {
-      this._cachedEntrances = [];
       this._entranceCache.clear();
       return;
     }
-    if (this._cachedEntrances === nestEntrances) return;
 
-    this._cachedEntrances = nestEntrances;
     this._entranceCache.clear();
     for (const ant of colony?.ants || []) {
       let nearestEntrance = null;
