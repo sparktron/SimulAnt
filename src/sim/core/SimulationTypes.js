@@ -40,6 +40,11 @@ function clampRangeNumber(value, fallback, min, max) {
   return Math.max(min, Math.min(max, clampNonNegativeNumber(value, fallback)));
 }
 
+function clampFiniteRangeNumber(value, fallback, min, max) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
+}
+
 /**
  * Deterministic tick config sanitizer.
  * Invalid values are clamped or replaced so simulation steps never run with undefined behavior.
@@ -53,7 +58,7 @@ export function sanitizeTickConfig(config = {}) {
     diffIntervalTicks: clampPositiveInt(config.diffIntervalTicks, 1),
     homeDepositIntervalTicks: clampPositiveInt(config.homeDepositIntervalTicks, 1),
 
-    pheromoneMaxClamp: Math.max(1, clampNonNegativeNumber(config.pheromoneMaxClamp, 10)),
+    pheromoneMaxClamp: clampFiniteRangeNumber(config.pheromoneMaxClamp, 150, 1, 500),
 
     evapFood: clampNonNegativeNumber(config.evapFood, 0),
     evapHome: clampNonNegativeNumber(config.evapHome, 0),
@@ -80,11 +85,11 @@ export function sanitizeTickConfig(config = {}) {
     dangerTurnLookahead: clampRangeNumber(config.dangerTurnLookahead, 2, 1, 5),
     dangerTurnGain: clamp01(config.dangerTurnGain, 0.40),
 
-    queenEggTicks: clampPositiveInt(config.queenEggTicks, 1),
+    queenEggTicks: Math.floor(clampFiniteRangeNumber(config.queenEggTicks, 20, 1, 100)),
     queenEggFoodCost: clampNonNegativeNumber(config.queenEggFoodCost, 0),
     queenHungerDrain: clampNonNegativeNumber(config.queenHungerDrain, 0),
-    queenEatNutrition: clampNonNegativeNumber(config.queenEatNutrition, 0),
-    queenHealthDrainRate: clampNonNegativeNumber(config.queenHealthDrainRate, 0),
+    queenEatNutrition: clampFiniteRangeNumber(config.queenEatNutrition, 5, 0, 20),
+    queenHealthDrainRate: clampFiniteRangeNumber(config.queenHealthDrainRate, 7, 0, 20),
     queenHealthRecoveryPerNutrition: clampNonNegativeNumber(config.queenHealthRecoveryPerNutrition, 0),
     queenFoodRequestHealthThreshold: clamp01(config.queenFoodRequestHealthThreshold, 0.5),
     queenFoodRequestClearThreshold: clamp01(config.queenFoodRequestClearThreshold, 0.8),
@@ -92,7 +97,7 @@ export function sanitizeTickConfig(config = {}) {
     broodFoodDrainRate: clampNonNegativeNumber(config.broodFoodDrainRate, 0),
     broodGestationSeconds: clampNonNegativeNumber(config.broodGestationSeconds, 1),
 
-    workerEatNutrition: clampNonNegativeNumber(config.workerEatNutrition, 0),
+    workerEatNutrition: clampFiniteRangeNumber(config.workerEatNutrition, 25, 0, 100),
     starvationRecoveryHealth: clampNonNegativeNumber(config.starvationRecoveryHealth, 0),
     healthDrainRate: clampNonNegativeNumber(config.healthDrainRate, 0),
     healthRegenRate: clampNonNegativeNumber(config.healthRegenRate, 0),
@@ -109,7 +114,7 @@ export function sanitizeTickConfig(config = {}) {
     foodVisionRadius: clampPositiveInt(config.foodVisionRadius, 1),
     surfaceFoodSearchMaxMissTicks: clampPositiveInt(config.surfaceFoodSearchMaxMissTicks, 90),
     surfaceReturnToNestHungerThreshold: clamp01(config.surfaceReturnToNestHungerThreshold, 0.65),
-    homeDepositMinDistance: clampNonNegativeNumber(config.homeDepositMinDistance, 0),
+    homeDepositMinDistance: clampFiniteRangeNumber(config.homeDepositMinDistance, 20, 0, 100),
     nearEntranceScatterRadius: clampNonNegativeNumber(config.nearEntranceScatterRadius, 0),
     foodTrailDistanceScale: clampNonNegativeNumber(config.foodTrailDistanceScale, 1.0),
     foodTrailDecayPerStep: clamp01(config.foodTrailDecayPerStep, 0.92),

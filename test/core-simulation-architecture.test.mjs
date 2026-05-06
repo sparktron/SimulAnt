@@ -278,7 +278,7 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
   assert.equal(safe.debugSteeringLogIntervalTicks, 1);
 });
 
-test('tick config sanitization covers every numeric editor parameter', () => {
+test('tick config sanitization keeps malformed numeric editor parameters in range', () => {
   const unsafe = { ...getDefaultConfig() };
   for (const key of Object.keys(parameterDefinitions)) {
     unsafe[key] = Number.NaN;
@@ -288,6 +288,8 @@ test('tick config sanitization covers every numeric editor parameter', () => {
 
   for (const key of Object.keys(parameterDefinitions)) {
     assert.equal(Number.isFinite(safe[key]), true, `${key} should sanitize to a finite number`);
+    assert.equal(safe[key] >= parameterDefinitions[key].min, true, `${key} should not fall below editor min`);
+    assert.equal(safe[key] <= parameterDefinitions[key].max, true, `${key} should not exceed editor max`);
   }
 });
 
