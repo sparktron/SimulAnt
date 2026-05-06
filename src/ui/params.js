@@ -447,7 +447,7 @@ export function getParametersByGroup(advancedMode = false) {
  */
 export function getDefaultConfig() {
   return {
-    tickSeconds: 0.016,
+    tickSeconds: 1 / 30,
     antCap: 2000,
     evapFood: 0.02,
     evapHome: 0.015,
@@ -504,7 +504,7 @@ export function getDefaultConfig() {
     innerScatterRadius: 6,
     nearEntranceScatterRadius: 8,
     foodTrailDistanceScale: 1.0,
-    maxFoodTrailScale: 3.0,
+    maxFoodTrailScale: 4.0,
     trailLockThreshold: 1.0,
     foodTrailDecayPerStep: 0.92,
     homeScentBaseWeight: 1.0,
@@ -523,6 +523,7 @@ export function getDefaultConfig() {
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,
+    enablePheromones: true,
     walkRho: 0.75,
     walkSigma: 0.05,
     walkMaxTurnRate: 0.45,

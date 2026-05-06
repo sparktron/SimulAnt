@@ -19,8 +19,8 @@ export class ParameterEditor {
       throw new Error(`Container "${containerSelector}" not found`);
     }
 
+    this.initializeExpandedGroups();
     this.render();
-    this.attachEventListeners();
   }
 
   render() {
@@ -207,7 +207,17 @@ export class ParameterEditor {
     input.className = 'param-input';
 
     const updateValue = value => {
-      const numVal = parseFloat(value);
+      const rawValue = String(value).trim();
+      const numVal = rawValue === '' ? NaN : Number(rawValue);
+      if (!Number.isFinite(numVal)) {
+        const currentValue = Number.isFinite(this.state.config[param.key])
+          ? this.state.config[param.key]
+          : param.min;
+        slider.value = currentValue;
+        input.value = currentValue;
+        return;
+      }
+
       const clamped = Math.max(param.min, Math.min(param.max, numVal));
       this.state.config[param.key] = clamped;
       slider.value = clamped;
@@ -281,8 +291,9 @@ export class ParameterEditor {
     }
   }
 
-  attachEventListeners() {
-    // Initial expand of first groups for better UX
+  initializeExpandedGroups() {
+    // Initial expand of first groups for better UX. This must run before the
+    // first render so the initial DOM matches the default expanded state.
     if (this.expandedGroups.size === 0) {
       this.expandedGroups.add('Movement');
       this.expandedGroups.add('Decision-Making');

@@ -74,7 +74,7 @@ test('ant initializes with correct defaults for worker', () => {
   assert.ok(ant.health >= 75 && ant.health <= 100, `health ${ant.health} should be 75-100`);
   assert.equal(ant.carrying, null);
   assert.equal(ant.carryingType, 'none');
-  assert.equal(ant.state, 'IDLE');
+  assert.equal(ant.state, 'FORAGE_SEARCH');
   assert.equal(ant.stepCounter, 0);
   assert.ok(ant.id.startsWith('ant-'));
 });
