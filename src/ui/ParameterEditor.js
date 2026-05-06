@@ -207,7 +207,17 @@ export class ParameterEditor {
     input.className = 'param-input';
 
     const updateValue = value => {
-      const numVal = parseFloat(value);
+      const rawValue = String(value).trim();
+      const numVal = rawValue === '' ? NaN : Number(rawValue);
+      if (!Number.isFinite(numVal)) {
+        const currentValue = Number.isFinite(this.state.config[param.key])
+          ? this.state.config[param.key]
+          : param.min;
+        slider.value = currentValue;
+        input.value = currentValue;
+        return;
+      }
+
       const clamped = Math.max(param.min, Math.min(param.max, numVal));
       this.state.config[param.key] = clamped;
       slider.value = clamped;

@@ -286,8 +286,9 @@ const colonyStatusPanel = new ColonyStatusPanel({
 
 // Initialize parameter editor
 const parameterEditor = new ParameterEditor('#parameterEditorContainer', state, () => {
-  // Parameters are already mutated in state.config, just ensure they're sanitized
-  sanitizeTickConfig(state.config);
+  // Parameters are already mutated in state.config; write sanitized values back
+  // so malformed UI or preset input cannot persist NaN/unsafe config state.
+  Object.assign(state.config, sanitizeTickConfig(state.config));
 });
 
 // Setup tab switching
