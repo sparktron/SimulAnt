@@ -1,3 +1,21 @@
+/*
+    Keyboard and UI button handlers for core controls.
+
+    Maps keyboard inputs to simulation actions (pause/step/reset/view-toggle)
+    and slider inputs to mutable config (sim speed, brush size, ant cap).
+
+    State mutation pattern:
+    - state.paused, state.simSpeed, state.brushRadius mutate directly
+    - config changes (antCap) mutate state.config which is passed to next tick
+    - View toggle calls actions.toggleView() which updates ViewManager
+    - Reset seeds and loads call actions with string/data arguments
+
+    UI/simulation boundary:
+    - Controls read from state and trigger actions
+    - Actions mutate state, may call SimulationCore methods
+    - State changes are reflected in HUD on next frame
+*/
+
 const TOOL_BY_KEY = {
   '1': 'food',
   '2': 'wall',

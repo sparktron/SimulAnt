@@ -1,7 +1,29 @@
+/*
+    Top-down rendering of the surface (y <= nestY).
+
+    Responsibilities:
+    - Render terrain (ground/walls/water as colored 1×1 tiles)
+    - Render pheromone overlays (food/home/danger as heatmaps)
+    - Render food pellets (white dots, diminish if carried)
+    - Render ants (sized by role, colored by job state)
+    - Render entrance mounds (3D-like appearance)
+    - Transform between screen coordinates and world coordinates
+
+    Camera system:
+    - cameraX/Y is the world tile at screen center
+    - zoom scales the view (3x means 3 world tiles per screen pixel)
+    - Surface bounds restrict camera to show only y <= nestY
+
+    Determinism: All rendering is stateless; same world produces same image.
+    Uses off-screen canvas for terrain (ImageData) to avoid per-pixel fills.
+*/
+
 import { TERRAIN } from '../sim/world.js';
 import { drawSoilMound } from './soilMound.js';
 import { Ant } from '../sim/ant.js';
 
+// Surface view treats underground tiles (SOIL, TUNNEL) as GROUND for visual simplicity.
+// This prevents the bottom rows from looking cluttered with brown soil.
 export function normalizeSurfaceTerrain(terrain) {
   return terrain === TERRAIN.SOIL || terrain === TERRAIN.TUNNEL ? TERRAIN.GROUND : terrain;
 }
