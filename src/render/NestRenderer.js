@@ -303,12 +303,11 @@ export class NestRenderer {
       }
     }
 
-    if (colony.queen.alive && showQueenMarker) {
+    // Always draw the queen when alive - distinctive purple with gold center
+    if (colony.queen.alive) {
       const queenX = Number.isFinite(colony.queen.x) ? colony.queen.x : world.nestX;
       const queenY = Number.isFinite(colony.queen.y) ? colony.queen.y : world.nestY + 6;
 
-      // Intentional marker for the queen's chamber location.
-      // Keep this visually distinct from debug overlays and entrance visuals.
       ctx.fillStyle = '#7b3fc9';
       ctx.beginPath();
       ctx.arc(queenX + 0.5, queenY + 0.5, 1.8, 0, Math.PI * 2);
