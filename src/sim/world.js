@@ -110,10 +110,10 @@ export class World {
 
   paintCircle(cx, cy, radius, fn) {
     const r2 = radius * radius;
-    const minX = Math.max(0, cx - radius);
-    const maxX = Math.min(this.width - 1, cx + radius);
-    const minY = Math.max(0, cy - radius);
-    const maxY = Math.min(this.height - 1, cy + radius);
+    const minX = Math.max(0, Math.floor(cx - radius));
+    const maxX = Math.min(this.width - 1, Math.floor(cx + radius));
+    const minY = Math.max(0, Math.floor(cy - radius));
+    const maxY = Math.min(this.height - 1, Math.floor(cy + radius));
 
     for (let y = minY; y <= maxY; y += 1) {
       for (let x = minX; x <= maxX; x += 1) {
