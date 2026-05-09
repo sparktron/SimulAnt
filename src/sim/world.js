@@ -1,3 +1,19 @@
+/*
+    World state: terrain grid, pheromone fields, food pellets, nest location.
+
+    Key responsibilities:
+    - Terrain: GROUND/WALL/WATER/SOIL/TUNNEL/CHAMBER enum — determines passability
+    - Pheromone fields: toFood, toHome, danger with diffusion/evaporation per tick
+    - Spatial queries: isPassable, isBelowSurface, isUndergroundTile
+    - Rendering prep: serialize/deserialize for save/load
+
+    Important distinction:
+    - isBelowSurface(x, y): y > nestY (spatial layer; used for view filtering)
+    - isUndergroundTile(x, y): terrain == TUNNEL/CHAMBER (structural; used for behavior routing)
+    These differ at the entrance mouth where ants are spatially below but structurally
+    above, preventing incorrect state transitions.
+*/
+
 export const TERRAIN = {
   GROUND: 0,
   WALL: 1,
@@ -22,6 +38,7 @@ export class World {
     this.toHome = new Float32Array(this.size);
     this.danger = new Float32Array(this.size);
 
+    // Double-buffer for pheromone updates: read from src, write to next, then swap
     this._toFoodNext = new Float32Array(this.size);
     this._toHomeNext = new Float32Array(this.size);
     this._dangerNext = new Float32Array(this.size);
@@ -157,6 +174,23 @@ export class World {
     }
   }
 
+  /*
+      Updates all three pheromone fields: toFood, toHome, danger.
+
+      Each field is updated by:
+      1. Evaporation: scale all values by (1 - lambda*dt) to decay over time
+      2. Diffusion (conditional): spread values to neighbors every N ticks
+      3. Clamping: cap all values at pheromoneMaxClamp to prevent overflow
+
+      Diffusion timing: diffIntervalTicks allows sparse diffusion (e.g., every 2 ticks)
+      to reduce CPU cost. Evaporation runs every tick regardless.
+
+      Uses discrete diffusion equation:
+      P_i^{t+1} = (1 - λ - 4D) * P_i^t + D * Σ(neighbors)
+      where λ = evaporation rate, D = diffusion coefficient.
+
+      Note: Stability requires 4D < 1 (i.e., D < 0.25); values >= 0.25 warn in console.
+  */
   updatePheromones(config, tick) {
     if (config.enablePheromones === false) {
       this.toFood.fill(0);

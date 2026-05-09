@@ -1,3 +1,23 @@
+/*
+    Colony state machine: manages ants, queen, brood, food stores, and workforce allocation.
+
+    Key systems:
+    - Ant roster: alive[] array, dead ants are compacted each tick
+    - Queen lifecycle: egg production, hunger/health, food request signals
+    - Brood chamber: larvae, gestation progress, crowding-based slowdown
+    - Food stores: virtual bootstrap + physical pellets, scaled by colony size
+    - Workforce allocation: forage/dig/nurse ratios with dynamic switching
+    - Spatial tracking: ant grid (x,y → count), nest food tiles, dig fronts
+
+    Important invariants:
+    - Food store target scales with colony size (ants.length * 5) to prevent starvation
+    - Entrance pheromone deposits every 5 ticks (not every tick) to prevent saturation
+    - Brood crowding reduces gestation speed by up to 40% when density is high
+    - Queen food requests only trigger when health/hunger drop below thresholds
+
+    This creates emergent behavior without explicit central planning.
+*/
+
 import { Ant } from './ant.js';
 import { TERRAIN } from './world.js';
 

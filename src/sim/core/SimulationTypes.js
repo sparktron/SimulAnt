@@ -1,3 +1,22 @@
+/*
+    Type definitions and config sanitization for the tick simulation.
+
+    Purpose:
+    - PATCH_TERRAIN_KIND: Semantic labels for terrain types (surface vs underground)
+    - sanitizeTickConfig: Guards against invalid/undefined config values that would
+      break determinism or crash the simulation
+    - getPatchCellState: Snapshots a single tile for rendering/inspection
+
+    Critical: sanitizeTickConfig is called before EVERY tick to ensure:
+    - All numeric values are finite and in valid ranges
+    - Diffusion coefficients don't exceed stability threshold (4D < 1)
+    - Probabilities are clamped to [0, 1]
+    - Rates have sensible defaults when missing
+
+    This prevents user-provided bad configs from corrupting the simulation state,
+    especially when loading from localStorage or accepting UI slider input.
+*/
+
 import { TERRAIN } from '../world.js';
 
 /**

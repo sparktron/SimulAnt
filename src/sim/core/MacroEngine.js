@@ -1,9 +1,17 @@
-/**
- * Macro simulation boundary.
- *
- * Current game logic is effectively micro-driven; this engine tracks deterministic
- * territory metadata so macro progression can evolve without coupling to micro tick internals.
- */
+/*
+    Strategic state machine: placeholder for future colony-level decisions.
+
+    Currently a no-op (no randomness, no state mutations). Exists as a boundary
+    layer to separate high-level strategy from local simulation rules (ant behavior,
+    pheromones, digging). The territories array is metadata-only and never used to
+    influence ticks.
+
+    Future use: territorial behavior, seasonal transitions, threat responses,
+    macro-level trade-offs (e.g., expand vs. consolidate). Any changes here must:
+    - Preserve determinism (seeded RNG only, never Math.random())
+    - Never mutate world/colony during a tick (would break deterministic sequencing)
+    - Respect the TickScheduler contract (macro runs first, then micro)
+*/
 export class MacroEngine {
   constructor(world) {
     this.world = world;

@@ -1,3 +1,25 @@
+/*
+    Simulation orchestrator: owns all mutable state and tick pipeline.
+
+    Responsibilities:
+    - Maintains world (terrain, pheromones), colony (ants, queen), and food pellets
+    - Seeds deterministic RNG from user-provided seed string
+    - Orchestrates tick pipeline: macro → micro → food respawn → stats collection
+    - Exposes serialization (save/load) and reset (new seed/reload)
+    - Handles food cluster spawning and initial surface-level obstacles
+
+    Tick flow (runTick):
+    1. TickScheduler: calls macro → micro engines in order (deterministic)
+    2. FoodEconomySystem: respawns food pellets if shortage detected
+    3. ColonyStats: collects telemetry for HUD/monitoring
+    4. Tick counter increments
+
+    Save/load contract:
+    - serialize() captures world/colony/dig state as JSON-safe objects
+    - fromSerialized() reconstructs from JSON without re-running initialization
+    - Determinism: same seed + same config always produces same tick sequence
+*/
+
 import { World, TERRAIN } from './world.js';
 import { Colony } from './colony.js';
 import { SeededRng } from './rng.js';

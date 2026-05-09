@@ -1,3 +1,23 @@
+/*
+    Excavation front progression: manages downward digging fronts and upward access shafts.
+
+    Key concepts:
+    - Fronts: tunneling paths that branch into chambers; tracked by (x,y,dir,progress)
+    - Progress: accumulates until >= 1.0, then front advances one tile (max 8 steps/tick)
+    - Dirt carriers: workers holding dirt from recent dig assigned to nearest active front
+    - Work allocation: diggers assigned proportionally (1 per ~24 workers, capped to active fronts)
+    - Upward shafts: special fronts that tunnel UP toward surface to create new entrances
+    - Chamber carving: creates 6-tile radius chamber at front position (optional "force dig")
+
+    Determinism: Uses seeded RNG for direction selection, workaround for older saved states.
+
+    This creates emergent topology:
+    - Fronts naturally follow easier paths (stay in tunnel/chamber)
+    - Branching creates redundancy (multiple paths to food)
+    - Chamber spacing (checked after 10 tiles) prevents overlap
+    - New entrance shafts provide escape routes if main entrance is blocked
+*/
+
 import { TERRAIN } from './world.js';
 
 const CARDINAL_DIRS = [

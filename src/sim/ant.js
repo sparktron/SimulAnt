@@ -1,10 +1,34 @@
+/*
+    Ant behavior state machine and movement simulation.
+
+    Each ant maintains a deterministic FSM with states like FORAGE_SEARCH,
+    RETURN_HOME, DIG, NURSE, etc. Every tick, an ant:
+    1. Senses the world (location, nearby food, pheromones, entrance)
+    2. Checks for hazards (water/enemies)
+    3. Makes pre-movement decisions (eating, depositing)
+    4. Decides movement intent and moves one tile
+    5. Re-checks hazards at new location
+    6. Applies vital drains (hunger, health)
+
+    Key design patterns:
+    - Uses seeded RNG for determinism (never Math.random())
+    - Movement is discrete (1 tile/tick) with theta continuous for smooth steering
+    - Pheromone steering combines correlated random walk + local field gradients
+    - Worker roles (forage/dig/nurse) switch based on colony needs
+    - Health/hunger drive behavior: low health → return to nest, starvation → eat
+*/
+
 import { TERRAIN } from './world.js';
 import { isInNestSpatial } from './behavior/NestState.js';
 
 const DEBUG_ANT_FLOW_LOGS = false;
 
-// Box-Muller transform — normally distributed variate via the seeded rng.
-// Must use rng, not Math.random(), to preserve simulation determinism.
+/*
+    Box-Muller transform: produces Gaussian random samples from uniform distribution.
+
+    Critical: Must use seeded RNG, never Math.random(), to preserve determinism.
+    Used for ant heading/steering noise and behavior variance.
+*/
 function gaussianRandom(rng) {
   const u = Math.max(1e-10, rng.range(0, 1));
   const v = rng.range(0, 1);
@@ -91,10 +115,12 @@ export class Ant {
     this.id = `ant-${Math.floor(rng.range(0, 1e9))}`;
     this.x = x;
     this.y = y;
+    // dir is an index into DIRS (0-7 for 8 cardinal+diagonal directions)
     this.dir = rng.int(DIRS.length);
     this.hungerMax = 100;
     this.healthMax = 100;
     // Start with varied hunger (20-100) to desynchronize threshold crossings
+    // so the colony doesn't all starve/eat at the same tick
     this.hunger = 20 + rng.int(81);
     // Initial health ranges from 75%-100% for variance
     this.health = this.healthMax * (0.75 + rng.range(0, 0.25));
@@ -643,6 +669,22 @@ export class Ant {
     return didMove;
   }
 
+  /*
+      Updates ant vitals: age, hunger, health with work-based penalties and recovery.
+
+      Health/hunger system:
+      - Hunger drains from movement/carrying/fighting at configured rates
+      - Starving (hunger <= 0) triggers rapid health loss (starvation penalty)
+      - Health drains from work (movement, carrying) independently of hunger
+      - Well-fed ants (hunger > 65%) passively regen health if healthy
+      - Natural death: age (after maxAge * 0.8, senescence drains health)
+      - Starvation death: when health reaches 0
+
+      This creates emergent behavior:
+      - Ants must balance work/exploration with returning to eat
+      - Carrying food is taxing, so trips are naturally limited
+      - Natural lifespan prevents ant bloat in stable conditions
+  */
   #applyVitals(colony, config, dt, didMove) {
     // Increment age for natural lifespan tracking
     this.age += 1;
@@ -708,6 +750,20 @@ export class Ant {
     }
   }
 
+  /*
+      Moves ant by evaluating pheromone gradient + momentum + directional bias.
+
+      Algorithm:
+      1. Compute weight for each of 8 directions based on pheromone concentration
+      2. Apply directional penalties (hard-block reverse, discourage back-diagonals)
+      3. Add steering contribution from heading/meander (correlated random walk)
+      4. Sample by weighted distribution to pick movement
+      5. Returns true if ant moved, false if all neighbors are blocked
+
+      Key insight: Combining pheromone strength (followAlpha/followBeta) with
+      directional momentum prevents jitter and keeps trails stable. The threshold
+      logic lets ants lock onto trails without constantly recomputing the gradient.
+  */
   #moveByPheromone(world, rng, config, channel, entrance, colony, trailAttractionField = null) {
     if (!colony) colony = this._currentColony;
     const field = channel === 'home' ? world.toHome : world.toFood;
