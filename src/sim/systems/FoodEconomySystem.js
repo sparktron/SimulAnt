@@ -1,3 +1,23 @@
+/*
+    Food respawn economy: maintains availability without infinite supply.
+
+    Strategy:
+    - Maintains a target pellet count (ant-scaled: max(20, antCount))
+    - Critical shortage check: if total food (surface + stored) < 0.5 * antCount,
+      respawn immediately (prevents starvation death spiral)
+    - Regular respawn: every 60-120 ticks if available < target
+    - Spatial distribution: 40% near nest (10-25 tiles), 60% far (40-60 tiles)
+      to create foraging zones and prevent clustering
+
+    This creates emergent foraging behavior:
+    - Ants must establish trails to distant food sources
+    - Near-food makes early colony survival easy
+    - Far-food drives exploration and trail-following capability
+    - Starvation pressure forces rapid response to shortages
+
+    Important: Respawn is randomized angle/distance via seeded RNG so repeated
+    playthroughs with same seed produce identical food locations.
+*/
 export class FoodEconomySystem {
   constructor({ world, colony, rng, spawnFoodCluster }) {
     this.world = world;
@@ -19,6 +39,7 @@ export class FoodEconomySystem {
 
     const deficit = pelletTarget - availableFoodCount;
 
+    // Near-field food: random angle from nest, fixed radius band (10-25 tiles)
     const angleNear = this.rng.range(0, Math.PI * 2);
     const distNear = 10 + this.rng.range(0, 15);
     const xNear = Math.round(this.world.nestX + Math.cos(angleNear) * distNear);
@@ -26,6 +47,7 @@ export class FoodEconomySystem {
     const nearCount = Math.ceil(deficit * 0.4);
     this.spawnFoodCluster(xNear, Math.min(yNear, this.world.nestY - 2), 8, nearCount);
 
+    // Far-field food: perpendicular angle (90-270°), longer radius (30-60 tiles)
     const angleFar = angleNear + Math.PI * (0.5 + this.rng.range(0, 1));
     const distFar = 30 + this.rng.range(0, 30);
     const xFar = Math.round(this.world.nestX + Math.cos(angleFar) * distFar);
