@@ -327,6 +327,24 @@ export class Colony {
     }
   }
 
+  /*
+      Chooses role/focus for next spawned ant to minimize allocation deficit.
+
+      Algorithm:
+      1. Compute what each role should have at (totalCount + 1)
+      2. Calculate gap = targetCount - currentCount for each role
+      3. Return the role with the largest deficit
+
+      Why this works:
+      - As colony grows, roles stay roughly balanced
+      - Avoids needing central planner or rebalancing logic
+      - Each spawn decision is local (only compare gaps once)
+      - Naturally handles dynamic ratio changes
+
+      Example: if target is 60% forage, 30% dig, 10% nurse, and we have
+      100 ants with 50 forage / 35 dig / 15 nurse, the next spawn goes
+      to forage (target 61 vs current 50 = gap +11).
+  */
   #chooseWeightedDeficit(targetWeights, currentCounts) {
     const keys = Object.keys(targetWeights);
     const totalCount = keys.reduce((sum, key) => sum + (currentCounts[key] || 0), 0);
@@ -349,6 +367,24 @@ export class Colony {
     return bestKey;
   }
 
+  /*
+      Updates queen reproduction and brood development.
+
+      Queen lifecycle:
+      - Lays eggs every queenEggTicks if food is available (costs queenEggFoodCost)
+      - Each egg becomes a larva at stage 1
+      - Larvae progress through 4 stages (~2 seconds each, modified by food/crowding)
+      - Stage 5 hatches into a live ant (respects antCap)
+      - Starvation: if malnourished > 600 ticks, larva dies
+
+      Emergence mechanics:
+      - Food shortage → slow gestation → fewer hatches → colony shrinks gracefully
+      - Crowding (larvae > threshold) → 40% slowdown to gestation
+      - Nurse behavior (spreadLarvae) actively reduces crowding
+      - No central "birth quota" — reproduction is purely food-limited
+
+      This creates a stable population dynamic without explicit death rates.
+  */
   #updateQueenAndBrood(config) {
     const dt = config.tickSeconds || BASE_TICK_SECONDS;
 
