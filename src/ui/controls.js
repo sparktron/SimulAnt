@@ -94,6 +94,9 @@ export function createControls(state, actions) {
   });
 
   document.addEventListener('keydown', (event) => {
+    // Don't steal keys while the user is typing in any text/number field.
+    if (event.target.matches('input[type="text"], input[type="number"], textarea')) return;
+
     if (event.code === 'Space') {
       event.preventDefault();
       state.paused = !state.paused;

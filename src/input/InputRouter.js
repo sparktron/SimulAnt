@@ -55,15 +55,17 @@ export class InputRouter {
       this.lastX = event.clientX;
       this.lastY = event.clientY;
 
-      const point = this.#pointFromClient(event.clientX, event.clientY);
-      const activeHandlers = this.#activeHandlers();
-      if (!point) return;
-      activeHandlers.onPointerWorld?.(point.x, point.y);
-
+      // Panning only needs dx/dy — process it before the world-bounds check so
+      // dragging outside the world boundary doesn't abort an in-progress pan.
       if (this.panning) {
-        activeHandlers.pan?.(dx, dy);
+        this.#activeHandlers().pan?.(dx, dy);
         return;
       }
+
+      const point = this.#pointFromClient(event.clientX, event.clientY);
+      if (!point) return;
+      const activeHandlers = this.#activeHandlers();
+      activeHandlers.onPointerWorld?.(point.x, point.y);
 
       if (this.painting) {
         activeHandlers.paint?.(point.x, point.y);
