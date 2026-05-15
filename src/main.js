@@ -41,7 +41,10 @@ const state = {
   config: {
     tickSeconds: SIM_DT,
     antCap: 2000,
-    evapFood: 0.02,
+    // Food evap is fast so stale trails (after food source is depleted) dissolve
+    // before they trap searchers on dead-end corridors. With slow evap (0.02)
+    // the colony delivered ~36% less food than with pheromones disabled.
+    evapFood: 0.1,
     evapHome: 0.015,
     evapDanger: 0.08,
     // Food diffusion is moderate so trails have a detectable width (ants
@@ -50,7 +53,7 @@ const state = {
     diffHome: 0.18,
     diffDanger: 0.12,
     diffIntervalTicks: 2,
-    depositFood: 0.35,
+    depositFood: 0.15,
     depositHome: 0.15,
     dangerDeposit: 0.3,
     hazardDeathChance: 0.02,
@@ -100,7 +103,7 @@ const state = {
     foodTrailDistanceScale: 1.0,
     trailLockThreshold: 1.0,
     foodTrailDecayPerStep: 0.92,
-    maxFoodTrailScale: 4.0,
+    maxFoodTrailScale: 1.0,
     homeScentBaseWeight: 1.0,
     homeScentSearchStateScale: 0.3,
     homeScentReturnStateScale: 1.0,
