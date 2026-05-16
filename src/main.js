@@ -41,10 +41,11 @@ const state = {
   config: {
     tickSeconds: SIM_DT,
     antCap: 2000,
-    // Food evap is fast so stale trails (after food source is depleted) dissolve
-    // before they trap searchers on dead-end corridors. With slow evap (0.02)
-    // the colony delivered ~36% less food than with pheromones disabled.
-    evapFood: 0.1,
+    // Food trails are ephemeral so they only persist while actively reinforced
+    // by carriers — stale trails to depleted sources dissolve in ~2 seconds.
+    // Combined with weaker followBeta and no outward tieBias, this lets
+    // pheromones aid recruitment instead of trapping searchers on dead corridors.
+    evapFood: 0.3,
     evapHome: 0.015,
     evapDanger: 0.08,
     // Food diffusion is moderate so trails have a detectable width (ants
@@ -91,7 +92,11 @@ const state = {
     surfaceFoodSearchMaxMissTicks: 400,  // Give foragers much more time to find food
     surfaceReturnToNestHungerThreshold: 0.6,  // Return after timeout with safety margin
     followAlpha: 1.5,
-    followBeta: 8.0,
+    // Moderate trail pull — strong enough to bias toward established corridors,
+    // weak enough that searchers don't get locked onto stale trails when food
+    // is depleted. Higher values (8+) caused trail traps; lower values (2)
+    // lost the recruitment benefit.
+    followBeta: 4.0,
     wanderNoise: 0.02,
     randomTurnChance: 0.02,
     momentumBias: 0.3,
@@ -116,7 +121,11 @@ const state = {
     returnCarryNoiseScale: 0.05,
     returnTrailBoostScale: 0.15,
     returnTrailBoostMax: 3.0,
-    foodTieBiasScale: 0.18,
+    // Disabled: outward goal-bias for food-channel steering used to nudge
+    // searchers away from the nest. With ephemeral trails and weaker following,
+    // the trail itself carries direction info, and the outward push was just
+    // pulling ants past actual food without sufficient detection.
+    foodTieBiasScale: 0,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,
