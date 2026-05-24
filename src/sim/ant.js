@@ -697,7 +697,7 @@ export class Ant {
         this.health = Math.max(0, this.health - config.healthDrainRate * dt);
       }
 
-      if (this.hunger > this.hungerMax * 0.65 && this.health < this.healthMax && this.age <= this.maxAge * 0.8) {
+      if (this.hunger > this.hungerMax * 0.5 && this.health < this.healthMax && this.age <= this.maxAge * 0.8) {
         const regenRate = Math.max(0, config.healthRegenRate ?? 0);
         this.health = Math.min(this.healthMax, this.health + regenRate * dt);
       }
@@ -730,10 +730,14 @@ export class Ant {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
     }
 
-    // Passive health regen when well-fed (hunger > 65%), but not once the ant
+    // Passive health regen when fed (hunger > 50%), but not once the ant
     // has entered the senescence zone — age drain should be able to run its
     // course without regen extending life past maxAge.
-    if (this.hunger > this.hungerMax * 0.65 && this.health < this.healthMax && this.age <= this.maxAge * 0.8) {
+    //
+    // Threshold sits below the post-meal hunger level (eat at 35% + 25 = 60%)
+    // so workers can passively heal between trips. Anything above the
+    // post-meal value would block regen entirely for the normal feed cycle.
+    if (this.hunger > this.hungerMax * 0.5 && this.health < this.healthMax && this.age <= this.maxAge * 0.8) {
       const regenRate = Math.max(0, config.healthRegenRate ?? 0);
       this.health = Math.min(this.healthMax, this.health + regenRate * dt);
     }
