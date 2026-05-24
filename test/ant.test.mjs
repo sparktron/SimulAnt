@@ -693,13 +693,61 @@ test('ant health regenerates when well-fed', () => {
   colony.setSurfaceFoodPellets([]);
 
   const ant = new Ant(world.nestX, world.nestY - 5, rng, 'worker');
-  ant.hunger = 90; // well-fed (> 65% of 100)
+  ant.hunger = 90; // well-fed
   ant.health = 50; // damaged
   colony.ants.push(ant);
 
   ant.update(world, colony, rng, config);
 
-  assert.ok(ant.health > 50, 'Ant health should regenerate when hunger > 65%');
+  assert.ok(ant.health > 50, 'Ant health should regenerate when fed');
+});
+
+// Regression: the eat threshold (35%), workerEatNutrition (25), and passive
+// regen threshold must form a coherent feed-cycle. A worker who has just
+// eaten lands at ~60% hunger; if regen needed > 60%, the ant could never
+// passively heal between meals — which was the root of the slow attrition
+// that collapsed the colony.
+test('ant just below post-meal hunger level still passively regenerates', () => {
+  const rng = new SeededRng('regen-post-meal-seed');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+
+  const ant = new Ant(world.nestX, world.nestY - 5, rng, 'worker');
+  // Post-meal hunger: eat at 35% + 25 nutrition = 60%. Verify this state
+  // qualifies for passive regen.
+  ant.hunger = 60;
+  ant.health = 50;
+  colony.ants.push(ant);
+
+  ant.update(world, colony, rng, config);
+
+  assert.ok(
+    ant.health > 50,
+    'A worker fresh from a meal must passively regenerate health, otherwise the eat/regen cycle leaks health continuously',
+  );
+});
+
+test('soldier just below post-meal hunger level still passively regenerates', () => {
+  const rng = new SeededRng('soldier-regen-post-meal-seed');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+
+  const soldier = new Ant(world.nestX, world.nestY - 5, rng, 'soldier');
+  soldier.hunger = 60;
+  soldier.health = 50;
+  colony.ants.push(soldier);
+
+  soldier.update(world, colony, rng, config);
+
+  assert.ok(soldier.health > 50, 'Soldier regen branch must share the same threshold as workers');
 });
 
 // --- Direction Tracking ---
