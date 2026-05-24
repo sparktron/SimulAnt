@@ -1376,8 +1376,11 @@ export class Ant {
 
   #tryEatFromNest(colony, inNest, config) {
     if (!inNest) return false;
-    // Only workers eat from nest stores.
-    if (this.role !== 'worker') return false;
+    // Workers and soldiers eat from nest stores. Breeders do not — they exist
+    // for caste-balance bookkeeping and have no active behavior loop.
+    // Excluding soldiers (the earlier policy) guaranteed they starved within
+    // ~30 sec, draining colony births with no return.
+    if (this.role !== 'worker' && this.role !== 'soldier') return false;
 
     // Cooldown: prevent ants from eating every single tick in the nest.
     // 30 ticks between meals unless critically starving.

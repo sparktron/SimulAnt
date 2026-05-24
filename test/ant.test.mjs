@@ -366,7 +366,7 @@ test('soldier ant moves and patrols instead of sitting idle', () => {
   assert.equal(soldier.state, 'PATROL');
 });
 
-test('soldier ant does not eat from nest (worker-only behavior)', () => {
+test('soldier ant eats from nest store when underground and hungry', () => {
   const rng = new SeededRng('soldier-eat-seed');
   const world = createTestWorld();
   const config = createTestConfig();
@@ -376,19 +376,19 @@ test('soldier ant does not eat from nest (worker-only behavior)', () => {
   colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
   colony.setSurfaceFoodPellets([]);
 
-  // Place soldier underground (inNest) with low hunger
   const soldier = new Ant(world.nestX, world.nestY + 3, rng, 'soldier');
-  // Need passable tile underground
   world.terrain[world.index(soldier.x, soldier.y)] = TERRAIN.TUNNEL;
-  soldier.hunger = 10; // very hungry
+  soldier.hunger = 10; // very hungry — below the eat threshold
   colony.ants.push(soldier);
 
   const foodBefore = colony.foodStored;
   soldier.update(world, colony, rng, config);
 
-  // Master design: only workers eat from nest stores, soldiers don't
-  assert.equal(colony.foodStored, foodBefore, 'Soldier should NOT consume food from colony store');
-  assert.ok(soldier.hunger < 10, 'Soldier hunger should drain naturally without nest feeding');
+  // Soldiers must be able to eat from colony stores. Excluding them caused
+  // every soldier (15% of births by default) to starve within seconds, draining
+  // the colony's renewal capacity until the nest collapsed.
+  assert.ok(colony.foodStored < foodBefore, 'Soldier should consume from colony store when underground and hungry');
+  assert.ok(soldier.hunger > 10, 'Soldier hunger should rise after eating');
 });
 
 test('worker standing on entrance tile is treated as surface and does not consume nest food', () => {
