@@ -79,7 +79,9 @@ const state = {
     starvationRecoveryHealth: 5,
     healthDrainRate: 5,
     healthRegenRate: 1,
-    healthWorkIdleDrainRate: 0.1,
+    // Idle drain must stay below move drain — punishing ants for standing still
+    // (e.g. waiting in an entrance traffic jam) compounded into nest die-off.
+    healthWorkIdleDrainRate: 0.03,
     healthWorkMoveDrainRate: 0.08,
     healthWorkCarryDrainRate: 0.01,
     healthWorkFightDrainRate: 0.6,
