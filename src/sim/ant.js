@@ -1503,8 +1503,13 @@ export class Ant {
     return this.health < this.healthMax * 0.5;
   }
 
+  // Critical = "drop everything and eat right now." Threshold raised from 25%
+  // so an ant in real trouble triggers emergency eating before it's seconds
+  // from death (with the 25% floor, the override only fired after sustained
+  // damage). Combined with the cooldown bypass in #tryEatFromNest, critical
+  // ants can re-feed every tick until hunger is full or they're stable.
   #isCriticalHealth() {
-    return this.health < this.healthMax * 0.25;
+    return this.health < this.healthMax * 0.4;
   }
 
   #moveToward(world, tx, ty, rng, constraints = null) {
