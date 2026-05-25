@@ -1,27 +1,40 @@
 # Ant Health System — Review & Resilience Report
 
 **Reviewer:** Claude Code
-**Date:** 2026-05-24
+**Date:** 2026-05-24 *(updated through v0.24.0)*
 **Scope:** `src/sim/ant.js` (#applyVitals, #tryEatFromNest, #consumePelletFor*),
-`src/sim/colony.js` (queen survival, brood, food store), `src/main.js` config
-defaults.
+`src/sim/colony.js` (queen survival, brood, food store, trophallaxis),
+`src/main.js` config defaults.
 
 ## TL;DR
 
-Three concrete bugs were fixed in this pass. They are sufficient — by
-themselves — to explain "the nest dies even with abundant food":
+Three concrete bugs were fixed in the first pass. They are sufficient — by
+themselves — to explain "the nest dies even with abundant food." A second
+pass implemented eight of the ten forward-looking suggestions to make the
+colony more resilient at scale.
+
+### Bug fixes shipped
 
 | # | Bug | Severity | Fix shipped |
 |---|---|---|---|
-| 1 | `healthWorkIdleDrainRate` (0.10/sec) > `healthWorkMoveDrainRate` (0.08/sec). Idle ants — i.e. anything jammed at the entrance — lost health faster than ants doing work. | Compounding | v0.15.1 — lowered idle to 0.03/sec |
-| 2 | Passive health regen required hunger > 65%, but workers eat at 35% and gain 25 → reach 60%. The regen branch could **never fire** during the normal feed cycle. | Critical (constant attrition) | v0.16.0 — lowered regen threshold to 50% |
-| 3 | Soldiers were excluded from `#tryEatFromNest`. They have *higher* hunger drain than workers, no foraging loop, and made up 15% of births. Every soldier starved in ~25–40 sec. | Critical (births wasted) | v0.17.0 — soldiers now eat from store underground |
+| 1 | `healthWorkIdleDrainRate` (0.10/sec) > `healthWorkMoveDrainRate` (0.08/sec). Idle ants — i.e. anything jammed at the entrance — lost health faster than ants moving. | Compounding | v0.15.1 — lowered idle to 0.03/sec |
+| 2 | Passive health regen required hunger > 65%, but workers eat at 35% and gain 25 → reach 60%. The regen branch could **never fire** during the normal feed cycle. | Critical | v0.16.0 — lowered threshold to 50% |
+| 3 | Soldiers were excluded from `#tryEatFromNest`. Higher hunger drain than workers, no foraging loop, made up 15% of births. Every soldier starved in ~25–40 sec. | Critical | v0.17.0 — soldiers now eat from store underground |
 
-A regression test pins the eat/regen coherence so future config tuning can't
-re-open the gap.
+### Resilience suggestions
 
-The report below documents the rest of the audit and forward-looking
-suggestions for making the colony more resilient.
+| # | Subject | Status |
+|---|---|---|
+| S1 | Birth rate doesn't scale with queen health | ✅ Shipped — v0.18.0 |
+| S2 | Trophallaxis between adjacent ants | ✅ Shipped — v0.19.0 |
+| S3 | Worker lifespan is short relative to colony scale | ⏸ Deferred (intentionally skipped by user) |
+| S4 | Critical-health override only fires at 25% | ✅ Shipped — v0.20.0 (raised to 40%) |
+| S5 | Senescence drain is absolute, blocks regen | ✅ Shipped — v0.21.0 (half-rate regen during senescence) |
+| S6 | `larvaeCrowdingThreshold` not a real config key | ✅ Shipped — v0.21.1 |
+| S7 | Queen has no successor | ⏸ Deferred (intentionally skipped by user) |
+| S8 | Carry-trip hunger drain fires inside nest | ✅ Shipped — v0.22.0 |
+| S9 | No cause-of-death telemetry | ✅ Shipped — v0.23.0 |
+| S10 | Bootstrap food masks early-game balance | ✅ Shipped — v0.24.0 |
 
 ---
 
@@ -31,47 +44,61 @@ suggestions for making the colony more resilient.
 
 ```
 age += 1
-hunger -= (move_or_idle_rate + carrying + fighting) * dt
+hunger -= (move_or_idle_rate + carrying_if_in_transit + fighting) * dt
 if hunger == 0: health -= healthDrainRate * dt          # starvation
 health -= work_drain * dt                                # work damage
-if hunger > regen_threshold and age < 0.8 * maxAge:
-    health += healthRegenRate * dt                       # passive regen
+if hunger > regen_threshold:
+    health += healthRegenRate * (senescence ? 0.5 : 1) * dt   # passive regen
 if age > 0.8 * maxAge:
     health -= age_factor * 2 * dt                        # senescence
-if health == 0: alive = false
+if health == 0: alive = false; colony.recordDeath(cause)
 ```
 
 ### Ant eat-from-nest (`Ant#tryEatFromNest`)
 
 ```
 require inside nest, role is worker or soldier
-require ticksSinceLastEat >= cooldown (30) OR critical health (<25%)
+require ticksSinceLastEat >= cooldown (30) OR critical health (<40%)
 require hunger < 35% OR critical health
 intake = min(workerEatNutrition, hungerMax - hunger)
 hunger += intake
 health += intake * healthEatRecoveryRate (+ bonus if starving+critical)
 ```
 
+### Trophallaxis pass (`Colony#runTrophallaxis`, post-update)
+
+```
+for each hungry recipient (hunger < 40% of max):
+    find adjacent fed donor (hunger > 60% of max)
+    transfer min(trophallaxisRate * dt, donor_spare, recipient_capacity)
+```
+
 ### Queen survival (`Colony#updateQueenSurvival`)
 
 ```
 hunger -= queenHungerDrain * dt
-if hunger < 40%: eat queenEatNutrition from store, gain hunger + health
+if hunger < 40%: eat queenEatNutrition from store; hunger & health up
 if hunger == 0: health -= queenHealthDrainRate * dt
-if health == 0: queen.alive = false (terminal — no respawn)
+if health == 0: queen.alive = false (terminal — no successor)
 ```
 
 ### Brood lifecycle (`Colony#updateQueenAndBrood`)
 
-* Queen lays one egg every `queenEggTicks` (default 20) if food > cost.
-* Each larva passes through 4 stages of `broodGestationSeconds/4`.
-* Gestation rate scales with food availability AND `larvaeCrowding`
-  (up to 40% slowdown when count > 8 and nurses aren't tending).
-* Larva dies after `broodStarvationTicks` (600) of severe underfeeding.
+```
+healthFraction = queen.health / queen.healthMax
+canLay = healthFraction >= queenLayingMinHealth and foodStored >= cost
+if canLay:
+    eggProgress += healthFraction              # health-scaled cadence
+    if eggProgress >= queenEggTicks:
+        lay 1 egg (consume food, queen.health -= queenEggHealthCost)
+each larva: progress *= broodFeedRatio * (1 - larvaeCrowding * 0.4)
+            die after broodStarvationTicks of severe underfeeding
+            hatch at stage > 4
+```
 
 ---
 
-## Detailed bug analysis (fixed)
+## Detailed bug analysis (fixed in v0.15.1 – v0.17.0)
 
 ### Bug 1 — inverted idle/move health drain
 
@@ -87,7 +114,7 @@ healthWorkMoveDrainRate: 0.08,
 second than an ant actively walking. Entrance congestion is a normal
 operating condition (every forager exits and re-enters the same shaft), so
 this drain hit a large fraction of the colony for a meaningful fraction of
-every cycle. Compounded with bug 2, it pushed average ant lifespan well
+every cycle. Compounded with Bug 2, it pushed average ant lifespan well
 below `maxAge`.
 
 **Fix shipped (v0.15.1):** `healthWorkIdleDrainRate: 0.03` — idle now
@@ -97,42 +124,38 @@ costs ~⅓ of moving.
 
 **Files:** `src/sim/ant.js` `#applyVitals`.
 
-The numbers from defaults:
-
 | Event | Hunger after |
 |---|---|
 | Eat trigger (`hungry`) | < 35% |
 | `workerEatNutrition` | 25 |
 | **Post-meal hunger** | **~60%** |
-| Passive regen needed | **> 65%** ← never reached |
+| Passive regen needed (old) | **> 65%** ← never reached |
 
-The arithmetic is the bug. Workers could never passively regenerate health
-during the normal eat cycle. They still gained a small amount of health
-*per meal* via `healthEatRecoveryRate * intake = 0.45 × 25 = 11.25`
-health/meal, which approximately balanced work drain in steady state — but
-left zero margin for senescence drain (age > 0.8 × maxAge adds up to 2
-health/sec) or for the inverted idle drain (Bug 1).
+Workers could never passively regenerate health during the normal eat cycle.
+They still gained a small amount of health per meal via
+`healthEatRecoveryRate * intake = 0.45 × 25 = 11.25` health/meal, which
+approximately balanced work drain in steady state — but left zero margin for
+senescence drain (up to 2 health/sec at end of lifespan) or the inverted
+idle drain (Bug 1).
 
-**Fix shipped (v0.16.0):** lowered passive regen threshold to 50%, which
-sits below the post-meal hunger level. A freshly-fed worker now
-heals passively between trips. Same change applied to the soldier vitals
-branch for consistency.
+**Fix shipped (v0.16.0):** lowered passive regen threshold to 50%. A
+freshly-fed worker now heals passively between trips. Same change applied
+to the soldier vitals branch.
 
 ### Bug 3 — soldiers starved by design
 
 **Files:** `src/sim/ant.js` `#tryEatFromNest`.
 
-The old code returned early for non-workers, with the comment "Master
-design: only workers eat from nest stores." Soldiers have:
+The old code returned early for non-workers, with the comment
+"Master design: only workers eat from nest stores." Soldiers have:
 
 * `hungerDrainRates.idle = 2.2`, `move = 4.5` (vs worker's 1.8, 2.0).
-* No foraging behavior — they patrol the entrance perimeter, never pick
-  up pellets.
+* No foraging behavior — they patrol the entrance perimeter, never pick up pellets.
 * 15% of all births, by default `casteAllocation`.
 
-A soldier's hunger drained from 100 → 0 in roughly 22–45 seconds of sim
-time. Then `healthDrainRate: 5/sec` killed it in 20 more seconds. Every
-soldier born was a guaranteed death — paid for in colony food and queen egg
+A soldier's hunger drained from 100 → 0 in roughly 22–45 sec of sim time.
+Then `healthDrainRate: 5/sec` killed it in 20 more seconds. Every soldier
+born was a guaranteed death — paid for in colony food and queen egg
 production, returned in zero work.
 
 **Fix shipped (v0.17.0):** soldiers can now call `#tryEatFromNest` when
@@ -140,170 +163,196 @@ underground. Updated the test that pinned the old policy.
 
 ---
 
-## Suggestions for further resilience improvements
+## Resilience suggestions — status & details
 
-These are not bugs; they are design tensions worth resolving for a colony
-that survives long simulation runs at scale.
+### S1 — Birth rate doesn't scale with queen condition ✅ *Shipped — v0.18.0*
 
-### S1 — Birth rate doesn't scale with colony size *(highest leverage)*
+**Original concern:** egg laying ran at a fixed `1.5/sec` regardless of
+queen health, food supply, or stress. Death rate scales linearly with
+colony size, so above ~135 ants the colony plateaued.
 
-Egg laying is gated by a fixed timer:
-
-```js
-queenEggTicks: 20    // one egg per 20 ticks ≈ 1.5 eggs/sec
-```
-
-This is independent of `ants.length`. Death rate, in contrast, scales
-**linearly** with colony size (each ant has the same per-tick chance of
-dying). At ~135 ants, deaths/sec exceeds births/sec and the colony
-plateaus or collapses.
-
-**Suggested change:** make egg laying a *rate* proportional to live
-queen-health, not a fixed timer. For example, lay 1 egg every
-`max(8, queenEggTicks * (1 - colonyHealthMultiplier))` ticks. Real ant
-queens lay thousands per day at colony maturity.
-
-Practical implementation: add a colony-size scaling factor with a
-configurable maximum lay rate. Cap the multiplier so the queen can't
-exceed brood-chamber throughput. A first cut:
+**Shipped behavior:**
 
 ```js
-const sizeScale = Math.min(4, 1 + colony.ants.length / 200);
-const effectiveLayTicks = Math.max(5, Math.round(queenEggTicks / sizeScale));
+healthFraction = queen.health / queen.healthMax
+if healthFraction >= queenLayingMinHealth (0.2) AND foodStored >= cost:
+    eggProgress += healthFraction         // health-scaled cadence
+    on lay: queen.health -= queenEggHealthCost (0.05)
 ```
 
-### S2 — Trophallaxis between ants
+Three new config keys, all sanitized and editable in the parameter editor:
+`queenEggHealthCost`, `queenLayingMinHealth`. The queen self-throttles
+(health → fewer eggs → less drain → recovery), and birth rate now
+visibly tracks queen condition. Tests in `test/colony.test.mjs` cover
+all three properties (rate scales, hard stop, health cost).
 
-Real ant colonies move food between individuals via mouth-to-mouth
-trophallaxis. Currently every ant has to physically descend to a
-food-store tile to eat. Nurses and soldiers loiter near the entrance
-and may not reach storage.
+### S2 — Trophallaxis between adjacent ants ✅ *Shipped — v0.19.0*
 
-**Suggested change:** when ant A is adjacent to ant B and A is hungry and
-B is well-fed, A can take a small bite from B's hunger. Limit the
-transfer rate so it's a survival pressure release, not the primary feeding
-channel. This solves several edge cases:
+**Original concern:** every ant must descend to a food-store tile to eat.
+Soldiers, nurses, and stuck foragers couldn't survive small access gaps.
 
-* Soldiers far from storage stay alive.
-* Brood couriers can drop a partial pellet and the queen courier loops
-  fed without round-tripping through the store every time.
-* Surface foragers stuck in traffic can survive an extra trip.
+**Shipped behavior:** new `Colony#runTrophallaxis` pass runs after ant
+updates. For each ant whose hunger sits below
+`trophallaxisRecipientMaxHungerFraction` (40%), search the 8 neighboring
+tiles for a donor above `trophallaxisDonorMinHungerFraction` (60%) and
+transfer up to `trophallaxisRate * dt` (2 hunger/sec by default) per
+recipient per tick. Recipients drive the search so the iteration order is
+the only ordering decision and the result is deterministic.
 
-### S3 — Worker lifespan is short relative to colony scale
+Rates are intentionally small — this is a survival-pressure release, not
+the primary feeding channel. Three new sanitized config keys.
 
-```js
-this.maxAge = role === 'soldier' ? 1800 + rng.int(600) : 2400 + rng.int(800);
-```
+### S3 — Worker lifespan is short relative to colony scale ⏸ *Deferred*
 
-At sim-tick = 1/30 sec, workers live 80–107 sim-seconds; with the
-0.4× BASE_SIM_SPEED_SCALE that's 200–267 real seconds (~3–4.5 min).
-This forces *very* high birth rates to maintain any sizeable colony.
+**User decision:** explicitly skipped this round.
 
-**Suggested change:** raise `maxAge` to ~8000-12000 ticks (workers) and
-the senescence window may need to widen too. Real workers can live for
-months; even doubling the simulated lifespan dramatically reduces the
-required birth rate to sustain a large colony.
+The numbers still stand: workers live 2400–3200 ticks (~3–4.5 real minutes
+at the current sim speed scale). Doubling `maxAge` would substantially
+reduce the birth rate required to sustain a large colony. Senescence
+window would likely need to widen alongside any maxAge bump so that the
+"natural fade" window stays a usable fraction of total life.
 
-### S4 — Critical-health override only fires at 25% health
+### S4 — Critical-health override only fires at 25% ✅ *Shipped — v0.20.0*
 
-`#tryEatFromNest` lets a critical-health ant bypass cooldown and the
-hunger gate. But "critical" = `health < 25%`, which an ant only reaches
-after sustained damage. By then it's seconds from death.
+**Shipped behavior:** `#isCriticalHealth()` returns `health < 40%` (was
+25%). Critical ants:
 
-**Suggested change:** raise the critical override to ~40% so an ant in
-trouble can re-feed promptly. Pair with a shorter cooldown
-(e.g. 10 ticks) when critical so they can eat multiple times in a row
-to recover.
+* Immediately switch to `RETURN_TO_NEST_HEAL` if outside the nest.
+* Bypass the nest-eat cooldown (so they can eat every tick until stable).
+* Eat `workerEmergencyEatNutrition` (35) instead of the regular 25.
 
-### S5 — Senescence drain is absolute, not health-state-aware
+The report also suggested shortening the cooldown when critical, but the
+existing code already bypasses it entirely — that's stricter than what was
+suggested, so no further change was needed.
 
-```js
-if (this.age > this.maxAge * 0.8) {
-    const ageFactor = (this.age - this.maxAge * 0.8) / (this.maxAge * 0.2);
-    this.health = Math.max(0, this.health - ageFactor * 2 * dt);
-}
-```
+### S5 — Weak regen during senescence ✅ *Shipped — v0.21.0*
 
-This drains health regardless of whether the ant is well-fed. Combined
-with disabled passive regen (`age <= maxAge * 0.8` clause), an aging ant
-has *no* mechanism to recover any health, even if hunger is full and they
-are sitting in the chamber.
+**Original concern:** the regen guard `age <= maxAge * 0.8` shut healing
+off entirely once an ant entered senescence, causing abrupt mid-window
+deaths.
 
-**Suggested change:** allow weak passive regen during senescence
-(e.g. half rate) so an old, well-fed ant fades over the full 20% window
-rather than dying mid-window. This also smooths the death rate over time
-instead of clustering deaths around the maxAge boundary.
+**Shipped behavior:** removed the absolute guard. Senescent ants still
+heal, but at half rate (controlled by a `senescenceFactor` of `0.5`
+in `#applyVitals`). Age drain still wins overall, so they fade out across
+the whole senescence window instead of collapsing mid-window. Same
+treatment applied to the soldier vitals branch.
 
-### S6 — `larvaeCrowdingThreshold` has no main-config entry
+### S6 — `larvaeCrowdingThreshold` exposed as a real config key ✅ *Shipped — v0.21.1*
 
-`Colony#updateQueenAndBrood` reads `config.larvaeCrowdingThreshold ?? 8`,
-but this key is not declared in `state.config` in `main.js` and is not
-sanitized in `SimulationTypes.js`. It silently falls back to 8 forever.
+The value was being read as `config.larvaeCrowdingThreshold ?? 8`, but the
+key was not declared in `main.js`, not sanitized, and not in the editor
+defaults. Silently fell back to 8 forever; was not persisted through
+save/load. Added in all three locations so it's tunable and durable.
 
-**Suggested change:** add to `state.config` and `sanitizeTickConfig` so
-it's tunable from the parameter editor and survives save/load.
+### S7 — Queen succession ⏸ *Deferred*
 
-### S7 — Queen has a single point of failure with no inheritance
+**User decision:** explicitly skipped this round.
 
-The queen's `alive` flag is terminal. Once she dies the colony cannot
-produce new ants. There is no successor queen and no way to recover.
+The queen remains a terminal single point of failure. Recovery from queen
+death is impossible: she stops laying, the brood pipeline empties, the
+last ants die of old age. A future pass should promote a healthy worker
+or `breeder` to successor queen after a delay (with a royal-jelly cost so
+colonies have to invest in succession rather than getting it for free).
 
-**Suggested change:** when the queen dies, promote a `breeder`-role ant
-(or convert a healthy worker) into a successor queen after a delay.
-Combine with a small "royal jelly" cost so colonies need to invest in
-succession.
+### S8 — Carry-trip hunger/health drain only on surface transit ✅ *Shipped — v0.22.0*
 
-### S8 — Carry-trip hunger accounting double-counts in some states
+The carry-trip surcharge (`carryingHungerDrainRate`,
+`healthWorkCarryDrainRate`) used to fire whenever `ant.carrying` was
+truthy — including `STORE_FOOD_IN_NEST`, `PICKUP_QUEEN_FOOD`,
+`DELIVER_QUEEN_FOOD`, situations where the ant is moving a couple tiles
+inside the nest.
 
-`carryingHungerDrainRate = 0.5` adds extra hunger drain whenever
-`this.carrying?.type` is truthy. This includes states like
-`STORE_FOOD_IN_NEST` where the ant is *already inside* the nest moving a
-few tiles to drop food. The extra drain is small in practice but
-inconsistent: hauling dirt and queen-food also incur it.
+**Shipped behavior:** surcharge only applies when state is `HAUL_DIRT`
+(still meant to be costly) or when the ant is *not* in the nest interior
+post-movement. `#applyVitals` now takes an `inNest` parameter computed
+from the ant's post-movement position so queen-couriers and in-chamber
+food-droppers don't pay long-haul tax for short moves.
 
-**Suggested change:** limit the carry-drain to surface transit or to
-states explicitly marked as "in transit," and remove it once the ant has
-reached the nest interior.
+### S9 — Cause-of-death telemetry ✅ *Shipped — v0.23.0*
 
-### S9 — No telemetry for cause-of-death
+**Shipped behavior:** new `colony.deathsByCause` tracks
+`{ starvation, oldAge, hazard, other }`. All death sites
+(`#resolveHazard`, both worker/soldier `#applyVitals` branches) route
+through `Colony#recordDeath(cause)`. Worker/soldier death cause is
+inferred via `#deathCause()`:
 
-`colony.deaths` increments on each death but doesn't categorize them
-(starvation, age, hazard, drowning, combat). Without this it's hard to
-distinguish "balance issue" from "edge case in a specific state."
+* `hunger <= 0` → `starvation`
+* `age > 0.8 * maxAge` → `oldAge`
+* Otherwise → `other`
 
-**Suggested change:** add `colony.deathsByCause = { starvation: 0,
-oldAge: 0, hazard: 0, ... }` and a small HUD readout. A 30-second sample
-that shows "80% starvation" vs "80% old age" tells you which lever to
-tune.
+HUD now shows `DEATHS: N` and `BY CAUSE: S:N A:N H:N O:N`. A 30-second
+sample tells you whether the colony is failing from food balance,
+lifespan vs birth rate, terrain, or generic attrition.
 
-### S10 — Bootstrap food masks early-game balance
+### S10 — Bootstrap food readout ✅ *Shipped — v0.24.0*
 
-`Colony` constructor sets `_virtualFoodStored = bootstrapFood` (up to
-2400 nutrition for a 300-ant start). This bootstrap drains over time but
-makes the first few minutes of any seed look stable even when steady-state
-balance is broken. Once the virtual stores are gone, the real economy is
-exposed — often after the user has stopped paying attention.
+The colony starts with a virtual bootstrap ration (`max(500, initialAnts * 8)`)
+that drains silently into nest meals before any forager-deposited pellets
+are touched. Once it's depleted the colony is exposed to its real
+steady-state economy — but there was no signal that the transition had
+happened.
 
-**Suggested change:** add a HUD readout showing
-`virtualFoodRemaining / virtualFoodAtStart` so it's visible when the
-training wheels come off. Optionally taper the virtual store more
-aggressively so the steady-state economy starts being tested sooner.
+**Shipped behavior:** track `_virtualFoodInitial` alongside
+`_virtualFoodStored`, persist both via serialize/load, and surface
+`BOOTSTRAP: N% (remaining / initial)` in the HUD. Reads as "depleted"
+once it's drained.
 
 ---
 
-## What I'd test next
+## Forward-looking items still open
 
-A scenario test that runs the simulation for ~2000 ticks with default
-config, asserts `colony.ants.length > 0`, and prints
-`colony.deathsByCause` would catch the next class of collapse failure
-without anyone having to eyeball the browser preview. The current
-`test/simulation-core.test.mjs` checks `runs 100 ticks without crashing`
-but doesn't measure survival.
+### Skipped this round (waiting on user decision)
+
+* **S3 — extend worker lifespan.** Largest single lever still on the table.
+  Until this changes, colony size remains constrained by the queen lay rate
+  divided by the death rate, which is itself dominated by short lifespans.
+  S1's health-scaled laying gives the queen more headroom but doesn't move
+  the lifespan ceiling.
+* **S7 — queen succession.** Colony still dies permanently when the queen
+  dies. With S1 in place the queen's health can drop temporarily without
+  permanent damage (she pauses laying and recovers), but a hazard or
+  terminal starvation event still ends the run.
+
+### Suggestions worth considering as a third pass
+
+* **Survival regression test.** Run the simulation 2000+ ticks with default
+  config, assert `colony.ants.length > 0` and `queen.alive`, print
+  `deathsByCause`. The current `test/simulation-core.test.mjs` only
+  checks `runs 100 ticks without crashing`. Now that S9 telemetry exists
+  this is straightforward.
+* **Brood UI controls.** `broodFoodDrainRate`, `broodGestationSeconds`,
+  `broodStarvationTicks`, and the newly-exposed `larvaeCrowdingThreshold`
+  exist in `main.js` defaults and in `getDefaultConfig()` but have no UI
+  entries in `params.js`. Adding a "Brood" group would make the brood
+  pipeline as tunable as the queen group already is.
+* **Soldier behavior beyond patrol.** Soldiers can now eat (Bug 3 fix) and
+  defend (FIGHT state exists), but they have no enemy to fight in default
+  scenarios. Either remove the soldier caste from defaults or wire up a
+  combat-eligible threat so the caste pays for itself.
+* **Pre-existing test failures unrelated to this work.**
+  `test/config-defaults.test.mjs` fails on `evapFood` mismatch (params.js
+  has 0.02, main.js has 0.3 — neither matches the other; pre-existed all
+  of this work). Two `test/nest-renderer.test.mjs` cases were already
+  failing on queen-marker default visibility and brood rendering. Worth a
+  separate sweep.
 
 ---
 
 ## Versioning
 
+### Bug fix series
+
 * `v0.15.1` — fix idle-vs-move drain inversion
 * `v0.16.0` — fix regen-threshold gap (behavior change → MINOR)
 * `v0.17.0` — soldiers can eat from nest store (behavior change → MINOR)
+
+### Resilience series
+
+* `v0.18.0` — S1: queen egg laying scales with health, costs health to lay
+* `v0.19.0` — S2: trophallaxis between adjacent ants
+* `v0.20.0` — S4: critical-health override raised 25% → 40%
+* `v0.21.0` — S5: senescent ants still passively regen at half rate
+* `v0.21.1` — S6: expose `larvaeCrowdingThreshold` as a real config key
+* `v0.22.0` — S8: carry hunger/health drain only on surface transit
+* `v0.23.0` — S9: cause-of-death telemetry + HUD readout
+* `v0.24.0` — S10: bootstrap food remaining as HUD percentage
