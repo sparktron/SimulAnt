@@ -464,6 +464,8 @@ function loop(now) {
         followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
         deaths: simCore.colony.deaths,
         deathsByCause: simCore.colony.deathsByCause,
+        virtualFoodRemaining: simCore.colony._virtualFoodStored,
+        virtualFoodInitial: simCore.colony._virtualFoodInitial,
       });
     } catch (hudError) {
       console.error('[SimAnt] HUD update failed (continuing simulation loop):', hudError);

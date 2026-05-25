@@ -28,6 +28,7 @@ export function updateHud(stats) {
   setText('hudDiggers', `${jobsDig}`);
   setText('hudJobs', `${jobsForage} / ${jobsDig} / ${jobsNurse}`);
   setText('hudFood', formatNumber(stats.foodStored));
+  setText('hudBootstrapFood', formatBootstrap(stats.virtualFoodRemaining, stats.virtualFoodInitial));
   setText('hudQueenHealth', formatNumber(stats.queenHealth));
   setText('hudFps', Math.round(stats.fps).toString());
   setText('hudDig', stats.digStatus || 'AUTO-DIG: OFF');
@@ -76,6 +77,18 @@ function asNonNegativeInt(value) {
 function formatNumber(value) {
   const number = Number.isFinite(value) ? value : 0;
   return number.toFixed(1);
+}
+
+// Bootstrap food is the queen-starter ration the colony begins with. Once it
+// drains the colony is exposed to its real steady-state economy — surfacing
+// the percentage remaining lets the user notice the transition.
+function formatBootstrap(remaining, initial) {
+  const rem = Number.isFinite(remaining) ? Math.max(0, remaining) : 0;
+  const init = Number.isFinite(initial) && initial > 0 ? initial : 0;
+  if (init <= 0) return 'depleted';
+  const pct = Math.round((rem / init) * 100);
+  if (rem <= 0) return `depleted (0 / ${init.toFixed(0)})`;
+  return `${pct}% (${rem.toFixed(0)} / ${init.toFixed(0)})`;
 }
 
 function setText(id, value) {

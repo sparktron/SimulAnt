@@ -93,6 +93,7 @@ export class Colony {
     const bootstrapFood = Math.max(500, initialAnts * 8);
     this.foodStored = bootstrapFood;
     this._virtualFoodStored = bootstrapFood;  // consumed before physical pellets so deposits accumulate visibly
+    this._virtualFoodInitial = bootstrapFood; // baseline for HUD "bootstrap remaining" indicator
 
     this.syncQueenPositionToNest(world.nestX, world.nestY);
   }
@@ -1177,6 +1178,7 @@ export class Colony {
     return {
       foodStored: this.foodStored,
       virtualFoodStored: this._virtualFoodStored,
+      virtualFoodInitial: this._virtualFoodInitial,
       births: this.births,
       deaths: this.deaths,
       queen: this.queen,
@@ -1211,6 +1213,9 @@ export class Colony {
     const colony = new Colony(world, rng, 0);
     colony.foodStored = data.foodStored;
     colony._virtualFoodStored = Number.isFinite(data.virtualFoodStored) ? data.virtualFoodStored : 0;
+    colony._virtualFoodInitial = Number.isFinite(data.virtualFoodInitial)
+      ? data.virtualFoodInitial
+      : colony._virtualFoodStored;
     colony.births = data.births;
     colony.deaths = data.deaths;
     colony.queen = { ...colony.queen, ...(data.queen || {}) };
