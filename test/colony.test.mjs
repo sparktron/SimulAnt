@@ -170,6 +170,98 @@ test('queen does not lay eggs without sufficient food', () => {
   assert.equal(colony.queen.eggsLaid, eggsBefore, 'Queen should not lay eggs without food');
 });
 
+// --- Health-scaled Egg Laying ---
+
+test('queen egg-laying rate scales down as her health drops', () => {
+  // At full health the queen lays ~1 egg per queenEggTicks; at half health
+  // the same number of ticks should yield roughly half the eggs.
+  function countEggsAtHealth(healthFraction) {
+    const world = new World(64, 64);
+    const rng = new SeededRng(`lay-rate-${healthFraction}`);
+    const colony = new Colony(world, rng, 0);
+    const config = createTestConfig();
+    config.queenEggTicks = 4;
+    config.queenEggFoodCost = 0;
+    config.queenEggHealthCost = 0;
+    config.queenLayingMinHealth = 0;
+    config.queenHungerDrain = 0;        // hold the queen's vitals steady
+    config.queenHealthDrainRate = 0;
+    config.queenHealthRecoveryPerNutrition = 0;
+    colony.foodStored = 100;
+    colony.setNestEntrances([]);
+    colony.setSurfaceFoodPellets([]);
+    colony.queen.health = colony.queen.healthMax * healthFraction;
+    colony.queen.hunger = colony.queen.hungerMax;
+
+    const eggsBefore = colony.queen.eggsLaid;
+    for (let i = 0; i < 200; i += 1) colony.update(config);
+    return colony.queen.eggsLaid - eggsBefore;
+  }
+
+  const fullHealthEggs = countEggsAtHealth(1.0);
+  const halfHealthEggs = countEggsAtHealth(0.5);
+
+  assert.ok(fullHealthEggs > 0, 'Queen at full health should lay eggs');
+  assert.ok(
+    halfHealthEggs < fullHealthEggs * 0.7,
+    `Half-health queen should lay markedly fewer eggs (full=${fullHealthEggs}, half=${halfHealthEggs})`,
+  );
+});
+
+test('queen stops laying entirely below queenLayingMinHealth', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('lay-stop');
+  const colony = new Colony(world, rng, 0);
+  const config = createTestConfig();
+  config.queenEggTicks = 1;
+  config.queenEggFoodCost = 0;
+  config.queenEggHealthCost = 0;
+  config.queenLayingMinHealth = 0.5;
+  config.queenHungerDrain = 0;
+  config.queenHealthDrainRate = 0;
+  config.queenHealthRecoveryPerNutrition = 0;
+  colony.foodStored = 100;
+  colony.setNestEntrances([]);
+  colony.setSurfaceFoodPellets([]);
+  // Sit the queen just below the threshold (with the queen-hungry consume
+  // disabled above, this stays put across the update loop).
+  colony.queen.health = colony.queen.healthMax * 0.4;
+  colony.queen.hunger = colony.queen.hungerMax;
+
+  const eggsBefore = colony.queen.eggsLaid;
+  for (let i = 0; i < 100; i += 1) colony.update(config);
+
+  assert.equal(colony.queen.eggsLaid, eggsBefore, 'Queen below min-health floor should not lay');
+});
+
+test('laying an egg costs the queen health', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('lay-cost');
+  const colony = new Colony(world, rng, 0);
+  const config = createTestConfig();
+  config.queenEggTicks = 1;
+  config.queenEggFoodCost = 0;
+  config.queenEggHealthCost = 0.5;
+  config.queenLayingMinHealth = 0;
+  config.queenHungerDrain = 0;
+  config.queenHealthDrainRate = 0;
+  config.queenHealthRecoveryPerNutrition = 0;
+  colony.foodStored = 100;
+  colony.setNestEntrances([]);
+  colony.setSurfaceFoodPellets([]);
+  colony.queen.health = colony.queen.healthMax;
+  colony.queen.hunger = colony.queen.hungerMax;
+
+  const healthBefore = colony.queen.health;
+  colony.update(config);
+
+  assert.ok(colony.queen.eggsLaid > 0, 'Queen should lay at least one egg this tick');
+  assert.ok(
+    colony.queen.health < healthBefore,
+    `Queen health should drop after laying (before=${healthBefore}, after=${colony.queen.health})`,
+  );
+});
+
 // --- Ant Spawning ---
 
 test('colony spawns ants when food and brood are available', () => {

@@ -64,6 +64,12 @@ const state = {
     digHomeBoost: 0.9,
     queenEggTicks: 20,
     queenEggFoodCost: 0.15,
+    // Egg laying scales with queen health: progress per tick = health/healthMax.
+    // Below queenLayingMinHealth fraction she stops laying entirely (recovery).
+    // Each egg laid costs queenEggHealthCost health, creating a feedback loop
+    // that self-limits the queen and ties birth rate to her condition.
+    queenEggHealthCost: 0.05,
+    queenLayingMinHealth: 0.2,
     queenHungerDrain: 0.25,
     queenEatNutrition: 5,
     queenHealthDrainRate: 7,

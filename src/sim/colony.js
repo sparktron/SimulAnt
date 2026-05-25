@@ -388,14 +388,29 @@ export class Colony {
   #updateQueenAndBrood(config) {
     const dt = config.tickSeconds || BASE_TICK_SECONDS;
 
-    if (this.foodStored >= config.queenEggFoodCost) {
-      this.queen.eggProgress += 1;
+    // Egg laying is gated on three things: food, queen energy, and a minimum
+    // health floor. Progress accumulates at a rate proportional to her health
+    // fraction — a healthy queen lays at the configured rate, a wounded queen
+    // lays proportionally fewer eggs, and a queen below queenLayingMinHealth
+    // stops entirely so she can recover. Each egg laid costs queenEggHealthCost
+    // health, so heavy laying naturally tapers her down toward equilibrium.
+    const healthFraction = this.queen.healthMax > 0
+      ? Math.max(0, Math.min(1, this.queen.health / this.queen.healthMax))
+      : 0;
+    const minLayHealthFraction = config.queenLayingMinHealth ?? 0.2;
+    const canLay = healthFraction >= minLayHealthFraction
+      && this.foodStored >= config.queenEggFoodCost;
+
+    if (canLay) {
+      this.queen.eggProgress += healthFraction;
       if (this.queen.eggProgress >= config.queenEggTicks) {
         this.queen.eggProgress = 0;
         this.foodStored -= config.queenEggFoodCost;
         this._virtualFoodStored = Math.max(0, this._virtualFoodStored - config.queenEggFoodCost);
         this.queen.eggsLaid += 1;
         this.queen.brood += 1;
+        const eggHealthCost = config.queenEggHealthCost ?? 0;
+        this.queen.health = Math.max(0, this.queen.health - eggHealthCost);
         // Add new larva at stage 1
         this.larvae.push({ stage: 1, progress: 0 });
       }

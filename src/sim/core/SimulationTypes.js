@@ -106,6 +106,8 @@ export function sanitizeTickConfig(config = {}) {
 
     queenEggTicks: Math.floor(clampFiniteRangeNumber(config.queenEggTicks, 20, 1, 100)),
     queenEggFoodCost: clampNonNegativeNumber(config.queenEggFoodCost, 0),
+    queenEggHealthCost: clampNonNegativeNumber(config.queenEggHealthCost, 0),
+    queenLayingMinHealth: clamp01(config.queenLayingMinHealth, 0.2),
     queenHungerDrain: clampNonNegativeNumber(config.queenHungerDrain, 0),
     queenEatNutrition: clampFiniteRangeNumber(config.queenEatNutrition, 5, 0, 20),
     queenHealthDrainRate: clampFiniteRangeNumber(config.queenHealthDrainRate, 7, 0, 20),
