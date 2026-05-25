@@ -87,6 +87,7 @@ const state = {
     broodFoodDrainRate: 0.005,
     broodGestationSeconds: 8,
     broodStarvationTicks: 600,
+    larvaeCrowdingThreshold: 8,
     workerEatNutrition: 25,
     starvationRecoveryHealth: 5,
     healthDrainRate: 5,

@@ -120,6 +120,7 @@ export function sanitizeTickConfig(config = {}) {
     queenCourierPickupNutrition: clampNonNegativeNumber(config.queenCourierPickupNutrition, 0),
     broodFoodDrainRate: clampNonNegativeNumber(config.broodFoodDrainRate, 0),
     broodGestationSeconds: clampNonNegativeNumber(config.broodGestationSeconds, 1),
+    larvaeCrowdingThreshold: Math.floor(clampFiniteRangeNumber(config.larvaeCrowdingThreshold, 8, 0, 100)),
 
     workerEatNutrition: clampFiniteRangeNumber(config.workerEatNutrition, 25, 0, 100),
     starvationRecoveryHealth: clampNonNegativeNumber(config.starvationRecoveryHealth, 0),
