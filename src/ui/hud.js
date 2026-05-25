@@ -46,6 +46,16 @@ export function updateHud(stats) {
   setBar('healthYellow', clampPercent(focusHealth));
   setBar('healthBlack', clampPercent(healthStats.min));
   setBar('healthRed', clampPercent(healthStats.max));
+
+  setText('hudDeaths', `${asNonNegativeInt(stats.deaths)}`);
+  const byCause = stats.deathsByCause || {};
+  setText(
+    'hudDeathsByCause',
+    `S:${asNonNegativeInt(byCause.starvation)} `
+      + `A:${asNonNegativeInt(byCause.oldAge)} `
+      + `H:${asNonNegativeInt(byCause.hazard)} `
+      + `O:${asNonNegativeInt(byCause.other)}`,
+  );
 }
 
 function clampPercent(value) {

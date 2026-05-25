@@ -372,6 +372,46 @@ test('colony respects antCap limit', () => {
 
 // --- Dead Ant Removal ---
 
+// --- Cause-of-Death Telemetry ---
+
+test('recordDeath increments both deaths and the matching cause bucket', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('death-cause-basic');
+  const colony = new Colony(world, rng, 0);
+
+  colony.recordDeath('starvation');
+  colony.recordDeath('hazard');
+  colony.recordDeath('oldAge');
+  colony.recordDeath('mystery');  // unknown cause should fall through to other
+
+  assert.equal(colony.deaths, 4);
+  assert.equal(colony.deathsByCause.starvation, 1);
+  assert.equal(colony.deathsByCause.hazard, 1);
+  assert.equal(colony.deathsByCause.oldAge, 1);
+  assert.equal(colony.deathsByCause.other, 1);
+});
+
+test('starving ants register as starvation deaths', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('starvation-cause');
+  const colony = new Colony(world, rng, 0);
+  const config = createTestConfig();
+  colony.setNestEntrances([]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 0;
+
+  const ant = new Ant(world.nestX, world.nestY - 5, rng, 'worker');
+  ant.hunger = 0;
+  ant.health = 0.01;
+  ant.age = 100;             // well below senescence so cause is unambiguous
+  colony.ants.push(ant);
+
+  ant.update(world, colony, rng, config);
+
+  assert.equal(ant.alive, false);
+  assert.equal(colony.deathsByCause.starvation, 1, 'starving death should be bucketed as starvation');
+});
+
 test('dead ants are removed from colony during update', () => {
   const world = new World(64, 64);
   const rng = new SeededRng('dead-removal');

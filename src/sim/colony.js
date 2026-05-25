@@ -43,6 +43,10 @@ export class Colony {
 
     this.workAllocation = { forage: 90, dig: 5, nurse: 5 };
     this.casteAllocation = { workers: 70, soldiers: 25, breeders: 5 };
+    // Cause-of-death breakdown so we can tell whether the colony is dying
+    // from starvation (balance issue), old age (lifespan vs. birth rate),
+    // hazards (terrain), or something else. Useful when tuning.
+    this.deathsByCause = { starvation: 0, oldAge: 0, hazard: 0, other: 0 };
 
     this.queen = {
       alive: true,
@@ -676,6 +680,22 @@ export class Colony {
    * Spreads overcrowded larvae to reduce brood pile density.
    * Called by nurse ants periodically.
    */
+  /**
+   * Records an ant death with its dominant cause.
+   *
+   * Cause buckets are starvation, oldAge, hazard, other. Unknown causes
+   * fall through to other so totals always match the incremented deaths
+   * counter.
+   */
+  recordDeath(cause) {
+    this.deaths += 1;
+    if (Object.prototype.hasOwnProperty.call(this.deathsByCause, cause)) {
+      this.deathsByCause[cause] += 1;
+    } else {
+      this.deathsByCause.other += 1;
+    }
+  }
+
   spreadLarvae(rng) {
     if (this.larvae.length <= 4) return;
     // Each nurse tending pass reduces crowding, accelerating brood development.

@@ -655,7 +655,7 @@ export class Ant {
 
     if (rng.chance(config.hazardDeathChance)) {
       this.alive = false;
-      colony.deaths += 1;
+      colony.recordDeath('hazard');
       return true;
     }
 
@@ -720,7 +720,7 @@ export class Ant {
 
       if (this.health <= 0) {
         this.alive = false;
-        colony.deaths += 1;
+        colony.recordDeath(this.#deathCause());
       }
       return;
     }
@@ -773,8 +773,21 @@ export class Ant {
 
     if (this.health <= 0) {
       this.alive = false;
-      colony.deaths += 1;
+      colony.recordDeath(this.#deathCause());
     }
+  }
+
+  /**
+   * Best-guess cause for the death that just occurred.
+   *
+   * Starvation if hunger has been driven to zero; oldAge if the ant is in
+   * the senescence window (age > 80% of maxAge); otherwise "other" — which
+   * covers work-damage attrition and edge cases.
+   */
+  #deathCause() {
+    if (this.hunger <= 0) return 'starvation';
+    if (this.age > this.maxAge * 0.8) return 'oldAge';
+    return 'other';
   }
 
   /*
