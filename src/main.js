@@ -132,8 +132,16 @@ const state = {
     homeScentMinFalloff: 0.1,
     homeScentMaxContributionPerStep: 999,
     homeTieBiasScale: 0.05,
-    homeTieBiasScaleCarrying: 2.5,
-    returnCarryNoiseScale: 0.05,
+    // homeTieBiasScaleCarrying was 2.5 — strong enough that the goal-bias
+    // dominated direction selection and returners traced arrow-straight
+    // lines back to the entrance. 0.6 keeps them clearly homing without
+    // erasing the per-step variance from noise and pheromone gradients.
+    homeTieBiasScaleCarrying: 0.6,
+    // returnCarryNoiseScale was 0.05 — effectively zero noise on the return
+    // path, which combined with high tie-bias made paths deterministic given
+    // the pheromone field. 0.3 gives the gait a natural meander while still
+    // suppressing the full search-noise level.
+    returnCarryNoiseScale: 0.3,
     returnTrailBoostScale: 0.15,
     returnTrailBoostMax: 3.0,
     // Disabled: outward goal-bias for food-channel steering used to nudge

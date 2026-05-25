@@ -812,23 +812,14 @@ export class Ant {
     const homeScentWeight = this.#getHomeScentWeight(config, entrance);
     const enforceEntranceCorridor = this.#isEntranceTransitState() && !!entrance;
 
-    // No-trail home fallback: when a food-laden ant is steering home but the
-    // local home pheromone is weak or absent, momentum (0.3) overwhelms the
-    // small homeTieBias (0.05) and the ant just continues whatever wander
-    // direction it had — often straight off the map. Bypass weighted steering
-    // and head directly toward the entrance via greedy descent.
-    const carryingFoodReturn = channel === 'home' && !!entrance && this.carrying?.type === 'food';
-    const localHomeAtAnt = carryingFoodReturn ? (field[world.index(this.x, this.y)] ?? 0) : 0;
-    const localFoodTrailAtAnt = carryingFoodReturn
-      ? (world.toFood[world.index(this.x, this.y)] ?? 0)
-      : 0;
-    // Only fall back to greedy direct-to-entrance when BOTH the home gradient
-    // and the food trail are absent.  Otherwise let the weighted steering
-    // (which uses world.toFood as trailAttractionField) keep returners on the
-    // existing corridor — preventing the diagonal shortcut + bottom-row swarm.
-    if (carryingFoodReturn && localHomeAtAnt < 0.5 && localFoodTrailAtAnt < 0.5) {
-      return this.#moveToward(world, entrance.x, entrance.y, rng);
-    }
+    // (Previous behavior: when carriers were on weak pheromone we bypassed the
+    // weighted steering and ran a greedy descent toward the entrance. The
+    // greedy step always picked the closest-distance neighbor, which produced
+    // perfectly straight return paths even when natural wander would have been
+    // realistic. With the gentler homeTieBiasScaleCarrying and restored
+    // returnCarryNoiseScale, the weighted steering keeps carriers oriented
+    // toward the entrance without erasing all per-step variance, so the
+    // fallback is no longer needed.)
 
     const weights = [];
     let total = 0;

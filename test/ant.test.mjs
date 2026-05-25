@@ -731,6 +731,60 @@ test('ant just below post-meal hunger level still passively regenerates', () => 
   );
 });
 
+// Regression: returners with food used to walk a perfect line because
+// homeTieBiasScaleCarrying (2.5) dominated direction selection and a greedy
+// fallback bypassed the weighted steering entirely whenever pheromone was
+// weak. With balanced tie-bias and restored noise, the path should retain
+// natural wander.
+test('carrying ant returning home does not trace a perfectly straight path', () => {
+  const rng = new SeededRng('return-wander');
+  const world = createTestWorld(128, 128);
+  const config = createTestConfig();
+  // Match production defaults that drive the regression.
+  config.homeTieBiasScaleCarrying = 0.6;
+  config.returnCarryNoiseScale = 0.3;
+  config.wanderNoise = 0.05;
+  config.pheromoneMaxClamp = 150;
+  const colony = createTestColony(world, rng, 0);
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+
+  // Start the ant on a row far from the entrance, carrying food. No pheromone
+  // gradient is painted intentionally — the "no trail" case is the one that
+  // used to trip the greedy fallback.
+  const ant = new Ant(world.nestX + 30, Math.max(0, world.nestY - 25), rng, 'worker');
+  ant.carrying = { type: 'food', pelletId: 'p1', pelletNutrition: 12, pickupDistance: 30 };
+  ant.carryingType = 'food';
+  ant.health = ant.healthMax;
+  ant.hunger = 80;
+  colony.ants.push(ant);
+
+  const startX = ant.x;
+  const startY = ant.y;
+  const pathLength = Math.hypot(startX - entrance.x, startY - entrance.y);
+
+  let lateralDeviationTiles = 0;
+  for (let i = 0; i < 60; i += 1) {
+    ant.update(world, colony, rng, config);
+    if (ant.x === entrance.x && ant.y === entrance.y) break;
+
+    // Distance from the straight line connecting (startX,startY) to entrance.
+    const vx = entrance.x - startX;
+    const vy = entrance.y - startY;
+    const norm = Math.hypot(vx, vy) || 1;
+    const px = ant.x - startX;
+    const py = ant.y - startY;
+    const lateral = Math.abs((px * -vy + py * vx) / norm);
+    if (lateral > lateralDeviationTiles) lateralDeviationTiles = lateral;
+  }
+
+  assert.ok(
+    lateralDeviationTiles >= 1.5,
+    `Returner should deviate from the start→entrance line by at least 1.5 tiles (was ${lateralDeviationTiles.toFixed(2)} over a ${pathLength.toFixed(0)}-tile path)`,
+  );
+});
+
 test('soldier just below post-meal hunger level still passively regenerates', () => {
   const rng = new SeededRng('soldier-regen-post-meal-seed');
   const world = createTestWorld();
