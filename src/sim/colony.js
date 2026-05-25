@@ -167,6 +167,8 @@ export class Colony {
       this.ants[i].update(this.world, this, this.rng, config);
     }
 
+    this.#runTrophallaxis(config);
+
     let write = 0;
     this._aliveWorkerCount = 0;
     for (let read = 0; read < this.ants.length; read += 1) {
@@ -385,6 +387,76 @@ export class Colony {
 
       This creates a stable population dynamic without explicit death rates.
   */
+  /*
+      Trophallaxis: well-fed ant feeds an adjacent hungry ant.
+
+      Each tick, every sufficiently-hungry ant looks at the 8 neighboring tiles
+      for a donor whose hunger sits above trophallaxisDonorMinHungerFraction.
+      A small amount of hunger transfers from donor to recipient (capped per
+      tick). Recipients drive the search so the ant array iteration order is
+      the only ordering decision and the result is deterministic.
+
+      The goal is a survival-pressure release, not a primary feeding channel:
+      transfer rates are small relative to nest-store eating. Real colonies
+      use trophallaxis heavily; here it keeps soldiers, brood-area nurses, and
+      stuck foragers alive across short food-access gaps.
+  */
+  #runTrophallaxis(config) {
+    const transferRate = config.trophallaxisRate ?? 0;
+    if (transferRate <= 0) return;
+    const dt = config.tickSeconds || BASE_TICK_SECONDS;
+    const maxTransferThisTick = transferRate * dt;
+    const donorMinFraction = Math.max(0, Math.min(1, config.trophallaxisDonorMinHungerFraction ?? 0.6));
+    const recipientMaxFraction = Math.max(0, Math.min(1, config.trophallaxisRecipientMaxHungerFraction ?? 0.4));
+
+    const locMap = new Map();
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive) continue;
+      const key = `${ant.x},${ant.y}`;
+      let bucket = locMap.get(key);
+      if (!bucket) {
+        bucket = [];
+        locMap.set(key, bucket);
+      }
+      bucket.push(ant);
+    }
+
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const recipient = this.ants[i];
+      if (!recipient.alive) continue;
+      const recipientThreshold = recipient.hungerMax * recipientMaxFraction;
+      if (recipient.hunger >= recipientThreshold) continue;
+
+      let bestDonor = null;
+      let bestSpare = 0;
+      for (let dx = -1; dx <= 1; dx += 1) {
+        for (let dy = -1; dy <= 1; dy += 1) {
+          const bucket = locMap.get(`${recipient.x + dx},${recipient.y + dy}`);
+          if (!bucket) continue;
+          for (let b = 0; b < bucket.length; b += 1) {
+            const candidate = bucket[b];
+            if (candidate === recipient || !candidate.alive) continue;
+            const donorThreshold = candidate.hungerMax * donorMinFraction;
+            if (candidate.hunger <= donorThreshold) continue;
+            const spare = candidate.hunger - donorThreshold;
+            if (spare > bestSpare) {
+              bestSpare = spare;
+              bestDonor = candidate;
+            }
+          }
+        }
+      }
+
+      if (!bestDonor) continue;
+      const capacity = recipient.hungerMax - recipient.hunger;
+      const transfer = Math.min(maxTransferThisTick, bestSpare, capacity);
+      if (transfer <= 0) continue;
+      bestDonor.hunger -= transfer;
+      recipient.hunger += transfer;
+    }
+  }
+
   #updateQueenAndBrood(config) {
     const dt = config.tickSeconds || BASE_TICK_SECONDS;
 

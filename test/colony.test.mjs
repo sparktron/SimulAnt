@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Colony } from '../src/sim/colony.js';
 import { World, TERRAIN } from '../src/sim/world.js';
 import { SeededRng } from '../src/sim/rng.js';
+import { Ant } from '../src/sim/ant.js';
 
 function createTestConfig() {
   return {
@@ -232,6 +233,76 @@ test('queen stops laying entirely below queenLayingMinHealth', () => {
   for (let i = 0; i < 100; i += 1) colony.update(config);
 
   assert.equal(colony.queen.eggsLaid, eggsBefore, 'Queen below min-health floor should not lay');
+});
+
+// --- Trophallaxis ---
+
+// Walls in all 8 neighbors of (cx, cy) except for the one tile listed in `keepOpen`,
+// so each ant pinned at the center can't move during its own update.
+function pinAntsInPlace(world, cx, cy, keepOpen = []) {
+  for (let dx = -1; dx <= 1; dx += 1) {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const tx = cx + dx;
+      const ty = cy + dy;
+      if (keepOpen.some((p) => p.x === tx && p.y === ty)) continue;
+      world.terrain[world.index(tx, ty)] = TERRAIN.WALL;
+    }
+  }
+}
+
+test('trophallaxis transfers hunger from a fed neighbor to a hungry one', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('trophallaxis');
+  const colony = new Colony(world, rng, 0);
+  const config = createTestConfig();
+  config.trophallaxisRate = 30;                       // amplified for a single-tick test
+  config.trophallaxisDonorMinHungerFraction = 0.6;
+  config.trophallaxisRecipientMaxHungerFraction = 0.4;
+  colony.setNestEntrances([]);
+  colony.setSurfaceFoodPellets([]);
+
+  // Pin two ants on adjacent tiles so trophallaxis sees a stable arrangement.
+  pinAntsInPlace(world, 20, 20, [{ x: 21, y: 20 }]);
+  pinAntsInPlace(world, 21, 20, [{ x: 20, y: 20 }]);
+
+  colony.ants = [];
+  const a = new Ant(20, 20, rng, 'worker');
+  const b = new Ant(21, 20, rng, 'worker');
+  a.hunger = 10;          // recipient
+  b.hunger = 90;          // donor
+  a.health = a.healthMax;
+  b.health = b.healthMax;
+  colony.ants.push(a, b);
+
+  colony.update(config);
+
+  assert.ok(a.hunger > 10, `Hungry ant should have received transfer (was 10, now ${a.hunger})`);
+  assert.ok(b.hunger < 90, `Fed ant should have donated hunger (was 90, now ${b.hunger})`);
+});
+
+test('trophallaxis skips ants without an adjacent fed donor', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('trophallaxis-alone');
+  const colony = new Colony(world, rng, 0);
+  const config = createTestConfig();
+  config.trophallaxisRate = 30;
+  colony.setNestEntrances([]);
+  colony.setSurfaceFoodPellets([]);
+
+  pinAntsInPlace(world, 5, 5);
+
+  colony.ants = [];
+  const lonely = new Ant(5, 5, rng, 'worker');
+  lonely.hunger = 10;
+  lonely.health = lonely.healthMax;
+  colony.ants.push(lonely);
+
+  const before = lonely.hunger;
+  colony.update(config);
+
+  // Lonely ant might lose a sliver to natural drain, but should not gain hunger.
+  assert.ok(lonely.hunger <= before, 'Lonely hungry ant should not gain hunger from nowhere');
 });
 
 test('laying an egg costs the queen health', () => {

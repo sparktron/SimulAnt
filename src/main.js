@@ -70,6 +70,12 @@ const state = {
     // that self-limits the queen and ties birth rate to her condition.
     queenEggHealthCost: 0.05,
     queenLayingMinHealth: 0.2,
+    // Trophallaxis: a fed ant can pass a small amount of hunger to an
+    // adjacent hungry one each tick. Rates are intentionally small — this is
+    // a survival-pressure release, not the primary feeding channel.
+    trophallaxisRate: 2.0,
+    trophallaxisDonorMinHungerFraction: 0.6,
+    trophallaxisRecipientMaxHungerFraction: 0.4,
     queenHungerDrain: 0.25,
     queenEatNutrition: 5,
     queenHealthDrainRate: 7,
