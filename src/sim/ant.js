@@ -697,9 +697,14 @@ export class Ant {
         this.health = Math.max(0, this.health - config.healthDrainRate * dt);
       }
 
-      if (this.hunger > this.hungerMax * 0.5 && this.health < this.healthMax && this.age <= this.maxAge * 0.8) {
+      if (this.hunger > this.hungerMax * 0.5 && this.health < this.healthMax) {
+        // Senescent ants still heal, but at half rate — old age drains health
+        // faster than the regen can compensate so they still fade out, just
+        // gracefully across the whole senescence window instead of collapsing
+        // mid-window.
         const regenRate = Math.max(0, config.healthRegenRate ?? 0);
-        this.health = Math.min(this.healthMax, this.health + regenRate * dt);
+        const senescenceFactor = this.age > this.maxAge * 0.8 ? 0.5 : 1;
+        this.health = Math.min(this.healthMax, this.health + regenRate * senescenceFactor * dt);
       }
 
       if (this.age > this.maxAge * 0.8) {
@@ -730,16 +735,19 @@ export class Ant {
       this.health = Math.max(0, this.health - config.healthDrainRate * dt);
     }
 
-    // Passive health regen when fed (hunger > 50%), but not once the ant
-    // has entered the senescence zone — age drain should be able to run its
-    // course without regen extending life past maxAge.
+    // Passive health regen when fed (hunger > 50%).
     //
     // Threshold sits below the post-meal hunger level (eat at 35% + 25 = 60%)
     // so workers can passively heal between trips. Anything above the
     // post-meal value would block regen entirely for the normal feed cycle.
-    if (this.hunger > this.hungerMax * 0.5 && this.health < this.healthMax && this.age <= this.maxAge * 0.8) {
+    //
+    // Senescent ants still heal, but at half rate — age drain still wins so
+    // they fade out across the whole senescence window instead of an abrupt
+    // mid-window collapse.
+    if (this.hunger > this.hungerMax * 0.5 && this.health < this.healthMax) {
       const regenRate = Math.max(0, config.healthRegenRate ?? 0);
-      this.health = Math.min(this.healthMax, this.health + regenRate * dt);
+      const senescenceFactor = this.age > this.maxAge * 0.8 ? 0.5 : 1;
+      this.health = Math.min(this.healthMax, this.health + regenRate * senescenceFactor * dt);
     }
 
     // Old age: health declines gradually in last 20% of lifespan
