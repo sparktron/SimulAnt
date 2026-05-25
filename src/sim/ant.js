@@ -196,7 +196,13 @@ export class Ant {
     if (currentIdx !== context.idx && this.#resolveHazard(world, colony, rng, config, currentIdx)) return;
 
     didMove = this.#applyFallbackMovement(world, colony, rng, config, context.entrance, didMove);
-    this.#applyVitals(colony, config, context.dt, didMove);
+    // Re-derive in-nest status from the post-movement position so the
+    // carry-hunger surcharge follows whether the ant is currently in transit,
+    // not whether it started the tick underground.
+    const inNestAfter = isInNestSpatial(world, this.x, this.y)
+      || (world.isUndergroundTile(this.x, this.y)
+        && (context.entrance ? this.y > context.entrance.y : true));
+    this.#applyVitals(colony, config, context.dt, didMove, inNestAfter);
   }
 
   /**
@@ -685,7 +691,7 @@ export class Ant {
       - Carrying food is taxing, so trips are naturally limited
       - Natural lifespan prevents ant bloat in stable conditions
   */
-  #applyVitals(colony, config, dt, didMove) {
+  #applyVitals(colony, config, dt, didMove, inNest) {
     // Increment age for natural lifespan tracking
     this.age += 1;
 
@@ -719,15 +725,24 @@ export class Ant {
       return;
     }
 
-    // Hunger mechanics with work penalties
+    // Hunger mechanics with work penalties. Carry surcharge is for surface
+    // transit only — moving a few tiles inside the nest to a drop point or
+    // queen tile shouldn't pay the long-haul tax. Hauling dirt is the
+    // exception: we want that to feel costly, so we keep the surcharge for
+    // HAUL_DIRT regardless of location.
     const hungerDrain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
-    const carryingHungerCost = this.carrying?.type ? (config.carryingHungerDrainRate ?? 0) : 0;
+    const carryingApplies = !!this.carrying?.type
+      && (this.state === 'HAUL_DIRT' || !inNest);
+    const carryingHungerCost = carryingApplies ? (config.carryingHungerDrainRate ?? 0) : 0;
     const fightHungerCost = this.state === 'FIGHT' ? (config.fightingHungerDrainRate ?? 0) : 0;
     this.hunger = Math.max(0, this.hunger - (hungerDrain + carryingHungerCost + fightHungerCost) * dt);
 
-    // Health degradation from work
+    // Health degradation from work. Same location-aware gate as hunger: carry
+    // drain only counts during surface transit (or dirt hauls).
+    const carryHealthApplies = !!this.carrying?.type
+      && (this.state === 'HAUL_DIRT' || !inNest);
     const healthWorkDrain = (didMove ? (config.healthWorkMoveDrainRate ?? 0) : (config.healthWorkIdleDrainRate ?? 0))
-      + (this.carrying?.type ? (config.healthWorkCarryDrainRate ?? 0) : 0)
+      + (carryHealthApplies ? (config.healthWorkCarryDrainRate ?? 0) : 0)
       + (this.state === 'FIGHT' ? (config.healthWorkFightDrainRate ?? 0) : 0);
     this.health = Math.max(0, this.health - healthWorkDrain * dt);
 
