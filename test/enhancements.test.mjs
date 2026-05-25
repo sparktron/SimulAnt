@@ -186,6 +186,65 @@ test('ColonyStats population trend', () => {
   assert.equal(stats.getPopulationTrend(), 10);
 });
 
+test('ColonyStats snapshot includes per-cause death counts and bootstrap food', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('stats-extended');
+  const colony = new Colony(world, rng, 5);
+  colony.recordDeath('starvation');
+  colony.recordDeath('oldAge');
+  colony.recordDeath('hazard');
+  colony.recordDeath('hazard');
+
+  const stats = new ColonyStats();
+  stats.record(30, colony, world);
+  const latest = stats.getLatest();
+
+  assert.equal(latest.deathStarv, 1);
+  assert.equal(latest.deathAge, 1);
+  assert.equal(latest.deathHazard, 2);
+  assert.equal(latest.deathOther, 0);
+  assert.ok(latest.bootstrapInitial > 0, 'bootstrapInitial should be captured');
+  assert.equal(latest.bootstrapRemaining, latest.bootstrapInitial, 'bootstrap should start full');
+  assert.ok(Object.prototype.hasOwnProperty.call(latest, 'larvae'));
+  assert.ok(Object.prototype.hasOwnProperty.call(latest, 'queenHealth'));
+  assert.ok(Object.prototype.hasOwnProperty.call(latest, 'pherMaxFood'));
+});
+
+test('ColonyStats exports as JSONL with one line per sample', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('stats-jsonl');
+  const colony = new Colony(world, rng, 3);
+  const stats = new ColonyStats();
+  stats.record(30, colony, world);
+  stats.record(60, colony, world);
+  stats.record(90, colony, world);
+
+  const lines = stats.toJSONL().split('\n');
+  assert.equal(lines.length, 3);
+  for (const line of lines) {
+    const parsed = JSON.parse(line);
+    assert.equal(typeof parsed.tick, 'number');
+    assert.equal(typeof parsed.population, 'number');
+  }
+});
+
+test('ColonyStats exports CSV with a header row matching field count', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('stats-csv');
+  const colony = new Colony(world, rng, 3);
+  const stats = new ColonyStats();
+  stats.record(30, colony, world);
+  stats.record(60, colony, world);
+
+  const lines = stats.toCSV().split('\n');
+  assert.equal(lines.length, 3, 'header + 2 data rows');
+  const headerCols = lines[0].split(',').length;
+  assert.equal(lines[1].split(',').length, headerCols);
+  assert.equal(lines[2].split(',').length, headerCols);
+  assert.ok(lines[0].includes('tick'));
+  assert.ok(lines[0].includes('deathStarv'));
+});
+
 test('ColonyStats respects maxSamples', () => {
   const world = new World(64, 64);
   const rng = new SeededRng('stats-max');

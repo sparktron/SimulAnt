@@ -183,7 +183,19 @@ const state = {
 
 const canvas = mustById('simCanvas');
 const simCore = new SimulationCore(state.seed);
-if (typeof window !== 'undefined') window.__sim = { simCore, state };
+if (typeof window !== 'undefined') {
+  window.__sim = {
+    simCore,
+    state,
+    // Pull the rolling stats buffer as a downloadable JSONL/CSV file. Called
+    // by the LOG button and the keyboard shortcut, also reachable from the
+    // browser devtools console as window.__sim.downloadLog('jsonl' | 'csv').
+    downloadLog: (format = 'jsonl') => downloadStatsLog(format),
+    // Direct access for ad-hoc console inspection without a download.
+    statsSnapshot: () => simCore.stats.getSummary(),
+    statsSamples: () => simCore.stats.samples.slice(),
+  };
+}
 const viewManager = new ViewManager(VIEW.SURFACE);
 const surfaceRenderer = new SurfaceRenderer(canvas, simCore.world);
 const nestRenderer = new NestRenderer(canvas, simCore.world);
@@ -269,6 +281,7 @@ createControls(state, {
     const enabled = simCore.toggleAutoDig();
     state.debug.digStatus = enabled ? 'AUTO-DIG: ON' : 'AUTO-DIG: OFF';
   },
+  downloadLog: (format) => downloadStatsLog(format),
   forceChamber: () => {
     const carved = simCore.forceChamberAtDigFront(state.config);
     state.debug.digStatus = carved ? 'AUTO-DIG: CHAMBER CARVED' : 'AUTO-DIG: CHAMBER FAILED';
@@ -840,6 +853,34 @@ function mustById(id) {
  * Called by global error listeners and top-level loop catch; prevents further
  * simulation frames after unrecoverable exceptions.
  */
+/**
+ * Triggers a browser download of the rolling ColonyStats buffer.
+ *
+ * Called by the LOG control button and the 'y' keyboard shortcut. Filename
+ * encodes the current tick so successive downloads in one session don't
+ * overwrite each other.
+ */
+function downloadStatsLog(format = 'jsonl') {
+  const stats = simCore.stats;
+  if (!stats || stats.samples.length === 0) {
+    console.warn('[SimAnt] No log samples yet — let the simulation run for at least 30 ticks.');
+    return;
+  }
+  const isCSV = format === 'csv';
+  const body = isCSV ? stats.toCSV() : stats.toJSONL();
+  const mime = isCSV ? 'text/csv' : 'application/x-ndjson';
+  const ext = isCSV ? 'csv' : 'jsonl';
+  const blob = new Blob([body], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `simant-log-tick${simCore.tick}-seed-${state.seed}.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function reportFatalError(error) {
   if (hasFatalError) return;
   hasFatalError = true;

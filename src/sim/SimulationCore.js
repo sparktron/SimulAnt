@@ -134,9 +134,11 @@ export class SimulationCore {
       foodPellets: this.foodPellets,
     });
 
-    // Record stats every 30 ticks (~1 second)
+    // Record stats every 30 ticks (~1 sim second). Passing the world lets
+    // the snapshot include pheromone stats; otherwise the recorder still
+    // works but pher fields are zero.
     if (this.tick % 30 === 0) {
-      this.stats.record(this.tick, this.colony);
+      this.stats.record(this.tick, this.colony, this.world);
     }
   }
 

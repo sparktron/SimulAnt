@@ -43,6 +43,7 @@ export function createControls(state, actions) {
   const scentBtn = byId('scentBtn');
   const jobsBtn = byId('jobsBtn');
   const pheromoneBtn = byId('pheromoneBtn');
+  const downloadLogBtn = byId('downloadLogBtn');
   const helpPanel = byId('helpPanel');
 
   startPauseBtn.addEventListener('click', () => {
@@ -92,6 +93,9 @@ export function createControls(state, actions) {
       pheromoneBtn.textContent = enabled ? 'PHERO: ON' : 'PHERO: OFF';
     }
   });
+  downloadLogBtn.addEventListener('click', () => {
+    if (actions.downloadLog) actions.downloadLog('jsonl');
+  });
 
   document.addEventListener('keydown', (event) => {
     // Don't steal keys while the user is typing in any text/number field.
@@ -133,6 +137,8 @@ export function createControls(state, actions) {
       state.overlays.showAntJobs = !state.overlays.showAntJobs;
       const legend = byId('jobLegend');
       legend.classList.toggle('active', state.overlays.showAntJobs);
+    } else if (event.key.toLowerCase() === 'y') {
+      if (actions.downloadLog) actions.downloadLog(event.shiftKey ? 'csv' : 'jsonl');
     } else if (event.key.toLowerCase() === 'p') {
       if (actions.togglePheromones) {
         const enabled = actions.togglePheromones();
