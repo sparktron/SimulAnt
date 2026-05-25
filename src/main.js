@@ -861,24 +861,46 @@ function mustById(id) {
  * overwrite each other.
  */
 function downloadStatsLog(format = 'jsonl') {
+  const btn = document.getElementById('downloadLogBtn');
+  const flashBtn = (text) => {
+    if (!btn) return;
+    const original = btn.dataset.label || btn.textContent;
+    btn.dataset.label = original;
+    btn.textContent = text;
+    setTimeout(() => {
+      btn.textContent = btn.dataset.label || 'LOG ↓';
+    }, 2000);
+  };
+
   const stats = simCore.stats;
   if (!stats || stats.samples.length === 0) {
     console.warn('[SimAnt] No log samples yet — let the simulation run for at least 30 ticks.');
+    flashBtn(`EMPTY (tick ${simCore.tick}/30)`);
     return;
   }
-  const isCSV = format === 'csv';
-  const body = isCSV ? stats.toCSV() : stats.toJSONL();
-  const mime = isCSV ? 'text/csv' : 'application/x-ndjson';
-  const ext = isCSV ? 'csv' : 'jsonl';
-  const blob = new Blob([body], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `simant-log-tick${simCore.tick}-seed-${state.seed}.${ext}`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  try {
+    const isCSV = format === 'csv';
+    const body = isCSV ? stats.toCSV() : stats.toJSONL();
+    const mime = isCSV ? 'text/csv' : 'application/x-ndjson';
+    const ext = isCSV ? 'csv' : 'jsonl';
+    const safeSeed = String(state.seed || 'default').replace(/[^a-z0-9_-]+/gi, '_');
+    const filename = `simant-log-tick${simCore.tick}-${safeSeed}.${ext}`;
+    const blob = new Blob([body], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    console.info(`[SimAnt] Downloaded ${stats.samples.length}-sample log → ${filename}`);
+    flashBtn(`SAVED ${stats.samples.length}`);
+  } catch (error) {
+    console.error('[SimAnt] Log download failed:', error);
+    flashBtn('FAILED — see console');
+  }
 }
 
 function reportFatalError(error) {
