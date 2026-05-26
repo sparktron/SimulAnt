@@ -148,9 +148,21 @@ export class Ant {
     this.alive = true;
     this.role = role;
     this.stepCounter = 0;
-    // Age/lifespan system for natural mortality
+    // Age/lifespan system for natural mortality.
+    //
+    // Lifespan was 2400-3200 ticks (workers) / 1800-2400 (soldiers) — at
+    // 30 ticks/sim-sec that's 60-107 sim-sec, which produced a sharp
+    // old-age death wave: the entire founding cohort (all spawned at
+    // age 0) hit senescence in lockstep at ~tick 3000, exactly when the
+    // colony also hit its food-throughput ceiling. The compounded crash
+    // killed every long-run save in telemetry.
+    //
+    // 2.5× longer lifespan (workers 6000-8000, soldiers 4500-6000) gives
+    // the queen enough time to ramp up replacement births before the
+    // first cohort ages out, and spreads same-cohort deaths across a
+    // wider 800-1500 tick range thanks to the larger random spread.
     this.age = 0;
-    this.maxAge = role === 'soldier' ? 1800 + rng.int(600) : 2400 + rng.int(800);
+    this.maxAge = role === 'soldier' ? 4500 + rng.int(1500) : 6000 + rng.int(2000);
     // Work specialization and behavior tracking
     this.workFocus = 'forage';
     this.failedSurfaceFoodSearchTicks = 0;

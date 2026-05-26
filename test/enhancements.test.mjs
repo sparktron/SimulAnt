@@ -63,7 +63,10 @@ test('ant has age and maxAge properties', () => {
 
   assert.equal(ant.age, 0);
   assert.ok(ant.maxAge > 0, 'maxAge should be positive');
-  assert.ok(ant.maxAge >= 2400, 'Worker maxAge should be at least 2400');
+  // Worker base maxAge was raised to 6000 in v0.26.4 to fix the death-wave
+  // cascade. The 2400 lower bound still passes; pin to the current floor
+  // so a future change doesn't silently undo the lifespan bump.
+  assert.ok(ant.maxAge >= 6000, 'Worker maxAge should be at least 6000');
 });
 
 test('soldier has shorter lifespan than worker', () => {
