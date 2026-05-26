@@ -85,12 +85,17 @@ export class Colony {
     }
 
     // Bootstrap colony with starter food so specialized work can begin
-    // Need enough to support all ants + queen egg production + brood development
-    // while foragers ramp up gathering (takes time to find food and return)
-    // With food respawning every 300 ticks when < 8 pellets, this gives stability
-    // Bootstrap food scales with colony size so a smaller start doesn't
-    // immediately starve before foragers establish trails.
-    const bootstrapFood = Math.max(500, initialAnts * 8);
+    // before foragers manage to find and deliver pellets.
+    //
+    // Sizing rationale (validated against the v0.25.0 telemetry log,
+    // 40-ant default): max workerEatNutrition is 25, eat cooldown is 30
+    // ticks (~1 sim sec). With 40 ants all hungry, peak consumption is
+    // ~40 × 25/sec = 1000 nutrition/sec. A 500-nutrition bootstrap drains
+    // in well under a sim minute — before any foraging trail has formed.
+    // Bumping to max(2000, initialAnts × 25) gives the colony 30–60 sec
+    // of guaranteed runway, which is enough for foragers to find the
+    // pre-seeded clusters and start delivering.
+    const bootstrapFood = Math.max(2000, initialAnts * 25);
     this.foodStored = bootstrapFood;
     this._virtualFoodStored = bootstrapFood;  // consumed before physical pellets so deposits accumulate visibly
     this._virtualFoodInitial = bootstrapFood; // baseline for HUD "bootstrap remaining" indicator

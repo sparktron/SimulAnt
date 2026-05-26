@@ -430,25 +430,35 @@ test('feeding a starving ant increases health deterministically', () => {
 });
 
 
-test('low-health ant eats nearby surface pellet instead of carrying it', () => {
+test('low-health ant eats from pellet then carries the remainder home', () => {
+  // A foraging worker that finds a pellet at low (but not critical) health
+  // must eat enough to keep going and deliver the rest. Previously they
+  // consumed the entire workerEatNutrition ration (25) — which equals the
+  // default pellet — and arrived home empty. The cap leaves at least half
+  // of every found pellet for the colony.
   const sim = new SimulationCore('health-nearby-pellet-seed');
   const config = createConfig();
   sim.colony.ants = sim.colony.ants.slice(0, 1);
 
   const ant = sim.colony.ants[0];
-  ant.health = 40;
+  ant.health = 45;  // low but above the 40% critical floor
   ant.hunger = 15;
 
   const pellet = sim.foodPellets[0];
   ant.x = pellet.x;
   ant.y = pellet.y;
-
+  const pelletNutritionBefore = pellet.nutrition;
   const healthBefore = ant.health;
+
   sim.update(config);
 
-  assert.ok(ant.health >= healthBefore - 1, 'Critical-health ant should avoid rapid additional collapse');
-  assert.equal(ant.carrying, null);
-  assert.equal(sim.foodPellets.some((p) => p.id === pellet.id), false);
+  assert.ok(ant.health > healthBefore, 'Forager should heal from the partial meal');
+  assert.equal(ant.carrying?.type, 'food', 'Forager must carry the remainder home, not consume the whole pellet');
+  assert.ok(
+    ant.carrying.pelletNutrition >= pelletNutritionBefore / 2 - 0.0001,
+    `Forager should leave at least half the pellet for the colony (left ${ant.carrying.pelletNutrition} of ${pelletNutritionBefore})`,
+  );
+  assert.equal(sim.foodPellets.some((p) => p.id === pellet.id), false, 'Surface pellet should be picked up');
 });
 
 

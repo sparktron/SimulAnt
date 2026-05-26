@@ -60,7 +60,10 @@ test('colony initializes with correct ant count', () => {
   assert.equal(colony.ants.length, 50);
   assert.equal(colony.births, 50);
   assert.equal(colony.deaths, 0);
-  assert.equal(colony.foodStored, 500);  // Colony starts with bootstrap food: Math.max(500, initialAnts * 8)
+  // Bootstrap food: Math.max(2000, initialAnts * 25) — gives the colony
+  // enough runway (30–60 sim sec) to establish foraging trails before
+  // steady-state consumption catches up.
+  assert.equal(colony.foodStored, 2000);
 });
 
 test('colony queen starts alive with full vitals', () => {

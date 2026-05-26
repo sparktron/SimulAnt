@@ -1460,10 +1460,18 @@ export class Ant {
       return;
     }
 
-    const requested = this.#isCriticalHealth()
+    // Cap field-eating at half the pellet unless the ant is critical (<40%
+    // health). Without this, a low-health forager consumes the full meal
+    // ration (workerEatNutrition=25) from a typical 12-nutrition pellet,
+    // delivering nothing. Capping at half guarantees the colony gets at
+    // least half of every found pellet while still letting the forager
+    // refuel enough to make the return trip.
+    const critical = this.#isCriticalHealth();
+    const requested = critical
       ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition ?? nutrition)
       : (config.workerEatNutrition ?? nutrition);
-    const consumed = Math.min(nutrition, requested);
+    const fieldCap = critical ? nutrition : nutrition / 2;
+    const consumed = Math.min(nutrition, requested, fieldCap);
     const healthRecoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
 
     this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
@@ -1509,10 +1517,17 @@ export class Ant {
       return;
     }
 
-    const requested = this.#isCriticalHealth()
+    // Same cap as #consumePelletForHealthThenCarry — never eat more than half
+    // the cargo unless the carrier is in critical health. Workers between
+    // 40–50% health were previously consuming entire pellets en route,
+    // turning every foraging trip into a net-zero or net-negative delivery
+    // for the colony.
+    const critical = this.#isCriticalHealth();
+    const requested = critical
       ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
       : (config.workerEatNutrition ?? available);
-    const consumed = Math.min(available, requested);
+    const cargoCap = critical ? available : available / 2;
+    const consumed = Math.min(available, requested, cargoCap);
     const recoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
     this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
     this.health = Math.min(this.healthMax, this.health + consumed * recoveryRate);
