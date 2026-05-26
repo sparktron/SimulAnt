@@ -124,11 +124,18 @@ export class Ant {
     this.hunger = 20 + rng.int(81);
     // Initial health ranges from 75%-100% for variance
     this.health = this.healthMax * (0.75 + rng.range(0, 0.25));
+    // Hunger drain per sim-second. Lowered 30% from previous values
+    // (worker idle 1.8→1.3, move 2.0→1.4; soldier idle 2.2→1.5,
+    // move 4.5→3.0). With the half-pellet cap and 40-nutrition pellets
+    // in place, the binding constraint is total consumption versus
+    // forager throughput. Telemetry showed 84 ants demanding ~168
+    // nutrition/sec against ~40/sec delivered; cutting demand to ~120
+    // brings the colony into a recoverable range.
     this.hungerDrainRates = {
-      idle: role === 'soldier' ? 2.2 : 1.8,
-      move: role === 'soldier' ? 4.5 : 2.0,
-      dig: 5.0,
-      fight: 7.0,
+      idle: role === 'soldier' ? 1.5 : 1.3,
+      move: role === 'soldier' ? 3.0 : 1.4,
+      dig: 3.5,
+      fight: 5.0,
     };
     this.state = role === 'soldier' ? 'PATROL' : 'FORAGE_SEARCH';
     this.carrying = null;

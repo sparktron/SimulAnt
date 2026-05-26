@@ -86,8 +86,10 @@ test('ant initializes with correct defaults for soldier', () => {
   assert.equal(ant.role, 'soldier');
   assert.equal(ant.baseColor, Ant.getDefaultBaseColor('soldier'));
   assert.equal(Ant.getLegacySoldierBaseColor(), '#d93828');
-  assert.equal(ant.hungerDrainRates.idle, 2.2);
-  assert.equal(ant.hungerDrainRates.move, 4.5);
+  // Rates lowered 30% in v0.26.3 to bring colony consumption into balance
+  // with forager throughput.
+  assert.equal(ant.hungerDrainRates.idle, 1.5);
+  assert.equal(ant.hungerDrainRates.move, 3.0);
 });
 
 // --- Ant Movement ---
