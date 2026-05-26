@@ -134,6 +134,11 @@ const state = {
     innerScatterRadius: 6,
     nearEntranceScatterRadius: 8,
     foodTrailDistanceScale: 1.0,
+    // Carriers fade in food-trail deposits from 0 → full over the first 8
+    // tiles past the entrance. Prevents the entrance from becoming the
+    // global pheromone maximum (all returners funnel through it), which
+    // would pull new searchers right back to the entrance.
+    foodDepositMinDistance: 8,
     trailLockThreshold: 1.0,
     foodTrailDecayPerStep: 0.92,
     // maxFoodTrailScale was 1.0 — equal to the base of the

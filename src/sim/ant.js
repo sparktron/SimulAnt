@@ -398,10 +398,19 @@ export class Ant {
         config.maxFoodTrailScale ?? 4.0,
         1 + distToNest * (config.foodTrailDistanceScale ?? 1.0) * 0.05,
       );
-      if (config.enablePheromones !== false) {
+      // Fade IN the deposit over the first foodDepositMinDistance tiles, so
+      // carriers don't build a pheromone hotspot at the entrance. Without
+      // this, all returning ants funnel through the same few entrance tiles
+      // and stack deposits there — creating a local maximum that pulls
+      // searchers BACK to the nest instead of out to the food source.
+      const foodFadeRadius = config.foodDepositMinDistance ?? 8;
+      const entranceFadeFraction = foodFadeRadius > 0
+        ? Math.min(1, Math.max(0, distToNest / foodFadeRadius))
+        : 1;
+      if (config.enablePheromones !== false && entranceFadeFraction > 0) {
         world.toFood[context.idx] = Math.min(
           config.pheromoneMaxClamp,
-          world.toFood[context.idx] + config.depositFood * trailScale,
+          world.toFood[context.idx] + config.depositFood * trailScale * entranceFadeFraction,
         );
       }
 

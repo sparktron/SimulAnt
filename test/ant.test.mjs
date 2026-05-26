@@ -343,6 +343,70 @@ test('ant deposits food when near entrance regardless of y position', () => {
   assert.ok(colony.foodStored >= 10, 'Colony should have received the food');
 });
 
+// Regression: carriers must NOT lay food pheromone right at the entrance,
+// otherwise all returners stack deposits on the same handful of tiles and
+// the entrance becomes the global maximum of the food field. New searchers
+// then follow the gradient straight back to the entrance instead of out
+// to the food source — observed in the v0.26.6 telemetry log as "foragers
+// wandering near the nest."
+test('carrier at the entrance does NOT lay food pheromone, but a far carrier does', () => {
+  // Sums world.toFood deposits across a small region around each carrier's
+  // starting tile so the assertion is robust to the ant moving 1 tile
+  // during its own update.
+  function regionDeposit(world, cx, cy, r) {
+    let sum = 0;
+    for (let dx = -r; dx <= r; dx += 1) {
+      for (let dy = -r; dy <= r; dy += 1) {
+        const x = cx + dx;
+        const y = cy + dy;
+        if (!world.inBounds(x, y)) continue;
+        sum += world.toFood[world.index(x, y)];
+      }
+    }
+    return sum;
+  }
+
+  const rng = new SeededRng('food-deposit-fade-seed');
+  const world = createTestWorld(96, 96);
+  const config = createTestConfig();
+  config.foodDepositMinDistance = 8;
+  config.depositFood = 0.5;
+  config.maxFoodTrailScale = 2.5;
+  const colony = createTestColony(world, rng, 0);
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+
+  // Carrier #1 — sitting right at the entrance row, only 1 tile away
+  const nearX = entrance.x + 1;
+  const nearY = entrance.y - 1;
+  const near = new Ant(nearX, nearY, rng, 'worker');
+  near.carrying = { type: 'food', pelletId: 'n1', pelletNutrition: 12 };
+  near.carryingType = 'food';
+  colony.ants.push(near);
+  near.update(world, colony, rng, config);
+  const pherAtNear = regionDeposit(world, nearX, nearY, 2);
+
+  // Carrier #2 — 30 tiles away from the entrance
+  const farX = entrance.x + 30;
+  const farY = Math.max(1, entrance.y - 5);
+  const far = new Ant(farX, farY, rng, 'worker');
+  far.carrying = { type: 'food', pelletId: 'f1', pelletNutrition: 12 };
+  far.carryingType = 'food';
+  colony.ants.push(far);
+  far.update(world, colony, rng, config);
+  const pherAtFar = regionDeposit(world, farX, farY, 2);
+
+  assert.ok(
+    pherAtNear < 0.2,
+    `Carrier at the entrance should deposit nearly zero pheromone (got ${pherAtNear})`,
+  );
+  assert.ok(
+    pherAtFar > pherAtNear + 0.5,
+    `Distant carrier should deposit substantially more than entrance carrier (far=${pherAtFar}, near=${pherAtNear})`,
+  );
+});
+
 // --- Soldier Behavior ---
 
 test('soldier ant moves and patrols instead of sitting idle', () => {

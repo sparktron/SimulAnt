@@ -528,6 +528,7 @@ export function getDefaultConfig() {
     innerScatterRadius: 6,
     nearEntranceScatterRadius: 8,
     foodTrailDistanceScale: 1.0,
+    foodDepositMinDistance: 8,
     maxFoodTrailScale: 2.5,
     trailLockThreshold: 1.0,
     foodTrailDecayPerStep: 0.92,
