@@ -76,6 +76,25 @@ test('colony queen starts alive with full vitals', () => {
   assert.equal(colony.queen.health, 100);
 });
 
+test('founding cohort spawns with staggered initial age, not all zero', () => {
+  // Without this stagger, every founding ant hits senescence in the same
+  // ~800-tick window, producing a death wave that crashes the colony at
+  // its first peak (see telemetry from v0.26.3 7350-tick run).
+  const world = new World(64, 64);
+  const rng = new SeededRng('founding-age-spread');
+  const colony = new Colony(world, rng, 40);
+
+  const ages = colony.ants.map((a) => a.age);
+  const zeroCount = ages.filter((a) => a === 0).length;
+  const uniqueAges = new Set(ages).size;
+  const minAge = Math.min(...ages);
+  const maxAge = Math.max(...ages);
+
+  assert.ok(zeroCount < 5, `Expected most founding ants to have non-zero age; got ${zeroCount}/40 at age 0`);
+  assert.ok(uniqueAges > 20, `Expected meaningful age variety in founding cohort; got ${uniqueAges} unique ages`);
+  assert.ok(maxAge - minAge > 1000, `Founding cohort should span >1000 ticks (got ${minAge}..${maxAge})`);
+});
+
 test('all initial ants spawn near nest', () => {
   const world = new World(64, 64);
   const rng = new SeededRng('spawn-loc');

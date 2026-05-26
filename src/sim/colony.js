@@ -77,11 +77,21 @@ export class Colony {
     this._virtualFoodStored = 0;  // bootstrap food not backed by physical pellets
     this._aliveWorkerCount = 0;  // cache of alive worker count, updated each tick
 
-    // Spawn initial ants with some soldiers for visual distinction
+    // Spawn initial ants with some soldiers for visual distinction.
+    //
+    // The founding cohort gets a randomized initial age spread across
+    // [0, maxAge × 0.6] so they don't all hit senescence in the same
+    // 800-tick window. v0.26.4 telemetry showed that without this, the
+    // entire 40-ant founding cohort died of old age in lockstep around
+    // tick 3000, crashing the colony just as it hit its peak. Births
+    // from subsequent egg-hatching still start at age 0, so the spread
+    // only protects the artificial founding cohort.
     const soldierCount = Math.round(initialAnts * 0.15);  // 15% soldiers
     for (let i = 0; i < initialAnts; i += 1) {
       const role = i < soldierCount ? 'soldier' : 'worker';
-      this.ants.push(this.#spawnNearNest(role));
+      const ant = this.#spawnNearNest(role);
+      ant.age = Math.floor(rng.range(0, ant.maxAge * 0.6));
+      this.ants.push(ant);
     }
 
     // Bootstrap colony with starter food so specialized work can begin
