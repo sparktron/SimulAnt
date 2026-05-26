@@ -12,7 +12,11 @@
     This avoids needing distributed consensus on ownership.
 */
 
-export const DEFAULT_PELLET_NUTRITION = 25;
+// Was 25 — equal to workerEatNutrition. With the half-cap field-eating
+// rule (v0.26.0), a low-health forager delivers only 12.5 per trip,
+// which is below one worker meal. Bumping to 40 raises per-trip delivery
+// to 20 and gives the colony a positive margin per forager round trip.
+export const DEFAULT_PELLET_NUTRITION = 40;
 
 export class FoodPellet {
   constructor(id, x, y, nutrition = DEFAULT_PELLET_NUTRITION) {
