@@ -368,7 +368,7 @@ window.addEventListener('resize', () => {
 
 viewManager.onChange((mode) => {
   if (mode !== VIEW.SURFACE && mode !== VIEW.NEST) {
-    console.warn('[SimAnt] Invalid view transition requested:', mode);
+    console.warn(`[SimAnt] View "${mode}" is not a valid mode — snapping back to SURFACE.`);
     viewManager.setView(VIEW.SURFACE);
     return;
   }
@@ -489,7 +489,7 @@ function loop(now) {
         virtualFoodInitial: simCore.colony._virtualFoodInitial,
       });
     } catch (hudError) {
-      console.error('[SimAnt] HUD update failed (continuing simulation loop):', hudError);
+      console.error('[SimAnt] HUD update threw an error — simulation continues, but the stats panel may show stale numbers:', hudError);
     }
 
     maybeLogSteeringDebug(selectedAnt);
@@ -666,7 +666,7 @@ function applyToolIfInBounds(x, y) {
 function getSafeViewMode() {
   const mode = viewManager.getCurrent();
   if (mode === VIEW.SURFACE || mode === VIEW.NEST) return mode;
-  console.warn('[SimAnt] Invalid active view mode. Falling back to SURFACE.', mode);
+  console.warn(`[SimAnt] Active view mode "${mode}" is unrecognized — falling back to SURFACE.`);
   viewManager.setView(VIEW.SURFACE);
   return VIEW.SURFACE;
 }
@@ -698,7 +698,7 @@ function captureLastGoodRenderState(view) {
  * triggers renderer resize to reinitialize projection state.
  */
 function recoverFromRenderError(error) {
-  console.error('[SimAnt] Render error. Recovering safely:', error);
+  console.error('[SimAnt] Renderer threw — resetting cameras to the last known good state and continuing:', error);
   const fallbackView = lastGoodRenderState.view === VIEW.NEST ? VIEW.NEST : VIEW.SURFACE;
 
   viewManager.setView(fallbackView);
@@ -768,7 +768,7 @@ function loadState() {
   try {
     data = JSON.parse(raw);
   } catch (error) {
-    console.error('[SimAnt] Ignoring invalid saved JSON payload:', error);
+    console.error('[SimAnt] Saved game in localStorage is not valid JSON — skipping load. The save may be from an older version or hand-edited:', error);
     return;
   }
 
@@ -843,7 +843,7 @@ function syncRenderWorld() {
  */
 function mustById(id) {
   const el = document.getElementById(id);
-  if (!el) throw new Error(`Missing required element: ${id}`);
+  if (!el) throw new Error(`[SimAnt] index.html is missing a required element with id="${id}". The page cannot start until this element is restored.`);
   return el;
 }
 
@@ -874,7 +874,7 @@ function downloadStatsLog(format = 'jsonl') {
 
   const stats = simCore.stats;
   if (!stats || stats.samples.length === 0) {
-    console.warn('[SimAnt] No log samples yet — let the simulation run for at least 30 ticks.');
+    console.warn(`[SimAnt] Log is empty. ColonyStats records a snapshot every 30 ticks, and the simulation is currently at tick ${simCore.tick}. Wait until at least tick 30, then click LOG again.`);
     flashBtn(`EMPTY (tick ${simCore.tick}/30)`);
     return;
   }
@@ -895,10 +895,10 @@ function downloadStatsLog(format = 'jsonl') {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-    console.info(`[SimAnt] Downloaded ${stats.samples.length}-sample log → ${filename}`);
+    console.info(`[SimAnt] Saved ${stats.samples.length} snapshots to "${filename}" (${isCSV ? 'CSV' : 'JSONL'} format). Check your browser's downloads folder.`);
     flashBtn(`SAVED ${stats.samples.length}`);
   } catch (error) {
-    console.error('[SimAnt] Log download failed:', error);
+    console.error('[SimAnt] Could not save the log file. The Blob/anchor download path threw — your browser may be blocking programmatic downloads, or storage is full. Details:', error);
     flashBtn('FAILED — see console');
   }
 }
@@ -907,5 +907,5 @@ function reportFatalError(error) {
   if (hasFatalError) return;
   hasFatalError = true;
   state.paused = true;
-  console.error('[SimAnt] Fatal runtime error:', error);
+  console.error('[SimAnt] FATAL: simulation loop has been stopped because an unrecoverable error was thrown. Reload the page to restart. Details:', error);
 }

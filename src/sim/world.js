@@ -219,7 +219,11 @@ export class World {
     const D = Math.max(0, diffusionRate) / 4;
 
     if (4 * D >= 1) {
-      console.warn(`Pheromone diffusion instability: 4D = ${(4 * D).toFixed(3)} >= 1. Keep diffusion < 0.25.`);
+      console.warn(
+        `[SimAnt] Pheromone diffusion rate is unstable: 4D = ${(4 * D).toFixed(3)} (must be < 1). `
+        + 'The pheromone field will oscillate instead of spreading smoothly. '
+        + 'Set diffFood, diffHome, or diffDanger below 0.25 in the parameter editor.',
+      );
     }
 
     const decayFactor = Math.max(0, 1 - lambda - 4 * D);

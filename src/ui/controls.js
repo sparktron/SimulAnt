@@ -94,9 +94,14 @@ export function createControls(state, actions) {
     }
   });
   downloadLogBtn.addEventListener('click', () => {
-    console.info('[SimAnt] LOG button click fired; downloadLog handler =', typeof actions.downloadLog);
-    if (actions.downloadLog) actions.downloadLog('jsonl');
-    else console.error('[SimAnt] actions.downloadLog is not wired — the main.js actions object did not pass downloadLog through.');
+    if (actions.downloadLog) {
+      actions.downloadLog('jsonl');
+    } else {
+      console.error(
+        '[SimAnt] LOG button was clicked but no downloadLog handler is wired. '
+        + 'main.js must pass { downloadLog } in the actions object given to createControls.',
+      );
+    }
   });
 
   document.addEventListener('keydown', (event) => {

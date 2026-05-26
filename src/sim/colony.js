@@ -880,7 +880,7 @@ export class Colony {
     this._nestFoodTiles.add(`${pelletX},${pelletY}`);
     this.#applyNestCellFoodDelta(nutrition, pelletX, pelletY);
     if (DEBUG_NEST_FOOD_LOGS && this.nestFoodPellets.length !== before) {
-      console.log('[nest-food] nestFoodPellets.length changed:', this.nestFoodPellets.length);
+      console.log(`[SimAnt][nest-food] nest food pellet count is now ${this.nestFoodPellets.length}`);
     }
     return nutrition;
   }
@@ -997,7 +997,7 @@ export class Colony {
     }
 
     if (DEBUG_NEST_FOOD_LOGS) {
-      console.log(`[ant] ${ant.id} deposited food at nest entrance (${entrance?.x ?? this.world.nestX}, ${entrance?.y ?? this.world.nestY})`);
+      console.log(`[SimAnt][ant] ${ant.id} deposited food at nest entrance (${entrance?.x ?? this.world.nestX}, ${entrance?.y ?? this.world.nestY})`);
     }
     return true;
   }
@@ -1030,7 +1030,7 @@ export class Colony {
     }
 
     if (DEBUG_NEST_FOOD_LOGS && this.nestFoodPellets.length !== before) {
-      console.log('[nest-food] nestFoodPellets.length changed:', this.nestFoodPellets.length);
+      console.log(`[SimAnt][nest-food] nest food pellet count is now ${this.nestFoodPellets.length}`);
     }
   }
 

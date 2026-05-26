@@ -49,27 +49,31 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 
 ### 1) Run locally (no build)
 
-From the repository root:
+From the repository root, start the bundled Node dev server:
 
-**macOS / Linux**
 ```bash
-python3 -m http.server 8000
+node server.js
 ```
 
-**Windows (PowerShell / CMD)**
-```powershell
-py -3 -m http.server 8000
+It listens on port `8000` by default. To use a different port:
+
+```bash
+PORT=8090 node server.js
 ```
 
-If `py` is unavailable:
-```powershell
-python -m http.server 8000
-```
+Open: [http://localhost:8000](http://localhost:8000) (or whichever `PORT` you set).
+Stop with `Ctrl+C` in the terminal.
 
-Open: [http://localhost:8000](http://localhost:8000)
+The server sends `Cache-Control: no-cache, no-store, must-revalidate` on every
+response, so edits to JS/CSS show up on a normal page reload without needing
+a hard refresh.
 
-### Python compatibility
-Compatible with **CPython 3.8+** when using the built-in static file server.
+By default only `404`s are logged. Set `VERBOSE=1` to log every request,
+or `QUIET=1` to silence everything except the startup banner.
+
+### Node compatibility
+Compatible with **Node.js 18+** (no `package.json`, no install step —
+`server.js` only uses Node's built-in `http`, `fs`, and `path` modules).
 
 ---
 

@@ -23,7 +23,10 @@ export class ColonyStatusPanel {
       .map(([id]) => id);
 
     if (missing.length > 0) {
-      console.warn('[SimAnt] ColonyStatusPanel disabled. Missing UI elements:', missing.join(', '));
+      console.warn(
+        `[SimAnt] Colony Status panel is disabled because these required DOM elements are missing from index.html: ${missing.join(', ')}. `
+        + 'The simulation will still run, but the work/caste allocation triangles will not appear.',
+      );
       return;
     }
 
