@@ -63,7 +63,13 @@ const state = {
     digEnergyCost: 8,
     digHomeBoost: 0.9,
     queenEggTicks: 20,
-    queenEggFoodCost: 0.15,
+    // queenEggFoodCost was 0.15. In long-run telemetry the queen stopped
+    // laying entirely once foodStored hit 0 (most of mid/late game), even
+    // though her health (97%) said she was perfectly capable. With S1's
+    // health-scaling already self-limiting her, the food gate became a
+    // redundant binding constraint. Drop to a token 0.02 so brief deposits
+    // still pull eggs through.
+    queenEggFoodCost: 0.02,
     // Egg laying scales with queen health: progress per tick = health/healthMax.
     // Below queenLayingMinHealth fraction she stops laying entirely (recovery).
     // Each egg laid costs queenEggHealthCost health, creating a feedback loop

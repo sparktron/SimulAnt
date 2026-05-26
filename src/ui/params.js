@@ -483,7 +483,7 @@ export function getDefaultConfig() {
     digEnergyCost: 8,
     digHomeBoost: 0.9,
     queenEggTicks: 20,
-    queenEggFoodCost: 0.15,
+    queenEggFoodCost: 0.02,
     queenEggHealthCost: 0.05,
     queenLayingMinHealth: 0.2,
     trophallaxisRate: 2.0,
