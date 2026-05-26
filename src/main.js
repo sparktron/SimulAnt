@@ -41,11 +41,18 @@ const state = {
   config: {
     tickSeconds: SIM_DT,
     antCap: 2000,
-    // Food trails are ephemeral so they only persist while actively reinforced
-    // by carriers — stale trails to depleted sources dissolve in ~2 seconds.
-    // Combined with weaker followBeta and no outward tieBias, this lets
-    // pheromones aid recruitment instead of trapping searchers on dead corridors.
-    evapFood: 0.3,
+    // Food trails persist long enough to be reliably followed, but still
+    // dissolve when no longer reinforced. Half-life ≈ 4.6 sim sec at the
+    // current evapFood; long enough for a few carriers to build a usable
+    // gradient, short enough that stale trails to depleted sources clear
+    // out in ~10-15 sim sec.
+    //
+    // Telemetry from v0.26.5 showed pherMaxFood peaking at 1.2 — well below
+    // the threshold where followAlpha=1.5 produces a meaningful gradient
+    // signal. Lower evap and higher deposit lift the active-trail steady
+    // state into the 5–20 range, putting trail-following in the same
+    // signal-strength regime as goal-direction bias.
+    evapFood: 0.15,
     evapHome: 0.015,
     evapDanger: 0.08,
     // Food diffusion is moderate so trails have a detectable width (ants
@@ -54,7 +61,7 @@ const state = {
     diffHome: 0.18,
     diffDanger: 0.12,
     diffIntervalTicks: 2,
-    depositFood: 0.15,
+    depositFood: 0.5,
     depositHome: 0.15,
     dangerDeposit: 0.3,
     hazardDeathChance: 0.02,
@@ -129,7 +136,14 @@ const state = {
     foodTrailDistanceScale: 1.0,
     trailLockThreshold: 1.0,
     foodTrailDecayPerStep: 0.92,
-    maxFoodTrailScale: 1.0,
+    // maxFoodTrailScale was 1.0 — equal to the base of the
+    // `min(maxScale, 1 + dist × scale × 0.05)` formula, so the cap bound
+    // immediately and the distance-scaling feature was silently disabled.
+    // Carriers far from the nest deposited at the same rate as carriers
+    // at the entrance, flattening the outward gradient. Restored to 2.5
+    // so deposits scale from 1.0 (at the entrance) to 2.5 (≥30 tiles
+    // away), creating a real gradient pointing from nest toward food.
+    maxFoodTrailScale: 2.5,
     homeScentBaseWeight: 1.0,
     homeScentSearchStateScale: 0.3,
     homeScentReturnStateScale: 1.0,
