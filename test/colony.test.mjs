@@ -210,14 +210,22 @@ test('queen egg-laying rate scales down as her health drops', () => {
     config.queenHungerDrain = 0;        // hold the queen's vitals steady
     config.queenHealthDrainRate = 0;
     config.queenHealthRecoveryPerNutrition = 0;
-    colony.foodStored = 100;
+    // Keep foodStored well above target so the food-reserve lay multiplier
+    // (added in v0.27.1) doesn't confound the pure health-scaling test.
+    colony.foodStored = 100000;
+    colony.foodStoreTarget = 100;
     colony.setNestEntrances([]);
     colony.setSurfaceFoodPellets([]);
     colony.queen.health = colony.queen.healthMax * healthFraction;
     colony.queen.hunger = colony.queen.hungerMax;
 
     const eggsBefore = colony.queen.eggsLaid;
-    for (let i = 0; i < 200; i += 1) colony.update(config);
+    for (let i = 0; i < 200; i += 1) {
+      colony.update(config);
+      // foodStoreTarget recomputes to max(100, ants × 5) each update; force
+      // it back so foodFraction stays pinned at 1.
+      colony.foodStored = 100000;
+    }
     return colony.queen.eggsLaid - eggsBefore;
   }
 
@@ -255,6 +263,49 @@ test('queen stops laying entirely below queenLayingMinHealth', () => {
   for (let i = 0; i < 100; i += 1) colony.update(config);
 
   assert.equal(colony.queen.eggsLaid, eggsBefore, 'Queen below min-health floor should not lay');
+});
+
+test('queen egg-laying rate tapers as colony food reserves shrink', () => {
+  // Companion to the health-scaling test, isolating the food-reserve
+  // multiplier added in v0.27.1. Queen is healthy; the only variable is
+  // foodStored relative to foodStoreTarget. Low food → fewer eggs.
+  function countEggsAtFoodFraction(foodFraction) {
+    const world = new World(64, 64);
+    const rng = new SeededRng(`food-lay-rate-${foodFraction}`);
+    const colony = new Colony(world, rng, 0);
+    const config = createTestConfig();
+    config.queenEggTicks = 4;
+    config.queenEggFoodCost = 0;       // free eggs so foodStored stays stable
+    config.queenEggHealthCost = 0;
+    config.queenLayingMinHealth = 0;
+    config.queenHungerDrain = 0;
+    config.queenHealthDrainRate = 0;
+    config.queenHealthRecoveryPerNutrition = 0;
+    colony.foodStoreTarget = 100;
+    colony.queen.health = colony.queen.healthMax;
+    colony.queen.hunger = colony.queen.hungerMax;
+    colony.setNestEntrances([]);
+    colony.setSurfaceFoodPellets([]);
+
+    const eggsBefore = colony.queen.eggsLaid;
+    for (let i = 0; i < 200; i += 1) {
+      // Pin foodStored and foodStoreTarget every tick so the lay-multiplier
+      // sees a stable foodFraction across the run.
+      colony.foodStored = foodFraction * 100;
+      colony.foodStoreTarget = 100;
+      colony.update(config);
+    }
+    return colony.queen.eggsLaid - eggsBefore;
+  }
+
+  const fullStoreEggs = countEggsAtFoodFraction(1.0);
+  const lowStoreEggs = countEggsAtFoodFraction(0.3);
+
+  assert.ok(fullStoreEggs > 0, 'Queen with full stores should lay eggs');
+  assert.ok(
+    lowStoreEggs < fullStoreEggs * 0.7,
+    `Low-store queen should lay markedly fewer eggs (full=${fullStoreEggs}, low=${lowStoreEggs})`,
+  );
 });
 
 // --- Trophallaxis ---

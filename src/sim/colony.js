@@ -482,19 +482,32 @@ export class Colony {
 
     // Egg laying is gated on three things: food, queen energy, and a minimum
     // health floor. Progress accumulates at a rate proportional to her health
-    // fraction — a healthy queen lays at the configured rate, a wounded queen
-    // lays proportionally fewer eggs, and a queen below queenLayingMinHealth
-    // stops entirely so she can recover. Each egg laid costs queenEggHealthCost
-    // health, so heavy laying naturally tapers her down toward equilibrium.
+    // fraction AND the colony's food reserves — a healthy queen with full
+    // stores lays at the configured rate; a wounded queen or a queen above
+    // an empty store lays proportionally fewer eggs. The food taper is the
+    // key piece that lets the colony anticipate scarcity instead of laying
+    // flat-out until stores hit zero and then crashing.
+    //
+    // Telemetry from v0.26.9 showed exactly this failure mode: foodStored
+    // dropped from 4829 → 0 over ~1200 ticks while the queen kept laying at
+    // full rate, then stopped abruptly. The colony peaked just as food ran
+    // out and had no buffer for the resulting cascade.
     const healthFraction = this.queen.healthMax > 0
       ? Math.max(0, Math.min(1, this.queen.health / this.queen.healthMax))
       : 0;
+    const foodTarget = Math.max(1, this.foodStoreTarget);
+    const foodFraction = Math.min(1, this.foodStored / foodTarget);
+    // Min floor of 0.2 so the queen keeps producing some replacements even
+    // when stores are nearly empty — without it, a brief food dip would
+    // bring births to a complete halt and the colony would lose its
+    // workforce-renewal pipeline entirely.
+    const foodLayMultiplier = Math.max(0.2, foodFraction);
     const minLayHealthFraction = config.queenLayingMinHealth ?? 0.2;
     const canLay = healthFraction >= minLayHealthFraction
       && this.foodStored >= config.queenEggFoodCost;
 
     if (canLay) {
-      this.queen.eggProgress += healthFraction;
+      this.queen.eggProgress += healthFraction * foodLayMultiplier;
       if (this.queen.eggProgress >= config.queenEggTicks) {
         this.queen.eggProgress = 0;
         this.foodStored -= config.queenEggFoodCost;
