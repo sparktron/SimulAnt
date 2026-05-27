@@ -29,10 +29,17 @@ export class FoodEconomySystem {
   update({ tick, foodPellets }) {
     const antCount = this.colony.ants.length;
     const availableFoodCount = foodPellets.filter((pellet) => !pellet.takenByAntId).length;
-    const pelletTarget = Math.max(20, antCount);
+    // Bumped from max(20, antCount) so the steady-state pellet pool scales
+    // ahead of the colony's appetite — a 200-ant colony now sees 300 pellets
+    // on the map instead of 200, giving foragers more parallel sources to
+    // exploit and shifting the supply curve up.
+    const pelletTarget = Math.max(40, Math.ceil(antCount * 1.5));
     const totalFoodAvailable = availableFoodCount + this.colony.getTotalStoredFood();
     const criticalShortage = totalFoodAvailable < Math.max(10, antCount * 0.5);
-    const regularInterval = antCount > 100 ? 60 : 120;
+    // Tightened from 60/120 → 40/80. With v0.26.9 trail tuning, foragers
+    // can drain a near-cluster in ~5 sim sec; the old 120-tick respawn
+    // interval (4 sim sec) left them searching empty terrain for too long.
+    const regularInterval = antCount > 100 ? 40 : 80;
 
     if (!criticalShortage && tick % regularInterval !== 0) return;
     if (availableFoodCount >= pelletTarget) return;

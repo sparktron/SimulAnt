@@ -108,9 +108,13 @@ export class SimulationCore {
     ];
     this.foodPellets = [];
     this.nextPelletId = 1;
-    this.spawnFoodCluster(this.world.nestX + 50, this.world.nestY - 15, 15, 90);
-    this.spawnFoodCluster(this.world.nestX - 70, this.world.nestY - 25, 15, 90);
-    this.spawnFoodCluster(this.world.nestX, this.world.nestY - 70, 12, 76);
+    // Initial seeded clusters — bigger than the previous 90/90/76 so the
+    // first dominant foraging trail can sustain a larger population before
+    // depleting. Matches the "abundant prairie" framing — real ant colonies
+    // settle in resource-rich areas.
+    this.spawnFoodCluster(this.world.nestX + 50, this.world.nestY - 15, 18, 140);
+    this.spawnFoodCluster(this.world.nestX - 70, this.world.nestY - 25, 18, 140);
+    this.spawnFoodCluster(this.world.nestX, this.world.nestY - 70, 15, 110);
     this.tick = 0;
   }
 
