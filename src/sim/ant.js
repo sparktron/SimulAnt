@@ -176,13 +176,10 @@ export class Ant {
     this._ticksSinceOnTrail = Infinity;
     // Stagger nest departures to avoid traffic jams at the entrance.
     this._nestDepartureDelay = 0;
-    // Tracks whether the ant was inside the nest on the previous tick.
-    // On the transition from in-nest → on-surface, the wander heading is
-    // re-randomized so foragers fan out across the upper hemisphere
-    // instead of all committing to a single trail. null = "first tick,
-    // unknown" — prevents a surface-spawned ant from being falsely treated
-    // as having just emerged on its first update.
-    this._wasInNest = null;
+    // Initial scatter is a one-time push to disperse ants at simulation start.
+    // Once an ant has cleared the scatter radius, this is set true and all
+    // subsequent exits skip straight to pheromone-guided foraging.
+    this._hasInitiallyScattered = false;
     // Phase 1: persistent heading for correlated random walk.
     // theta is a continuous angle in radians; prevTurn and turnSign carry
     // inter-tick correlation state for the meander model.
@@ -225,21 +222,6 @@ export class Ant {
       || (world.isUndergroundTile(this.x, this.y)
         && (context.entrance ? this.y > context.entrance.y : true));
     this.#applyVitals(colony, config, context.dt, didMove, inNestAfter);
-
-    // On the transition from in-nest → surface (start of every foraging
-    // trip), assign a fresh random outward heading in the upper hemisphere
-    // [-π, 0] (west → north → east). Without this, every forager exits the
-    // shaft pointing "up" and the strong heading commitment from v0.26.8
-    // funnels them onto whichever single trail caught on first — producing
-    // the single-corridor dominance seen in the v0.26.9 telemetry. A fresh
-    // random heading per trip spreads foragers across all outward
-    // directions; established trails still attract drifters that happen to
-    // pass within range, but unexplored food clusters get a fair chance
-    // at recruitment.
-    if (this._wasInNest === true && !inNestAfter && this.role === 'worker' && this.workFocus === 'forage' && !this.carrying?.type) {
-      this.theta = rng.range(-Math.PI, 0);
-    }
-    this._wasInNest = inNestAfter;
   }
 
   /**
