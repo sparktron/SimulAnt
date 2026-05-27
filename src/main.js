@@ -169,11 +169,14 @@ const state = {
     returnCarryNoiseScale: 0.3,
     returnTrailBoostScale: 0.15,
     returnTrailBoostMax: 3.0,
-    // Disabled: outward goal-bias for food-channel steering used to nudge
-    // searchers away from the nest. With ephemeral trails and weaker following,
-    // the trail itself carries direction info, and the outward push was just
-    // pulling ants past actual food without sufficient detection.
-    foodTieBiasScale: 0,
+    // Re-enabled (was 0 in the weak-trail era). Without it, an off-trail
+    // searcher has essentially no preferred direction — pherContribution is
+    // zero off-trail, momentum is hardcoded to 0, and noise is 0.02. The
+    // correlated random walk picks a theta and drifts it, but theta itself
+    // is unbiased, so foragers wander aimlessly between trails. 0.1 gives
+    // a small but persistent outward push that keeps them committed to a
+    // direction without overpowering trail-following when a trail is found.
+    foodTieBiasScale: 0.1,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,
@@ -188,7 +191,13 @@ const state = {
     walkMaxTurnRate: 0.45,  // hard clamp on total turn per tick (radians)
     meanderAmplitude: 0.05, // meander bias magnitude (radians)
     pTurnSignFlip: 0.85,    // probability meander sign PERSISTS each tick (no flip)
-    headingBias: 0.20,      // max additive weight toward persistent theta in food-channel search
+    // Stronger persistence on the current heading. Was 0.20 — too small to
+    // hold a direction across a few ticks of correlated-walk turn drift, so
+    // foragers turned visibly often even with no obstacle in front of them.
+    // 0.40 makes them commit to a heading the way a real ant on a search
+    // path does: walk a few tiles, gentle curve, repeat. Still gets
+    // overridden when a real pheromone gradient appears.
+    headingBias: 0.40,      // max additive weight toward persistent theta in food-channel search
     // Phase 2: smooth obstacle avoidance composed into the wander turn sum.
     obstacleLookahead: 2,   // tiles ahead of theta to probe for walls
     obstacleTurnGain: 0.30, // base radians/tick of corrective turn (×1.5 when ahead is blocked)
