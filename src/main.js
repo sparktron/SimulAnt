@@ -41,18 +41,16 @@ const state = {
   config: {
     tickSeconds: SIM_DT,
     antCap: 2000,
-    // Food trails persist long enough to be reliably followed, but still
-    // dissolve when no longer reinforced. Half-life ≈ 4.6 sim sec at the
-    // current evapFood; long enough for a few carriers to build a usable
-    // gradient, short enough that stale trails to depleted sources clear
-    // out in ~10-15 sim sec.
+    // Food trails are deliberately MEDIUM-strength and short-lived. Stronger
+    // trails (v0.26.6 tried evapFood=0.15, deposit=0.5) trap foragers on
+    // stale corridors after a food cluster depletes — telemetry showed pop
+    // peak dropping from 234 (weak trails) to 137 (strong trails) because
+    // ants kept committing to dead corridors instead of finding new food.
     //
-    // Telemetry from v0.26.5 showed pherMaxFood peaking at 1.2 — well below
-    // the threshold where followAlpha=1.5 produces a meaningful gradient
-    // signal. Lower evap and higher deposit lift the active-trail steady
-    // state into the 5–20 range, putting trail-following in the same
-    // signal-strength regime as goal-direction bias.
-    evapFood: 0.15,
+    // 0.25 puts the food half-life at ~2.8 sim sec — enough time for a few
+    // carriers to reinforce a real corridor, short enough that a depleted
+    // source's trail dissolves before it bottles up the workforce.
+    evapFood: 0.25,
     evapHome: 0.015,
     evapDanger: 0.08,
     // Food diffusion is moderate so trails have a detectable width (ants
@@ -61,7 +59,7 @@ const state = {
     diffHome: 0.18,
     diffDanger: 0.12,
     diffIntervalTicks: 2,
-    depositFood: 0.5,
+    depositFood: 0.25,
     depositHome: 0.15,
     dangerDeposit: 0.3,
     hazardDeathChance: 0.02,
@@ -141,14 +139,12 @@ const state = {
     foodDepositMinDistance: 8,
     trailLockThreshold: 1.0,
     foodTrailDecayPerStep: 0.92,
-    // maxFoodTrailScale was 1.0 — equal to the base of the
-    // `min(maxScale, 1 + dist × scale × 0.05)` formula, so the cap bound
-    // immediately and the distance-scaling feature was silently disabled.
-    // Carriers far from the nest deposited at the same rate as carriers
-    // at the entrance, flattening the outward gradient. Restored to 2.5
-    // so deposits scale from 1.0 (at the entrance) to 2.5 (≥30 tiles
-    // away), creating a real gradient pointing from nest toward food.
-    maxFoodTrailScale: 2.5,
+    // Modest distance scaling — 1.0 at entrance, up to 1.8 ≥16 tiles out.
+    // Steeper scales (v0.26.6's 2.5) combined with bigger deposits created
+    // sticky stale corridors. The remaining 1.8× boost still produces a
+    // real outward gradient without overconcentrating mass on any single
+    // active path.
+    maxFoodTrailScale: 1.8,
     homeScentBaseWeight: 1.0,
     homeScentSearchStateScale: 0.3,
     homeScentReturnStateScale: 1.0,
