@@ -407,6 +407,52 @@ test('carrier at the entrance does NOT lay food pheromone, but a far carrier doe
   );
 });
 
+// Regression: foragers that just emerged from the nest should fan out across
+// the upper hemisphere of directions, not all commit to the shaft-exit
+// direction (which produces single-trail dominance — see v0.26.9 telemetry).
+test('foragers get a fresh randomized outward heading on every nest emergence', () => {
+  const rng = new SeededRng('emergence-theta-randomization');
+  const world = createTestWorld(96, 96);
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+
+  // Construct 20 worker foragers IN the nest (below entrance.y) so they
+  // qualify as in-nest on the first tick. Their _wasInNest will flip to
+  // true after their first update, and emergence randomization fires on
+  // the tick they actually cross to the surface.
+  const thetasAfterEmergence = [];
+  for (let i = 0; i < 20; i += 1) {
+    const ant = new Ant(entrance.x, entrance.y + 3, rng, 'worker');
+    ant.workFocus = 'forage';
+    ant.hunger = 80;
+    ant.health = ant.healthMax;
+    colony.ants = [ant];
+    // Run until the ant emerges onto the surface (y <= entrance.y - 1)
+    let emerged = false;
+    for (let t = 0; t < 200 && !emerged; t += 1) {
+      ant.update(world, colony, rng, config);
+      if (ant.y <= entrance.y - 1) {
+        emerged = true;
+        thetasAfterEmergence.push(ant.theta);
+      }
+    }
+    assert.ok(emerged, `Worker ${i} should have emerged within 200 ticks`);
+  }
+
+  // Headings should span a meaningful arc — not all clustered around -π/2 (up).
+  // Standard deviation of the angles should be > 0.3 radians (~17°).
+  const mean = thetasAfterEmergence.reduce((s, x) => s + x, 0) / thetasAfterEmergence.length;
+  const variance = thetasAfterEmergence.reduce((s, x) => s + (x - mean) ** 2, 0) / thetasAfterEmergence.length;
+  const stddev = Math.sqrt(variance);
+  assert.ok(
+    stddev > 0.3,
+    `Emerged-forager thetas should span a wide arc (stddev=${stddev.toFixed(2)} rad). All clustered near one direction means single-trail dominance.`,
+  );
+});
+
 // --- Soldier Behavior ---
 
 test('soldier ant moves and patrols instead of sitting idle', () => {
