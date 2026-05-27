@@ -163,6 +163,17 @@ export class Ant {
     // wider 800-1500 tick range thanks to the larger random spread.
     this.age = 0;
     this.maxAge = role === 'soldier' ? 4500 + rng.int(1500) : 6000 + rng.int(2000);
+    // Per-ant aging rate jitter (v0.27.2): each ant ages slightly faster
+    // or slower than the wall clock. 0.85–1.15 = ±15% spread on top of
+    // the already-randomized maxAge, so effective-lifespan variance
+    // compounds rather than just tracking spawn-time variance.
+    // Critical for breaking the SECOND-generation cohort wave: the
+    // founding-cohort stagger (v0.26.5) protects the colony for the
+    // first cycle, but births that happen in the food-rich expansion
+    // phase tend to cluster in a narrow window, and without aging
+    // jitter they'd hit senescence together as gen-2 — repeating the
+    // crash one cohort later.
+    this.agingRate = 0.85 + rng.range(0, 0.30);
     // Work specialization and behavior tracking
     this.workFocus = 'forage';
     this.failedSurfaceFoodSearchTicks = 0;
@@ -721,7 +732,10 @@ export class Ant {
   */
   #applyVitals(colony, config, dt, didMove, inNest) {
     // Increment age for natural lifespan tracking
-    this.age += 1;
+    // Per-ant aging rate (set in constructor, ±15% jitter) advances age
+    // unevenly so a synchronized birth cohort still spreads out its
+    // deaths over the senescence window.
+    this.age += this.agingRate ?? 1;
 
     if (this.role === 'soldier') {
       const hungerDrain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;

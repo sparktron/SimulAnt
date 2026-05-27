@@ -1231,6 +1231,7 @@ export class Colony {
         stepCounter: ant.stepCounter,
         age: ant.age,
         maxAge: ant.maxAge,
+        agingRate: ant.agingRate,
         alive: ant.alive,
         workFocus: ant.workFocus,
       })),
@@ -1299,6 +1300,7 @@ export class Colony {
       ant.stepCounter = a.stepCounter || 0;
       ant.age = a.age || 0;
       if (a.maxAge) ant.maxAge = a.maxAge;
+      if (Number.isFinite(a.agingRate) && a.agingRate > 0) ant.agingRate = a.agingRate;
       ant.alive = typeof a.alive === 'boolean' ? a.alive : ant.alive;
       ant.workFocus = (a.workFocus === 'dig' || a.workFocus === 'nurse' || a.workFocus === 'forage')
         ? a.workFocus

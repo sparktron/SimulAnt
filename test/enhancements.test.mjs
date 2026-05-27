@@ -79,7 +79,7 @@ test('soldier has shorter lifespan than worker', () => {
   assert.ok(soldier.maxAge < worker.maxAge, 'Soldier should have shorter lifespan');
 });
 
-test('ant age increments each tick', () => {
+test('ant age advances by the per-ant aging rate each tick', () => {
   const rng = new SeededRng('age-tick');
   const world = new World(64, 64);
   const colony = new Colony(world, rng, 0);
@@ -90,10 +90,27 @@ test('ant age increments each tick', () => {
   colony.ants.push(ant);
   const config = createTestConfig();
 
+  // Each ant gets a per-instance aging rate in [0.85, 1.15] for cohort
+  // smearing (v0.27.2). Age should advance by exactly that rate per tick.
   ant.update(world, colony, rng, config);
-  assert.equal(ant.age, 1);
+  assert.ok(Math.abs(ant.age - ant.agingRate) < 1e-9, `expected age=${ant.agingRate}, got ${ant.age}`);
   ant.update(world, colony, rng, config);
-  assert.equal(ant.age, 2);
+  assert.ok(Math.abs(ant.age - 2 * ant.agingRate) < 1e-9, `expected age=${2 * ant.agingRate}, got ${ant.age}`);
+  assert.ok(ant.agingRate >= 0.85 && ant.agingRate <= 1.15, `aging rate ${ant.agingRate} out of expected band`);
+});
+
+test('agingRate spreads across the colony so same-tick births reach senescence on different ticks', () => {
+  const rng = new SeededRng('aging-rate-spread');
+  const ants = [];
+  for (let i = 0; i < 30; i += 1) {
+    ants.push(new (Ant)(0, 0, rng, 'worker'));
+  }
+  const rates = ants.map((a) => a.agingRate);
+  const uniqueRates = new Set(rates).size;
+  const minRate = Math.min(...rates);
+  const maxRate = Math.max(...rates);
+  assert.ok(uniqueRates > 20, `Expected meaningful spread in aging rates; got ${uniqueRates} unique values`);
+  assert.ok(maxRate - minRate > 0.1, `Expected aging-rate spread > 0.1 (got ${minRate}..${maxRate})`);
 });
 
 test('ant health declines in old age', () => {
