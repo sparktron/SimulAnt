@@ -111,11 +111,14 @@ export class SimulationCore {
     this.foodPellets = [];
     this.nextPelletId = 1;
     // Two concentrated boot clusters (radius 8, 195 pellets each = 390 total).
-    // Smaller radius → denser piles → stronger early trails.
+    // Cluster 1: offset right, close to the natural exit radius — easy early find.
+    // Cluster 2: directly above the nest at ~65 tiles — ants wandering upward
+    //   hit it naturally, AND returning ants from cluster 1 pass through this
+    //   zone, creating accidental encounters that bootstrap the center corridor.
     const BOOT_PELLETS = 195;
     const BOOT_RADIUS = 8;
-    this.spawnFoodCluster(this.world.nestX + 60, this.world.nestY - 20, BOOT_RADIUS, BOOT_PELLETS);
-    this.spawnFoodCluster(this.world.nestX - 70, this.world.nestY - 25, BOOT_RADIUS, BOOT_PELLETS);
+    this.spawnFoodCluster(this.world.nestX + 30, this.world.nestY - 30, BOOT_RADIUS, BOOT_PELLETS);
+    this.spawnFoodCluster(this.world.nestX, this.world.nestY - 65, BOOT_RADIUS, BOOT_PELLETS);
     this.bootFoodTotal = BOOT_PELLETS * 2;
     this.foodEconomySystem.bootFoodTotal = this.bootFoodTotal;
     this.tick = 0;
