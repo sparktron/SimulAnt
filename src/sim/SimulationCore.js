@@ -88,11 +88,13 @@ export class SimulationCore {
     this.digSystem.onNewEntrance = (x, y) => this.#registerNewEntrance(x, y);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.reset();
+    this.bootFoodTotal = 390;
     this.foodEconomySystem = new FoodEconomySystem({
       world: this.world,
       colony: this.colony,
       rng: this.rng,
       spawnFoodCluster: (...args) => this.spawnFoodCluster(...args),
+      bootFoodTotal: this.bootFoodTotal,
     });
     this.#rebuildTickPipeline();
 
@@ -108,13 +110,14 @@ export class SimulationCore {
     ];
     this.foodPellets = [];
     this.nextPelletId = 1;
-    // Initial seeded clusters — bigger than the previous 90/90/76 so the
-    // first dominant foraging trail can sustain a larger population before
-    // depleting. Matches the "abundant prairie" framing — real ant colonies
-    // settle in resource-rich areas.
-    this.spawnFoodCluster(this.world.nestX + 50, this.world.nestY - 15, 18, 140);
-    this.spawnFoodCluster(this.world.nestX - 70, this.world.nestY - 25, 18, 140);
-    this.spawnFoodCluster(this.world.nestX, this.world.nestY - 70, 15, 110);
+    // Two concentrated boot clusters (radius 8, 195 pellets each = 390 total).
+    // Smaller radius → denser piles → stronger early trails.
+    const BOOT_PELLETS = 195;
+    const BOOT_RADIUS = 8;
+    this.spawnFoodCluster(this.world.nestX + 60, this.world.nestY - 20, BOOT_RADIUS, BOOT_PELLETS);
+    this.spawnFoodCluster(this.world.nestX - 70, this.world.nestY - 25, BOOT_RADIUS, BOOT_PELLETS);
+    this.bootFoodTotal = BOOT_PELLETS * 2;
+    this.foodEconomySystem.bootFoodTotal = this.bootFoodTotal;
     this.tick = 0;
   }
 
@@ -384,6 +387,7 @@ export class SimulationCore {
       digSystem: this.digSystem.serialize(),
       macro: this.macroEngine.serialize(),
       stats: this.stats.serialize(),
+      bootFoodTotal: this.bootFoodTotal,
       state,
     };
   }
@@ -406,11 +410,13 @@ export class SimulationCore {
     this.digSystem.loadFromSerialized(data.digSystem);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.loadFromSerialized(data.macro);
+    this.bootFoodTotal = data.bootFoodTotal || 390;
     this.foodEconomySystem = new FoodEconomySystem({
       world: this.world,
       colony: this.colony,
       rng: this.rng,
       spawnFoodCluster: (...args) => this.spawnFoodCluster(...args),
+      bootFoodTotal: this.bootFoodTotal,
     });
     this.stats = new ColonyStats();
     this.stats.loadFromSerialized(data.stats);
