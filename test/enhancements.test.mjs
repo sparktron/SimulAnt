@@ -7,6 +7,7 @@ import { SeededRng } from '../src/sim/rng.js';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
 import { ColonyStats } from '../src/sim/ColonyStats.js';
 import { FoodPellet } from '../src/sim/Food.js';
+import { FoodEconomySystem } from '../src/sim/systems/FoodEconomySystem.js';
 
 function createTestConfig() {
   return {
@@ -388,4 +389,86 @@ test('surface food pellets do not decay over time', () => {
   const pellet = sim.foodPellets.find((p) => p.id === 'stable-pellet');
   assert.ok(pellet, 'Pellet should still exist without spoilage');
   assert.equal(pellet.nutrition, 12, 'Pellet nutrition should remain unchanged');
+});
+
+// ============================================================
+// FoodEconomySystem respawn cooldown behavior
+// ============================================================
+
+test('FoodEconomySystem does not spawn when available food is above threshold', () => {
+  const rng = new SeededRng('fes-above-threshold');
+  const world = new World(160, 100);
+  world.setNest(80, 50);
+  const colony = new Colony(world, rng, 0);
+
+  let spawnCalls = 0;
+  const fes = new FoodEconomySystem({
+    world,
+    colony,
+    rng,
+    spawnFoodCluster: () => { spawnCalls += 1; },
+    bootFoodTotal: 100,
+  });
+
+  // 30 available pellets >= threshold (floor(100 * 0.25) = 25), so no spawn
+  const foodPellets = Array.from({ length: 30 }, (_, i) => new FoodPellet(`p${i}`, 5, 5, 10));
+  fes.update({ foodPellets });
+
+  assert.equal(spawnCalls, 0, 'Should not spawn when available count is above threshold');
+});
+
+test('FoodEconomySystem spawns exactly once when food drops below threshold', () => {
+  const rng = new SeededRng('fes-below-threshold');
+  const world = new World(160, 100);
+  world.setNest(80, 50);
+  const colony = new Colony(world, rng, 0);
+
+  let spawnCalls = 0;
+  const fes = new FoodEconomySystem({
+    world,
+    colony,
+    rng,
+    spawnFoodCluster: () => { spawnCalls += 1; },
+    bootFoodTotal: 100,
+  });
+
+  // 10 available pellets < threshold (25), so should spawn
+  const foodPellets = Array.from({ length: 10 }, (_, i) => new FoodPellet(`p${i}`, 5, 5, 10));
+  fes.update({ foodPellets });
+
+  assert.equal(spawnCalls, 1, 'Should spawn once when available count drops below threshold');
+});
+
+test('FoodEconomySystem spawns on every tick while count stays at zero (no built-in cooldown)', () => {
+  const rng = new SeededRng('fes-zero-count');
+  const world = new World(160, 100);
+  world.setNest(80, 50);
+  const colony = new Colony(world, rng, 0);
+
+  let spawnCalls = 0;
+  const fes = new FoodEconomySystem({
+    world,
+    colony,
+    rng,
+    spawnFoodCluster: () => { spawnCalls += 1; },
+    bootFoodTotal: 100,
+  });
+
+  // Empty pellet list — count stays at zero across all calls
+  for (let i = 0; i < 30; i += 1) {
+    fes.update({ foodPellets: [] });
+  }
+
+  // Without a cooldown mechanism, every tick spawns (spawnCalls == 30).
+  // This documents the current behavior as a known issue.
+  assert.ok(
+    spawnCalls >= 1,
+    `Expected at least one spawn call with zero available food, got ${spawnCalls}`,
+  );
+  // Document that there is no built-in cooldown: spawns happen every tick.
+  assert.equal(
+    spawnCalls,
+    30,
+    `FoodEconomySystem has no cooldown: spawns every tick while count stays at zero (got ${spawnCalls})`,
+  );
 });

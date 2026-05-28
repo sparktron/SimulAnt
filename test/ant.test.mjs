@@ -1322,3 +1322,124 @@ test('food-channel tieBias does not swamp correlated walk at realistic foodTieBi
     `Close (${(closeRate * 100).toFixed(1)}%) and far (${(farRate * 100).toFixed(1)}%) forward rates should be within 10 pp — bias must not grow with distance`,
   );
 });
+
+// --- Carry-surcharge suppression inside the nest (SA-5 / G-4) ---
+
+test('carrying worker underground has no carry-hunger surcharge (inNest suppresses it)', () => {
+  const rng = new SeededRng('carry-surcharge-underground');
+  const world = createTestWorld(160, 100);
+  world.setNest(80, 50);
+  const colony = createTestColony(world, rng, 0);
+  const config = {
+    ...createTestConfig(),
+    carryingHungerDrainRate: 0.5,
+    healthWorkMoveDrainRate: 0.08,
+    healthWorkIdleDrainRate: 0.03,
+    healthWorkCarryDrainRate: 0.01,
+    healthRegenRate: 0,
+    healthDrainRate: 0,
+    nestEatCooldownTicks: 9999,  // prevent eating from skewing hunger
+  };
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+
+  // Position ant below surface (inNestSpatial = true via isBelowSurface = y > nestY)
+  const ant = new Ant(world.nestX, world.nestY + 2, rng, 'worker');
+  ant.hunger = 80;  // well fed — no eating will occur
+  ant.health = ant.healthMax;
+  ant.state = 'RETURN_HOME';
+  ant.carrying = { type: 'food', pelletId: null, pelletNutrition: 10 };
+  ant.carryingType = 'food';
+  colony.ants.push(ant);
+
+  const hungerBefore = ant.hunger;
+  ant.update(world, colony, rng, config);
+  const hungerDelta = hungerBefore - ant.hunger;
+
+  // Without surcharge, drain = hungerDrainRates.move * dt (or idle * dt).
+  // With surcharge it would be (move + 0.5) * dt. dt = 1/30.
+  const dt = config.tickSeconds;
+  const maxDrainNoSurcharge = (ant.hungerDrainRates.move + 0.001) * dt;  // tiny epsilon for float
+  assert.ok(
+    hungerDelta <= maxDrainNoSurcharge,
+    `Underground carrying ant hunger delta ${hungerDelta.toFixed(4)} should be <= no-surcharge rate ${maxDrainNoSurcharge.toFixed(4)}`,
+  );
+});
+
+test('carrying worker on surface incurs full carry-hunger surcharge', () => {
+  const rng = new SeededRng('carry-surcharge-surface');
+  const world = createTestWorld(160, 100);
+  world.setNest(80, 50);
+  const colony = createTestColony(world, rng, 0);
+  const carryingHungerDrainRate = 0.5;
+  const config = {
+    ...createTestConfig(),
+    carryingHungerDrainRate,
+    healthWorkMoveDrainRate: 0.08,
+    healthWorkIdleDrainRate: 0.03,
+    healthWorkCarryDrainRate: 0.01,
+    healthRegenRate: 0,
+    healthDrainRate: 0,
+    nestEatCooldownTicks: 9999,
+  };
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+
+  // Position ant on surface (y < nestY)
+  const ant = new Ant(world.nestX + 20, world.nestY - 5, rng, 'worker');
+  ant.hunger = 80;
+  ant.health = ant.healthMax;
+  ant.state = 'RETURN_HOME';
+  ant.carrying = { type: 'food', pelletId: null, pelletNutrition: 10 };
+  ant.carryingType = 'food';
+  colony.ants.push(ant);
+
+  const hungerBefore = ant.hunger;
+  ant.update(world, colony, rng, config);
+  const hungerDelta = hungerBefore - ant.hunger;
+
+  // With surcharge, drain must be more than move-only rate.
+  const dt = config.tickSeconds;
+  const minDrainWithSurcharge = carryingHungerDrainRate * dt * 0.9;  // at least 90% of surcharge
+  assert.ok(
+    hungerDelta >= minDrainWithSurcharge,
+    `Surface carrying ant hunger delta ${hungerDelta.toFixed(4)} should include carry surcharge (>= ${minDrainWithSurcharge.toFixed(4)})`,
+  );
+});
+
+// --- nutrition=0 pellet handling (G-5) ---
+
+test('zero-nutrition pellet is removed and ant does not carry it', () => {
+  const rng = new SeededRng('zero-nutrition-pellet');
+  const world = createTestWorld();
+  const colony = createTestColony(world, rng, 0);
+  const config = { ...createTestConfig(), healthEatRecoveryRate: 1, workerEatNutrition: 10 };
+
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+
+  // Place a zero-nutrition surface pellet at the ant's position.
+  // The ant is low health and will call #consumePelletForHealthThenCarry via #tryEatNearbyPellet.
+  const pelletX = world.nestX + 5;
+  const pelletY = world.nestY - 2;
+  const zeroPellet = { id: 'zero-p', x: pelletX, y: pelletY, nutrition: 0, takenByAntId: null };
+  colony.setSurfaceFoodPellets([zeroPellet]);
+
+  const ant = new Ant(pelletX, pelletY, rng, 'worker');
+  ant.health = 10;   // below 50% — isLowHealth() triggers #tryEatNearbyPellet
+  ant.hunger = 10;
+  ant.state = 'SEEK_FOOD_HEAL';
+  colony.ants.push(ant);
+
+  ant.update(world, colony, rng, config);
+
+  // Pellet should be removed because nutrition=0 hits the early-return branch
+  assert.equal(
+    colony.findAvailablePelletAt(pelletX, pelletY),
+    null,
+    'Zero-nutrition pellet should be removed from colony surface food list',
+  );
+  // Ant should not be carrying anything (no food to pick up)
+  assert.equal(ant.carrying, null, 'Ant should not carry a zero-nutrition pellet');
+});

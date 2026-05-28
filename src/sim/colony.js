@@ -706,10 +706,6 @@ export class Colony {
   }
 
   /**
-   * Spreads overcrowded larvae to reduce brood pile density.
-   * Called by nurse ants periodically.
-   */
-  /**
    * Records an ant death with its dominant cause.
    *
    * Cause buckets are starvation, oldAge, hazard, other. Unknown causes
@@ -725,6 +721,10 @@ export class Colony {
     }
   }
 
+  /**
+   * Spreads overcrowded larvae to reduce brood pile density.
+   * Called by nurse ants periodically.
+   */
   spreadLarvae(rng) {
     if (this.larvae.length <= 4) return;
     // Each nurse tending pass reduces crowding, accelerating brood development.
@@ -1209,6 +1209,7 @@ export class Colony {
       virtualFoodInitial: this._virtualFoodInitial,
       births: this.births,
       deaths: this.deaths,
+      deathsByCause: { ...this.deathsByCause },
       queen: this.queen,
       larvae: this.larvae,
       excavatedTiles: this.excavatedTiles,
@@ -1247,6 +1248,12 @@ export class Colony {
       : colony._virtualFoodStored;
     colony.births = data.births;
     colony.deaths = data.deaths;
+    if (data.deathsByCause) {
+      colony.deathsByCause.starvation = data.deathsByCause.starvation || 0;
+      colony.deathsByCause.oldAge = data.deathsByCause.oldAge || 0;
+      colony.deathsByCause.hazard = data.deathsByCause.hazard || 0;
+      colony.deathsByCause.other = data.deathsByCause.other || 0;
+    }
     colony.queen = { ...colony.queen, ...(data.queen || {}) };
     if (!Number.isFinite(colony.queen.x) || !Number.isFinite(colony.queen.y)) {
       colony.syncQueenPositionToNest(world.nestX, world.nestY);

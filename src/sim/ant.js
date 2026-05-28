@@ -23,6 +23,8 @@ import { isInNestSpatial } from './behavior/NestState.js';
 
 const DEBUG_ANT_FLOW_LOGS = false;
 
+const SENESCENCE_START_FRACTION = 0.8;
+
 /*
     Box-Muller transform: produces Gaussian random samples from uniform distribution.
 
@@ -231,7 +233,7 @@ export class Ant {
     // not whether it started the tick underground.
     const inNestAfter = isInNestSpatial(world, this.x, this.y)
       || (world.isUndergroundTile(this.x, this.y)
-        && (context.entrance ? this.y > context.entrance.y : true));
+        && (context.entrance ? this.y > context.entrance.y : false));
     this.#applyVitals(colony, config, context.dt, didMove, inNestAfter);
   }
 
@@ -751,12 +753,12 @@ export class Ant {
         // gracefully across the whole senescence window instead of collapsing
         // mid-window.
         const regenRate = Math.max(0, config.healthRegenRate ?? 0);
-        const senescenceFactor = this.age > this.maxAge * 0.8 ? 0.5 : 1;
+        const senescenceFactor = this.age > this.maxAge * SENESCENCE_START_FRACTION ? 0.5 : 1;
         this.health = Math.min(this.healthMax, this.health + regenRate * senescenceFactor * dt);
       }
 
-      if (this.age > this.maxAge * 0.8) {
-        const ageFactor = (this.age - this.maxAge * 0.8) / (this.maxAge * 0.2);
+      if (this.age > this.maxAge * SENESCENCE_START_FRACTION) {
+        const ageFactor = (this.age - this.maxAge * SENESCENCE_START_FRACTION) / (this.maxAge * (1 - SENESCENCE_START_FRACTION));
         this.health = Math.max(0, this.health - ageFactor * 2 * dt);
       }
 
@@ -773,18 +775,15 @@ export class Ant {
     // exception: we want that to feel costly, so we keep the surcharge for
     // HAUL_DIRT regardless of location.
     const hungerDrain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
-    const carryingApplies = !!this.carrying?.type
-      && (this.state === 'HAUL_DIRT' || !inNest);
-    const carryingHungerCost = carryingApplies ? (config.carryingHungerDrainRate ?? 0) : 0;
+    const carrySurchargeApplies = !!this.carrying?.type && (this.state === 'HAUL_DIRT' || !inNest);
+    const carryingHungerCost = carrySurchargeApplies ? (config.carryingHungerDrainRate ?? 0) : 0;
     const fightHungerCost = this.state === 'FIGHT' ? (config.fightingHungerDrainRate ?? 0) : 0;
     this.hunger = Math.max(0, this.hunger - (hungerDrain + carryingHungerCost + fightHungerCost) * dt);
 
     // Health degradation from work. Same location-aware gate as hunger: carry
     // drain only counts during surface transit (or dirt hauls).
-    const carryHealthApplies = !!this.carrying?.type
-      && (this.state === 'HAUL_DIRT' || !inNest);
     const healthWorkDrain = (didMove ? (config.healthWorkMoveDrainRate ?? 0) : (config.healthWorkIdleDrainRate ?? 0))
-      + (carryHealthApplies ? (config.healthWorkCarryDrainRate ?? 0) : 0)
+      + (carrySurchargeApplies ? (config.healthWorkCarryDrainRate ?? 0) : 0)
       + (this.state === 'FIGHT' ? (config.healthWorkFightDrainRate ?? 0) : 0);
     this.health = Math.max(0, this.health - healthWorkDrain * dt);
 
@@ -803,13 +802,13 @@ export class Ant {
     // mid-window collapse.
     if (this.hunger > this.hungerMax * 0.5 && this.health < this.healthMax) {
       const regenRate = Math.max(0, config.healthRegenRate ?? 0);
-      const senescenceFactor = this.age > this.maxAge * 0.8 ? 0.5 : 1;
+      const senescenceFactor = this.age > this.maxAge * SENESCENCE_START_FRACTION ? 0.5 : 1;
       this.health = Math.min(this.healthMax, this.health + regenRate * senescenceFactor * dt);
     }
 
     // Old age: health declines gradually in last 20% of lifespan
-    if (this.age > this.maxAge * 0.8) {
-      const ageFactor = (this.age - this.maxAge * 0.8) / (this.maxAge * 0.2);
+    if (this.age > this.maxAge * SENESCENCE_START_FRACTION) {
+      const ageFactor = (this.age - this.maxAge * SENESCENCE_START_FRACTION) / (this.maxAge * (1 - SENESCENCE_START_FRACTION));
       this.health = Math.max(0, this.health - ageFactor * 2 * dt);
     }
 
@@ -828,7 +827,7 @@ export class Ant {
    */
   #deathCause() {
     if (this.hunger <= 0) return 'starvation';
-    if (this.age > this.maxAge * 0.8) return 'oldAge';
+    if (this.age > this.maxAge * SENESCENCE_START_FRACTION) return 'oldAge';
     return 'other';
   }
 

@@ -88,7 +88,10 @@ export class SimulationCore {
     this.digSystem.onNewEntrance = (x, y) => this.#registerNewEntrance(x, y);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.reset();
-    this.bootFoodTotal = 390;
+    // Two concentrated boot clusters (radius 8, 195 pellets each = 390 total).
+    const BOOT_PELLETS = 195;
+    const BOOT_RADIUS = 8;
+    this.bootFoodTotal = BOOT_PELLETS * 2;
     this.foodEconomySystem = new FoodEconomySystem({
       world: this.world,
       colony: this.colony,
@@ -110,13 +113,8 @@ export class SimulationCore {
     ];
     this.foodPellets = [];
     this.nextPelletId = 1;
-    // Two concentrated boot clusters (radius 8, 195 pellets each = 390 total).
-    const BOOT_PELLETS = 195;
-    const BOOT_RADIUS = 8;
     this.spawnFoodCluster(this.world.nestX + 60, this.world.nestY - 20, BOOT_RADIUS, BOOT_PELLETS);
     this.spawnFoodCluster(this.world.nestX - 70, this.world.nestY - 25, BOOT_RADIUS, BOOT_PELLETS);
-    this.bootFoodTotal = BOOT_PELLETS * 2;
-    this.foodEconomySystem.bootFoodTotal = this.bootFoodTotal;
     this.tick = 0;
   }
 

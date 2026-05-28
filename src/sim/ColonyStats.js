@@ -2,9 +2,9 @@
  * Tracks rolling colony statistics for population health monitoring.
  *
  * Samples are recorded periodically by SimulationCore.update (default every
- * 30 ticks ≈ 1 sim second). The buffer is large enough to cover ~60 sim
- * minutes by default so the user can scroll back through a session and
- * download a JSONL/CSV trace for post-hoc analysis.
+ * 30 ticks). At 30 ticks/sec the default 1800-sample buffer covers ~30 real
+ * minutes of play. The user can scroll back through a session and download a
+ * JSONL/CSV trace for post-hoc analysis.
  *
  * Snapshot fields cover four dimensions that have to be cross-referenced
  * to diagnose colony collapse:
@@ -43,11 +43,13 @@ export class ColonyStats {
     let healthMin = population > 0 ? Infinity : 0;
     let healthMax = 0;
     let carryingFood = 0;
+    let aliveCount = 0;
 
     const nestY = world?.nestY ?? colony.world?.nestY;
     for (let i = 0; i < colony.ants.length; i += 1) {
       const ant = colony.ants[i];
       if (!ant.alive) continue;
+      aliveCount += 1;
       hungerSum += ant.hunger;
       healthSum += ant.health;
       ageSum += ant.age;
@@ -101,13 +103,13 @@ export class ColonyStats {
       deathAge: byCause.oldAge || 0,
       deathHazard: byCause.hazard || 0,
       deathOther: byCause.other || 0,
-      avgHunger: round1(population > 0 ? hungerSum / population : 0),
-      avgHealth: round1(population > 0 ? healthSum / population : 0),
-      avgAge: Math.round(population > 0 ? ageSum / population : 0),
-      minHunger: round1(population > 0 ? hungerMin : 0),
-      maxHunger: round1(population > 0 ? hungerMax : 0),
-      minHealth: round1(population > 0 ? healthMin : 0),
-      maxHealth: round1(population > 0 ? healthMax : 0),
+      avgHunger: round1(aliveCount > 0 ? hungerSum / aliveCount : 0),
+      avgHealth: round1(aliveCount > 0 ? healthSum / aliveCount : 0),
+      avgAge: Math.round(aliveCount > 0 ? ageSum / aliveCount : 0),
+      minHunger: round1(aliveCount > 0 ? hungerMin : 0),
+      maxHunger: round1(aliveCount > 0 ? hungerMax : 0),
+      minHealth: round1(aliveCount > 0 ? healthMin : 0),
+      maxHealth: round1(aliveCount > 0 ? healthMax : 0),
       queenAlive: colony.queen.alive,
       queenHealth: round1(colony.queen.health),
       queenHunger: round1(colony.queen.hunger),

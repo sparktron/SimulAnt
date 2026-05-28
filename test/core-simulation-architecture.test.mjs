@@ -619,7 +619,7 @@ test('worker that repeatedly fails to find surface food falls back to nest stora
   ant.x = entrance.x + 18;
   ant.y = Math.max(0, entrance.y - 4);
   ant.hunger = 20;
-  ant.health = 55;  // Below 60% so ant will eat from nest store once it arrives
+  ant.health = 30;  // Below 40% critical threshold so eat cooldown is bypassed when ant arrives
 
   sim.colony.foodStored = 0;
   sim.colony.nestFoodPellets = [];

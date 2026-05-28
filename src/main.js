@@ -878,12 +878,6 @@ function mustById(id) {
 }
 
 /**
- * Switches runtime into fatal-error mode.
- *
- * Called by global error listeners and top-level loop catch; prevents further
- * simulation frames after unrecoverable exceptions.
- */
-/**
  * Triggers a browser download of the rolling ColonyStats buffer.
  *
  * Called by the LOG control button and the 'y' keyboard shortcut. Filename
@@ -933,6 +927,12 @@ function downloadStatsLog(format = 'jsonl') {
   }
 }
 
+/**
+ * Switches runtime into fatal-error mode.
+ *
+ * Called by global error listeners and top-level loop catch; prevents further
+ * simulation frames after unrecoverable exceptions.
+ */
 function reportFatalError(error) {
   if (hasFatalError) return;
   hasFatalError = true;
