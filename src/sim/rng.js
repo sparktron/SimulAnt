@@ -45,12 +45,36 @@ export class SeededRng {
 
   // Uniform random integer in [0, maxExclusive)
   int(maxExclusive) {
-    return Math.floor(this.next() * maxExclusive);
+    // next() can return exactly 1.0 in the rare case state === 0xffffffff,
+    // which would make floor(next() * maxExclusive) === maxExclusive — an
+    // out-of-range index (e.g. int(4) → 4). Always consume a draw so the
+    // stream is preserved, then clamp the overflow case to maxExclusive - 1.
+    const n = Math.floor(this.next() * maxExclusive);
+    if (maxExclusive <= 0) return 0;
+    return n < maxExclusive ? n : maxExclusive - 1;
   }
 
   // Bernoulli trial: return true with given probability
   chance(probability) {
     return this.next() < probability;
+  }
+
+  // Capture the full generator cursor (seed + position in the sequence) so
+  // save/load can resume the exact same stream. Saving only the seed would
+  // restart the sequence from its first draw, diverging any reloaded run from
+  // an uninterrupted one.
+  snapshot() {
+    return { seed: this.seed, state: this.state >>> 0 };
+  }
+
+  // Restore a cursor produced by snapshot(). Tolerates missing/corrupt input
+  // (legacy saves predate the cursor): a zero state is the dead fixed point of
+  // xorshift32, so fall back to a reseed-derived state if one sneaks in.
+  restore(snap) {
+    if (!snap || typeof snap !== 'object') return;
+    if (snap.seed !== undefined) this.seed = String(snap.seed);
+    const restored = snap.state >>> 0;
+    this.state = restored || hashSeed(this.seed) || 0x12345678;
   }
 }
 

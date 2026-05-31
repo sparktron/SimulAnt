@@ -375,6 +375,7 @@ export class SimulationCore {
   serialize(state) {
     return {
       seed: this.seed,
+      rng: this.rng.snapshot(),
       world: this.world.serialize(),
       colony: this.colony.serialize(),
       tick: this.tick,
@@ -450,6 +451,13 @@ export class SimulationCore {
         },
       ];
     }
+
+    // Restore the RNG cursor LAST: reconstructing the colony/ants above draws
+    // from this.rng (Ant ctor consumes several draws each), so restoring any
+    // earlier would be clobbered. Old saves lack data.rng and keep the legacy
+    // seed-only behavior (sequence restarts), which is harmless and backward
+    // compatible.
+    if (data.rng) this.rng.restore(data.rng);
   }
 
   #syncMacroHomeTerritory() {

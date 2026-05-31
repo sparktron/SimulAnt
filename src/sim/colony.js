@@ -1235,6 +1235,21 @@ export class Colony {
         agingRate: ant.agingRate,
         alive: ant.alive,
         workFocus: ant.workFocus,
+        // Behavioral substate that update() carries across ticks. Required for
+        // deterministic save/load: without it, reloaded ants resume from
+        // constructor defaults (fresh random heading, re-scatter, etc.) and the
+        // colony's future silently diverges from an uninterrupted run.
+        // Note: _ticksSinceOnTrail/_lastNestEatTick are ±Infinity sentinels that
+        // JSON coerces to null; fromSerialized restores the defaults for those.
+        theta: ant.theta,
+        prevTurn: ant.prevTurn,
+        turnSign: ant.turnSign,
+        lastTrailDir: ant._lastTrailDir,
+        ticksSinceOnTrail: ant._ticksSinceOnTrail,
+        nestDepartureDelay: ant._nestDepartureDelay,
+        hasInitiallyScattered: ant._hasInitiallyScattered,
+        failedSurfaceFoodSearchTicks: ant.failedSurfaceFoodSearchTicks,
+        lastNestEatTick: ant._lastNestEatTick,
       })),
     };
   }
@@ -1312,6 +1327,22 @@ export class Colony {
       ant.workFocus = (a.workFocus === 'dig' || a.workFocus === 'nurse' || a.workFocus === 'forage')
         ? a.workFocus
         : ant.workFocus;
+
+      // Restore behavioral substate (see serialize()). Each guard falls back to
+      // the constructor default for legacy saves that predate the field. The
+      // two Infinity sentinels arrive as null after a JSON round-trip, so they
+      // resolve to their defaults (which are exactly those sentinels).
+      if (Number.isFinite(a.theta)) ant.theta = a.theta;
+      if (Number.isFinite(a.prevTurn)) ant.prevTurn = a.prevTurn;
+      if (a.turnSign === 1 || a.turnSign === -1) ant.turnSign = a.turnSign;
+      if (Number.isInteger(a.lastTrailDir)) ant._lastTrailDir = a.lastTrailDir;
+      ant._ticksSinceOnTrail = Number.isFinite(a.ticksSinceOnTrail) ? a.ticksSinceOnTrail : Infinity;
+      if (Number.isFinite(a.nestDepartureDelay)) ant._nestDepartureDelay = a.nestDepartureDelay;
+      if (typeof a.hasInitiallyScattered === 'boolean') ant._hasInitiallyScattered = a.hasInitiallyScattered;
+      if (Number.isFinite(a.failedSurfaceFoodSearchTicks)) {
+        ant.failedSurfaceFoodSearchTicks = a.failedSurfaceFoodSearchTicks;
+      }
+      ant._lastNestEatTick = Number.isFinite(a.lastNestEatTick) ? a.lastNestEatTick : -Infinity;
       return ant;
     });
     return colony;
