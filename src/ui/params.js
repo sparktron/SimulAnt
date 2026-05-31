@@ -432,6 +432,28 @@ export const parameterDefinitions = {
     step: 0.01,
     advanced: true,
   },
+
+  // =====================
+  // DIGGING
+  // =====================
+  digRecruitRadius: {
+    label: 'Dig Recruit Radius',
+    description: 'How far (tiles) a dig front can pull in a dig-focus worker. Higher = idle dig workers further away still get recruited, so fronts advance faster. Lower = only nearby dig workers help.',
+    group: 'Digging',
+    min: 4,
+    max: 32,
+    step: 1,
+    advanced: false,
+  },
+  digWorkersPerFront: {
+    label: 'Dig Workers / Front',
+    description: 'How many available dig-focus workers it takes to staff one extra dig front. Lower = more fronts worked at once when dig allocation is high (faster, more chaotic digging). Higher = fewer, more concentrated fronts.',
+    group: 'Digging',
+    min: 1,
+    max: 24,
+    step: 1,
+    advanced: false,
+  },
 };
 
 /**
@@ -482,6 +504,8 @@ export function getDefaultConfig() {
     digChance: 0.04,
     digEnergyCost: 8,
     digHomeBoost: 0.9,
+    digRecruitRadius: 16,
+    digWorkersPerFront: 4,
     queenEggTicks: 20,
     queenEggFoodCost: 0.02,
     queenEggHealthCost: 0.05,

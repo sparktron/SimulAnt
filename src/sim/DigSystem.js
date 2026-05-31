@@ -63,12 +63,32 @@ export class DigSystem {
     if (this.fronts.length === 0) this.#seedInitialFronts();
 
     const activeWorkers = this.autoDig ? Math.max(workerCount, 30) : workerCount;
-    const assignedFronts = Math.min(this.fronts.length, Math.max(1, Math.floor(activeWorkers / 24)));
+
+    // Dig-focus recruitment radius (tiles, player-tunable) -> squared once.
+    const digRecruitRadius = config.digRecruitRadius ?? 16;
+    const digRecruitRadius2 = digRecruitRadius * digRecruitRadius;
+
+    // Staff more fronts when more of the workforce is allocated to digging:
+    // count the available dig-focus workers and map them to fronts via
+    // digWorkersPerFront (lower = more aggressive). Floor at the legacy
+    // one-front-per-24-workers baseline so low dig allocations are unaffected.
+    const digWorkersPerFront = Math.max(1, config.digWorkersPerFront ?? 4);
+    let digFocusAvailable = 0;
+    for (let i = 0; i < this.colony.ants.length; i += 1) {
+      const ant = this.colony.ants[i];
+      if (ant.alive && ant.role === 'worker' && ant.workFocus === 'dig' && !ant.carrying?.type
+        && ant.health >= ant.healthMax * 0.35 && ant.hunger >= ant.hungerMax * 0.25) {
+        digFocusAvailable += 1;
+      }
+    }
+    const baselineFronts = Math.max(1, Math.floor(activeWorkers / 24));
+    const supplyFronts = Math.ceil(digFocusAvailable / digWorkersPerFront);
+    const assignedFronts = Math.min(this.fronts.length, Math.max(baselineFronts, supplyFronts));
     const activeDiggerIds = new Set();
 
     for (let i = 0; i < assignedFronts; i += 1) {
       const front = this.fronts[i];
-      const digger = this.#findNearestAvailableWorker(front, activeDiggerIds);
+      const digger = this.#findNearestAvailableWorker(front, activeDiggerIds, digRecruitRadius2);
       if (!digger) continue;
 
       activeDiggerIds.add(digger.id);
@@ -129,15 +149,12 @@ export class DigSystem {
     }
   }
 
-  #findNearestAvailableWorker(front, unavailableIds) {
+  #findNearestAvailableWorker(front, unavailableIds, digRecruitRadius2) {
     const ants = this.colony.ants;
     let nearestDigger = null;
-    // Dig-focus workers are tracked in a separate "nearest" slot so they win
-    // assignment over non-dig workers within the same radius, even when a
-    // non-dig worker is physically closer. (Note: this is priority only, NOT an
-    // extended radius — both castes share DIGGER_ASSIGNMENT_RADIUS2. An earlier
-    // version intended a 2x dig radius but the guard was dead; see PR notes.)
-    let nearestDiggerDist2 = DIGGER_ASSIGNMENT_RADIUS2;
+    // Dig-focus workers are recruited from the player-tunable radius; non-dig
+    // workers remain a short-range fallback at the base radius.
+    let nearestDiggerDist2 = digRecruitRadius2;
     let nearestAny = null;
     let nearestAnyDist2 = DIGGER_ASSIGNMENT_RADIUS2;
 
@@ -152,7 +169,7 @@ export class DigSystem {
       const dy = ant.y - front.y;
       const d2 = dx * dx + dy * dy;
 
-      // Dig-focus workers get priority (preferred over non-dig workers).
+      // Dig-focus workers get priority and the (larger) tunable recruit radius.
       if (ant.workFocus === 'dig') {
         if (d2 < nearestDiggerDist2) {
           nearestDiggerDist2 = d2;
