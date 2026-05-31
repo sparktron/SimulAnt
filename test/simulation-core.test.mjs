@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SimulationCore } from '../src/sim/SimulationCore.js';
+import { SimulationCore, SAVE_SCHEMA_VERSION } from '../src/sim/SimulationCore.js';
 import { TERRAIN } from '../src/sim/world.js';
 
 function createConfig() {
@@ -319,6 +319,45 @@ test('save/load preserves the RNG cursor so future ticks stay deterministic', ()
     reloaded.update(config);
   }
   assert.deepEqual(reloaded.serialize({}), sim.serialize({}));
+});
+
+test('serialize stamps the current save schema version', () => {
+  const sim = new SimulationCore('schema-stamp');
+  assert.equal(sim.serialize({}).schemaVersion, SAVE_SCHEMA_VERSION);
+});
+
+test('loadFromSerialized treats a versionless save as legacy (0) and still loads', () => {
+  const sim = new SimulationCore('schema-legacy');
+  const snap = sim.serialize({});
+  delete snap.schemaVersion; // a pre-versioning save
+
+  const restored = new SimulationCore('other');
+  restored.loadFromSerialized(snap);
+
+  assert.equal(restored.loadedSchemaVersion, 0);
+  assert.equal(restored.colony.ants.length, sim.colony.ants.length);
+});
+
+test('loadFromSerialized flags a newer-than-supported save but still loads', () => {
+  const sim = new SimulationCore('schema-future');
+  const snap = sim.serialize({});
+  snap.schemaVersion = SAVE_SCHEMA_VERSION + 5;
+
+  const restored = new SimulationCore('other');
+  const warnings = [];
+  const origWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(' '));
+  try {
+    restored.loadFromSerialized(snap);
+  } finally {
+    console.warn = origWarn;
+  }
+
+  assert.equal(restored.loadedSchemaVersion, SAVE_SCHEMA_VERSION + 5);
+  assert.ok(
+    warnings.some((w) => w.includes('newer than this build')),
+    'should emit a forward-compatibility diagnostic',
+  );
 });
 
 test('loadFromSerialized preserves pellet reservation state', () => {

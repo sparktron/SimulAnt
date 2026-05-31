@@ -33,6 +33,13 @@ import { FoodEconomySystem } from './systems/FoodEconomySystem.js';
 
 const SURFACE_DEPOSIT_RATIO = 0.7;
 
+// Save-format schema version. Bump when serialize()'s shape changes in a way
+// that needs migration on load. Saves written before versioning existed have no
+// schemaVersion field and are treated as version 0 (legacy) — the load path is
+// field-by-field defensive, so they still load. Future incompatible changes can
+// branch on the detected version to migrate.
+export const SAVE_SCHEMA_VERSION = 1;
+
 export class SimulationCore {
   /**
    * Creates simulation orchestrator and initializes world state.
@@ -373,6 +380,7 @@ export class SimulationCore {
    */
   serialize(state) {
     return {
+      schemaVersion: SAVE_SCHEMA_VERSION,
       seed: this.seed,
       rng: this.rng.snapshot(),
       world: this.world.serialize(),
@@ -396,6 +404,19 @@ export class SimulationCore {
    * scheduler dependencies synced to restored world and colony instances.
    */
   loadFromSerialized(data) {
+    // Saves predating versioning lack schemaVersion → treat as legacy (0). A
+    // newer-than-supported version is loaded best-effort (the field-by-field
+    // restore below is defensive) but flagged so corruption/forward-compat
+    // issues are diagnosable instead of silent.
+    const detectedVersion = Number.isInteger(data?.schemaVersion) ? data.schemaVersion : 0;
+    this.loadedSchemaVersion = detectedVersion;
+    if (detectedVersion > SAVE_SCHEMA_VERSION) {
+      console.warn(
+        `[SimAnt] Save schemaVersion ${detectedVersion} is newer than this build supports `
+        + `(${SAVE_SCHEMA_VERSION}). Loading best-effort; some saved state may be ignored.`,
+      );
+    }
+
     this.seed = data.seed || this.seed;
     this.rng = new SeededRng(this.seed);
     this.world = World.fromSerialized(data.world);
