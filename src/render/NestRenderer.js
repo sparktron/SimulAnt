@@ -79,7 +79,7 @@ export class NestRenderer {
     this.#drawTerrain(ctx);
     this.#drawNestFood(ctx, colony);
     this.#drawEggs(ctx, colony);
-    this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats, options.showQueenMarker, overlays);
+    this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats, overlays);
 
     ctx.restore();
   }
@@ -259,9 +259,9 @@ export class NestRenderer {
   }
 
   /* ------------------------------------------------------------------
-   * Entities: underground ants + optional queen marker.
+   * Entities: underground ants + queen marker (always shown while alive).
    * ----------------------------------------------------------------*/
-  #drawAnts(ctx, colony, selectedAntId, showDebugStats, showQueenMarker = false, overlays = {}) {
+  #drawAnts(ctx, colony, selectedAntId, showDebugStats, overlays = {}) {
     const { world } = this;
     const halfViewW = this.canvas.clientWidth / this.zoom * 0.5;
     const halfViewH = this.canvas.clientHeight / this.zoom * 0.5;

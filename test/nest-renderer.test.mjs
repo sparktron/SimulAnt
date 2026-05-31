@@ -60,7 +60,7 @@ function createWorld() {
   };
 }
 
-test('NestRenderer hides queen marker by default and shows it only when enabled', () => {
+test('NestRenderer always renders a living queen marker and hides it only when the queen is dead', () => {
   const world = createWorld();
   const mainCtx = createFakeCanvasContext();
   const offscreenCtx = createOffscreenContext(world.width, world.height);
@@ -101,11 +101,16 @@ test('NestRenderer hides queen marker by default and shows it only when enabled'
       queen: { alive: true, hunger: 100, health: 100, x: world.nestX, y: world.nestY + 2 },
     };
 
+    // A living queen is always rendered as two circles (purple body + gold
+    // center); there is no opt-in flag (queen visibility is intentional, per
+    // the v0.13.10 "always show queen" change).
     renderer.draw(colony, {}, { showDebugStats: false });
-    assert.equal(mainCtx.arcCalls, 0, 'queen marker should not render by default');
+    assert.equal(mainCtx.arcCalls, 2, 'living queen renders as body + gold center');
 
-    renderer.draw(colony, {}, { showDebugStats: false, showQueenMarker: true });
-    assert.equal(mainCtx.arcCalls, 2, 'queen marker should render as two circles when enabled');
+    mainCtx.arcCalls = 0;
+    colony.queen.alive = false;
+    renderer.draw(colony, {}, { showDebugStats: false });
+    assert.equal(mainCtx.arcCalls, 0, 'dead queen renders no marker');
   } finally {
     globalThis.document = oldDocument;
   }
@@ -161,17 +166,22 @@ test('NestRenderer renders brood eggs in a nest brood area, not attached to quee
     };
 
     renderer.draw(colony, {}, { showDebugStats: false });
-    assert.equal(mainCtx.arcCalls, 6, 'brood larvae should render by default');
 
-    const firstEgg = mainCtx.arcArgs[0];
+    // drawEggs() runs before the queen marker, so the first `larvae.length`
+    // arcs are the brood; the final two are the living queen (body + center).
+    const broodArcs = mainCtx.arcArgs.slice(0, colony.larvae.length);
+    assert.equal(broodArcs.length, 6, 'brood larvae should render by default');
+    assert.equal(mainCtx.arcCalls, 8, 'six brood larvae plus the living queen marker (body + center)');
+
+    const firstEgg = broodArcs[0];
     const distToQueen = Math.hypot(firstEgg.x - (colony.queen.x + 0.5), firstEgg.y - (colony.queen.y + 0.5));
     assert.ok(distToQueen > 4, 'first brood egg should render away from queen position');
 
-    const uniqueRows = new Set(mainCtx.arcArgs.map((egg) => egg.y.toFixed(2)));
+    const uniqueRows = new Set(broodArcs.map((egg) => egg.y.toFixed(2)));
     assert.ok(uniqueRows.size <= 2, 'brood eggs should be clustered into compact rows');
 
-    const rowOneY = mainCtx.arcArgs[0].y;
-    const rowTwoY = mainCtx.arcArgs[3].y;
+    const rowOneY = broodArcs[0].y;
+    const rowTwoY = broodArcs[3].y;
     assert.ok(Math.abs(rowOneY - rowTwoY) > 0.5, 'adjacent brood rows should have visible separation');
   } finally {
     globalThis.document = oldDocument;
