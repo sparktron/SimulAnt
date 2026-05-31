@@ -282,6 +282,27 @@ test('serialize and loadFromSerialized round-trip preserves state', () => {
   assert.equal(sim2.foodPellets.length, sim.foodPellets.length);
 });
 
+test('save/load preserves the RNG cursor so future ticks stay deterministic', () => {
+  const config = createConfig();
+  const sim = new SimulationCore('rng-continuity');
+  for (let i = 0; i < 15; i += 1) sim.update(config);
+
+  // Reload a mid-run snapshot into a sim seeded differently, to prove the
+  // restored cursor (not the seed) is what drives subsequent draws.
+  const snapshot = sim.serialize({});
+  const reloaded = new SimulationCore('a-totally-different-seed');
+  reloaded.loadFromSerialized(snapshot);
+
+  // Advance both from the same restored point; their full state must stay
+  // identical. Without RNG-cursor restore, the reloaded run restarts its
+  // sequence and diverges within a few ticks.
+  for (let i = 0; i < 15; i += 1) {
+    sim.update(config);
+    reloaded.update(config);
+  }
+  assert.deepEqual(reloaded.serialize({}), sim.serialize({}));
+});
+
 test('loadFromSerialized preserves pellet reservation state', () => {
   const sim = new SimulationCore('serial-food-pellets');
   const firstPellet = sim.foodPellets[0];

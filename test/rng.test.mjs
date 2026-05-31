@@ -54,6 +54,41 @@ test('int returns non-negative integers below max', () => {
   }
 });
 
+test('int never returns maxExclusive even when next() yields 1.0', () => {
+  const rng = new SeededRng('clamp-overflow');
+  // Force the rare boundary case (state === 0xffffffff makes next() === 1.0).
+  rng.next = () => 1.0;
+  for (let max = 1; max <= 8; max += 1) {
+    assert.equal(rng.int(max), max - 1, `int(${max}) must stay in range on a 1.0 draw`);
+  }
+});
+
+// --- Snapshot / restore (save-load cursor continuity) ---
+
+test('snapshot/restore resumes the exact same sequence', () => {
+  const rng = new SeededRng('snap-seed');
+  for (let i = 0; i < 17; i += 1) rng.next();
+
+  const snap = rng.snapshot();
+  const expected = [];
+  for (let i = 0; i < 10; i += 1) expected.push(rng.next());
+
+  const restored = new SeededRng('an-unrelated-seed');
+  restored.restore(snap);
+  for (let i = 0; i < 10; i += 1) {
+    assert.equal(restored.next(), expected[i], 'restored cursor must continue the source sequence');
+  }
+});
+
+test('restore tolerates missing or corrupt snapshots', () => {
+  const rng = new SeededRng('restore-guard');
+  const before = rng.state;
+  rng.restore(undefined);
+  assert.equal(rng.state, before, 'undefined snapshot is a no-op');
+  rng.restore({ seed: 'restore-guard', state: 0 });
+  assert.ok(rng.state !== 0, 'zero state (dead fixed point) must be repaired');
+});
+
 // --- Chance ---
 
 test('chance with 0 always returns false', () => {
