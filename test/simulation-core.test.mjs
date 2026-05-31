@@ -333,6 +333,22 @@ test('loadFromSerialized handles missing nestEntrances gracefully', () => {
   assert.equal(sim2.nestEntrances.length, 1, 'Should create default entrance');
 });
 
+// --- Engine lifecycle wiring ---
+
+test('dig-system entrance callback stays wired across nest tool and clearWorld', () => {
+  const sim = new SimulationCore('lifecycle-callback');
+  assert.equal(typeof sim.digSystem.onNewEntrance, 'function', 'reset should wire onNewEntrance');
+
+  // Moving the nest and clearing the world both rebuild the dig system; the
+  // entrance-registration callback must survive both, or surfacing tunnels
+  // would silently stop registering entrances after those actions.
+  sim.applyTool('nest', sim.world.nestX, sim.world.nestY, 4);
+  assert.equal(typeof sim.digSystem.onNewEntrance, 'function', 'nest tool must rewire onNewEntrance');
+
+  sim.clearWorld();
+  assert.equal(typeof sim.digSystem.onNewEntrance, 'function', 'clearWorld must rewire onNewEntrance');
+});
+
 // --- Reset ---
 
 test('reset clears tick and reinitializes state', () => {
