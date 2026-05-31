@@ -1012,7 +1012,13 @@ export class Colony {
     if (!targetDropPoint) return false;
     if (dropPoint && (ant.x !== targetDropPoint.x || ant.y !== targetDropPoint.y)) return false;
 
-    this.depositPellet(nutrition, targetDropPoint.x, targetDropPoint.y, entrance);
+    // depositPellet re-resolves the drop point internally and returns 0 if it
+    // can't place the pellet (e.g. the nest food area is fully congested). Only
+    // release the ant's cargo once the food is actually stored — otherwise the
+    // carried nutrition would be destroyed without ever entering foodStored,
+    // leaking food. On failure the ant keeps its cargo and retries next tick.
+    const deposited = this.depositPellet(nutrition, targetDropPoint.x, targetDropPoint.y, entrance);
+    if (deposited <= 0) return false;
     ant.carrying = null;
     ant.carryingType = 'none';
     ant.baseColor = ant.originalBaseColor || ant.baseColor;

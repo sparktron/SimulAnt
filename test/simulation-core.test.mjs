@@ -282,6 +282,24 @@ test('serialize and loadFromSerialized round-trip preserves state', () => {
   assert.equal(sim2.foodPellets.length, sim.foodPellets.length);
 });
 
+test('food accounting invariant holds across many ticks (foodStored == virtual + pellets)', () => {
+  const config = createConfig();
+  const sim = new SimulationCore('food-conservation');
+  const c = sim.colony;
+
+  // foodStored is the canonical total; it must always equal the bootstrap
+  // (virtual) reserve plus the sum of physical nest pellets. Any drift would be
+  // silently masked by getTotalStoredFood()'s Math.max, so assert it directly.
+  for (let t = 0; t < 300; t += 1) {
+    sim.update(config);
+    const reconstructed = c._virtualFoodStored + c.getNestPelletNutritionTotal();
+    assert.ok(
+      Math.abs(c.foodStored - reconstructed) < 1e-6,
+      `tick ${t}: foodStored ${c.foodStored} drifted from virtual+pellets ${reconstructed}`,
+    );
+  }
+});
+
 test('save/load preserves the RNG cursor so future ticks stay deterministic', () => {
   const config = createConfig();
   const sim = new SimulationCore('rng-continuity');

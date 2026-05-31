@@ -845,3 +845,27 @@ test('queen safe tile is within search radius of nest', () => {
   assert.ok(qy > world.nestY, 'Queen Y should be below nest');
   assert.ok(qy - world.nestY <= 30, 'Queen Y should be within search radius');
 });
+
+// --- Food conservation ---
+
+test('depositFoodFromAnt keeps the ant cargo when the drop point cannot be resolved', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('deposit-leak-guard');
+  const colony = new Colony(world, rng, 0);
+
+  const ant = new Ant(world.nestX, world.nestY + 4, rng, 'worker');
+  ant.carrying = { type: 'food', pelletId: 'p1', pelletNutrition: 30, pickupDistance: 5 };
+  ant.carryingType = 'food';
+  const dropPoint = { x: ant.x, y: ant.y };
+  const foodBefore = colony.foodStored;
+
+  // Force depositPellet's internal drop-point resolution to fail, simulating a
+  // fully congested nest food area. The ant must NOT lose its cargo.
+  colony.findNestFoodDropPoint = () => null;
+
+  const ok = colony.depositFoodFromAnt(ant, null, dropPoint);
+  assert.equal(ok, false, 'deposit should report failure');
+  assert.equal(colony.foodStored, foodBefore, 'no phantom food should be added on failure');
+  assert.equal(ant.carryingType, 'food', 'ant must keep its cargo to retry next tick');
+  assert.equal(ant.carrying?.pelletNutrition, 30, 'cargo nutrition must be preserved');
+});
