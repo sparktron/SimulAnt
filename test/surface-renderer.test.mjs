@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SurfaceRenderer } from '../src/render/SurfaceRenderer.js';
 import { TERRAIN } from '../src/sim/world.js';
+import { SimulationCore } from '../src/sim/SimulationCore.js';
 
 function createFakeCanvasContext() {
   return {
@@ -179,6 +180,53 @@ test('SurfaceRenderer recomputes nearest entrance as ants move between draws', (
       unitRects.some((call) => call.x === 20 && call.y === 7),
       'ant should render after moving above the deeper nearest entrance mouth',
     );
+  } finally {
+    globalThis.document = oldDocument;
+  }
+});
+
+test('SurfaceRenderer.draw does not mutate serialized simulation state (purity)', () => {
+  const sim = new SimulationCore('render-purity');
+  for (let i = 0; i < 10; i += 1) sim.update({ tickSeconds: 1 / 30 });
+
+  // colony.serialize() intentionally excludes render-cache fields (jobColor,
+  // _cachedJobState, ...), so it isolates true sim state. If drawing changes it,
+  // the renderer is mutating the simulation — a bug.
+  const before = JSON.stringify(sim.colony.serialize());
+
+  const mainCtx = createFakeCanvasContext();
+  const offscreenCtx = createOffscreenContext();
+  const fakeDocument = {
+    createElement() {
+      return {
+        width: sim.world.width,
+        height: sim.world.nestY + 1,
+        getContext() { return offscreenCtx; },
+      };
+    },
+  };
+  const oldDocument = globalThis.document;
+  globalThis.document = fakeDocument;
+
+  try {
+    const canvas = {
+      clientWidth: 320,
+      clientHeight: 200,
+      getContext() { return mainCtx; },
+      getBoundingClientRect() { return { width: this.clientWidth, height: this.clientHeight }; },
+    };
+
+    const renderer = new SurfaceRenderer(canvas, sim.world);
+    // showAntJobs exercises the per-ant job-color cache write path.
+    renderer.draw(
+      sim.colony,
+      { showAntJobs: true, showToFood: true, showScent: true, showToHome: true, showDanger: true },
+      sim.nestEntrances,
+      sim.foodPellets,
+    );
+    renderer.draw(sim.colony, { showAntJobs: false }, sim.nestEntrances, sim.foodPellets);
+
+    assert.equal(JSON.stringify(sim.colony.serialize()), before, 'rendering must not mutate serialized sim state');
   } finally {
     globalThis.document = oldDocument;
   }
