@@ -66,6 +66,8 @@ const state = {
     digChance: 0.04,
     digEnergyCost: 8,
     digHomeBoost: 0.9,
+    digRecruitRadius: 16,
+    digWorkersPerFront: 4,
     queenEggTicks: 20,
     // queenEggFoodCost was 0.15. In long-run telemetry the queen stopped
     // laying entirely once foodStored hit 0 (most of mid/late game), even

@@ -4,6 +4,7 @@ import { DigSystem } from '../src/sim/DigSystem.js';
 import { Colony } from '../src/sim/colony.js';
 import { World, TERRAIN } from '../src/sim/world.js';
 import { SeededRng } from '../src/sim/rng.js';
+import { Ant } from '../src/sim/ant.js';
 
 function createTestConfig() {
   return {
@@ -363,4 +364,71 @@ test('upward shaft spawn stores varied emergence Y and reports it on breach', ()
 
   assert.ok(breached, 'Expected shaft to breach and trigger callback');
   assert.equal(breached.y, expectedBreachY, 'New entrance callback should report varied emergence Y');
+});
+
+// --- Configurable dig recruitment ---
+
+function digRadiusScenario(seed) {
+  const world = new World(64, 64);
+  const rng = new SeededRng(seed);
+  const colony = new Colony(world, rng, 0);
+  const dig = new DigSystem(world, colony, rng);
+  dig.autoDig = true; // force one front to be assigned
+
+  const fx = world.nestX + 12;
+  const fy = world.nestY + 6;
+  dig.fronts = [{ x: fx, y: fy, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 }];
+
+  // A dig-focus worker 10 tiles away: d2 = 100, between the base radius (8²=64)
+  // and the default recruit radius (16²=256).
+  const worker = new Ant(fx, fy + 10, rng, 'worker');
+  worker.workFocus = 'dig';
+  worker.health = worker.healthMax;
+  worker.hunger = worker.hungerMax;
+  worker.carrying = null;
+  worker.carryingType = 'none';
+  colony.ants.push(worker);
+
+  return { dig, worker };
+}
+
+test('digRecruitRadius controls how far a dig front recruits dig-focus workers', () => {
+  const inRange = digRadiusScenario('dig-radius-in');
+  inRange.dig.update({ ...createTestConfig(), digRecruitRadius: 16 });
+  assert.equal(inRange.worker.carryingType, 'dirt', 'recruited at radius 16 (covers a 10-tile worker)');
+
+  const outOfRange = digRadiusScenario('dig-radius-out');
+  outOfRange.dig.update({ ...createTestConfig(), digRecruitRadius: 8 });
+  assert.equal(outOfRange.worker.carryingType, 'none', 'not recruited at radius 8 (10-tile worker is out of range)');
+});
+
+test('lower digWorkersPerFront staffs more fronts from the same dig-focus workforce', () => {
+  function manyFrontsScenario(workersPerFront) {
+    const world = new World(96, 96);
+    const rng = new SeededRng('dig-staffing');
+    const colony = new Colony(world, rng, 0);
+    const dig = new DigSystem(world, colony, rng);
+    dig.autoDig = true;
+
+    // Four fronts spread across deep soil, each with a dig worker sitting on it.
+    dig.fronts = [];
+    for (let f = 0; f < 4; f += 1) {
+      const fx = world.nestX - 12 + f * 8;
+      const fy = world.nestY + 10;
+      dig.fronts.push({ x: fx, y: fy, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 });
+      const w = new Ant(fx, fy, rng, 'worker');
+      w.workFocus = 'dig';
+      w.health = w.healthMax;
+      w.hunger = w.hungerMax;
+      w.carrying = null;
+      w.carryingType = 'none';
+      colony.ants.push(w);
+    }
+    dig.update({ ...createTestConfig(), digRecruitRadius: 16, digWorkersPerFront: workersPerFront });
+    return colony.ants.filter((a) => a.carryingType === 'dirt').length;
+  }
+
+  const aggressive = manyFrontsScenario(1); // ceil(4/1) = 4 fronts staffed
+  const conservative = manyFrontsScenario(8); // ceil(4/8) = 1 -> baseline floor only
+  assert.ok(aggressive > conservative, `aggressive staffing (${aggressive}) should recruit more than conservative (${conservative})`);
 });

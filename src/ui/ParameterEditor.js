@@ -121,6 +121,7 @@ export class ParameterEditor {
       'Obstacle Avoidance',
       'Health',
       'Nest Behavior',
+      'Digging',
       'Pheromone',
       'Queen',
       'Population',

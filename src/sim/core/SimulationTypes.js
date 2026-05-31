@@ -91,6 +91,11 @@ export function sanitizeTickConfig(config = {}) {
     dangerDeposit: clampNonNegativeNumber(config.dangerDeposit, 0),
     hazardDeathChance: clamp01(config.hazardDeathChance, 0),
 
+    // Digging: dig-focus recruitment radius (tiles) and how many available
+    // dig-focus workers map to one staffed front (lower = more aggressive).
+    digRecruitRadius: clampFiniteRangeNumber(config.digRecruitRadius, 16, 4, 32),
+    digWorkersPerFront: Math.floor(clampFiniteRangeNumber(config.digWorkersPerFront, 4, 1, 24)),
+
     randomTurnChance: clamp01(config.randomTurnChance, 0),
     wanderNoise: clampNonNegativeNumber(config.wanderNoise, 0),
     walkRho: clamp01(config.walkRho, 0.75),

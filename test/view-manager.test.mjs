@@ -350,15 +350,15 @@ test('Forced chamber creates chamber terrain tiles', () => {
     soldierSpawnChance: 0.2,
   };
 
-  sim.toggleAutoDig();
-  for (let i = 0; i < 20; i += 1) sim.update(cfg);
+  // Place a single dig front in plain soil (deep, away from the carved entrance
+  // shaft) and force a chamber there directly. This tests chamber carving
+  // deterministically instead of depending on emergent front timing, which
+  // shifts with digger-recruitment tuning.
+  const fx = sim.world.nestX + 14;
+  const fy = sim.world.nestY + 8;
+  sim.digSystem.fronts = [{ x: fx, y: fy, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 }];
 
-  let carved = false;
-  for (let i = 0; i < 5; i += 1) {
-    carved = sim.forceChamberAtDigFront(cfg) || carved;
-    if (carved) break;
-    sim.update(cfg);
-  }
+  const carved = sim.forceChamberAtDigFront(cfg);
 
   const chamberTiles = sim.world.terrain.reduce((count, tile) => count + (tile === TERRAIN.CHAMBER ? 1 : 0), 0);
 
