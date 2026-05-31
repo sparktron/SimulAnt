@@ -4,6 +4,7 @@ import { DigSystem } from '../src/sim/DigSystem.js';
 import { Colony } from '../src/sim/colony.js';
 import { World, TERRAIN } from '../src/sim/world.js';
 import { SeededRng } from '../src/sim/rng.js';
+import { Ant } from '../src/sim/ant.js';
 
 function createTestConfig() {
   return {
@@ -363,4 +364,42 @@ test('upward shaft spawn stores varied emergence Y and reports it on breach', ()
 
   assert.ok(breached, 'Expected shaft to breach and trigger callback');
   assert.equal(breached.y, expectedBreachY, 'New entrance callback should report varied emergence Y');
+});
+
+// --- Digger assignment priority ---
+
+test('dig-focus workers are preferred over closer non-dig workers', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('dig-priority');
+  const colony = new Colony(world, rng, 0); // no default ants
+  const dig = new DigSystem(world, colony, rng);
+  dig.autoDig = true; // force one front to be assigned regardless of worker count
+
+  const fx = world.nestX + 12;
+  const fy = world.nestY + 6;
+  dig.fronts = [{ x: fx, y: fy, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 }];
+
+  // A non-dig worker sits ON the front (closest possible); a dig-focus worker is
+  // a few tiles away but within the assignment radius. The dig-focus worker must
+  // win assignment despite being farther — priority, not proximity.
+  const nonDig = new Ant(fx, fy, rng, 'worker');
+  nonDig.workFocus = 'forage';
+  nonDig.health = nonDig.healthMax;
+  nonDig.hunger = nonDig.hungerMax;
+  nonDig.carrying = null;
+  nonDig.carryingType = 'none';
+
+  const digger = new Ant(fx + 4, fy + 2, rng, 'worker'); // d2 = 20, inside base radius 64
+  digger.workFocus = 'dig';
+  digger.health = digger.healthMax;
+  digger.hunger = digger.hungerMax;
+  digger.carrying = null;
+  digger.carryingType = 'none';
+
+  colony.ants.push(nonDig, digger);
+
+  dig.update(createTestConfig());
+
+  assert.equal(digger.carryingType, 'dirt', 'dig-focus worker should be recruited');
+  assert.equal(nonDig.carryingType, 'none', 'closer non-dig worker should be skipped in favor of the dig-focus one');
 });

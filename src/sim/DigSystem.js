@@ -132,6 +132,11 @@ export class DigSystem {
   #findNearestAvailableWorker(front, unavailableIds) {
     const ants = this.colony.ants;
     let nearestDigger = null;
+    // Dig-focus workers are tracked in a separate "nearest" slot so they win
+    // assignment over non-dig workers within the same radius, even when a
+    // non-dig worker is physically closer. (Note: this is priority only, NOT an
+    // extended radius — both castes share DIGGER_ASSIGNMENT_RADIUS2. An earlier
+    // version intended a 2x dig radius but the guard was dead; see PR notes.)
     let nearestDiggerDist2 = DIGGER_ASSIGNMENT_RADIUS2;
     let nearestAny = null;
     let nearestAnyDist2 = DIGGER_ASSIGNMENT_RADIUS2;
@@ -147,10 +152,9 @@ export class DigSystem {
       const dy = ant.y - front.y;
       const d2 = dx * dx + dy * dy;
 
-      // Dig-focus workers get priority and a larger search radius
+      // Dig-focus workers get priority (preferred over non-dig workers).
       if (ant.workFocus === 'dig') {
-        const digRadius2 = DIGGER_ASSIGNMENT_RADIUS2 * 4; // 2x radius for dig workers
-        if (d2 < nearestDiggerDist2 && d2 < digRadius2) {
+        if (d2 < nearestDiggerDist2) {
           nearestDiggerDist2 = d2;
           nearestDigger = ant;
         }
