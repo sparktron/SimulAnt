@@ -43,6 +43,13 @@ export class World {
     this._toHomeNext = new Float32Array(this.size);
     this._dangerNext = new Float32Array(this.size);
 
+    // Per-tick passability mask shared by all three pheromone fields. The
+    // diffusion inner loop queries passability of each cell and its 4 neighbors;
+    // computing it once into a flat array (instead of ~5 isPassable() calls per
+    // cell per field, each recomputing index() and re-checking bounds) is the
+    // single biggest win for the pheromone hotspot.
+    this._passabilityMask = new Uint8Array(this.size);
+
     this.nestX = Math.floor(width * 0.5);
     this.nestY = Math.floor(height * 0.5);
     // Entrance sits at the surface boundary row (bottom of surface view).
@@ -204,14 +211,29 @@ export class World {
     const foodDiff = shouldDiffuse ? config.diffFood : 0;
     const homeDiff = shouldDiffuse ? config.diffHome : 0;
     const dangerDiff = shouldDiffuse ? config.diffDanger : 0;
+    // Recompute the passability mask once and reuse it across all three fields.
+    const mask = this.#computePassabilityMask();
     // Use discrete diffusion equation: P_i^{t+1} = (1 - λ - 4D) * P_i^t + D * (neighbors sum)
     // where λ is evaporation per tick and D is diffusion coefficient
-    this.#updatePheromonesField(this.toFood, this._toFoodNext, config.evapFood, foodDiff, config.pheromoneMaxClamp, dt);
-    this.#updatePheromonesField(this.toHome, this._toHomeNext, config.evapHome, homeDiff, config.pheromoneMaxClamp, dt);
-    this.#updatePheromonesField(this.danger, this._dangerNext, config.evapDanger, dangerDiff, config.pheromoneMaxClamp, dt);
+    this.#updatePheromonesField(this.toFood, this._toFoodNext, config.evapFood, foodDiff, config.pheromoneMaxClamp, dt, mask);
+    this.#updatePheromonesField(this.toHome, this._toHomeNext, config.evapHome, homeDiff, config.pheromoneMaxClamp, dt, mask);
+    this.#updatePheromonesField(this.danger, this._dangerNext, config.evapDanger, dangerDiff, config.pheromoneMaxClamp, dt, mask);
   }
 
-  #updatePheromonesField(srcField, dstField, evaporationLambda, diffusionRate, clampMax, dt) {
+  // Flat 1/0 passability per cell, matching isPassable() exactly. Rebuilt each
+  // tick: terrain can change between ticks (digging, tools), and an O(size)
+  // rebuild is negligible against the three full-grid diffusion passes it feeds.
+  #computePassabilityMask() {
+    const mask = this._passabilityMask;
+    const terrain = this.terrain;
+    for (let i = 0; i < this.size; i += 1) {
+      const t = terrain[i];
+      mask[i] = (t !== TERRAIN.WALL && t !== TERRAIN.WATER && t !== TERRAIN.SOIL) ? 1 : 0;
+    }
+    return mask;
+  }
+
+  #updatePheromonesField(srcField, dstField, evaporationLambda, diffusionRate, clampMax, dt, mask) {
     const w = this.width;
     const h = this.height;
 
@@ -234,7 +256,7 @@ export class World {
       for (let x = 0; x < w; x += 1) {
         const idx = row + x;
 
-        if (!this.isPassable(x, y)) {
+        if (!mask[idx]) {
           dstField[idx] = 0;
           continue;
         }
@@ -248,19 +270,19 @@ export class World {
           let neighborSum = 0;
           let hasNonZeroNeighbor = false;
 
-          if (x > 0 && this.isPassable(x - 1, y) && srcField[idx - 1] >= threshold) {
+          if (x > 0 && mask[idx - 1] && srcField[idx - 1] >= threshold) {
             neighborSum += srcField[idx - 1];
             hasNonZeroNeighbor = true;
           }
-          if (x < w - 1 && this.isPassable(x + 1, y) && srcField[idx + 1] >= threshold) {
+          if (x < w - 1 && mask[idx + 1] && srcField[idx + 1] >= threshold) {
             neighborSum += srcField[idx + 1];
             hasNonZeroNeighbor = true;
           }
-          if (y > 0 && this.isPassable(x, y - 1) && srcField[idx - w] >= threshold) {
+          if (y > 0 && mask[idx - w] && srcField[idx - w] >= threshold) {
             neighborSum += srcField[idx - w];
             hasNonZeroNeighbor = true;
           }
-          if (y < h - 1 && this.isPassable(x, y + 1) && srcField[idx + w] >= threshold) {
+          if (y < h - 1 && mask[idx + w] && srcField[idx + w] >= threshold) {
             neighborSum += srcField[idx + w];
             hasNonZeroNeighbor = true;
           }
@@ -276,16 +298,16 @@ export class World {
         } else {
           let neighborSum = 0;
 
-          if (x > 0 && this.isPassable(x - 1, y)) {
+          if (x > 0 && mask[idx - 1]) {
             neighborSum += srcField[idx - 1];
           }
-          if (x < w - 1 && this.isPassable(x + 1, y)) {
+          if (x < w - 1 && mask[idx + 1]) {
             neighborSum += srcField[idx + 1];
           }
-          if (y > 0 && this.isPassable(x, y - 1)) {
+          if (y > 0 && mask[idx - w]) {
             neighborSum += srcField[idx - w];
           }
-          if (y < h - 1 && this.isPassable(x, y + 1)) {
+          if (y < h - 1 && mask[idx + w]) {
             neighborSum += srcField[idx + w];
           }
 
