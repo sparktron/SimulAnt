@@ -2,14 +2,20 @@
     Food pellet: discrete nutrition unit on the surface or in the nest.
 
     Contract:
-    - takenByAntId is null until an ant marks it for pickup
-    - Once claimed, the pellet persists until the claiming ant deposits it
-    - Pickup is first-come-first-served (ant that marks it owns it)
-    - Pellet is removed when ant reaches food drop point in the nest
+    - takenByAntId is null while the pellet sits on the surface, and is stamped
+      with the carrying ant's id at the instant of pickup.
+    - Pickup removes the pellet from the surface list immediately — its
+      nutrition then travels with the ant as carried cargo (ant.carrying), so a
+      claimed pellet is NOT kept in the list while being carried.
+    - Pickup is first-come-first-served: ants update in stable array order, and
+      the first ant standing on a pellet's tile claims and removes it.
 
-    Important: Multiple ants can occupy the same tile and see the same pellets.
-    The takenByAntId field prevents double-pickup (race condition).
-    This avoids needing distributed consensus on ownership.
+    Important: Multiple ants can occupy the same tile and see the same pellet in
+    the same tick. Because the claiming ant removes the pellet in the same step
+    it stamps takenByAntId, a later ant in that tick can no longer find it —
+    that ordering, not distributed consensus, is what prevents double-pickup.
+    (takenByAntId is still serialized so any externally-set reservation survives
+    a save/load round-trip.)
 */
 
 // Was 25 — equal to workerEatNutrition. With the half-cap field-eating
