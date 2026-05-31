@@ -84,8 +84,7 @@ export class SimulationCore {
     this.colony.syncQueenPositionToNest(this.world.nestX, this.world.nestY);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
-    this.digSystem = new DigSystem(this.world, this.colony, this.rng);
-    this.digSystem.onNewEntrance = (x, y) => this.#registerNewEntrance(x, y);
+    this.#rebuildDigSystem();
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.reset();
     // Two concentrated boot clusters (radius 8, 195 pellets each = 390 total).
@@ -345,7 +344,7 @@ export class SimulationCore {
           this.nestEntrances[0].radius = this.nestEntrances[0].radius || 2;
         }
         this.colony.syncQueenPositionToNest(worldX, worldY);
-        this.digSystem = new DigSystem(this.world, this.colony, this.rng);
+        this.#rebuildDigSystem();
         this.#syncMacroHomeTerritory();
         this.#rebuildTickPipeline();
         break;
@@ -356,7 +355,7 @@ export class SimulationCore {
 
   clearWorld() {
     this.world.initializeTerrain();
-    this.digSystem = new DigSystem(this.world, this.colony, this.rng);
+    this.#rebuildDigSystem();
     this.#syncMacroHomeTerritory();
     this.#rebuildTickPipeline();
     this.world.food.fill(0);
@@ -403,8 +402,7 @@ export class SimulationCore {
     this.colony = Colony.fromSerialized(this.world, this.rng, data.colony);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
-    this.digSystem = new DigSystem(this.world, this.colony, this.rng);
-    this.digSystem.onNewEntrance = (x, y) => this.#registerNewEntrance(x, y);
+    this.#rebuildDigSystem();
     this.digSystem.loadFromSerialized(data.digSystem);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.loadFromSerialized(data.macro);
@@ -462,6 +460,16 @@ export class SimulationCore {
 
   #syncMacroHomeTerritory() {
     this.macroEngine.syncHomeTerritory(this.world.nestX, this.world.nestY);
+  }
+
+  // Single source of truth for dig-system construction + wiring. Every rebuild
+  // path (reset, nest tool, clearWorld, load) must route through here so the
+  // onNewEntrance callback can never drift out of sync again — historically the
+  // nest tool and clearWorld recreated the dig system without re-attaching it,
+  // silently dropping entrance registration after those actions.
+  #rebuildDigSystem() {
+    this.digSystem = new DigSystem(this.world, this.colony, this.rng);
+    this.digSystem.onNewEntrance = (x, y) => this.#registerNewEntrance(x, y);
   }
 
   #rebuildTickPipeline() {
