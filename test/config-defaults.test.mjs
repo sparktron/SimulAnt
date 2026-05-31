@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { getDefaultConfig } from '../src/ui/params.js';
+import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 
 function parseLiteral(value) {
   const trimmed = value.trim();
@@ -42,4 +43,19 @@ test('parameter editor defaults match runtime config defaults', () => {
       `default mismatch for ${key}`,
     );
   }
+});
+
+test('sanitizeTickConfig guards digHomeBoost so digging cannot inject NaN into pheromones', () => {
+  // digHomeBoost is read as `world.toHome[idx] += config.digHomeBoost` in
+  // DigSystem, with no inline default. If the sanitize boundary lets it through
+  // as undefined, a single dig event poisons the toHome field with NaN and
+  // diffusion spreads it grid-wide. The boundary must always yield a finite value.
+  const sanitized = sanitizeTickConfig({ tickSeconds: 1 / 30 });
+  assert.ok(Number.isFinite(sanitized.digHomeBoost), 'digHomeBoost must be finite after sanitize');
+
+  const poisonedCell = 0 + sanitized.digHomeBoost;
+  assert.ok(Number.isFinite(poisonedCell), 'toHome cell must stay finite after applying the dig boost');
+
+  // A provided value must pass through unchanged (behavior-preserving for real configs).
+  assert.equal(sanitizeTickConfig({ digHomeBoost: 0.9 }).digHomeBoost, 0.9);
 });

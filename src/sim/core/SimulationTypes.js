@@ -88,6 +88,11 @@ export function sanitizeTickConfig(config = {}) {
 
     depositFood: clampNonNegativeNumber(config.depositFood, 0),
     depositHome: clampNonNegativeNumber(config.depositHome, 0),
+    // Home-pheromone boost applied when a tunnel is carved. Read directly as
+    // `world.toHome[idx] += config.digHomeBoost` in DigSystem, so an undefined
+    // value injects NaN into the toHome field and diffusion then spreads it
+    // across the whole grid. Guard it at the boundary like every other knob.
+    digHomeBoost: clampNonNegativeNumber(config.digHomeBoost, 0),
     dangerDeposit: clampNonNegativeNumber(config.dangerDeposit, 0),
     hazardDeathChance: clamp01(config.hazardDeathChance, 0),
 
