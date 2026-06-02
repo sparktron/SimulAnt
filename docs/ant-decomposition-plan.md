@@ -3,17 +3,21 @@
 Decompose the 1,820-line `src/sim/ant.js` `Ant` class into smaller, focused
 behavior units. Tracks KNOWN_ISSUES #1 and `open-items-todo.md` item #5.
 
-## Status: COMPLETE (v0.31.1–v0.31.4)
+## Status: COMPLETE (v0.31.1–v0.31.5)
 
-All four phases shipped. `ant.js` 1820 → 714 lines; behavior split across
-`vitals.js` (291), `steering.js` (571), `roles.js` (209), `navigation.js` (85),
-`constants.js` (33). Every phase preserved the deterministic replay hash (294
-tests green throughout). Phases 3 and 4 were executed via a comment-aware
-mechanical transform; phase 3↔4 were reordered (steering before roles) for
-dependency correctness. `#moveThroughEntranceShaft` landed in steering (not
-navigation) to avoid a navigation↔steering import cycle. The only remaining
-candidate — splitting the ~390-line `#decideAndMove` dispatcher — was
-intentionally deferred (highest RNG-ordering risk).
+All four extraction phases plus the `#decideAndMove` split shipped. `ant.js`
+1820 → 441 lines; behavior split across `steering.js` (571), `decisions.js`
+(331), `vitals.js` (291), `roles.js` (209), `navigation.js` (85), `constants.js`
+(33). Every phase preserved the deterministic replay hash (294 tests green
+throughout). Phases 3 and 4 were executed via a comment-aware mechanical
+transform; phase 3↔4 were reordered (steering before roles) for dependency
+correctness. `#moveThroughEntranceShaft` landed in steering (not navigation) to
+avoid a navigation↔steering import cycle.
+
+The `#decideAndMove` split (v0.31.5) turned a ~390-line dispatcher into a
+~130-line guard ladder delegating to 7 terminal handlers in `decisions.js`. The
+guard conditions and the two non-terminal (fall-through) blocks stayed inline,
+so the per-tick `rng.*` order is byte-identical.
 
 ## Constraints (read before touching anything)
 
