@@ -81,17 +81,24 @@ cycle. It is really a steering wrapper, so it moves with steering in Phase 4 to
 avoid a cyclic import. Also retire the Phase-1 inlined distance calc in
 `vitals.js` by importing `navigation.distanceToEntrance`.
 
-### Phase 3 — Role behaviors
+### Phase 3 — Steering / movement primitives  (heaviest RNG)
+**Reordered ahead of roles:** role behaviors call steering primitives, but
+steering never calls roles — steering is the leaf, roles sit above it. Doing
+steering first means roles (Phase 4) can import already-extracted functions.
+
+Extract to `src/sim/ant/steering.js`:
+`#moveByPheromone`, `#moveToward`, `#moveThroughEntranceShaft` (deferred from
+Phase 2), `#thetaToDir`, `#computeDangerTurn`, `#computeObstacleTurn`,
+`#updateWanderHeading`, `#pickDirectionalCandidate`, `#getCrowdingPenalty`,
+`#getHomeScentWeight`. `steering.js` imports navigation predicates one-way
+(no cycle). The shared `DIRS` and `gaussianRandom` (also used by the Ant
+constructor) move to `src/sim/ant/constants.js` to avoid an ant<->steering cycle.
+
+### Phase 4 — Role behaviors
 Extract to `src/sim/ant/roles.js`:
 `#isQueenFoodCourier`, `#runQueenCourierBehavior`, `#runNurseBehavior`,
-`#runDiggerBehavior`. (These call steering + navigation functions — import them.)
-
-### Phase 4 — Steering / movement primitives  (heaviest RNG)
-Extract to `src/sim/ant/steering.js`:
-`#moveByPheromone`, `#moveToward`, `#thetaToDir`, `#computeDangerTurn`,
-`#computeObstacleTurn`, `#updateWanderHeading`, `#pickDirectionalCandidate`,
-`#getCrowdingPenalty`, `#getHomeScentWeight`, plus the module-level `DIRS` and
-`gaussianRandom` helpers if only used here.
+`#runDiggerBehavior`. These call steering + navigation + vitals functions —
+all extracted by now, so they import cleanly.
 
 ## Per-phase verification checklist
 
