@@ -20,10 +20,9 @@
 
 import { TERRAIN } from './world.js';
 import { isInNestSpatial } from './behavior/NestState.js';
+import * as vitals from './ant/vitals.js';
 
 const DEBUG_ANT_FLOW_LOGS = false;
-
-const SENESCENCE_START_FRACTION = 0.8;
 
 /*
     Box-Muller transform: produces Gaussian random samples from uniform distribution.
@@ -234,7 +233,7 @@ export class Ant {
     const inNestAfter = isInNestSpatial(world, this.x, this.y)
       || (world.isUndergroundTile(this.x, this.y)
         && (context.entrance ? this.y > context.entrance.y : false));
-    this.#applyVitals(colony, config, context.dt, didMove, inNestAfter);
+    vitals.applyVitals(this, colony, config, context.dt, didMove, inNestAfter);
   }
 
   /**
@@ -279,11 +278,11 @@ export class Ant {
     // Skip eating when already carrying something — prevents double-dipping
     // (eating from nest store while simultaneously carrying food to deposit)
     if (!this.carrying?.type) {
-      if (this.#tryEatFromNest(colony, context.inNestInterior, config)) {
+      if (vitals.tryEatFromNest(this, colony, context.inNestInterior, config)) {
         this.state = 'EAT';
       }
 
-      if (this.#tryEatNearbyPellet(colony, config)) {
+      if (vitals.tryEatNearbyPellet(this, colony, config)) {
         this.state = 'EAT';
       }
     }
@@ -363,8 +362,8 @@ export class Ant {
     if (this.carrying?.type === 'food') {
       this.failedSurfaceFoodSearchTicks = 0;
 
-      if (this.#isLowHealth()) {
-        this.#consumeCarriedFoodForHealth(config);
+      if (vitals.isLowHealth(this)) {
+        vitals.consumeCarriedFoodForHealth(this, config);
         if (!this.carrying?.type) {
           this.state = 'EAT';
           return didMove;
@@ -489,7 +488,7 @@ export class Ant {
       return this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y, rng);
     }
 
-    if (this.#isLowHealth() && !context.inNest) {
+    if (vitals.isLowHealth(this) && !context.inNest) {
       this.state = 'RETURN_TO_NEST_HEAL';
       if (context.entrance) {
         return this.#moveThroughEntranceShaft(
@@ -502,18 +501,18 @@ export class Ant {
       return this.#moveByPheromone(world, rng, config, 'home', context.entrance);
     }
 
-    if (this.workFocus === 'nurse' && !this.#needsForage(colony)) {
+    if (this.workFocus === 'nurse' && !vitals.needsForage(this, colony)) {
       return this.#runNurseBehavior(world, colony, rng, config, context);
     }
 
-    if (this.workFocus === 'dig' && !this.#needsForage(colony)) {
+    if (this.workFocus === 'dig' && !vitals.needsForage(this, colony)) {
       return this.#runDiggerBehavior(world, colony, rng, config, context);
     }
 
-    if (!this.#needsForage(colony)) {
+    if (!vitals.needsForage(this, colony)) {
       return didMove;
     }
-    if (this.#isCriticalHealth()) {
+    if (vitals.isCriticalHealth(this)) {
       this.state = 'RETURN_TO_NEST_HEAL';
       if (context.entrance) didMove = this.#moveThroughEntranceShaft(world, context.entrance, context.entrance.y, rng);
       return didMove;
@@ -543,12 +542,12 @@ export class Ant {
         // the source is plentiful.
         const abundantFood = colony.countVisiblePellets(this.x, this.y, config.foodVisionRadius) >= 3;
         const needsPersonalFood = this.health < this.healthMax * 0.6;
-        if (this.#isLowHealth()) {
-          this.#consumePelletForHealthThenCarry(colony, visible, config);
+        if (vitals.isLowHealth(this)) {
+          vitals.consumePelletForHealthThenCarry(this,colony, visible, config);
           this.state = 'EAT';
         } else if (abundantFood && needsPersonalFood) {
           // Eat this pellet outright for health, then next tick pick up another to carry
-          this.#consumePelletForHealth(colony, visible, config);
+          vitals.consumePelletForHealth(this,colony, visible, config);
           this.state = 'EAT';
         } else {
           visible.takenByAntId = this.id;
@@ -564,7 +563,7 @@ export class Ant {
           this.#aimThetaAtEntrance(colony);
         }
       } else {
-        this.state = this.#isLowHealth() ? 'SEEK_FOOD_HEAL' : 'GO_TO_FOOD';
+        this.state = vitals.isLowHealth(this) ? 'SEEK_FOOD_HEAL' : 'GO_TO_FOOD';
         didMove = this.#moveToward(world, visible.x, visible.y, rng);
       }
       return didMove;
@@ -575,11 +574,11 @@ export class Ant {
       this.failedSurfaceFoodSearchTicks = 0;
       const abundantFoodHere = colony.countVisiblePellets(this.x, this.y, config.foodVisionRadius) >= 3;
       const needsFoodHere = this.health < this.healthMax * 0.6;
-      if (this.#isLowHealth()) {
-        this.#consumePelletForHealthThenCarry(colony, onPellet, config);
+      if (vitals.isLowHealth(this)) {
+        vitals.consumePelletForHealthThenCarry(this,colony, onPellet, config);
         this.state = 'EAT';
       } else if (abundantFoodHere && needsFoodHere) {
-        this.#consumePelletForHealth(colony, onPellet, config);
+        vitals.consumePelletForHealth(this,colony, onPellet, config);
         this.state = 'EAT';
       } else {
         onPellet.takenByAntId = this.id;
@@ -714,105 +713,6 @@ export class Ant {
       return this.#moveByPheromone(world, rng, config, 'food', entrance, colony);
     }
     return didMove;
-  }
-
-  /*
-      Updates ant vitals: age, hunger, health with work-based penalties and recovery.
-
-      Health/hunger system:
-      - Hunger drains from movement/carrying/fighting at configured rates
-      - Starving (hunger <= 0) triggers rapid health loss (starvation penalty)
-      - Health drains from work (movement, carrying) independently of hunger
-      - Well-fed ants (hunger > 65%) passively regen health if healthy
-      - Natural death: age (after maxAge * 0.8, senescence drains health)
-      - Starvation death: when health reaches 0
-
-      This creates emergent behavior:
-      - Ants must balance work/exploration with returning to eat
-      - Carrying food is taxing, so trips are naturally limited
-      - Natural lifespan prevents ant bloat in stable conditions
-  */
-  #applyVitals(colony, config, dt, didMove, inNest) {
-    // Increment age for natural lifespan tracking
-    // Per-ant aging rate (set in constructor, ±15% jitter) advances age
-    // unevenly so a synchronized birth cohort still spreads out its
-    // deaths over the senescence window.
-    this.age += this.agingRate ?? 1;
-
-    const hungerDrain = didMove ? this.hungerDrainRates.move : this.hungerDrainRates.idle;
-    if (this.role === 'soldier') {
-      // Soldiers pay only the base move/idle hunger cost — no carry surcharge
-      // (they don't haul) and no work-health drain.
-      this.hunger = Math.max(0, this.hunger - hungerDrain * dt);
-    } else {
-      // Hunger mechanics with work penalties. Carry surcharge is for surface
-      // transit only — moving a few tiles inside the nest to a drop point or
-      // queen tile shouldn't pay the long-haul tax. Hauling dirt is the
-      // exception: we want that to feel costly, so we keep the surcharge for
-      // HAUL_DIRT regardless of location.
-      const carrySurchargeApplies = !!this.carrying?.type && (this.state === 'HAUL_DIRT' || !inNest);
-      const carryingHungerCost = carrySurchargeApplies ? (config.carryingHungerDrainRate ?? 0) : 0;
-      const fightHungerCost = this.state === 'FIGHT' ? (config.fightingHungerDrainRate ?? 0) : 0;
-      this.hunger = Math.max(0, this.hunger - (hungerDrain + carryingHungerCost + fightHungerCost) * dt);
-
-      // Health degradation from work. Same location-aware gate as hunger: carry
-      // drain only counts during surface transit (or dirt hauls).
-      const healthWorkDrain = (didMove ? (config.healthWorkMoveDrainRate ?? 0) : (config.healthWorkIdleDrainRate ?? 0))
-        + (carrySurchargeApplies ? (config.healthWorkCarryDrainRate ?? 0) : 0)
-        + (this.state === 'FIGHT' ? (config.healthWorkFightDrainRate ?? 0) : 0);
-      this.health = Math.max(0, this.health - healthWorkDrain * dt);
-    }
-
-    // Starvation damage, fed-state regen, and old-age decline are identical for
-    // every caste — funnel both role paths through one helper so they can never
-    // drift apart (a soldier-only or worker-only edit would otherwise diverge,
-    // the exact failure mode seen in the engine-lifecycle rebuild paths).
-    this.#applyStarvationRegenAging(config, dt);
-
-    if (this.health <= 0) {
-      this.alive = false;
-      colony.recordDeath(this.#deathCause());
-    }
-  }
-
-  /**
-   * Caste-independent vitals: starvation damage, fed-state passive regen, and
-   * old-age decline — applied in this fixed order for every ant.
-   *
-   * Passive regen threshold (hunger > 50%) sits below the post-meal hunger
-   * level (eat at 35% + 25 = 60%) so workers heal between trips; anything
-   * higher would block regen for the normal feed cycle. Senescent ants still
-   * heal but at half rate, so age drain still wins and they fade out gradually
-   * across the senescence window instead of collapsing mid-window.
-   */
-  #applyStarvationRegenAging(config, dt) {
-    if (this.hunger <= 0) {
-      this.health = Math.max(0, this.health - (config.healthDrainRate ?? 0) * dt);
-    }
-
-    if (this.hunger > this.hungerMax * 0.5 && this.health < this.healthMax) {
-      const regenRate = Math.max(0, config.healthRegenRate ?? 0);
-      const senescenceFactor = this.age > this.maxAge * SENESCENCE_START_FRACTION ? 0.5 : 1;
-      this.health = Math.min(this.healthMax, this.health + regenRate * senescenceFactor * dt);
-    }
-
-    if (this.age > this.maxAge * SENESCENCE_START_FRACTION) {
-      const ageFactor = (this.age - this.maxAge * SENESCENCE_START_FRACTION) / (this.maxAge * (1 - SENESCENCE_START_FRACTION));
-      this.health = Math.max(0, this.health - ageFactor * 2 * dt);
-    }
-  }
-
-  /**
-   * Best-guess cause for the death that just occurred.
-   *
-   * Starvation if hunger has been driven to zero; oldAge if the ant is in
-   * the senescence window (age > 80% of maxAge); otherwise "other" — which
-   * covers work-damage attrition and edge cases.
-   */
-  #deathCause() {
-    if (this.hunger <= 0) return 'starvation';
-    if (this.age > this.maxAge * SENESCENCE_START_FRACTION) return 'oldAge';
-    return 'other';
   }
 
   /*
@@ -1398,185 +1298,6 @@ export class Ant {
     const localPenalty = Math.max(0, onTileCount - 1) * 0.35;
     const nearbyPenalty = nearbyAntCount * 0.05;
     return Math.min(3, localPenalty + nearbyPenalty);
-  }
-
-  #needsForage(colony) {
-    // Role-aware: specialists (nurse/dig) stay on duty unless personally starving.
-    const isSpecialist = this.workFocus === 'nurse' || this.workFocus === 'dig';
-    if (isSpecialist) {
-      return this.hunger < this.hungerMax * 0.15;
-    }
-
-    // Foragers: this is their *job*. They should keep working as long as the
-    // colony has room to grow its reserves. Previously they idled as soon as
-    // they were personally fed AND the store was above 25% of target, which
-    // caused them to cluster at the entrance and refuse to walk the pheromone
-    // trails. Keep them foraging until the store is nearly full.
-    if (this.workFocus === 'forage') {
-      const storeTarget = Math.max(1, colony.foodStoreTarget);
-      const storeNearlyFull = colony.foodStored >= storeTarget;
-      if (!storeNearlyFull) return true;
-      // Even at target, still forage if personally hungry.
-      return this.hunger < this.hungerMax * 0.6;
-    }
-
-    // Unspecialized workers fall back to the legacy hunger/shortage heuristic.
-    const personallyHungry = this.hunger < this.hungerMax * 0.4;
-    const criticalFoodShortage = colony.foodStored < Math.max(1, colony.foodStoreTarget * 0.25);
-    return personallyHungry || criticalFoodShortage;
-  }
-
-  #tryEatFromNest(colony, inNest, config) {
-    if (!inNest) return false;
-    // Workers and soldiers eat from nest stores. Breeders do not — they exist
-    // for caste-balance bookkeeping and have no active behavior loop.
-    // Excluding soldiers (the earlier policy) guaranteed they starved within
-    // ~30 sec, draining colony births with no return.
-    if (this.role !== 'worker' && this.role !== 'soldier') return false;
-
-    // Cooldown: prevent ants from eating every single tick in the nest.
-    // 30 ticks between meals unless critically starving.
-    const eatCooldown = config.nestEatCooldownTicks ?? 30;
-    const ticksSinceLastEat = this.stepCounter - this._lastNestEatTick;
-    const critical = this.#isCriticalHealth();
-    if (!critical && ticksSinceLastEat < eatCooldown) return false;
-
-    // Hunger-based eating: eat when hungry, not when health dips.
-    // Health regenerates passively when hunger > 65%, so feeding hunger
-    // is the correct lever.  Critical-health ants still get priority.
-    const hungry = this.hunger < this.hungerMax * 0.35;
-    if (!hungry && !critical) return false;
-
-    const requested = critical
-      ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
-      : config.workerEatNutrition;
-    // Clamp intake to remaining hunger capacity so we don't waste food.
-    // If hunger is already full there is nothing to absorb — passive regen
-    // (hunger > 65%) will restore health without consuming colony stores.
-    const hungerCapacity = Math.max(0, this.hungerMax - this.hunger);
-    if (hungerCapacity <= 0) return false;
-    const requestedIntake = Math.max(1, Math.min(requested, hungerCapacity));
-
-    const consumed = colony.consumeFromStore(requestedIntake);
-    if (consumed <= 0) return false;
-
-    this._lastNestEatTick = this.stepCounter;
-    this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
-    const healthGain = consumed * (config.healthEatRecoveryRate ?? 0);
-    // Recovery bonus only applies when the ant is actually starving, not when
-    // health is low for other reasons (old age, combat damage, etc.).
-    const isStarving = this.hunger < this.hungerMax * 0.1;
-    this.health = Math.min(this.healthMax, this.health + healthGain + (critical && isStarving ? config.starvationRecoveryHealth : 0));
-    return true;
-  }
-
-  #tryEatNearbyPellet(colony, config) {
-    if (!this.#isLowHealth()) return false;
-    const pellet = colony.findAvailablePelletAt(this.x, this.y);
-    if (!pellet) return false;
-    this.#consumePelletForHealthThenCarry(colony, pellet, config);
-    return true;
-  }
-
-  #consumePelletForHealthThenCarry(colony, pellet, config) {
-    const nutrition = Math.max(0, pellet?.nutrition || 0);
-    if (nutrition <= 0) {
-      colony.removePelletById(pellet.id);
-      return;
-    }
-
-    // Cap field-eating at half the pellet unless the ant is critical (<40%
-    // health). Without this, a low-health forager consumes the full meal
-    // ration (workerEatNutrition=25) from a typical 12-nutrition pellet,
-    // delivering nothing. Capping at half guarantees the colony gets at
-    // least half of every found pellet while still letting the forager
-    // refuel enough to make the return trip.
-    const critical = this.#isCriticalHealth();
-    const requested = critical
-      ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition ?? nutrition)
-      : (config.workerEatNutrition ?? nutrition);
-    const fieldCap = critical ? nutrition : nutrition / 2;
-    const consumed = Math.min(nutrition, requested, fieldCap);
-    const healthRecoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
-
-    this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
-    this.health = Math.min(this.healthMax, this.health + consumed * healthRecoveryRate);
-
-    const remainingNutrition = Math.max(0, nutrition - consumed);
-    colony.removePelletById(pellet.id);
-    if (remainingNutrition > 0.0001) {
-      this.carrying = {
-        type: 'food',
-        pelletId: pellet.id,
-        pelletNutrition: remainingNutrition,
-        pickupDistance: this.#distanceToEntrance(colony),
-      };
-      this.carryingType = 'food';
-    }
-  }
-
-  #consumePelletForHealth(colony, pellet, config) {
-    const nutrition = Math.max(0, pellet?.nutrition || 0);
-    if (nutrition <= 0) {
-      colony.removePelletById(pellet.id);
-      return;
-    }
-
-    const requested = this.#isCriticalHealth()
-      ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition ?? nutrition)
-      : (config.workerEatNutrition ?? nutrition);
-    const consumed = Math.min(nutrition, requested);
-    const healthRecoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
-
-    this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
-    this.health = Math.min(this.healthMax, this.health + consumed * healthRecoveryRate);
-    colony.removePelletById(pellet.id);
-  }
-
-  #consumeCarriedFoodForHealth(config) {
-    if (this.carrying?.type !== 'food') return;
-    const available = Math.max(0, this.carrying.pelletNutrition || 0);
-    if (available <= 0) {
-      this.carrying = null;
-      this.carryingType = 'none';
-      return;
-    }
-
-    // Same cap as #consumePelletForHealthThenCarry — never eat more than half
-    // the cargo unless the carrier is in critical health. Workers between
-    // 40–50% health were previously consuming entire pellets en route,
-    // turning every foraging trip into a net-zero or net-negative delivery
-    // for the colony.
-    const critical = this.#isCriticalHealth();
-    const requested = critical
-      ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
-      : (config.workerEatNutrition ?? available);
-    const cargoCap = critical ? available : available / 2;
-    const consumed = Math.min(available, requested, cargoCap);
-    const recoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
-    this.hunger = Math.min(this.hungerMax, this.hunger + consumed);
-    this.health = Math.min(this.healthMax, this.health + consumed * recoveryRate);
-
-    const remaining = Math.max(0, available - consumed);
-    if (remaining <= 0.0001) {
-      this.carrying = null;
-      this.carryingType = 'none';
-      return;
-    }
-    this.carrying.pelletNutrition = remaining;
-  }
-
-  #isLowHealth() {
-    return this.health < this.healthMax * 0.5;
-  }
-
-  // Critical = "drop everything and eat right now." Threshold raised from 25%
-  // so an ant in real trouble triggers emergency eating before it's seconds
-  // from death (with the 25% floor, the override only fired after sustained
-  // damage). Combined with the cooldown bypass in #tryEatFromNest, critical
-  // ants can re-feed every tick until hunger is full or they're stable.
-  #isCriticalHealth() {
-    return this.health < this.healthMax * 0.4;
   }
 
   #moveToward(world, tx, ty, rng, constraints = null) {
