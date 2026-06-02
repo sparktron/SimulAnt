@@ -2,8 +2,15 @@
 
 ## Active
 
-1. **Ant behavior class remains large**
-   - `src/sim/ant.js` still contains dense role/state logic and should be split further.
+1. **Ant behavior class — decomposed (v0.31.1–v0.31.4)**
+   - `src/sim/ant.js` reduced from 1820 → 714 lines. Vitals/feeding, navigation,
+     steering, and role behaviors now live in `src/sim/ant/{vitals,navigation,
+     steering,roles,constants}.js` as pure free functions. The class retains
+     construction, the tick orchestrator (`update`/`#sense`/`#decideAndMove`),
+     hazard/fallback handling, and static color getters.
+   - Remaining (optional) follow-up: `#decideAndMove` is still a ~390-line
+     dispatcher; splitting it into per-branch handlers was deliberately left out
+     of this pass (highest RNG-ordering risk). See docs/ant-decomposition-plan.md.
 
 2. **Food accounting still has multiple physical representations**
    - Canonical getters exist, but storage remains distributed across `foodStored`, virtual reserve, and pellet records.
