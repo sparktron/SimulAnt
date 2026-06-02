@@ -24,6 +24,7 @@ import * as vitals from './ant/vitals.js';
 import * as navigation from './ant/navigation.js';
 import * as steering from './ant/steering.js';
 import * as roles from './ant/roles.js';
+import * as decisions from './ant/decisions.js';
 import { DIRS } from './ant/constants.js';
 
 const DEBUG_ANT_FLOW_LOGS = false;
@@ -280,203 +281,38 @@ export class Ant {
    * Returns whether movement occurred this tick.
    */
   #decideAndMove(world, colony, rng, config, context) {
-    let didMove = false;
-
     if (this.role === 'soldier') {
-      this.state = 'PATROL';
-      // Soldiers patrol the nest perimeter, depositing home pheromone near hazards
-      if (context.entrance) {
-        const distToNest = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
-        const patrolRadius = config.nearEntranceScatterRadius + 5;
-        if (distToNest > patrolRadius) {
-          didMove = steering.moveToward(this, world, context.entrance.x, context.entrance.y, rng);
-        } else {
-          didMove = steering.moveByPheromone(this, world, rng, config, 'home', context.entrance, colony);
-        }
-      }
-      if (!didMove) {
-        // Phase 3: soldier food-channel fallback is a wandering context.
-        // Advance theta so headingContrib in #moveByPheromone steers it
-        // with the same smoothness as worker FORAGE_SEARCH.
-        steering.updateWanderHeading(this, rng, world, config);
-        didMove = steering.moveByPheromone(this, world, rng, config, 'food', context.entrance, colony);
-      }
-      // Soldiers deposit home pheromone while patrolling
-      if (didMove && this.stepCounter % config.homeDepositIntervalTicks === 0 && config.enablePheromones !== false) {
-        world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome * 0.5);
-      }
-      return didMove;
+      return decisions.soldierPatrol(this, world, colony, rng, config, context);
     }
 
-    if (this.role !== 'worker') return didMove;
+    if (this.role !== 'worker') return false;
 
     if (roles.isQueenFoodCourier(this, colony)) {
       return roles.runQueenCourierBehavior(this, world, colony, rng, config, context);
     }
 
-    // Carrying checks must come before exit-nest: ants with cargo handle it first
+    // Carrying checks must come before exit-nest: ants with cargo handle it first.
     if (this.carrying?.type === 'dirt') {
-      this.state = 'HAUL_DIRT';
-      if (context.entrance) {
-        const entranceRadius = Math.max(1, context.entrance.radius ?? 1);
-        const nearEntranceX = Math.abs(this.x - context.entrance.x) <= entranceRadius + 1;
-        const reachedSurface = this.y <= context.entrance.y;
-
-        if (reachedSurface && nearEntranceX) {
-          colony.recordDirtDeposit(this.carrying.amount ?? 1, context.entrance.x, context.entrance.y);
-          this.carrying = null;
-          this.carryingType = 'none';
-          return didMove;
-        }
-
-        const targetY = context.inNest ? context.entrance.y - 1 : Math.min(this.y, context.entrance.y - 1);
-        if (world.isPassable(context.entrance.x, targetY)) {
-          didMove = steering.moveThroughEntranceShaft(this, world, context.entrance, targetY, rng);
-        }
-        if (!didMove) didMove = steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng);
-        if (!didMove) didMove = steering.moveByPheromone(this, world, rng, config, 'home', context.entrance);
-        return didMove;
-      }
-
-      return steering.moveByPheromone(this, world, rng, config, 'home', context.entrance);
+      return decisions.haulDirt(this, world, colony, rng, config, context);
     }
 
     if (this.carrying?.type === 'food') {
-      this.failedSurfaceFoodSearchTicks = 0;
-
-      if (vitals.isLowHealth(this)) {
-        vitals.consumeCarriedFoodForHealth(this, config);
-        if (!this.carrying?.type) {
-          this.state = 'EAT';
-          return didMove;
-        }
-      }
-
-      this.state = 'RETURN_HOME';
-      if (context.inNest) {
-        const dropPoint = colony.findNestFoodDropPoint(context.entrance, this.x, this.y);
-        if (dropPoint) {
-          if (this.x === dropPoint.x && this.y === dropPoint.y) {
-            colony.depositFoodFromAnt(this, context.entrance, dropPoint);
-            // Immediately transition to EXIT_NEST so the ant doesn't get pulled
-            // back by home pheromone fallback logic. Stagger nest departures:
-            // small random delay so ants don't all rush the entrance on the same
-            // tick. The previous 5-20 tick window was long enough that hungry
-            // waves serialized through the eat → idle → exit pipeline and clogged
-            // the entrance.
-            this.state = 'EXIT_NEST';
-            this._nestDepartureDelay = 2 + rng.int(4);
-            return didMove;
-          }
-
-          this.state = 'STORE_FOOD_IN_NEST';
-          didMove = steering.moveToward(this, world, dropPoint.x, dropPoint.y, rng);
-          if (!didMove) didMove = steering.moveByPheromone(this, world, rng, config, 'home', context.entrance);
-          return didMove;
-        }
-
-        // No storage tile available (nest not excavated enough yet).
-        // Exit back to the surface so the ant doesn't freeze at the entrance boundary.
-        this.state = 'RETURN_HOME';
-        if (context.entrance) {
-          didMove = steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y - 1, rng);
-          if (didMove) return didMove;
-        }
-      }
-
-      const distToNest = context.entrance ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y) : 0;
-      // Deposit scales up with distance from the nest so the gradient points
-      // outward: strong near the food source, weak near the entrance.
-      // Foragers following the gradient are naturally pulled toward food.
-      const trailScale = Math.min(
-        config.maxFoodTrailScale ?? 4.0,
-        1 + distToNest * (config.foodTrailDistanceScale ?? 1.0) * 0.05,
-      );
-      // Fade IN the deposit over the first foodDepositMinDistance tiles, so
-      // carriers don't build a pheromone hotspot at the entrance. Without
-      // this, all returning ants funnel through the same few entrance tiles
-      // and stack deposits there — creating a local maximum that pulls
-      // searchers BACK to the nest instead of out to the food source.
-      const foodFadeRadius = config.foodDepositMinDistance ?? 8;
-      const entranceFadeFraction = foodFadeRadius > 0
-        ? Math.min(1, Math.max(0, distToNest / foodFadeRadius))
-        : 1;
-      if (config.enablePheromones !== false && entranceFadeFraction > 0) {
-        world.toFood[context.idx] = Math.min(
-          config.pheromoneMaxClamp,
-          world.toFood[context.idx] + config.depositFood * trailScale * entranceFadeFraction,
-        );
-      }
-
-      // Follow the existing food trail back to the nest so all returners share
-      // a single corridor instead of cutting their own diagonal shortcuts.
-      // Only switch to direct shaft entry when right at the entrance mouth.
-      const entranceShaftRadius = (context.entrance?.radius ?? 1) + 2;
-      if (distToNest < entranceShaftRadius && context.entrance) {
-        didMove = steering.moveThroughEntranceShaft(this, 
-          world,
-          context.entrance,
-          navigation.getNestEntryTargetY(this,world, context.entrance),
-          rng,
-        );
-      } else {
-        didMove = steering.moveByPheromone(this, world, rng, config, 'home', context.entrance, null, world.toFood);
-        if (!didMove && context.entrance) {
-          didMove = steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng);
-        }
-      }
-      return didMove;
+      return decisions.carryFood(this, world, colony, rng, config, context);
     }
 
-    // Foragers exit nest when not carrying anything
+    // Foragers exit the nest when not carrying anything.
     if (this.workFocus === 'forage' && context.inNest && context.entrance) {
-      const returnHungerThreshold = Math.max(
-        0,
-        Math.min(1, config.surfaceReturnToNestHungerThreshold ?? 0.65),
-      );
-      const shouldContinueIntoNestForFood = !context.inNestInterior
-        && colony.foodStored > 0
-        && this.hunger < this.hungerMax * returnHungerThreshold;
-      if (shouldContinueIntoNestForFood) {
-        this.state = 'RETURN_NEST_TO_EAT';
-        return steering.moveThroughEntranceShaft(this, 
-          world,
-          context.entrance,
-          navigation.getNestEntryTargetY(this,world, context.entrance),
-          rng,
-        );
-      }
-
-      // Stagger departures: after eating, wait a random delay before leaving
-      // so ants don't all rush the entrance at once.
-      this.state = 'EXIT_NEST';
-      if (this._nestDepartureDelay > 0) {
-        this._nestDepartureDelay -= 1;
-        return false;
-      }
-      const exitTargetY = context.entrance.y - 1;
-      // Scatter exits along a wider band so foragers fan out instead of
-      // clustering at the same few tiles.  Uses double the entrance radius
-      // plus padding so ants emerge across an 8-10 tile front.
-      const radius = Math.max(1, (context.entrance.radius ?? 1) * 2 + 2);
-      const scatter = navigation.entranceColumnOffset(this, radius);
-      const scatteredX = context.entrance.x + scatter;
-      if (world.isPassable(scatteredX, exitTargetY)) {
-        return steering.moveToward(this, world, scatteredX, exitTargetY, rng);
-      }
-      if (world.isPassable(context.entrance.x, exitTargetY)) {
-        return steering.moveThroughEntranceShaft(this, world, context.entrance, exitTargetY, rng);
-      }
-      return steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng);
+      return decisions.foragerExitNest(this, world, colony, rng, config, context);
     }
 
     if (vitals.isLowHealth(this) && !context.inNest) {
       this.state = 'RETURN_TO_NEST_HEAL';
       if (context.entrance) {
-        return steering.moveThroughEntranceShaft(this, 
+        return steering.moveThroughEntranceShaft(
+          this,
           world,
           context.entrance,
-          navigation.getNestEntryTargetY(this,world, context.entrance),
+          navigation.getNestEntryTargetY(this, world, context.entrance),
           rng,
         );
       }
@@ -492,14 +328,18 @@ export class Ant {
     }
 
     if (!vitals.needsForage(this, colony)) {
-      return didMove;
-    }
-    if (vitals.isCriticalHealth(this)) {
-      this.state = 'RETURN_TO_NEST_HEAL';
-      if (context.entrance) didMove = steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng);
-      return didMove;
+      return false;
     }
 
+    if (vitals.isCriticalHealth(this)) {
+      this.state = 'RETURN_TO_NEST_HEAL';
+      if (context.entrance) {
+        return steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng);
+      }
+      return false;
+    }
+
+    // Non-terminal: may exit the nest, or fall through to pellet search below.
     if (context.inNest && context.entrance) {
       const distanceToEntrance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
       if (distanceToEntrance > (context.entrance.radius ?? 1)) {
@@ -516,68 +356,15 @@ export class Ant {
 
     const visible = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
     if (visible) {
-      this.failedSurfaceFoodSearchTicks = 0;
-      if (this.x === visible.x && this.y === visible.y) {
-        // In an abundant food source with health below 60%, eat a pellet
-        // for personal health before picking up one to carry home.  This
-        // keeps foragers alive on long trips and doesn't waste food since
-        // the source is plentiful.
-        const abundantFood = colony.countVisiblePellets(this.x, this.y, config.foodVisionRadius) >= 3;
-        const needsPersonalFood = this.health < this.healthMax * 0.6;
-        if (vitals.isLowHealth(this)) {
-          vitals.consumePelletForHealthThenCarry(this,colony, visible, config);
-          this.state = 'EAT';
-        } else if (abundantFood && needsPersonalFood) {
-          // Eat this pellet outright for health, then next tick pick up another to carry
-          vitals.consumePelletForHealth(this,colony, visible, config);
-          this.state = 'EAT';
-        } else {
-          visible.takenByAntId = this.id;
-          this.carrying = {
-            type: 'food',
-            pelletId: visible.id,
-            pelletNutrition: visible.nutrition,
-            pickupDistance: navigation.distanceToEntrance(this, colony),
-          };
-          this.carryingType = 'food';
-          colony.removePelletById(visible.id);
-          this.state = 'PICKUP';
-          navigation.aimThetaAtEntrance(this, colony);
-        }
-      } else {
-        this.state = vitals.isLowHealth(this) ? 'SEEK_FOOD_HEAL' : 'GO_TO_FOOD';
-        didMove = steering.moveToward(this, world, visible.x, visible.y, rng);
-      }
-      return didMove;
+      return decisions.pickUpVisiblePellet(this, world, colony, rng, config, context, visible);
     }
 
     const onPellet = colony.findAvailablePelletAt(this.x, this.y);
     if (onPellet) {
-      this.failedSurfaceFoodSearchTicks = 0;
-      const abundantFoodHere = colony.countVisiblePellets(this.x, this.y, config.foodVisionRadius) >= 3;
-      const needsFoodHere = this.health < this.healthMax * 0.6;
-      if (vitals.isLowHealth(this)) {
-        vitals.consumePelletForHealthThenCarry(this,colony, onPellet, config);
-        this.state = 'EAT';
-      } else if (abundantFoodHere && needsFoodHere) {
-        vitals.consumePelletForHealth(this,colony, onPellet, config);
-        this.state = 'EAT';
-      } else {
-        onPellet.takenByAntId = this.id;
-        this.carrying = {
-          type: 'food',
-          pelletId: onPellet.id,
-          pelletNutrition: onPellet.nutrition,
-          pickupDistance: navigation.distanceToEntrance(this, colony),
-        };
-        this.carryingType = 'food';
-        colony.removePelletById(onPellet.id);
-        this.state = 'PICKUP';
-        navigation.aimThetaAtEntrance(this, colony);
-      }
-      return didMove;
+      return decisions.pickUpPelletHere(this, world, colony, rng, config, context, onPellet);
     }
 
+    // Non-terminal: may head back to the nest to eat, or fall through to forage.
     if (!context.inNest) {
       this.failedSurfaceFoodSearchTicks += 1;
       const missThresholdOffset = colony.ants.length > 1
@@ -598,77 +385,17 @@ export class Ant {
 
       if (shouldReturnToNestForFood && context.entrance) {
         this.state = 'RETURN_NEST_TO_EAT';
-        return steering.moveThroughEntranceShaft(this, 
+        return steering.moveThroughEntranceShaft(
+          this,
           world,
           context.entrance,
-          navigation.getNestEntryTargetY(this,world, context.entrance),
+          navigation.getNestEntryTargetY(this, world, context.entrance),
           rng,
         );
       }
     }
 
-    this.state = 'FORAGE_SEARCH';
-    // Advance the persistent heading (this.theta) via correlated random walk.
-    // Skip the update when the ant is on a strong food trail — its theta
-    // shouldn't keep drifting against pheromone steering, otherwise the
-    // headingBias term injects sporadic course changes on a clear trail.
-    const trailAtAnt = world.toFood[context.idx] ?? 0;
-    const onClearTrail = trailAtAnt > (config.trailLockThreshold ?? 1.0);
-    if (!onClearTrail) {
-      steering.updateWanderHeading(this, rng, world, config);
-    }
-    // Home pheromone is meant to be a *gradient toward the entrance*, not a
-    // uniform background. If searching ants paint it everywhere they wander,
-    // diffusion saturates the foraging area and the gradient flattens — which
-    // (a) makes returning ants drift instead of commute, and (b) elevates the
-    // food trail's contrast vs noise. Restrict deposition to a band around
-    // the entrance so the field stays peaked there.
-    const distToEntranceForDeposit = context.entrance
-      ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
-      : 0;
-    // Home deposit scales INVERSELY with distance from the entrance: full
-    // strength at the mouth, zero at homeDepositMinDistance. Without the fade,
-    // foragers walking the consolidated food corridor outward dump uniform
-    // home pheromone along it, creating a ridge that PEAKS away from the
-    // entrance — returners then climb that ridge backwards into the corridor.
-    // The fade guarantees a strict gradient pointing toward the entrance.
-    const homeFadeRadius = config.homeDepositMinDistance ?? 20;
-    const homeDepositFraction = Math.max(0, 1 - distToEntranceForDeposit / homeFadeRadius);
-    if (this.stepCounter % config.homeDepositIntervalTicks === 0 && homeDepositFraction > 0.01 && config.enablePheromones !== false) {
-      world.toHome[context.idx] = Math.min(
-        config.pheromoneMaxClamp,
-        world.toHome[context.idx] + config.depositHome * homeDepositFraction,
-      );
-    }
-
-    const distFromEntrance = context.entrance
-      ? Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y)
-      : 0;
-    const innerScatterRadius = config.innerScatterRadius ?? 20;
-
-    // Scatter push on every exit — needed to push ants past the entrance-local
-    // food pheromone peak deposited by returners. The radius is kept small
-    // (config default 6) so the push is only 1–2 steps and never causes the
-    // long diagonal march the larger radius produced.
-    const onFoodTrail = world.toFood[context.idx] > 0.5;
-    const nearEntranceScatter = !context.inNest && context.entrance
-      && (
-        distFromEntrance < innerScatterRadius
-        || (!onFoodTrail && distFromEntrance < (config.nearEntranceScatterRadius ?? 8))
-      );
-    if (nearEntranceScatter && context.entrance) {
-      const awayX = this.x - context.entrance.x;
-      const awayY = this.y - context.entrance.y;
-      const awayLen = Math.max(1, Math.hypot(awayX, awayY));
-      const pushDistance = 10 + rng.int(7);
-      const jitterX = rng.int(5) - 2;
-      const jitterY = rng.int(5) - 2;
-      const ax = this.x + Math.round((awayX / awayLen) * pushDistance) + jitterX;
-      const ay = this.y + Math.round((awayY / awayLen) * pushDistance) + jitterY;
-      didMove = steering.moveToward(this, world, ax, ay, rng);
-    }
-    if (!didMove) didMove = steering.moveByPheromone(this, world, rng, config, 'food', context.entrance);
-    return didMove;
+    return decisions.forageSearch(this, world, colony, rng, config, context);
   }
 
   #resolveHazard(world, colony, rng, config, idx) {
