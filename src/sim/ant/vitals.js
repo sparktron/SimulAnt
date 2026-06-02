@@ -7,6 +7,8 @@
     sequence is unaffected by this extraction.
 */
 
+import { distanceToEntrance } from './navigation.js';
+
 // Fraction of maxAge at which senescence (old-age health decline) begins.
 const SENESCENCE_START_FRACTION = 0.8;
 
@@ -214,15 +216,11 @@ export function consumePelletForHealthThenCarry(ant, colony, pellet, config) {
   const remainingNutrition = Math.max(0, nutrition - consumed);
   colony.removePelletById(pellet.id);
   if (remainingNutrition > 0.0001) {
-    // Distance-to-entrance inlined here; Phase 2 replaces this with
-    // navigation.distanceToEntrance once that cluster is extracted.
-    const entrance = colony?.nearestEntrance?.(ant.x, ant.y);
-    const pickupDistance = entrance ? Math.hypot(ant.x - entrance.x, ant.y - entrance.y) : 0;
     ant.carrying = {
       type: 'food',
       pelletId: pellet.id,
       pelletNutrition: remainingNutrition,
-      pickupDistance,
+      pickupDistance: distanceToEntrance(ant, colony),
     };
     ant.carryingType = 'food';
   }

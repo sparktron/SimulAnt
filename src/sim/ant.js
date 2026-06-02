@@ -21,6 +21,7 @@
 import { TERRAIN } from './world.js';
 import { isInNestSpatial } from './behavior/NestState.js';
 import * as vitals from './ant/vitals.js';
+import * as navigation from './ant/navigation.js';
 
 const DEBUG_ANT_FLOW_LOGS = false;
 
@@ -434,7 +435,7 @@ export class Ant {
         didMove = this.#moveThroughEntranceShaft(
           world,
           context.entrance,
-          this.#getNestEntryTargetY(world, context.entrance),
+          navigation.getNestEntryTargetY(this,world, context.entrance),
           rng,
         );
       } else {
@@ -460,7 +461,7 @@ export class Ant {
         return this.#moveThroughEntranceShaft(
           world,
           context.entrance,
-          this.#getNestEntryTargetY(world, context.entrance),
+          navigation.getNestEntryTargetY(this,world, context.entrance),
           rng,
         );
       }
@@ -477,7 +478,7 @@ export class Ant {
       // clustering at the same few tiles.  Uses double the entrance radius
       // plus padding so ants emerge across an 8-10 tile front.
       const radius = Math.max(1, (context.entrance.radius ?? 1) * 2 + 2);
-      const scatter = this.#entranceColumnOffset(radius);
+      const scatter = navigation.entranceColumnOffset(this, radius);
       const scatteredX = context.entrance.x + scatter;
       if (world.isPassable(scatteredX, exitTargetY)) {
         return this.#moveToward(world, scatteredX, exitTargetY, rng);
@@ -494,7 +495,7 @@ export class Ant {
         return this.#moveThroughEntranceShaft(
           world,
           context.entrance,
-          this.#getNestEntryTargetY(world, context.entrance),
+          navigation.getNestEntryTargetY(this,world, context.entrance),
           rng,
         );
       }
@@ -555,12 +556,12 @@ export class Ant {
             type: 'food',
             pelletId: visible.id,
             pelletNutrition: visible.nutrition,
-            pickupDistance: this.#distanceToEntrance(colony),
+            pickupDistance: navigation.distanceToEntrance(this, colony),
           };
           this.carryingType = 'food';
           colony.removePelletById(visible.id);
           this.state = 'PICKUP';
-          this.#aimThetaAtEntrance(colony);
+          navigation.aimThetaAtEntrance(this, colony);
         }
       } else {
         this.state = vitals.isLowHealth(this) ? 'SEEK_FOOD_HEAL' : 'GO_TO_FOOD';
@@ -586,12 +587,12 @@ export class Ant {
           type: 'food',
           pelletId: onPellet.id,
           pelletNutrition: onPellet.nutrition,
-          pickupDistance: this.#distanceToEntrance(colony),
+          pickupDistance: navigation.distanceToEntrance(this, colony),
         };
         this.carryingType = 'food';
         colony.removePelletById(onPellet.id);
         this.state = 'PICKUP';
-        this.#aimThetaAtEntrance(colony);
+        navigation.aimThetaAtEntrance(this, colony);
       }
       return didMove;
     }
@@ -619,7 +620,7 @@ export class Ant {
         return this.#moveThroughEntranceShaft(
           world,
           context.entrance,
-          this.#getNestEntryTargetY(world, context.entrance),
+          navigation.getNestEntryTargetY(this,world, context.entrance),
           rng,
         );
       }
@@ -735,7 +736,7 @@ export class Ant {
     const epsilon = 0.001;
     const reverseDir = (this.dir + 4) % DIRS.length;
     const homeScentWeight = this.#getHomeScentWeight(config, entrance);
-    const enforceEntranceCorridor = this.#isEntranceTransitState() && !!entrance;
+    const enforceEntranceCorridor = navigation.isEntranceTransitState(this) && !!entrance;
 
     // (Previous behavior: when carriers were on weak pheromone we bypassed the
     // weighted steering and ran a greedy descent toward the entrance. The
@@ -757,7 +758,7 @@ export class Ant {
         weights.push({ d, w: 0 });
         continue;
       }
-      if (enforceEntranceCorridor && this.#violatesEntranceCorridor(nx, ny, entrance)) {
+      if (enforceEntranceCorridor && navigation.violatesEntranceCorridor(this,nx, ny, entrance)) {
         weights.push({ d, w: 0 });
         continue;
       }
@@ -1016,7 +1017,7 @@ export class Ant {
       return this.#moveThroughEntranceShaft(
         world,
         context.entrance,
-        this.#getNestEntryTargetY(world, context.entrance),
+        navigation.getNestEntryTargetY(this,world, context.entrance),
         rng,
       );
     }
@@ -1042,7 +1043,7 @@ export class Ant {
       return this.#moveThroughEntranceShaft(
         world,
         context.entrance,
-        this.#getNestEntryTargetY(world, context.entrance),
+        navigation.getNestEntryTargetY(this,world, context.entrance),
         rng,
       );
     }
@@ -1134,7 +1135,7 @@ export class Ant {
       return this.#moveThroughEntranceShaft(
         world,
         context.entrance,
-        this.#getNestEntryTargetY(world, context.entrance),
+        navigation.getNestEntryTargetY(this,world, context.entrance),
         rng,
       );
     }
@@ -1163,25 +1164,6 @@ export class Ant {
     return this.#moveByPheromone(world, rng, config, 'food', context.entrance);
   }
 
-  #getNestEntryTargetY(world, entrance) {
-    const baseX = entrance?.x ?? this.x;
-    const baseY = entrance?.y ?? world.entranceY ?? world.nestY;
-    const maxDepthSearch = 6;
-
-    // The target is always below the ant's current position — if the ant is
-    // already in the shaft (below entrance.y), aim deeper instead of pulling
-    // it back up to the entrance mouth. This keeps ants moving toward the
-    // chamber when the entrance sits above the surface/underground boundary.
-    const searchFrom = Math.max(baseY, this.y);
-    for (let dy = 1; dy <= maxDepthSearch; dy += 1) {
-      const candidateY = Math.min(world.height - 1, searchFrom + dy);
-      if (world.isPassable(baseX, candidateY)) {
-        return candidateY;
-      }
-    }
-    return searchFrom;
-  }
-
   #moveThroughEntranceShaft(world, entrance, targetY, rng) {
     if (!entrance) return false;
     const shaftHalfWidth = Math.max(1, (entrance.radius ?? 1) + 1);
@@ -1190,59 +1172,6 @@ export class Ant {
       entranceY: entrance.y,
       shaftHalfWidth,
     });
-  }
-
-  #isEntranceTransitState() {
-    return this.state === 'RETURN_HOME'
-      || this.state === 'RETURN_NEST_TO_EAT'
-      || this.state === 'RETURN_TO_NEST_HEAL'
-      || this.state === 'EXIT_NEST'
-      || this.state === 'STORE_FOOD_IN_NEST'
-      || this.state === 'HAUL_DIRT'
-      || this.state === 'NURSE_ENTER_NEST'
-      || this.state === 'DIG_ENTER_NEST'
-      || this.state === 'RETURN_NEST_FOR_QUEEN_FOOD';
-  }
-
-  #violatesEntranceCorridor(nextX, nextY, entrance) {
-    if (!entrance) return false;
-    if (!(nextY > entrance.y)) return false;
-
-    const shaftHalfWidth = Math.max(1, (entrance.radius ?? 1) + 1);
-    const currentDx = Math.abs(this.x - entrance.x);
-    const nextDx = Math.abs(nextX - entrance.x);
-    if (nextDx <= shaftHalfWidth) return false;
-
-    // Never allow a descent from mouth-or-above into the lower band unless
-    // the ant is already aligned with the shaft corridor.
-    if (this.y <= entrance.y) return true;
-
-    const movingTowardCorridor = nextDx < currentDx;
-    const climbingTowardMouth = nextY < this.y;
-    return !movingTowardCorridor && !climbingTowardMouth;
-  }
-
-  #distanceToEntrance(colony) {
-    const entrance = colony?.nearestEntrance?.(this.x, this.y);
-    if (!entrance) return 0;
-    return Math.hypot(this.x - entrance.x, this.y - entrance.y);
-  }
-
-  #aimThetaAtEntrance(colony) {
-    const entrance = colony?.nearestEntrance?.(this.x, this.y);
-    if (!entrance) return;
-    this.theta = Math.atan2(entrance.y - this.y, entrance.x - this.x);
-  }
-
-  #entranceColumnOffset(radius) {
-    // Deterministic per-ant scatter across the entrance width.
-    // Parse the id suffix once — cached so sorts/comparisons remain cheap.
-    if (this._entranceColumnOffset === undefined) {
-      const numericPart = Number.parseInt((this.id || '').slice(4), 10) || 0;
-      const span = Math.max(1, radius * 2 + 1);
-      this._entranceColumnOffset = (numericPart % span) - Math.floor(span / 2);
-    }
-    return this._entranceColumnOffset;
   }
 
   #getHomeScentWeight(config, entrance) {
@@ -1318,7 +1247,7 @@ export class Ant {
         const hasCorridor = Number.isFinite(entranceX)
           && Number.isFinite(entranceY)
           && Number.isFinite(constraints.shaftHalfWidth);
-        if (hasCorridor && this.#violatesEntranceCorridor(nx, ny, {
+        if (hasCorridor && navigation.violatesEntranceCorridor(this,nx, ny, {
           x: entranceX,
           y: entranceY,
           radius: Math.max(0, constraints.shaftHalfWidth - 1),

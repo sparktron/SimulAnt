@@ -69,11 +69,17 @@ Extract to `src/sim/ant/vitals.js`:
 `#consumePelletForHealth`, `#consumeCarriedFoodForHealth`, `#isLowHealth`,
 `#isCriticalHealth`.
 
-### Phase 2 — Entrance / Nest navigation
+### Phase 2 — Entrance / Nest navigation (pure helpers only)
 Extract to `src/sim/ant/navigation.js`:
-`#getNestEntryTargetY`, `#moveThroughEntranceShaft`, `#isEntranceTransitState`,
-`#violatesEntranceCorridor`, `#distanceToEntrance`, `#aimThetaAtEntrance`,
-`#entranceColumnOffset`.
+`#getNestEntryTargetY`, `#isEntranceTransitState`, `#violatesEntranceCorridor`,
+`#distanceToEntrance`, `#aimThetaAtEntrance`, `#entranceColumnOffset`.
+
+**Note:** `#moveThroughEntranceShaft` is deferred to Phase 4. It calls the
+steering primitive `#moveToward`, which itself calls the navigation predicates
+`#isEntranceTransitState`/`#violatesEntranceCorridor` — a navigation↔steering
+cycle. It is really a steering wrapper, so it moves with steering in Phase 4 to
+avoid a cyclic import. Also retire the Phase-1 inlined distance calc in
+`vitals.js` by importing `navigation.distanceToEntrance`.
 
 ### Phase 3 — Role behaviors
 Extract to `src/sim/ant/roles.js`:
