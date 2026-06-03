@@ -395,11 +395,14 @@ test('surface food pellets do not decay over time', () => {
 // FoodEconomySystem respawn cooldown behavior
 // ============================================================
 
-test('FoodEconomySystem does not spawn when available food is above threshold', () => {
-  const rng = new SeededRng('fes-above-threshold');
+// Integration coverage against a real World + Colony. The respawn gates on the
+// colony's STORED FOOD relative to population (demand-tracking, v0.36.0), not on
+// raw uncollected surface-pellet count — see docs/starvation-collapse-rca.
+test('FoodEconomySystem does not spawn while stored food is above the reserve floor', () => {
+  const rng = new SeededRng('fes-above-floor');
   const world = new World(160, 100);
   world.setNest(80, 50);
-  const colony = new Colony(world, rng, 0);
+  const colony = new Colony(world, rng, 10);
 
   let spawnCalls = 0;
   const fes = new FoodEconomySystem({
@@ -408,20 +411,21 @@ test('FoodEconomySystem does not spawn when available food is above threshold', 
     rng,
     spawnFoodCluster: () => { spawnCalls += 1; },
     bootFoodTotal: 100,
+    reservePerAnt: 12,
+    minReserve: 300,
   });
 
-  // 30 available pellets >= threshold (floor(100 * 0.25) = 25), so no spawn
-  const foodPellets = Array.from({ length: 30 }, (_, i) => new FoodPellet(`p${i}`, 5, 5, 10));
-  fes.update({ foodPellets });
-
-  assert.equal(spawnCalls, 0, 'Should not spawn when available count is above threshold');
+  // 10 ants → floor max(300, 120) = 300; 5000 stored is plenty.
+  colony.foodStored = 5000;
+  fes.update({ tick: 0 });
+  assert.equal(spawnCalls, 0, 'no drop while stored food is above the floor');
 });
 
-test('FoodEconomySystem spawns exactly once when food drops below threshold', () => {
-  const rng = new SeededRng('fes-below-threshold');
+test('FoodEconomySystem drops once when stored food falls below the reserve floor', () => {
+  const rng = new SeededRng('fes-below-floor');
   const world = new World(160, 100);
   world.setNest(80, 50);
-  const colony = new Colony(world, rng, 0);
+  const colony = new Colony(world, rng, 10);
 
   let spawnCalls = 0;
   const fes = new FoodEconomySystem({
@@ -430,20 +434,20 @@ test('FoodEconomySystem spawns exactly once when food drops below threshold', ()
     rng,
     spawnFoodCluster: () => { spawnCalls += 1; },
     bootFoodTotal: 100,
+    reservePerAnt: 12,
+    minReserve: 300,
   });
 
-  // 10 available pellets < threshold (25), so should spawn
-  const foodPellets = Array.from({ length: 10 }, (_, i) => new FoodPellet(`p${i}`, 5, 5, 10));
-  fes.update({ foodPellets });
-
-  assert.equal(spawnCalls, 1, 'Should spawn once when available count drops below threshold');
+  colony.foodStored = 50; // 50 < 300 floor → famine
+  fes.update({ tick: 0 });
+  assert.equal(spawnCalls, 1, 'one drop when stored food is below the floor');
 });
 
-test('FoodEconomySystem spawns on every tick while count stays at zero (no built-in cooldown)', () => {
-  const rng = new SeededRng('fes-zero-count');
+test('FoodEconomySystem cooldown bounds the supply rate under sustained famine', () => {
+  const rng = new SeededRng('fes-cooldown');
   const world = new World(160, 100);
   world.setNest(80, 50);
-  const colony = new Colony(world, rng, 0);
+  const colony = new Colony(world, rng, 10);
 
   let spawnCalls = 0;
   const fes = new FoodEconomySystem({
@@ -452,23 +456,15 @@ test('FoodEconomySystem spawns on every tick while count stays at zero (no built
     rng,
     spawnFoodCluster: () => { spawnCalls += 1; },
     bootFoodTotal: 100,
+    reservePerAnt: 12,
+    minReserve: 300,
+    dropCooldownTicks: 60,
   });
 
-  // Empty pellet list — count stays at zero across all calls
-  for (let i = 0; i < 30; i += 1) {
-    fes.update({ foodPellets: [] });
-  }
+  colony.foodStored = 0; // sustained famine
+  for (let t = 0; t < 121; t += 1) fes.update({ tick: t });
 
-  // Without a cooldown mechanism, every tick spawns (spawnCalls == 30).
-  // This documents the current behavior as a known issue.
-  assert.ok(
-    spawnCalls >= 1,
-    `Expected at least one spawn call with zero available food, got ${spawnCalls}`,
-  );
-  // Document that there is no built-in cooldown: spawns happen every tick.
-  assert.equal(
-    spawnCalls,
-    30,
-    `FoodEconomySystem has no cooldown: spawns every tick while count stays at zero (got ${spawnCalls})`,
-  );
+  // Drops only at t=0, 60, 120 — the cooldown caps supply rate (vs the old
+  // "spawn every tick" behavior that flooded the surface).
+  assert.equal(spawnCalls, 3, `cooldown caps drops to one per 60 ticks (got ${spawnCalls})`);
 });

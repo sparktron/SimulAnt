@@ -606,6 +606,11 @@ test('worker that repeatedly fails to find surface food falls back to nest stora
   const config = createConfig();
   config.surfaceFoodSearchMaxMissTicks = 20;
   config.surfaceReturnToNestHungerThreshold = 0.7;
+  // Isolate the ant-behavior test from the demand-tracking food respawn, which
+  // would otherwise drop reachable surface food near the nest and let the ant
+  // find food instead of falling back to nest storage.
+  sim.foodEconomySystem.reservePerAnt = 0;
+  sim.foodEconomySystem.minReserve = 0;
 
   const ant = sim.colony.ants[0];
   sim.colony.ants = [ant];
