@@ -434,6 +434,37 @@ export const parameterDefinitions = {
   },
 
   // =====================
+  // FOOD ECONOMY
+  // =====================
+  foodReservePerAnt: {
+    label: 'Food Reserve / Ant',
+    description: 'Target stored-food buffer per ant. Fresh food is dropped when stored food falls below ants × this. Higher = the colony is fed more aggressively (easier survival). Lower = leaner, more survival pressure.',
+    group: 'Food Economy',
+    min: 0,
+    max: 120,
+    step: 5,
+    advanced: false,
+  },
+  foodMinReserve: {
+    label: 'Food Min Reserve',
+    description: 'Floor for the reserve target so a tiny colony still gets a backstop before ants × reserve exceeds the bootstrap ration. Higher = small colonies fed sooner.',
+    group: 'Food Economy',
+    min: 0,
+    max: 2000,
+    step: 50,
+    advanced: true,
+  },
+  foodRespawnCooldownTicks: {
+    label: 'Food Respawn Cooldown',
+    description: 'Minimum ticks between food drops — bounds the supply rate so the colony has to forage rather than be fed for free. Higher = scarcer (harder). Lower = food appears more often (easier).',
+    group: 'Food Economy',
+    min: 1,
+    max: 600,
+    step: 10,
+    advanced: false,
+  },
+
+  // =====================
   // DIGGING
   // =====================
   digRecruitRadius: {
@@ -524,6 +555,9 @@ export function getDefaultConfig() {
     queenSuccessionDelayTicks: 150,
     queenSuccessionFoodCost: 60,
     queenSuccessionMinHealthFraction: 0.5,
+    foodReservePerAnt: 40,
+    foodMinReserve: 300,
+    foodRespawnCooldownTicks: 60,
     broodFoodDrainRate: 0.005,
     broodGestationSeconds: 8,
     broodStarvationTicks: 600,
