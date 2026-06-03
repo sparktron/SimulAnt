@@ -128,6 +128,13 @@ export function sanitizeTickConfig(config = {}) {
     queenFoodRequestHealthThreshold: clamp01(config.queenFoodRequestHealthThreshold, 0.5),
     queenFoodRequestClearThreshold: clamp01(config.queenFoodRequestClearThreshold, 0.8),
     queenCourierPickupNutrition: clampNonNegativeNumber(config.queenCourierPickupNutrition, 0),
+    // Queen succession: when the queen dies, after a delay a healthy worker/breeder
+    // can be promoted (consuming a royal-jelly food cost) so the colony recovers
+    // instead of ending permanently. Set delay to 0 and cost to 0 for instant,
+    // free succession; raise the min-health fraction to require fitter heirs.
+    queenSuccessionDelayTicks: clampPositiveInt(config.queenSuccessionDelayTicks, 150, 0),
+    queenSuccessionFoodCost: clampNonNegativeNumber(config.queenSuccessionFoodCost, 60),
+    queenSuccessionMinHealthFraction: clamp01(config.queenSuccessionMinHealthFraction, 0.5),
     broodFoodDrainRate: clampNonNegativeNumber(config.broodFoodDrainRate, 0),
     broodGestationSeconds: clampNonNegativeNumber(config.broodGestationSeconds, 1),
     larvaeCrowdingThreshold: Math.floor(clampFiniteRangeNumber(config.larvaeCrowdingThreshold, 8, 0, 100)),
