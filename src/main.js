@@ -208,7 +208,7 @@ const state = {
   },
   colonyStatus: {
     workAllocation: { forage: 55, dig: 20, nurse: 25 },
-    casteAllocation: { workers: 85, soldiers: 15, breeders: 0 },
+    casteAllocation: { workers: 85, soldiers: 10, breeders: 5 },
   },
 };
 

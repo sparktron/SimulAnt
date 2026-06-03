@@ -42,7 +42,12 @@ export class Colony {
     this.nestFoodPellets = [];
 
     this.workAllocation = { forage: 90, dig: 5, nurse: 5 };
-    this.casteAllocation = { workers: 70, soldiers: 25, breeders: 5 };
+    // Soldiers patrol the entrance and eat from the store but never forage, so
+    // in the default (combat-free) scenario they are a pure food sink. The old
+    // 25% allocation starved the colony once bootstrap food ran out
+    // (docs/starvation-collapse-rca-2026-06-02.md). 10% keeps a defensive caste
+    // for variety/future combat without sinking the food economy.
+    this.casteAllocation = { workers: 85, soldiers: 10, breeders: 5 };
     // Cause-of-death breakdown so we can tell whether the colony is dying
     // from starvation (balance issue), old age (lifespan vs. birth rate),
     // hazards (terrain), or something else. Useful when tuning.
@@ -86,7 +91,7 @@ export class Colony {
     // tick 3000, crashing the colony just as it hit its peak. Births
     // from subsequent egg-hatching still start at age 0, so the spread
     // only protects the artificial founding cohort.
-    const soldierCount = Math.round(initialAnts * 0.15);  // 15% soldiers
+    const soldierCount = Math.round(initialAnts * 0.10);  // 10% soldiers (see casteAllocation)
     for (let i = 0; i < initialAnts; i += 1) {
       const role = i < soldierCount ? 'soldier' : 'worker';
       const ant = this.#spawnNearNest(role);
