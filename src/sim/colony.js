@@ -52,6 +52,12 @@ export class Colony {
     // from starvation (balance issue), old age (lifespan vs. birth rate),
     // hazards (terrain), or something else. Useful when tuning.
     this.deathsByCause = { starvation: 0, oldAge: 0, hazard: 0, other: 0 };
+    // Queen succession telemetry. _queenDeathCounter holds the _updateCounter
+    // value at which the queen died (null while she is alive), used to time the
+    // succession delay; it is reset on a successful promotion.
+    this.queenDeaths = 0;
+    this.queenSuccessions = 0;
+    this._queenDeathCounter = null;
 
     this.queen = {
       alive: true,
@@ -180,6 +186,9 @@ export class Colony {
     // Deposit entrance pheromone every 5 ticks to prevent saturation flooding
     if (this._updateCounter % 5 === 0) this.#depositEntrancePheromone(config);
     this.#updateQueenSurvival(config);
+    if (!this.queen.alive) {
+      this.#updateQueenSuccession(config);
+    }
     this.#updateQueenFoodRequest(config);
     if (this.queen.alive) {
       this.#updateQueenAndBrood(config);
@@ -621,8 +630,50 @@ export class Colony {
       this.queen.health = Math.max(0, this.queen.health - config.queenHealthDrainRate * dt);
       if (this.queen.health <= 0) {
         this.queen.alive = false;
+        this.queenDeaths += 1;
+        this._queenDeathCounter = this._updateCounter;
       }
     }
+  }
+
+  /*
+      Queen succession: a colony used to die permanently the moment the queen
+      died (S7 in the health-system review). Now, after queenSuccessionDelayTicks,
+      a healthy worker or breeder (breeders preferred) can be promoted into the
+      royal role, consuming a queenSuccessionFoodCost "royal jelly" investment.
+      The promoted ant is removed from the population and the queen is reborn in
+      the chamber with partially restored vitals. If no eligible heir or not
+      enough food, succession waits and retries each tick. Deterministic: the
+      heir is the first eligible ant in array order (breeders before workers).
+  */
+  #updateQueenSuccession(config) {
+    if (this.queen.alive) return;
+    const delay = config.queenSuccessionDelayTicks ?? 150;
+    if (this._queenDeathCounter == null) this._queenDeathCounter = this._updateCounter;
+    if (this._updateCounter - this._queenDeathCounter < delay) return;
+
+    const cost = config.queenSuccessionFoodCost ?? 60;
+    if (this.foodStored < cost) return; // can't afford the royal-jelly investment yet
+
+    const minHealth = this.queen.healthMax * (config.queenSuccessionMinHealthFraction ?? 0.5);
+    let heirIdx = -1;
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive || ant.health < minHealth) continue;
+      if (ant.role === 'breeder') { heirIdx = i; break; } // prefer a breeder
+      if (heirIdx === -1 && ant.role === 'worker') heirIdx = i; // fall back to first worker
+    }
+    if (heirIdx === -1) return; // no eligible heir; keep waiting
+
+    // Consume the heir and the royal-jelly cost, then revive the queen.
+    this.consumeFromStore(cost);
+    this.ants.splice(heirIdx, 1);
+    this.queen.alive = true;
+    this.queen.health = this.queen.healthMax * 0.7;
+    this.queen.hunger = this.queen.hungerMax * 0.6;
+    this.queen.eggProgress = 0;
+    this._queenDeathCounter = null;
+    this.queenSuccessions += 1;
   }
 
   #updateQueenFoodRequest(config) {
@@ -1218,6 +1269,8 @@ export class Colony {
       births: this.births,
       deaths: this.deaths,
       deathsByCause: { ...this.deathsByCause },
+      queenDeaths: this.queenDeaths,
+      queenSuccessions: this.queenSuccessions,
       queen: this.queen,
       larvae: this.larvae,
       excavatedTiles: this.excavatedTiles,
@@ -1277,6 +1330,8 @@ export class Colony {
       colony.deathsByCause.hazard = data.deathsByCause.hazard || 0;
       colony.deathsByCause.other = data.deathsByCause.other || 0;
     }
+    colony.queenDeaths = data.queenDeaths || 0;
+    colony.queenSuccessions = data.queenSuccessions || 0;
     colony.queen = { ...colony.queen, ...(data.queen || {}) };
     if (!Number.isFinite(colony.queen.x) || !Number.isFinite(colony.queen.y)) {
       colony.syncQueenPositionToNest(world.nestX, world.nestY);

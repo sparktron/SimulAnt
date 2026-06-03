@@ -869,3 +869,88 @@ test('depositFoodFromAnt keeps the ant cargo when the drop point cannot be resol
   assert.equal(ant.carryingType, 'food', 'ant must keep its cargo to retry next tick');
   assert.equal(ant.carrying?.pelletNutrition, 30, 'cargo nutrition must be preserved');
 });
+
+// --- Queen succession (S7) ---
+
+function killQueen(colony) {
+  colony.queen.alive = false;
+  colony.queen.health = 0;
+  colony.queenDeaths = 1;
+  colony._queenDeathCounter = colony._updateCounter;
+}
+
+test('queen succession promotes a healthy heir after the delay, consuming an ant + food', () => {
+  const world = new World(96, 96);
+  world.setNest(48, 48);
+  const colony = new Colony(world, new SeededRng('succession'), 20);
+  const config = createTestConfig();
+  config.queenSuccessionDelayTicks = 50;
+  config.queenSuccessionFoodCost = 60;
+  colony.foodStored = 500;
+  killQueen(colony);
+
+  const antsBefore = colony.ants.length;
+  let revived = false;
+  for (let t = 0; t < 200 && !revived; t += 1) {
+    colony.update(config);
+    if (colony.queen.alive) revived = true;
+  }
+
+  assert.ok(revived, 'queen should be reborn after the succession delay');
+  assert.equal(colony.queenSuccessions, 1, 'one succession recorded');
+  assert.ok(colony.ants.length < antsBefore, 'an heir was consumed into the royal role');
+  assert.ok(colony.foodStored <= 500 - 60, 'royal-jelly cost was paid');
+  assert.ok(colony.queen.health > 0 && colony.queen.health <= colony.queen.healthMax, 'reborn queen has partial health');
+});
+
+test('queen succession does not fire before the delay elapses', () => {
+  const world = new World(96, 96);
+  world.setNest(48, 48);
+  const colony = new Colony(world, new SeededRng('succession-delay'), 20);
+  const config = createTestConfig();
+  config.queenSuccessionDelayTicks = 100;
+  config.queenSuccessionFoodCost = 0;
+  colony.foodStored = 500;
+  killQueen(colony);
+
+  for (let t = 0; t < 40; t += 1) colony.update(config);
+  assert.equal(colony.queen.alive, false, 'no early promotion before the delay');
+  assert.equal(colony.queenSuccessions, 0);
+});
+
+test('queen succession waits when food is insufficient', () => {
+  const world = new World(96, 96);
+  world.setNest(48, 48);
+  const colony = new Colony(world, new SeededRng('succession-poor'), 20);
+  const config = createTestConfig();
+  config.queenSuccessionDelayTicks = 10;
+  config.queenSuccessionFoodCost = 100000; // unaffordable
+  colony.foodStored = 50;
+  killQueen(colony);
+
+  for (let t = 0; t < 100; t += 1) colony.update(config);
+  assert.equal(colony.queen.alive, false, 'cannot afford the royal-jelly cost → no succession');
+  assert.equal(colony.queenSuccessions, 0);
+});
+
+test('queen succession waits when there is no eligible heir', () => {
+  const world = new World(96, 96);
+  world.setNest(48, 48);
+  const colony = new Colony(world, new SeededRng('succession-noheir'), 20);
+  const config = createTestConfig();
+  config.queenSuccessionDelayTicks = 5;
+  config.queenSuccessionFoodCost = 0;
+  config.queenSuccessionMinHealthFraction = 0.5;
+  colony.foodStored = 500;
+  // Make every ant too unhealthy to inherit.
+  for (const ant of colony.ants) ant.health = colony.queen.healthMax * 0.1;
+  killQueen(colony);
+
+  for (let t = 0; t < 50; t += 1) {
+    colony.update(config);
+    // keep ants pinned unhealthy so none qualifies
+    for (const ant of colony.ants) ant.health = Math.min(ant.health, colony.queen.healthMax * 0.1);
+  }
+  assert.equal(colony.queen.alive, false, 'no healthy heir → queen stays dead');
+  assert.equal(colony.queenSuccessions, 0);
+});

@@ -31,7 +31,7 @@ colony more resilient at scale.
 | S4 | Critical-health override only fires at 25% | ✅ Shipped — v0.20.0 (raised to 40%) |
 | S5 | Senescence drain is absolute, blocks regen | ✅ Shipped — v0.21.0 (half-rate regen during senescence) |
 | S6 | `larvaeCrowdingThreshold` not a real config key | ✅ Shipped — v0.21.1 |
-| S7 | Queen has no successor | ⏸ Deferred (intentionally skipped by user) |
+| S7 | Queen has no successor | ✅ Shipped — v0.38.0 |
 | S8 | Carry-trip hunger drain fires inside nest | ✅ Shipped — v0.22.0 |
 | S9 | No cause-of-death telemetry | ✅ Shipped — v0.23.0 |
 | S10 | Bootstrap food masks early-game balance | ✅ Shipped — v0.24.0 |
@@ -308,10 +308,12 @@ once it's drained.
   divided by the death rate, which is itself dominated by short lifespans.
   S1's health-scaled laying gives the queen more headroom but doesn't move
   the lifespan ceiling.
-* **S7 — queen succession.** Colony still dies permanently when the queen
-  dies. With S1 in place the queen's health can drop temporarily without
-  permanent damage (she pauses laying and recovers), but a hazard or
-  terminal starvation event still ends the run.
+* **S7 — queen succession.** ✅ Shipped (v0.38.0). After
+  `queenSuccessionDelayTicks`, a healthy worker/breeder (breeders preferred) is
+  promoted into the royal role, consuming a `queenSuccessionFoodCost` royal-jelly
+  investment; the heir is removed from the population and the queen is reborn in
+  the chamber with partial vitals. Succession waits if no eligible heir or
+  insufficient food. Telemetry: `colony.queenDeaths` / `queenSuccessions`.
 
 ### Suggestions worth considering as a third pass
 
