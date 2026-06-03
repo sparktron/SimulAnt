@@ -109,3 +109,38 @@ Determinism note: any change must hold the seed contract; validate with
 `bench/starvation-trace.mjs` and the full test suite. A survival regression test
 (run 3000+ ticks, assert `ants.length > 0` and `queen.alive`) is now cheap given
 the S9 cause-of-death telemetry and should land alongside the fix.
+
+## Implemented (v0.33.0–v0.35.0): throughput lift + sink cut
+
+Directions #2 and #3 were implemented (direction #1, re-keying the respawn, was
+deferred):
+
+- **#2 Lift throughput** — `foodVisionRadius` 10 → **24** (v0.33.0 set 16, v0.35.0
+  raised to 24 after long-horizon analysis showed 16 only *delayed* collapse to
+  ~tick 14000).
+- **#3 Cut sink** — default `casteAllocation` soldiers 25% → **10%** and founding
+  cohort 15% → 10% (v0.34.0); UI default unified to `{85,10,5}`.
+
+**Result (seed `tick-profile`):** the colony flips from peak-129-then-dead-by-6000
+to a **stable equilibrium ~207 ants** (peaks ~397), running a large food surplus
+through its growth phase. Deaths shift from 132 starvation / 2 old-age to a
+healthy mix dominated by old age. The improved foraging also *revives the dead
+respawn safety net* — efficient collection finally drops available pellets below
+the trigger, so respawns fire.
+
+**Honest caveat — not a complete fix.** These two levers raise the ceiling and
+extend lifespan dramatically but do not change the economy's *shape*: income
+still **saturates** (bounded by food *supply* / respawn rate) while consumption
+scales **linearly** with population. Long-horizon (25k-tick) multi-seed testing:
+
+| foodVisionRadius | seeds surviving to 25k |
+|--:|--|
+| 20 | 1 / 4 |
+| **24** | **3 / 4** |
+| 28 | 2 / 4 |
+
+At the larger colonies these settings enable, the same income-saturation dynamic
+can still tip a colony into collapse depending on seed-specific timing (e.g. a
+founding-cohort old-age die-off landing in a food trough). **Fully closing the
+collapse requires direction #1** — re-key `FoodEconomySystem` to gate on colony
+food balance (so supply tracks demand) instead of raw surface-pellet count.

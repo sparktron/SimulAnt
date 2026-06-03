@@ -538,7 +538,7 @@ export function getDefaultConfig() {
     carryingHungerDrainRate: 0.5,
     fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.05,
-    foodVisionRadius: 16,
+    foodVisionRadius: 24,
     surfaceFoodSearchMaxMissTicks: 400,
     surfaceReturnToNestHungerThreshold: 0.6,
     followAlpha: 1.5,
