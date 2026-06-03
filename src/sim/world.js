@@ -49,6 +49,11 @@ export class World {
     // cell per field, each recomputing index() and re-checking bounds) is the
     // single biggest win for the pheromone hotspot.
     this._passabilityMask = new Uint8Array(this.size);
+    // Dirty flag for the passability mask. Terrain only changes on dig/tool
+    // actions, so the mask can be cached across the (common) ticks where terrain
+    // is static. Any terrain write must flip this — route writes through
+    // setTerrain()/markTerrainDirty() so the flag stays in sync.
+    this._passabilityDirty = true;
 
     this.nestX = Math.floor(width * 0.5);
     this.nestY = Math.floor(height * 0.5);
@@ -68,6 +73,19 @@ export class World {
 
   inBounds(x, y) {
     return x >= 0 && x < this.width && y >= 0 && y < this.height;
+  }
+
+  // Canonical terrain write. Use this instead of poking `terrain[idx]` directly
+  // so the cached passability mask is invalidated whenever terrain changes.
+  setTerrain(idx, value) {
+    this.terrain[idx] = value;
+    this._passabilityDirty = true;
+  }
+
+  // Signal that terrain changed via a bulk/direct write (e.g. a fill loop or
+  // typed-array .set()) so the next mask query rebuilds.
+  markTerrainDirty() {
+    this._passabilityDirty = true;
   }
 
   isPassable(x, y) {
@@ -110,6 +128,7 @@ export class World {
       }
     }
 
+    this._passabilityDirty = true;
     this.#carveStarterNest();
   }
 
@@ -179,6 +198,8 @@ export class World {
         }
       }
     }
+
+    this._passabilityDirty = true;
   }
 
   /*
@@ -218,18 +239,31 @@ export class World {
     this.#updatePheromonesField(this.toFood, this._toFoodNext, config.evapFood, foodDiff, config.pheromoneMaxClamp, dt, mask);
     this.#updatePheromonesField(this.toHome, this._toHomeNext, config.evapHome, homeDiff, config.pheromoneMaxClamp, dt, mask);
     this.#updatePheromonesField(this.danger, this._dangerNext, config.evapDanger, dangerDiff, config.pheromoneMaxClamp, dt, mask);
+
+    // Double-buffer: each field updater fully wrote its *Next scratch buffer, so
+    // swap the freshly computed buffer into the live slot instead of copying it
+    // back (eliminates three full-grid Float32Array copies per tick). Every
+    // reader accesses world.toFood/toHome/danger per-call, so swapping the
+    // reference is transparent — nothing caches the array across ticks.
+    const tf = this.toFood; this.toFood = this._toFoodNext; this._toFoodNext = tf;
+    const th = this.toHome; this.toHome = this._toHomeNext; this._toHomeNext = th;
+    const td = this.danger; this.danger = this._dangerNext; this._dangerNext = td;
   }
 
-  // Flat 1/0 passability per cell, matching isPassable() exactly. Rebuilt each
-  // tick: terrain can change between ticks (digging, tools), and an O(size)
-  // rebuild is negligible against the three full-grid diffusion passes it feeds.
+  // Flat 1/0 passability per cell, matching isPassable() exactly. Cached and
+  // only rebuilt when terrain changes (dig/tool actions flip _passabilityDirty
+  // via setTerrain/markTerrainDirty). On the common static-terrain tick this is
+  // a single boolean check instead of an O(size) scan feeding three diffusion
+  // passes.
   #computePassabilityMask() {
     const mask = this._passabilityMask;
+    if (!this._passabilityDirty) return mask;
     const terrain = this.terrain;
     for (let i = 0; i < this.size; i += 1) {
       const t = terrain[i];
       mask[i] = (t !== TERRAIN.WALL && t !== TERRAIN.WATER && t !== TERRAIN.SOIL) ? 1 : 0;
     }
+    this._passabilityDirty = false;
     return mask;
   }
 
@@ -317,8 +351,6 @@ export class World {
         }
       }
     }
-
-    srcField.set(dstField);
   }
 
   getPheromoneStats() {
@@ -372,6 +404,7 @@ export class World {
     world.entranceY = Number.isFinite(data.entranceY) ? data.entranceY : world.nestY;
     world.nestRadius = data.nestRadius;
     world.terrain.set(data.terrain);
+    world.markTerrainDirty();
     world.food.set(data.food);
     if (Array.isArray(data.nestFood)) world.nestFood.set(data.nestFood);
     world.toFood.set(data.toFood);

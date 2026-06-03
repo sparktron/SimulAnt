@@ -82,7 +82,7 @@ export class SimulationCore {
       );
       const r = 2 + Math.floor(this.rng.next() * 3);
       this.world.paintCircle(wx, wy, r, (idx) => {
-        this.world.terrain[idx] = TERRAIN.WALL;
+        this.world.setTerrain(idx, TERRAIN.WALL);
       });
     }
 
@@ -274,7 +274,7 @@ export class SimulationCore {
         // Scale radius by 0.5 for terrain painting
         const scaledRadius = radius * 0.5;
         this.world.paintCircle(worldX, worldY, scaledRadius, (idx) => {
-          this.world.terrain[idx] = TERRAIN.WALL;
+          this.world.setTerrain(idx, TERRAIN.WALL);
         });
         break;
       }
@@ -282,7 +282,7 @@ export class SimulationCore {
         // Scale radius by 0.5 for terrain painting
         const scaledRadius = radius * 0.5;
         this.world.paintCircle(worldX, worldY, scaledRadius, (idx) => {
-          this.world.terrain[idx] = TERRAIN.WATER;
+          this.world.setTerrain(idx, TERRAIN.WATER);
         });
         break;
       }
@@ -290,7 +290,7 @@ export class SimulationCore {
         // Scale radius by 0.5 for terrain painting
         const scaledRadius = radius * 0.5;
         this.world.paintCircle(worldX, worldY, scaledRadius, (idx) => {
-          this.world.terrain[idx] = TERRAIN.HAZARD;
+          this.world.setTerrain(idx, TERRAIN.HAZARD);
         });
         break;
       }
@@ -298,7 +298,7 @@ export class SimulationCore {
         // Use full radius for erasing to be effective
         const erasedCells = new Set();
         this.world.paintCircle(worldX, worldY, radius, (idx, x, y) => {
-          this.world.terrain[idx] = TERRAIN.GROUND;
+          this.world.setTerrain(idx, TERRAIN.GROUND);
           this.world.food[idx] = 0;
           this.world.toFood[idx] = 0;
           this.world.toHome[idx] = 0;
@@ -314,7 +314,7 @@ export class SimulationCore {
         // Lets the user sculpt the colony layout from the nest view.
         this.world.paintCircle(worldX, worldY, radius, (idx, _x, y) => {
           if (y > this.world.nestY && this.world.terrain[idx] === TERRAIN.SOIL) {
-            this.world.terrain[idx] = TERRAIN.TUNNEL;
+            this.world.setTerrain(idx, TERRAIN.TUNNEL);
           }
         });
         break;
@@ -326,7 +326,7 @@ export class SimulationCore {
           if (y > this.world.nestY) {
             const t = this.world.terrain[idx];
             if (t === TERRAIN.TUNNEL || t === TERRAIN.CHAMBER) {
-              this.world.terrain[idx] = TERRAIN.SOIL;
+              this.world.setTerrain(idx, TERRAIN.SOIL);
               this.world.toHome[idx] = 0;
               this.world.toFood[idx] = 0;
               this.world.danger[idx] = 0;

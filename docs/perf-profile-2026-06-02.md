@@ -59,16 +59,22 @@ Per-tick attribution (instrumented, 500 ticks @ ~127 ants):
 
 ## Recommendations (ranked, all behavior-preserving)
 
-1. **Cache the passability mask with a dirty flag** (~3.3%). `#computePassabilityMask`
-   rebuilds a 65k-cell `Uint8Array` every tick, but terrain only changes on
-   dig/tool actions. Invalidate on terrain mutation; otherwise reuse. Field
-   output is byte-identical.
-2. **Double-buffer the pheromone fields** (cuts the `srcField.set(dstField)`
-   full-grid copy, ×3/tick). The `_toFoodNext` scratch buffers already exist —
-   swap references each tick instead of copying back. Behavior-identical;
-   touches every reader of `this.toFood/toHome/danger` (ants, renderers,
-   serialize), so verify those go through the live reference.
-3. **(Larger) Active-cell tracking for evaporation.** Most of the 256×256 grid is
+1. ✅ **Cache the passability mask with a dirty flag** (v0.32.0). `#computePassabilityMask`
+   rebuilt a 65k-cell `Uint8Array` every tick, but terrain only changes on
+   dig/tool actions. Now cached behind `_passabilityDirty`; terrain writes route
+   through `World.setTerrain()`/`markTerrainDirty()` to invalidate. Field output
+   byte-identical.
+2. ✅ **Double-buffer the pheromone fields** (v0.32.0). Removed the
+   `srcField.set(dstField)` full-grid copy (×3/tick); `updatePheromones` now
+   swaps the live ↔ `_*Next` references each tick. Every cell of the scratch
+   buffer is unconditionally written each pass, so no stale data leaks; verified
+   no reader caches the array across ticks.
+
+   **Measured (1+2 together, same harness/seed):** `updatePheromones`
+   556,325 → 457,314 ns/call (−17.8%); whole tick 1.83 → 1.68 ms/tick
+   (547 → 594 ticks/sec, +7.8%). `toFood field hash` unchanged (`4225428468`);
+   all 294 tests pass.
+3. **(Larger, not done) Active-cell tracking for evaporation.** Most of the 256×256 grid is
    zero; walking it every tick to evaporate near-zero cells is wasteful. Tracking
    a sparse set of non-zero cells would shrink the dominant pass, but it's a
    real algorithmic change (higher risk to determinism) — only worth it if 1+2

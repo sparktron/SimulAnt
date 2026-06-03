@@ -23,8 +23,15 @@
 4. **UI control duplication remains partially legacy-driven**
    - Legacy sliders are wired into canonical state, but old UI affordances still exist and can confuse future maintainers.
 
-5. **Performance risk at high entity counts**
-   - World-scale pheromone updates and some per-tick scans remain hotspot candidates.
+5. **Performance risk at high entity counts** (partially mitigated, v0.32.0)
+   - Profiled (docs/perf-profile-2026-06-02.md): the full-grid pheromone update
+     dominates (~28% of tick), not the suspected food-pellet scans (~0.7%).
+   - Mitigated: passability-mask caching + pheromone double-buffering cut the
+     pheromone path ~18% and whole-tick time ~8% (behavior-preserving, hash
+     verified). Remaining lever is active-cell tracking for evaporation (rec #3),
+     deferred as a riskier algorithmic change.
+   - Note: the colony starves to zero before reaching truly large ant counts, so
+     per-tick perf-at-scale is partly moot until starvation is addressed.
 
 ## Suggested next actions
 - Continue Option B decomposition by extracting ant role handlers and shared state-machine utilities.

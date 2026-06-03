@@ -327,12 +327,12 @@ export class DigSystem {
 
         const idx = this.world.index(x, y);
         if (this.world.terrain[idx] === TERRAIN.SOIL) {
-          this.world.terrain[idx] = TERRAIN.CHAMBER;
+          this.world.setTerrain(idx, TERRAIN.CHAMBER);
           this.colony.recordExcavation(1, x, y);
           this.world.toHome[idx] += config.digHomeBoost;
           carved += 1;
         } else if (this.world.terrain[idx] === TERRAIN.TUNNEL) {
-          this.world.terrain[idx] = TERRAIN.CHAMBER;
+          this.world.setTerrain(idx, TERRAIN.CHAMBER);
         }
       }
     }
@@ -367,7 +367,7 @@ export class DigSystem {
     if (terrain === TERRAIN.WALL || terrain === TERRAIN.WATER || terrain === TERRAIN.HAZARD) return;
 
     if (terrain === TERRAIN.SOIL) {
-      this.world.terrain[idx] = TERRAIN.TUNNEL;
+      this.world.setTerrain(idx, TERRAIN.TUNNEL);
       if (countExcavation) this.colony.recordExcavation(1, x, y);
       this.world.toHome[idx] += config.digHomeBoost;
     }
@@ -471,7 +471,7 @@ export class DigSystem {
           const idx = this.world.index(cx, shaft.y);
           const terrain = this.world.terrain[idx];
           if (terrain === TERRAIN.SOIL) {
-            this.world.terrain[idx] = TERRAIN.TUNNEL;
+            this.world.setTerrain(idx, TERRAIN.TUNNEL);
             this.colony.recordExcavation(1, cx, shaft.y);
             this.world.toHome[idx] += config.digHomeBoost ?? 0.9;
           }
@@ -507,7 +507,7 @@ export class DigSystem {
         const idx = this.world.index(cx, y);
         const terrain = this.world.terrain[idx];
         if (terrain === TERRAIN.SOIL || terrain === TERRAIN.GROUND) {
-          this.world.terrain[idx] = TERRAIN.TUNNEL;
+          this.world.setTerrain(idx, TERRAIN.TUNNEL);
           this.world.toHome[idx] += config.digHomeBoost ?? 0.9;
         }
       }
@@ -515,7 +515,7 @@ export class DigSystem {
 
     // Also ensure the surface tile itself is passable
     if (this.world.inBounds(sx, sy)) {
-      this.world.terrain[this.world.index(sx, sy)] = TERRAIN.TUNNEL;
+      this.world.setTerrain(this.world.index(sx, sy), TERRAIN.TUNNEL);
     }
 
     if (this.onNewEntrance) {
