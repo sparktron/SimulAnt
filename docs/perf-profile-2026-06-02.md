@@ -74,11 +74,18 @@ Per-tick attribution (instrumented, 500 ticks @ ~127 ants):
    556,325 → 457,314 ns/call (−17.8%); whole tick 1.83 → 1.68 ms/tick
    (547 → 594 ticks/sec, +7.8%). `toFood field hash` unchanged (`4225428468`);
    all 294 tests pass.
-3. **(Larger, not done) Active-cell tracking for evaporation.** Most of the 256×256 grid is
-   zero; walking it every tick to evaporate near-zero cells is wasteful. Tracking
-   a sparse set of non-zero cells would shrink the dominant pass, but it's a
-   real algorithmic change (higher risk to determinism) — only worth it if 1+2
-   prove insufficient.
+3. ✅ **Active-cell tracking (v0.37.0).** The fields are ~3–9% non-zero (danger
+   usually 0%), so the update now processes only non-zero cells and their
+   4-neighbors instead of sweeping all 65k cells × 3 channels. Each channel keeps
+   a live/scratch non-zero index list; deposits route through
+   `World.deposit{ToFood,ToHome,Danger}` so freshly-deposited cells register.
+   Double-buffer invariant (each buffer is 0 outside its list) is held by
+   clearing the scratch's stale cells before writing candidates.
+
+   **Measured (grow 4000, ~233 ants):** `updatePheromones` 473,402 → 140,314
+   ns/call (**3.4×**, 23.5% → 8.1% of tick); whole tick 1.82 → 1.53 ms
+   (551 → 655 ticks/sec). `toFood field hash` unchanged (`1308838676`); 298 tests
+   pass. The empty danger channel is now nearly free (no full sweep).
 
 `moveByPheromone` (#2 cost) is inherent per-ant work; the main lever there is ant
 count, which the starvation collapse already caps.

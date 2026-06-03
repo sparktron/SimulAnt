@@ -187,7 +187,7 @@ export function runDiggerBehavior(ant, world, colony, rng, config, context) {
   // Deposit home pheromone to help navigation
   const idx = world.index(ant.x, ant.y);
   if (config.enablePheromones !== false) {
-    world.toHome[idx] = Math.min(config.pheromoneMaxClamp, world.toHome[idx] + config.depositHome * 1.4);
+    world.depositToHome(idx, config.depositHome * 1.4, config.pheromoneMaxClamp);
   }
 
   // Move toward the nearest active dig front

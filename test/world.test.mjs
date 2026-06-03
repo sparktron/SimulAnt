@@ -141,9 +141,9 @@ test('pheromone evaporation reduces values over time', () => {
   const world = new World(16, 16);
   const idx = world.index(5, 5);
   world.terrain[idx] = TERRAIN.GROUND;
-  world.toFood[idx] = 5.0;
-  world.toHome[idx] = 5.0;
-  world.danger[idx] = 5.0;
+  world.depositToFood(idx, 5.0);
+  world.depositToHome(idx, 5.0);
+  world.depositDanger(idx, 5.0);
 
   const config = {
     tickSeconds: 1 / 30,
@@ -168,7 +168,7 @@ test('pheromone values clamp to zero below threshold', () => {
   const world = new World(16, 16);
   const idx = world.index(5, 5);
   world.terrain[idx] = TERRAIN.GROUND;
-  world.toFood[idx] = 0.00001; // very small
+  world.depositToFood(idx, 0.00001); // very small
 
   const config = {
     tickSeconds: 1 / 30,
@@ -198,7 +198,7 @@ test('pheromone diffusion spreads values to passable neighbors', () => {
     }
   }
 
-  world.toFood[world.index(5, 5)] = 8.0;
+  world.depositToFood(world.index(5, 5), 8.0);
 
   const config = {
     tickSeconds: 1 / 30,
@@ -230,7 +230,7 @@ test('diffIntervalTicks gates diffusion while preserving evaporation', () => {
 
   const center = world.index(5, 5);
   const left = world.index(4, 5);
-  world.toFood[center] = 8.0;
+  world.depositToFood(center, 8.0);
 
   const config = {
     tickSeconds: 1 / 30,
@@ -261,7 +261,7 @@ test('pheromone diffusion does not spread through walls', () => {
   }
   // Wall to the right of (5,5)
   world.terrain[world.index(6, 5)] = TERRAIN.WALL;
-  world.toFood[world.index(5, 5)] = 8.0;
+  world.depositToFood(world.index(5, 5), 8.0);
 
   const config = {
     tickSeconds: 1 / 30,

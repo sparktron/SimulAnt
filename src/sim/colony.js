@@ -1090,10 +1090,7 @@ export class Colony {
     for (const entrance of this.nestEntrances) {
       const radius = (entrance.radius ?? 1) + 3;
       this.world.paintCircle(entrance.x, entrance.y, radius, (idx) => {
-        this.world.toHome[idx] = Math.min(
-          config.pheromoneMaxClamp,
-          this.world.toHome[idx] + config.depositHome * 0.8,
-        );
+        this.world.depositToHome(idx, config.depositHome * 0.8, config.pheromoneMaxClamp);
       });
     }
   }
