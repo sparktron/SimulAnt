@@ -142,6 +142,7 @@ export class SimulationCore {
     this.foodEconomySystem.update({
       tick: this.tick,
       foodPellets: this.foodPellets,
+      config,
     });
 
     // Record stats every 30 ticks (~1 sim second). Passing the world lets

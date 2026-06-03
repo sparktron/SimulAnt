@@ -44,16 +44,22 @@ export class FoodEconomySystem {
     this._lastDropTick = -Infinity;
   }
 
-  update({ tick = 0 }) {
+  update({ tick = 0, config }) {
     const ants = this.colony.ants.length;
     if (ants === 0) return;
 
+    // Live-tunable from the parameter editor; fall back to the constructor
+    // defaults when no config is supplied (e.g. unit tests).
+    const reservePerAnt = config?.foodReservePerAnt ?? this.reservePerAnt;
+    const minReserve = config?.foodMinReserve ?? this.minReserve;
+    const cooldown = config?.foodRespawnCooldownTicks ?? this.dropCooldownTicks;
+
     // Demand signal: stored food below a population-scaled reserve floor.
-    const reserveFloor = Math.max(this.minReserve, ants * this.reservePerAnt);
+    const reserveFloor = Math.max(minReserve, ants * reservePerAnt);
     if (this.colony.foodStored >= reserveFloor) return;
 
     // Rate limit: forage, don't get fed for free.
-    if (tick - this._lastDropTick < this.dropCooldownTicks) return;
+    if (tick - this._lastDropTick < cooldown) return;
     this._lastDropTick = tick;
 
     // Concentrated drop CLOSE to the nest so it is collectible (distant clusters
