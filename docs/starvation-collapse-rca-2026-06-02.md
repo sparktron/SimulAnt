@@ -144,3 +144,36 @@ can still tip a colony into collapse depending on seed-specific timing (e.g. a
 founding-cohort old-age die-off landing in a food trough). **Fully closing the
 collapse requires direction #1** — re-key `FoodEconomySystem` to gate on colony
 food balance (so supply tracks demand) instead of raw surface-pellet count.
+
+## Implemented (v0.36.0): direction #1 — demand-tracking respawn (the structural fix)
+
+`FoodEconomySystem` now gates on the colony's stored food relative to population
+instead of raw uncollected-pellet count:
+
+- **Trigger:** `foodStored < max(minReserve, ants × reservePerAnt)` — supply
+  tracks demand and fires more as the colony grows (the old metric never fired:
+  0 times in 7000 ticks).
+- **Reachable drops:** clusters land 12–30 tiles from the nest (was 20–50) so
+  foragers actually collect them.
+- **Cooldown:** `dropCooldownTicks` bounds the supply *rate* — a famine backstop,
+  not a free tap.
+
+Defaults `reservePerAnt=40, minReserve=300, dropCooldownTicks=60`, tuned via a
+25k-tick × 4-seed sweep (rpa40/cd60 → 4/4 survival; rpa25/cd90 also 4/4 but
+leaner; rpa30/cd45 only 3/4 — more aggressive is not strictly safer).
+
+**Result:** the collapse is closed. All four test seeds now survive to 25k+
+ticks; the default seed holds **~380–392 ants at tick 15000** with `foodStored`
+never crashing to zero, and deaths balance between starvation and old age (ants
+live full lives). Guarded by a survival regression test in
+`test/simulation-core.test.mjs` (6000-tick run on production defaults, asserts
+queen alive + >50 ants).
+
+### Residual / future
+
+- Ground-food pellets accumulate somewhat at very large colonies (supply
+  occasionally outpaces collection); self-limiting since drops stop once
+  `foodStored` rises above the floor, but worth watching.
+- `_lastDropTick` is transient (not serialized): a save/load during famine may
+  permit one extra immediate drop. Negligible.
+- Directions #2/#3 (throughput, sink) remain in place and complementary.

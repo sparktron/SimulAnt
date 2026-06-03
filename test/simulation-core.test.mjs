@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SimulationCore, SAVE_SCHEMA_VERSION } from '../src/sim/SimulationCore.js';
 import { TERRAIN } from '../src/sim/world.js';
+import { getDefaultConfig } from '../src/ui/params.js';
+import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 
 function createConfig() {
   return {
@@ -510,4 +512,31 @@ test('deterministic replay hash remains stable for fixed seed + ticks', () => {
 
   assert.equal(hashA, hashB, 'Replay hash should match for identical seed and tick count');
   assert.notEqual(hashA, hashC, 'Replay hash should differ for a different seed');
+});
+
+// Survival regression: with the PRODUCTION defaults, the colony used to peak
+// ~129 ants then starve to zero by ~tick 6000 (132 starvation deaths, ~215
+// pellets left uncollected). The throughput lift (foodVisionRadius), soldier-
+// caste cut, and demand-tracking food respawn (v0.33.0–v0.36.0) fixed it. This
+// test fails if any of those regress the colony back into collapse.
+// See docs/starvation-collapse-rca-2026-06-02.md.
+test('colony survives long-run on production defaults (no starvation collapse)', () => {
+  // 6000 ticks is past the original collapse point (the unfixed colony reached
+  // zero ants by ~tick 6000). Kept here rather than higher to bound test
+  // runtime; bench/starvation-trace.mjs covers the longer horizon.
+  const config = sanitizeTickConfig(getDefaultConfig());
+  const sim = new SimulationCore('tick-profile');
+  for (let i = 0; i < 6000; i += 1) sim.update(config);
+
+  const ants = sim.colony.ants.length;
+  const dc = sim.colony.deathsByCause;
+  assert.ok(
+    sim.colony.queen.alive,
+    `queen should survive to tick 6000 (deathsByCause=${JSON.stringify(dc)})`,
+  );
+  assert.ok(
+    ants > 50,
+    `colony should sustain a healthy population, not collapse — got ${ants} ants `
+    + `at tick 6000 (deathsByCause=${JSON.stringify(dc)})`,
+  );
 });
