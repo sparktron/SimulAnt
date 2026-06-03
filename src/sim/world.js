@@ -55,6 +55,24 @@ export class World {
     // setTerrain()/markTerrainDirty() so the flag stays in sync.
     this._passabilityDirty = true;
 
+    // Active-cell tracking for the pheromone update. The fields are very sparse
+    // (~3–9% non-zero; danger usually 0%), so we process only non-zero cells and
+    // their 4-neighbors instead of scanning all 65k cells × 3 channels. Each
+    // channel keeps the non-zero indices in its LIVE buffer and (separately) in
+    // its SCRATCH buffer. Deposits append to the live list (see depositTo*),
+    // which is exactly the next update's source set. Invariant: each buffer is 0
+    // at every cell NOT in its list — maintained by clearing the scratch's stale
+    // non-zeros before writing (see #updatePheromonesField).
+    this._activeFood = [];
+    this._activeFoodScratch = [];
+    this._activeHome = [];
+    this._activeHomeScratch = [];
+    this._activeDanger = [];
+    this._activeDangerScratch = [];
+    // Reusable scratch for deduping the candidate set each tick (avoids a Set).
+    this._candMark = new Uint8Array(this.size);
+    this._candList = new Int32Array(this.size);
+
     this.nestX = Math.floor(width * 0.5);
     this.nestY = Math.floor(height * 0.5);
     // Entrance sits at the surface boundary row (bottom of surface view).
@@ -86,6 +104,40 @@ export class World {
   // typed-array .set()) so the next mask query rebuilds.
   markTerrainDirty() {
     this._passabilityDirty = true;
+  }
+
+  // Canonical pheromone deposits. Callers MUST use these instead of writing
+  // toFood/toHome/danger directly so the deposited cell is registered in the
+  // active-cell list — otherwise it would never diffuse or evaporate. Math is
+  // identical to the old in-place writes: Math.min(clampMax, current + amount),
+  // with clampMax defaulting to Infinity for the unclamped dig boosts.
+  depositToFood(idx, amount, clampMax = Infinity) {
+    this.toFood[idx] = Math.min(clampMax, this.toFood[idx] + amount);
+    this._activeFood.push(idx);
+  }
+
+  depositToHome(idx, amount, clampMax = Infinity) {
+    this.toHome[idx] = Math.min(clampMax, this.toHome[idx] + amount);
+    this._activeHome.push(idx);
+  }
+
+  depositDanger(idx, amount, clampMax = Infinity) {
+    this.danger[idx] = Math.min(clampMax, this.danger[idx] + amount);
+    this._activeDanger.push(idx);
+  }
+
+  // Rebuild the live active lists by scanning the fields. Used after a bulk load
+  // (fromSerialized) where the fields are set directly. Scratch buffers are
+  // zero there, so their lists stay empty.
+  #rebuildActiveLists() {
+    this._activeFood = [];
+    this._activeHome = [];
+    this._activeDanger = [];
+    for (let i = 0; i < this.size; i += 1) {
+      if (this.toFood[i] !== 0) this._activeFood.push(i);
+      if (this.toHome[i] !== 0) this._activeHome.push(i);
+      if (this.danger[i] !== 0) this._activeDanger.push(i);
+    }
   }
 
   isPassable(x, y) {
@@ -224,6 +276,12 @@ export class World {
       this.toFood.fill(0);
       this.toHome.fill(0);
       this.danger.fill(0);
+      this._toFoodNext.fill(0);
+      this._toHomeNext.fill(0);
+      this._dangerNext.fill(0);
+      this._activeFood.length = 0; this._activeFoodScratch.length = 0;
+      this._activeHome.length = 0; this._activeHomeScratch.length = 0;
+      this._activeDanger.length = 0; this._activeDangerScratch.length = 0;
       return;
     }
     const dt = config.tickSeconds || 1 / 30;
@@ -235,19 +293,29 @@ export class World {
     // Recompute the passability mask once and reuse it across all three fields.
     const mask = this.#computePassabilityMask();
     // Use discrete diffusion equation: P_i^{t+1} = (1 - λ - 4D) * P_i^t + D * (neighbors sum)
-    // where λ is evaporation per tick and D is diffusion coefficient
-    this.#updatePheromonesField(this.toFood, this._toFoodNext, config.evapFood, foodDiff, config.pheromoneMaxClamp, dt, mask);
-    this.#updatePheromonesField(this.toHome, this._toHomeNext, config.evapHome, homeDiff, config.pheromoneMaxClamp, dt, mask);
-    this.#updatePheromonesField(this.danger, this._dangerNext, config.evapDanger, dangerDiff, config.pheromoneMaxClamp, dt, mask);
+    // where λ is evaporation per tick and D is diffusion coefficient. Each call
+    // processes only that channel's active cells and returns the new non-zero
+    // index list for the freshly written (scratch) buffer.
+    const nf = this.#updatePheromonesField(this.toFood, this._toFoodNext, this._activeFood, this._activeFoodScratch, config.evapFood, foodDiff, config.pheromoneMaxClamp, dt, mask);
+    const nh = this.#updatePheromonesField(this.toHome, this._toHomeNext, this._activeHome, this._activeHomeScratch, config.evapHome, homeDiff, config.pheromoneMaxClamp, dt, mask);
+    const nd = this.#updatePheromonesField(this.danger, this._dangerNext, this._activeDanger, this._activeDangerScratch, config.evapDanger, dangerDiff, config.pheromoneMaxClamp, dt, mask);
 
-    // Double-buffer: each field updater fully wrote its *Next scratch buffer, so
-    // swap the freshly computed buffer into the live slot instead of copying it
-    // back (eliminates three full-grid Float32Array copies per tick). Every
-    // reader accesses world.toFood/toHome/danger per-call, so swapping the
+    // Double-buffer: each field updater fully defined its *Next scratch buffer
+    // (writing every candidate, with all non-candidates left at 0), so swap the
+    // freshly computed buffer into the live slot instead of copying it back.
+    // Every reader accesses world.toFood/toHome/danger per-call, so swapping the
     // reference is transparent — nothing caches the array across ticks.
     const tf = this.toFood; this.toFood = this._toFoodNext; this._toFoodNext = tf;
     const th = this.toHome; this.toHome = this._toHomeNext; this._toHomeNext = th;
     const td = this.danger; this.danger = this._dangerNext; this._dangerNext = td;
+
+    // Swap active lists in lockstep with the buffers: the new live list is the
+    // freshly computed non-zeros; the new scratch list is the old live list
+    // (those cells still sit non-zero in the buffer that just became scratch,
+    // and will be cleared on its next write).
+    this._activeFoodScratch = this._activeFood; this._activeFood = nf;
+    this._activeHomeScratch = this._activeHome; this._activeHome = nh;
+    this._activeDangerScratch = this._activeDanger; this._activeDanger = nd;
   }
 
   // Flat 1/0 passability per cell, matching isPassable() exactly. Cached and
@@ -267,7 +335,17 @@ export class World {
     return mask;
   }
 
-  #updatePheromonesField(srcField, dstField, evaporationLambda, diffusionRate, clampMax, dt, mask) {
+  /*
+      Active-cell pheromone update. Byte-identical to a full-grid sweep because:
+      - Every cell whose full-sweep output could be non-zero is a candidate: it
+        is either non-zero in src (in srcActive) or a 4-neighbor of one (only a
+        >=threshold neighbor can diffuse a zero cell to non-zero).
+      - All non-candidate cells must end at 0. The scratch buffer holds non-zeros
+        only at its previous (dstStale) cells by invariant, so clearing those
+        first leaves the whole buffer at 0 before candidates are written.
+      Returns the list of non-zero indices written (the next live active list).
+  */
+  #updatePheromonesField(srcField, dstField, srcActive, dstStale, evaporationLambda, diffusionRate, clampMax, dt, mask) {
     const w = this.width;
     const h = this.height;
 
@@ -285,72 +363,92 @@ export class World {
     const decayFactor = Math.max(0, 1 - lambda - 4 * D);
     const threshold = 1e-4;
 
-    for (let y = 0; y < h; y += 1) {
-      const row = y * w;
-      for (let x = 0; x < w; x += 1) {
-        const idx = row + x;
+    // 1. Clear the cells the scratch buffer still holds non-zero from when it was
+    //    last live, so every non-candidate cell reads 0.
+    for (let k = 0; k < dstStale.length; k += 1) dstField[dstStale[k]] = 0;
 
-        if (!mask[idx]) {
+    // 2. Build the candidate set = srcActive ∪ 4-neighbors, deduped via _candMark.
+    const mark = this._candMark;
+    const cand = this._candList;
+    let n = 0;
+    for (let k = 0; k < srcActive.length; k += 1) {
+      const idx = srcActive[k];
+      const x = idx % w;
+      const y = (idx - x) / w;
+      if (!mark[idx]) { mark[idx] = 1; cand[n] = idx; n += 1; }
+      if (x > 0 && !mark[idx - 1]) { mark[idx - 1] = 1; cand[n] = idx - 1; n += 1; }
+      if (x < w - 1 && !mark[idx + 1]) { mark[idx + 1] = 1; cand[n] = idx + 1; n += 1; }
+      if (y > 0 && !mark[idx - w]) { mark[idx - w] = 1; cand[n] = idx - w; n += 1; }
+      if (y < h - 1 && !mark[idx + w]) { mark[idx + w] = 1; cand[n] = idx + w; n += 1; }
+    }
+
+    // 3. Process candidates (per-cell math identical to the full sweep), reset
+    //    the markers, and collect the new non-zero indices.
+    const newActive = [];
+    for (let k = 0; k < n; k += 1) {
+      const idx = cand[k];
+      mark[idx] = 0;
+
+      if (!mask[idx]) {
+        dstField[idx] = 0;
+        continue;
+      }
+
+      const x = idx % w;
+      const y = (idx - x) / w;
+      const center = srcField[idx];
+      let value;
+      if (center < threshold) {
+        if (D === 0) {
+          dstField[idx] = 0;
+          continue;
+        }
+        let neighborSum = 0;
+        let hasNonZeroNeighbor = false;
+
+        if (x > 0 && mask[idx - 1] && srcField[idx - 1] >= threshold) {
+          neighborSum += srcField[idx - 1];
+          hasNonZeroNeighbor = true;
+        }
+        if (x < w - 1 && mask[idx + 1] && srcField[idx + 1] >= threshold) {
+          neighborSum += srcField[idx + 1];
+          hasNonZeroNeighbor = true;
+        }
+        if (y > 0 && mask[idx - w] && srcField[idx - w] >= threshold) {
+          neighborSum += srcField[idx - w];
+          hasNonZeroNeighbor = true;
+        }
+        if (y < h - 1 && mask[idx + w] && srcField[idx + w] >= threshold) {
+          neighborSum += srcField[idx + w];
+          hasNonZeroNeighbor = true;
+        }
+
+        if (!hasNonZeroNeighbor) {
           dstField[idx] = 0;
           continue;
         }
 
-        const center = srcField[idx];
-        if (center < threshold) {
-          if (D === 0) {
-            dstField[idx] = 0;
-            continue;
-          }
-          let neighborSum = 0;
-          let hasNonZeroNeighbor = false;
+        const newValue = D * neighborSum;
+        const clampedValue = Math.max(0, Math.min(clampMax, newValue));
+        value = clampedValue < 1e-5 ? 0 : clampedValue;
+      } else {
+        let neighborSum = 0;
 
-          if (x > 0 && mask[idx - 1] && srcField[idx - 1] >= threshold) {
-            neighborSum += srcField[idx - 1];
-            hasNonZeroNeighbor = true;
-          }
-          if (x < w - 1 && mask[idx + 1] && srcField[idx + 1] >= threshold) {
-            neighborSum += srcField[idx + 1];
-            hasNonZeroNeighbor = true;
-          }
-          if (y > 0 && mask[idx - w] && srcField[idx - w] >= threshold) {
-            neighborSum += srcField[idx - w];
-            hasNonZeroNeighbor = true;
-          }
-          if (y < h - 1 && mask[idx + w] && srcField[idx + w] >= threshold) {
-            neighborSum += srcField[idx + w];
-            hasNonZeroNeighbor = true;
-          }
+        if (x > 0 && mask[idx - 1]) neighborSum += srcField[idx - 1];
+        if (x < w - 1 && mask[idx + 1]) neighborSum += srcField[idx + 1];
+        if (y > 0 && mask[idx - w]) neighborSum += srcField[idx - w];
+        if (y < h - 1 && mask[idx + w]) neighborSum += srcField[idx + w];
 
-          if (!hasNonZeroNeighbor) {
-            dstField[idx] = 0;
-            continue;
-          }
-
-          const newValue = D * neighborSum;
-          const clampedValue = Math.max(0, Math.min(clampMax, newValue));
-          dstField[idx] = clampedValue < 1e-5 ? 0 : clampedValue;
-        } else {
-          let neighborSum = 0;
-
-          if (x > 0 && mask[idx - 1]) {
-            neighborSum += srcField[idx - 1];
-          }
-          if (x < w - 1 && mask[idx + 1]) {
-            neighborSum += srcField[idx + 1];
-          }
-          if (y > 0 && mask[idx - w]) {
-            neighborSum += srcField[idx - w];
-          }
-          if (y < h - 1 && mask[idx + w]) {
-            neighborSum += srcField[idx + w];
-          }
-
-          const newValue = decayFactor * center + D * neighborSum;
-          const clampedValue = Math.max(0, Math.min(clampMax, newValue));
-          dstField[idx] = clampedValue < 1e-5 ? 0 : clampedValue;
-        }
+        const newValue = decayFactor * center + D * neighborSum;
+        const clampedValue = Math.max(0, Math.min(clampMax, newValue));
+        value = clampedValue < 1e-5 ? 0 : clampedValue;
       }
+
+      dstField[idx] = value;
+      if (value !== 0) newActive.push(idx);
     }
+
+    return newActive;
   }
 
   getPheromoneStats() {
@@ -410,6 +508,7 @@ export class World {
     world.toFood.set(data.toFood);
     world.toHome.set(data.toHome);
     world.danger.set(data.danger);
+    world.#rebuildActiveLists();
     world.recomputeNestInfluence();
     return world;
   }

@@ -409,7 +409,7 @@ export class Ant {
     }
 
     if (config.enablePheromones !== false) {
-      world.danger[idx] = Math.min(config.pheromoneMaxClamp, world.danger[idx] + config.dangerDeposit);
+      world.depositDanger(idx, config.dangerDeposit, config.pheromoneMaxClamp);
     }
     return false;
   }

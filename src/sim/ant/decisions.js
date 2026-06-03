@@ -39,7 +39,7 @@ export function soldierPatrol(ant, world, colony, rng, config, context) {
   }
   // Soldiers deposit home pheromone while patrolling
   if (didMove && ant.stepCounter % config.homeDepositIntervalTicks === 0 && config.enablePheromones !== false) {
-    world.toHome[context.idx] = Math.min(config.pheromoneMaxClamp, world.toHome[context.idx] + config.depositHome * 0.5);
+    world.depositToHome(context.idx, config.depositHome * 0.5, config.pheromoneMaxClamp);
   }
   return didMove;
 }
@@ -133,9 +133,10 @@ export function carryFood(ant, world, colony, rng, config, context) {
     ? Math.min(1, Math.max(0, distToNest / foodFadeRadius))
     : 1;
   if (config.enablePheromones !== false && entranceFadeFraction > 0) {
-    world.toFood[context.idx] = Math.min(
+    world.depositToFood(
+      context.idx,
+      config.depositFood * trailScale * entranceFadeFraction,
       config.pheromoneMaxClamp,
-      world.toFood[context.idx] + config.depositFood * trailScale * entranceFadeFraction,
     );
   }
 
@@ -294,9 +295,10 @@ export function forageSearch(ant, world, colony, rng, config, context) {
   const homeFadeRadius = config.homeDepositMinDistance ?? 20;
   const homeDepositFraction = Math.max(0, 1 - distToEntranceForDeposit / homeFadeRadius);
   if (ant.stepCounter % config.homeDepositIntervalTicks === 0 && homeDepositFraction > 0.01 && config.enablePheromones !== false) {
-    world.toHome[context.idx] = Math.min(
+    world.depositToHome(
+      context.idx,
+      config.depositHome * homeDepositFraction,
       config.pheromoneMaxClamp,
-      world.toHome[context.idx] + config.depositHome * homeDepositFraction,
     );
   }
 

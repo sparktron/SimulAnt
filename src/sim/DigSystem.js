@@ -329,7 +329,7 @@ export class DigSystem {
         if (this.world.terrain[idx] === TERRAIN.SOIL) {
           this.world.setTerrain(idx, TERRAIN.CHAMBER);
           this.colony.recordExcavation(1, x, y);
-          this.world.toHome[idx] += config.digHomeBoost;
+          this.world.depositToHome(idx, config.digHomeBoost);
           carved += 1;
         } else if (this.world.terrain[idx] === TERRAIN.TUNNEL) {
           this.world.setTerrain(idx, TERRAIN.CHAMBER);
@@ -369,7 +369,7 @@ export class DigSystem {
     if (terrain === TERRAIN.SOIL) {
       this.world.setTerrain(idx, TERRAIN.TUNNEL);
       if (countExcavation) this.colony.recordExcavation(1, x, y);
-      this.world.toHome[idx] += config.digHomeBoost;
+      this.world.depositToHome(idx, config.digHomeBoost);
     }
 
     if (front) {
@@ -473,7 +473,7 @@ export class DigSystem {
           if (terrain === TERRAIN.SOIL) {
             this.world.setTerrain(idx, TERRAIN.TUNNEL);
             this.colony.recordExcavation(1, cx, shaft.y);
-            this.world.toHome[idx] += config.digHomeBoost ?? 0.9;
+            this.world.depositToHome(idx, config.digHomeBoost ?? 0.9);
           }
         }
       }
@@ -508,7 +508,7 @@ export class DigSystem {
         const terrain = this.world.terrain[idx];
         if (terrain === TERRAIN.SOIL || terrain === TERRAIN.GROUND) {
           this.world.setTerrain(idx, TERRAIN.TUNNEL);
-          this.world.toHome[idx] += config.digHomeBoost ?? 0.9;
+          this.world.depositToHome(idx, config.digHomeBoost ?? 0.9);
         }
       }
     }
