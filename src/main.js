@@ -1,4 +1,4 @@
-import { createControls, syncToolPalette } from './ui/controls.js';
+import { createControls, syncToolPalette, syncSurfaceOnlyControls } from './ui/controls.js';
 import { updateHud } from './ui/hud.js';
 import { SurfaceRenderer } from './render/SurfaceRenderer.js';
 import { NestRenderer } from './render/NestRenderer.js';
@@ -405,6 +405,8 @@ viewManager.onChange((mode) => {
   // meaningful in their own view — enable the applicable set and re-home the
   // selection if the active tool just became inert.
   syncToolPalette(state, mode);
+  // The SCENT button (surface-only overlays) is disabled outside SURFACE view.
+  syncSurfaceOnlyControls(mode);
 });
 
 let accumulator = 0;

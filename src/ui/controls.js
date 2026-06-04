@@ -69,6 +69,19 @@ export function syncToolPalette(state, view) {
   }
 }
 
+/**
+ * Enables/disables controls whose effect is SURFACE-only. Pheromone, scent, and
+ * danger overlays are only rendered by the surface view (by design), so the
+ * SCENT button is disabled while the NEST view is active. The JOBS overlay and
+ * PHERO simulation toggle work in both views and are intentionally left alone.
+ *
+ * @param {'SURFACE'|'NEST'} view - the active view
+ */
+export function syncSurfaceOnlyControls(view) {
+  const scentBtn = document.getElementById('scentBtn');
+  if (scentBtn) scentBtn.disabled = view !== 'SURFACE';
+}
+
 export function createControls(state, actions) {
   const startPauseBtn = byId('startPauseBtn');
   const stepBtn = byId('stepBtn');
@@ -147,6 +160,10 @@ export function createControls(state, actions) {
     }
   });
 
+  // Pheromone/scent/danger overlays only render on the surface, so their
+  // shortcuts are inert anywhere else.
+  const isSurfaceView = () => !actions.getView || actions.getView() === 'SURFACE';
+
   document.addEventListener('keydown', (event) => {
     // Don't steal keys while the user is typing in any text/number field.
     if (event.target.matches('input[type="text"], input[type="number"], textarea')) return;
@@ -176,12 +193,16 @@ export function createControls(state, actions) {
     } else if (event.key.toLowerCase() === 'c') {
       if (actions.forceChamber) actions.forceChamber();
     } else if (event.key.toLowerCase() === 't') {
+      if (!isSurfaceView()) return;
       state.overlays.showToFood = !state.overlays.showToFood;
     } else if (event.key.toLowerCase() === 'v') {
+      if (!isSurfaceView()) return;
       if (actions.toggleScentOverlay) actions.toggleScentOverlay();
     } else if (event.key.toLowerCase() === 'l') {
+      if (!isSurfaceView()) return;
       state.overlays.showToHome = !state.overlays.showToHome;
     } else if (event.key.toLowerCase() === 'd') {
+      if (!isSurfaceView()) return;
       state.overlays.showDanger = !state.overlays.showDanger;
     } else if (event.key.toLowerCase() === 'j') {
       state.overlays.showAntJobs = !state.overlays.showAntJobs;
@@ -210,8 +231,11 @@ export function createControls(state, actions) {
 
   syncPauseButton(startPauseBtn, state.paused);
 
-  // Establish the initial enabled/disabled tool set for the starting view.
-  if (actions.getView) syncToolPalette(state, actions.getView());
+  // Establish the initial enabled/disabled control state for the starting view.
+  if (actions.getView) {
+    syncToolPalette(state, actions.getView());
+    syncSurfaceOnlyControls(actions.getView());
+  }
 }
 
 function syncPauseButton(button, paused) {
