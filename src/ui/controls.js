@@ -26,6 +26,49 @@ const TOOL_BY_KEY = {
   '7': 'fill',
 };
 
+// Which view each paint tool is meaningful in. Surface tools edit the
+// above-ground world (terrain + food); the nest tools (dig/fill) only affect
+// underground SOIL/TUNNEL cells, so they are inert while the SURFACE view is
+// active. The palette disables whichever set doesn't apply — see syncToolPalette.
+const TOOL_VIEW = {
+  food: 'SURFACE',
+  wall: 'SURFACE',
+  water: 'SURFACE',
+  hazard: 'SURFACE',
+  erase: 'SURFACE',
+  dig: 'NEST',
+  fill: 'NEST',
+};
+
+/**
+ * Enables only the paint tools that do something in the given view and disables
+ * the rest. If the currently selected tool becomes invalid (e.g. DIG when the
+ * user switches to SURFACE), the selection falls back to the first valid tool
+ * for that view, so the next paint stroke always has a visible effect.
+ *
+ * @param {object} state - shared UI state; state.selectedTool may be reassigned
+ * @param {'SURFACE'|'NEST'} view - the active view
+ */
+export function syncToolPalette(state, view) {
+  const radios = document.querySelectorAll('input[name="tool"]');
+  let selectedStillValid = false;
+  let firstValid = null;
+
+  radios.forEach((radio) => {
+    const valid = TOOL_VIEW[radio.value] === view;
+    radio.disabled = !valid;
+    const label = radio.closest('label');
+    if (label) label.classList.toggle('tool-disabled', !valid);
+    if (valid && firstValid === null) firstValid = radio;
+    if (valid && radio.value === state.selectedTool) selectedStillValid = true;
+  });
+
+  if (!selectedStillValid && firstValid) {
+    state.selectedTool = firstValid.value;
+    firstValid.checked = true;
+  }
+}
+
 export function createControls(state, actions) {
   const startPauseBtn = byId('startPauseBtn');
   const stepBtn = byId('stepBtn');
@@ -155,13 +198,20 @@ export function createControls(state, actions) {
       event.preventDefault();
       if (actions.toggleDebugStats) actions.toggleDebugStats();
     } else if (TOOL_BY_KEY[event.key]) {
-      state.selectedTool = TOOL_BY_KEY[event.key];
-      const radio = document.querySelector(`input[name="tool"][value="${state.selectedTool}"]`);
+      const tool = TOOL_BY_KEY[event.key];
+      // Ignore number-key shortcuts for tools that are disabled in this view.
+      const currentView = actions.getView ? actions.getView() : TOOL_VIEW[tool];
+      if (TOOL_VIEW[tool] !== currentView) return;
+      state.selectedTool = tool;
+      const radio = document.querySelector(`input[name="tool"][value="${tool}"]`);
       if (radio) radio.checked = true;
     }
   });
 
   syncPauseButton(startPauseBtn, state.paused);
+
+  // Establish the initial enabled/disabled tool set for the starting view.
+  if (actions.getView) syncToolPalette(state, actions.getView());
 }
 
 function syncPauseButton(button, paused) {

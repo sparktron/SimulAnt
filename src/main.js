@@ -1,4 +1,4 @@
-import { createControls } from './ui/controls.js';
+import { createControls, syncToolPalette } from './ui/controls.js';
 import { updateHud } from './ui/hud.js';
 import { SurfaceRenderer } from './render/SurfaceRenderer.js';
 import { NestRenderer } from './render/NestRenderer.js';
@@ -288,6 +288,7 @@ createControls(state, {
   load: () => loadState(),
   clearWorld: () => simCore.clearWorld(),
   toggleView: () => viewManager.toggle(),
+  getView: () => viewManager.getCurrent(),
   toggleDebugStats: () => {
     state.debug.showStats = !state.debug.showStats;
     state.debug.showEntranceInfo = state.debug.showStats;
@@ -398,6 +399,10 @@ viewManager.onChange((mode) => {
   }
   mustById('viewToggleBtn').textContent = mode === VIEW.SURFACE ? 'VIEW: SURFACE' : 'VIEW: NEST';
   mustById('modeIndicator').textContent = mode;
+  // Surface tools (food/wall/water/...) vs nest tools (dig/fill) are only
+  // meaningful in their own view — enable the applicable set and re-home the
+  // selection if the active tool just became inert.
+  syncToolPalette(state, mode);
 });
 
 let accumulator = 0;
