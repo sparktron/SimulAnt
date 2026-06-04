@@ -2,6 +2,7 @@ import { createControls, syncToolPalette } from './ui/controls.js';
 import { updateHud } from './ui/hud.js';
 import { SurfaceRenderer } from './render/SurfaceRenderer.js';
 import { NestRenderer } from './render/NestRenderer.js';
+import { MiniMap } from './render/MiniMap.js';
 import { SimulationCore } from './sim/SimulationCore.js';
 import { sanitizeTickConfig } from './sim/core/SimulationTypes.js';
 import { ViewManager, VIEW } from './ui/ViewManager.js';
@@ -236,6 +237,7 @@ if (typeof window !== 'undefined') {
 const viewManager = new ViewManager(VIEW.SURFACE);
 const surfaceRenderer = new SurfaceRenderer(canvas, simCore.world);
 const nestRenderer = new NestRenderer(canvas, simCore.world);
+const miniMap = new MiniMap(mustById('minimapCanvas'));
 
 surfaceRenderer.resize();
 nestRenderer.resize();
@@ -479,6 +481,14 @@ function loop(now) {
       captureLastGoodRenderState(activeView);
     } catch (renderError) {
       recoverFromRenderError(renderError);
+    }
+
+    // Minimap reflects whichever view is active via that renderer's camera.
+    try {
+      const activeCam = activeView === VIEW.SURFACE ? surfaceRenderer : nestRenderer;
+      miniMap.draw(simCore.world, simCore.colony, activeCam, canvas);
+    } catch (miniMapError) {
+      if (DEBUG_UI) console.debug('[SimAnt UI] Minimap draw failed:', miniMapError);
     }
 
     const selectedAnt = simCore.findAntById(state.selectedAntId);

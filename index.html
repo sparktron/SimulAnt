@@ -158,12 +158,11 @@
 
       .minimap {
         border: 2px inset #aaa;
-        height: 140px;
-        background: #9a9a9a;
-        text-align: center;
-        padding-top: 6px;
-        font-weight: bold;
-        font-size: 11px;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        background: #111;
+        display: block;
+        image-rendering: pixelated;
         flex-shrink: 0;
       }
 
@@ -552,7 +551,7 @@
           </div>
 
           <div id="statsView" class="hud-view active">
-            <div class="minimap">MINI MAP<br /><small>(active view only)</small></div>
+            <canvas id="minimapCanvas" class="minimap" width="256" height="256"></canvas>
             <div class="stat-lines">
               <p>TICK: <span id="hudTick">0</span></p>
               <p>ANTS: <span id="hudAnts">0</span> <span id="hudAntLocation" style="font-size:11px; opacity:0.7"></span></p>
