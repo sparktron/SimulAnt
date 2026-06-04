@@ -574,18 +574,21 @@ test('consumeFromStore returns 0 for empty store', () => {
   assert.equal(colony.consumeFromStore(5), 0);
 });
 
-test('getTotalStoredFood returns canonical max across store and pellets', () => {
+test('getTotalStoredFood returns the canonical foodStored, not the pellet ledger', () => {
   const world = new World(64, 64);
   const rng = new SeededRng('food-ledger-total');
   const colony = new Colony(world, rng, 0);
 
   colony.foodStored = 10;
   colony.nestFoodPellets = [{ x: world.nestX, y: world.nestY + 2, amount: 6 }];
-  assert.equal(colony.getTotalStoredFood(), 10);
+  assert.equal(colony.getTotalStoredFood(), 10, 'returns foodStored, not max');
 
+  // foodStored is canonical even when the pellet ledger has drifted above it
+  // (e.g. after egg-laying deducts from foodStored but not pellets). The getter
+  // reports the true spendable total, not the inflated pellet sum.
   colony.foodStored = 4;
   colony.nestFoodPellets = [{ x: world.nestX, y: world.nestY + 2, amount: 7 }];
-  assert.equal(colony.getTotalStoredFood(), 7);
+  assert.equal(colony.getTotalStoredFood(), 4, 'canonical foodStored wins over a drifted pellet ledger');
 });
 
 // --- Nearest Entrance ---
@@ -953,4 +956,37 @@ test('queen succession waits when there is no eligible heir', () => {
   }
   assert.equal(colony.queen.alive, false, 'no healthy heir → queen stays dead');
   assert.equal(colony.queenSuccessions, 0);
+});
+
+// --- Food accounting canonical model (KNOWN_ISSUES #2) ---
+
+test('food accounting: getTotalStoredFood returns the canonical foodStored', () => {
+  const world = new World(96, 96);
+  world.setNest(48, 48);
+  const colony = new Colony(world, new SeededRng('food-canon'), 10);
+  assert.equal(colony.getTotalStoredFood(), colony.foodStored);
+});
+
+test('food accounting: consumeFromStore keeps foodStored == virtual + pellet ledger', () => {
+  const world = new World(96, 96);
+  world.setNest(48, 48);
+  const colony = new Colony(world, new SeededRng('food-invariant'), 10);
+
+  const drift = () => Math.abs(
+    colony.foodStored - (colony._virtualFoodStored + colony.getNestPelletNutritionTotal()),
+  );
+  assert.ok(drift() < 1e-6, 'invariant holds at construction (all virtual)');
+
+  // Deposit physical pellets — both foodStored and the pellet ledger grow.
+  colony.depositPellet(100, 48, 54);
+  colony.depositPellet(80, 50, 55);
+  assert.ok(drift() < 1e-6, 'invariant holds after deposits');
+
+  // Small consume drains the virtual (bootstrap) reserve first.
+  colony.consumeFromStore(50);
+  assert.ok(drift() < 1e-6, 'invariant holds after a small consume (virtual)');
+
+  // Drain most of the store so consumption reaches the physical pellets.
+  colony.consumeFromStore(colony.foodStored - 10);
+  assert.ok(drift() < 1e-6, 'invariant holds after consuming into physical pellets');
 });

@@ -14,8 +14,17 @@
      ladder + 7 terminal handlers in `decisions.js`. Determinism preserved.
      This issue is resolved; see docs/ant-decomposition-plan.md.
 
-2. **Food accounting still has multiple physical representations**
-   - Canonical getters exist, but storage remains distributed across `foodStored`, virtual reserve, and pellet records.
+2. **Food accounting — canonical model established (v0.40.0)**
+   - `foodStored` is now the documented single canonical nest-food total, with two
+     sub-ledgers (`_virtualFoodStored` bootstrap reserve + `nestFoodPellets`
+     physical markers) that `consumeFromStore` keeps summing to it. The
+     `getTotalStoredFood()` getter returns canonical `foodStored` directly (the old
+     `max(foodStored, pelletTotal)` reconciliation just surfaced cosmetic pellet
+     drift in the HUD). Guarded by an invariant test.
+   - Remaining (minor): egg-laying deducts from `foodStored`+virtual but not
+     `nestFoodPellets` (draining them would perturb deposit placement and break
+     determinism), so the pellet ledger can drift slightly above `foodStored`.
+     This is cosmetic (render/HUD only) and documented at `getTotalStoredFood`.
 
 3. **Save/load schema migration is minimal**
    - Load path now sanitizes config, but versioned schema migration/repair is still limited.

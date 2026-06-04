@@ -524,6 +524,13 @@ export class Colony {
       this.queen.eggProgress += healthFraction * foodLayMultiplier;
       if (this.queen.eggProgress >= config.queenEggTicks) {
         this.queen.eggProgress = 0;
+        // Egg cost deducts from the canonical total and the virtual sub-ledger.
+        // It deliberately does NOT drain nestFoodPellets: those markers feed
+        // _nestFoodTiles, which findNestFoodDropPoint reads to place deposits, so
+        // draining them here would shift drop placement and perturb the
+        // deterministic trajectory. The resulting small upward drift of the
+        // pellet ledger vs foodStored is cosmetic (render/HUD only) — foodStored
+        // remains the canonical spendable total. See getTotalStoredFood.
         this.foodStored -= config.queenEggFoodCost;
         this._virtualFoodStored = Math.max(0, this._virtualFoodStored - config.queenEggFoodCost);
         this.queen.eggsLaid += 1;
@@ -938,8 +945,21 @@ export class Colony {
     return this.nestFoodPellets.reduce((sum, pellet) => sum + (pellet.amount || 0), 0);
   }
 
+  // foodStored is the SINGLE CANONICAL nest-food total — the spendable amount.
+  // It has two sub-ledgers:
+  //   - _virtualFoodStored: the bootstrap ration, not backed by a physical pellet
+  //   - nestFoodPellets:    physical markers (also feed _nestFoodTiles, which
+  //                         findNestFoodDropPoint reads to place deposits)
+  // consumeFromStore drains virtual first, then pellets, keeping
+  //   foodStored ≈ _virtualFoodStored + getNestPelletNutritionTotal()
+  // The one exception is egg-laying, which deducts from foodStored + virtual but
+  // not pellets (draining pellets there would shift drop placement and perturb
+  // determinism), so the pellet ledger can drift slightly ABOVE foodStored. That
+  // drift is cosmetic. This getter returns the canonical foodStored directly —
+  // the old max(foodStored, pelletTotal) reconciliation just surfaced that
+  // cosmetic pellet drift in the HUD instead of the true spendable total.
   getTotalStoredFood() {
-    return Math.max(this.foodStored, this.getNestPelletNutritionTotal());
+    return this.foodStored;
   }
 
   /**
