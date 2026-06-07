@@ -9,8 +9,9 @@
       fired 0 times in 7000 ticks and the colony starved with ~215 pellets on
       the ground. Gating on `foodStored < ants * reservePerAnt` makes supply
       track demand — it fires more often as the colony grows.
-    - Drop CLOSE to the nest (12–30 tiles, was 20–50) so foragers can actually
-      convert the cluster into stored food. Distant clusters strand.
+    - Drop away from the nest (40–70 tiles) so food never spawns on the doorstep.
+      Foragers still reach it via pheromone trails; distant-strand risk is
+      bounded by the cluster radius (8 tiles) and the surface-band clamping.
     - A cooldown bounds the supply RATE so the colony still has to forage for its
       food instead of being fed for free — this is a famine backstop, not a tap.
 
@@ -62,10 +63,11 @@ export class FoodEconomySystem {
     if (tick - this._lastDropTick < cooldown) return;
     this._lastDropTick = tick;
 
-    // Concentrated drop CLOSE to the nest so it is collectible (distant clusters
-    // strand). Random angle, on the surface band.
+    // Drop away from the nest entrance — never on the doorstep. Random angle,
+    // surface band only. 40–70 tiles keeps clusters reachable via pheromone
+    // trails while preventing spawns directly at the entrance.
     const angle = this.rng.range(0, Math.PI * 2);
-    const dist = 12 + this.rng.range(0, 18); // 12–30 tiles from the nest
+    const dist = 40 + this.rng.range(0, 30); // 40–70 tiles from the nest
     const x = Math.round(this.world.nestX + Math.cos(angle) * dist);
     const y = Math.round(this.world.nestY - Math.abs(Math.sin(angle)) * dist);
     const count = Math.round(this.bootFoodTotal / 2);
