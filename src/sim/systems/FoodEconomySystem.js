@@ -18,7 +18,7 @@ export class FoodEconomySystem {
     rng,
     spawnFoodCluster,
     bootFoodTotal = 390,
-    minSurfacePellets = 30,
+    minSurfacePellets = 100,
   }) {
     this.world = world;
     this.colony = colony;
