@@ -119,7 +119,7 @@ export class SimulationCore {
     ];
     this.foodPellets = [];
     this.nextPelletId = 1;
-    this.spawnFoodCluster(this.world.nestX + 60, this.world.nestY - 20, BOOT_RADIUS, BOOT_PELLETS);
+    this.spawnFoodCluster(this.world.nestX, Math.floor(this.world.nestY / 2), BOOT_RADIUS, BOOT_PELLETS);
     this.spawnFoodCluster(this.world.nestX - 70, this.world.nestY - 25, BOOT_RADIUS, BOOT_PELLETS);
     this.tick = 0;
   }
