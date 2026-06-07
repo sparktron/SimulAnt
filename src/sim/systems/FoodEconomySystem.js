@@ -9,7 +9,7 @@
       fired 0 times in 7000 ticks and the colony starved with ~215 pellets on
       the ground. Gating on `foodStored < ants * reservePerAnt` makes supply
       track demand — it fires more often as the colony grows.
-    - Drop away from the nest (40–70 tiles) so food never spawns on the doorstep.
+    - Drop away from the nest (60–100 tiles) so food never spawns on the doorstep.
       Foragers still reach it via pheromone trails; distant-strand risk is
       bounded by the cluster radius (8 tiles) and the surface-band clamping.
     - A cooldown bounds the supply RATE so the colony still has to forage for its
@@ -27,7 +27,7 @@ export class FoodEconomySystem {
     bootFoodTotal = 390,
     reservePerAnt = 40,
     minReserve = 300,
-    dropCooldownTicks = 60,
+    dropCooldownTicks = 250,
   }) {
     this.world = world;
     this.colony = colony;
@@ -63,14 +63,14 @@ export class FoodEconomySystem {
     if (tick - this._lastDropTick < cooldown) return;
     this._lastDropTick = tick;
 
-    // Drop away from the nest entrance — never on the doorstep. Random angle,
-    // surface band only. 40–70 tiles keeps clusters reachable via pheromone
-    // trails while preventing spawns directly at the entrance.
+    // Drop well away from the nest — never on the doorstep. Random angle,
+    // surface band only. 60–100 tiles forces real foraging; world-edge and
+    // surface-band guards in spawnFoodCluster clamp out-of-bounds placements.
     const angle = this.rng.range(0, Math.PI * 2);
-    const dist = 40 + this.rng.range(0, 30); // 40–70 tiles from the nest
+    const dist = 60 + this.rng.range(0, 40); // 60–100 tiles from the nest
     const x = Math.round(this.world.nestX + Math.cos(angle) * dist);
     const y = Math.round(this.world.nestY - Math.abs(Math.sin(angle)) * dist);
-    const count = Math.round(this.bootFoodTotal / 2);
+    const count = Math.round(this.bootFoodTotal / 4); // smaller clusters, less map clutter
     this.spawnFoodCluster(x, Math.min(y, this.world.nestY - 2), 8, count);
   }
 }
