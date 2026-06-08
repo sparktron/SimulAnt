@@ -35,6 +35,37 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
   const homeScentWeight = getHomeScentWeight(ant, config, entrance);
   const enforceEntranceCorridor = navigation.isEntranceTransitState(ant) && !!entrance;
 
+  // Trail gravitation (config.trailGravitation): a returning carrier senses the
+  // strongest food-trail tile within a small radius and biases its step toward
+  // it, so separate return lines MERGE into shared corridors. This converges the
+  // visible trails without touching searchers' outbound exploration — carriers
+  // normally only sense the 8 adjacent tiles, so two parallel lines a few tiles
+  // apart never feel each other. Gravitation lets a carrier climb sideways onto
+  // the dominant nearby corridor. gravUX/gravUY = unit vector toward it.
+  let gravUX = 0, gravUY = 0, gravStrength = 0;
+  if (config.trailGravitation && trailAttractionField && ant.carrying?.type === 'food') {
+    const R = config.trailGravitationRadius ?? 3;
+    const here = trailAttractionField[world.index(ant.x, ant.y)] ?? 0;
+    let bestV = here, bx = ant.x, by = ant.y;
+    for (let oy = -R; oy <= R; oy += 1) {
+      for (let ox = -R; ox <= R; ox += 1) {
+        if (ox === 0 && oy === 0) continue;
+        const sx = ant.x + ox, sy = ant.y + oy;
+        if (!world.inBounds(sx, sy) || !world.isPassable(sx, sy)) continue;
+        const v = trailAttractionField[world.index(sx, sy)] ?? 0;
+        if (v > bestV) { bestV = v; bx = sx; by = sy; }
+      }
+    }
+    // Only gravitate toward a clearly stronger corridor than the ant's own tile,
+    // so carriers already on the dominant line aren't pulled off it.
+    if (bestV > here && bestV > (config.trailGravitationMinTrail ?? 0.5)) {
+      const dx = bx - ant.x, dy = by - ant.y;
+      const len = Math.hypot(dx, dy) || 1;
+      gravUX = dx / len; gravUY = dy / len;
+      gravStrength = Math.min(bestV * (config.trailGravitationGain ?? 0.5), config.trailGravitationMax ?? 4.0);
+    }
+  }
+
   // (Previous behavior: when carriers were on weak pheromone we bypassed the
   // weighted steering and ran a greedy descent toward the entrance. The
   // greedy step always picked the closest-distance neighbor, which produced
@@ -178,7 +209,14 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
     // term overrides pheromone differences smaller than ~3×.  Reverse is
     // killed outright (mult=0); back-45° barely survives.  Penalties are
     // applied AFTER the multiplier so danger/reverse subtractions still bite.
-    const steerSignal = (boostedPherContribution + tieBias + reacquireBias + headingContrib) * directionalMult * trailBoost;
+    // Lateral pull toward the strongest nearby corridor (see gravitation block).
+    let gravContribution = 0;
+    if (gravStrength > 0) {
+      const dirLen = Math.hypot(DIRS[d][0], DIRS[d][1]) || 1;
+      const gdot = (DIRS[d][0] / dirLen) * gravUX + (DIRS[d][1] / dirLen) * gravUY;
+      gravContribution = Math.max(0, gdot) * gravStrength;
+    }
+    const steerSignal = (boostedPherContribution + tieBias + reacquireBias + headingContrib + gravContribution) * directionalMult * trailBoost;
     const weight = Math.max(0, steerSignal + noise - reversePenalty - dangerPenalty - crowdingPenalty);
     weights.push({
       d,
