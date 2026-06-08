@@ -122,7 +122,7 @@ const state = {
     carryingHungerDrainRate: 0.5,
     fightingHungerDrainRate: 3,
     soldierSpawnChance: 0.05,  // 5% chance for soldiers to spawn via brood
-    foodVisionRadius: 24,
+    foodVisionRadius: 18,
     surfaceFoodSearchMaxMissTicks: 400,  // Give foragers much more time to find food
     surfaceReturnToNestHungerThreshold: 0.6,  // Return after timeout with safety margin
     followAlpha: 1.5,
