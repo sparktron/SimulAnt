@@ -170,9 +170,14 @@ const state = {
     // path, which combined with high tie-bias made paths deterministic given
     // the pheromone field. 0.3 gives the gait a natural meander while still
     // suppressing the full search-noise level.
-    returnCarryNoiseScale: 0.3,
-    returnTrailBoostScale: 0.15,
-    returnTrailBoostMax: 3.0,
+    // Consolidation: carriers strongly prefer existing food-trail tiles on the
+    // way home (boost 0.15→0.6, max 3→6) and meander less (0.3→0.1), so returners
+    // merge onto shared corridors instead of each cutting a private diagonal.
+    // Only safe BECAUSE adaptiveTrail decays trails to depleted sources — strong
+    // consolidation on a stale field just herds ants onto dead routes (-13% A/B).
+    returnCarryNoiseScale: 0.1,
+    returnTrailBoostScale: 0.6,
+    returnTrailBoostMax: 6.0,
     // Re-enabled (was 0 in the weak-trail era). Without it, an off-trail
     // searcher has essentially no preferred direction — pherContribution is
     // zero off-trail, momentum is hardcoded to 0, and noise is 0.02. The
@@ -181,6 +186,16 @@ const state = {
     // a small but persistent outward push that keeps them committed to a
     // direction without overpowering trail-following when a trail is found.
     foodTieBiasScale: 0.1,
+    // Adaptive recruitment decay: a carrier's trail-laying strength is seeded at
+    // pickup (recruitRichBudget for rich sources, 1.0 otherwise) and decays each
+    // tick (recruitDecayPerStep) on the way home. Straight returns from live rich
+    // clusters lay a strong corridor; wandering carriers and marginal/depleted
+    // sources lay almost nothing, so the field stops smearing and consolidates on
+    // clusters still being harvested. First trail config to beat trails-OFF (+10%
+    // nutrition, 6-seed×5000-tick A/B). See docs/pheromone-foraging-rca.
+    adaptiveTrail: true,
+    recruitDecayPerStep: 0.97,
+    recruitRichBudget: 1.6,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,

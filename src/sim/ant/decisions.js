@@ -132,10 +132,22 @@ export function carryFood(ant, world, colony, rng, config, context) {
   const entranceFadeFraction = foodFadeRadius > 0
     ? Math.min(1, Math.max(0, distToNest / foodFadeRadius))
     : 1;
-  if (config.enablePheromones !== false && entranceFadeFraction > 0) {
+  // Adaptive recruitment decay (config.adaptiveTrail): a carrier's trail-laying
+  // strength starts high at pickup (seeded in pickUpPellet*, richer sources →
+  // higher budget) and decays each tick on the way home. Ants that march
+  // straight back from a rich live cluster lay a strong corridor; ants that
+  // wander, or returned from a marginal/depleting source, lay almost nothing —
+  // so trails to dead sources fade fast and the field consolidates onto the
+  // clusters ants are actually still harvesting. Default off = identity factor.
+  let recruitFactor = 1;
+  if (config.adaptiveTrail) {
+    ant._recruitBudget = (ant._recruitBudget ?? 0) * (config.recruitDecayPerStep ?? 0.97);
+    recruitFactor = ant._recruitBudget;
+  }
+  if (config.enablePheromones !== false && entranceFadeFraction > 0 && recruitFactor > 0) {
     world.depositToFood(
       context.idx,
-      config.depositFood * trailScale * entranceFadeFraction,
+      config.depositFood * trailScale * entranceFadeFraction * recruitFactor,
       config.pheromoneMaxClamp,
     );
   }
@@ -227,6 +239,10 @@ export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pe
         pickupDistance: navigation.distanceToEntrance(ant, colony),
       };
       ant.carryingType = 'food';
+      // Seed adaptive recruitment budget: rich sources recruit harder.
+      if (config.adaptiveTrail) {
+        ant._recruitBudget = abundantFood ? (config.recruitRichBudget ?? 1.6) : 1;
+      }
       colony.removePelletById(pellet.id);
       ant.state = 'PICKUP';
       navigation.aimThetaAtEntrance(ant, colony);
@@ -258,6 +274,10 @@ export function pickUpPelletHere(ant, world, colony, rng, config, context, pelle
       pickupDistance: navigation.distanceToEntrance(ant, colony),
     };
     ant.carryingType = 'food';
+    // Seed adaptive recruitment budget: rich sources recruit harder.
+    if (config.adaptiveTrail) {
+      ant._recruitBudget = abundantFoodHere ? (config.recruitRichBudget ?? 1.6) : 1;
+    }
     colony.removePelletById(pellet.id);
     ant.state = 'PICKUP';
     navigation.aimThetaAtEntrance(ant, colony);
