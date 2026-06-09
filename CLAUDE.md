@@ -23,6 +23,8 @@ Include the new version in the commit message (e.g. `fix(ant): clamp prevTurn â€
 
 **Read docs before touching core systems.** `docs/core-simulation-architecture.md` documents the deterministic tick contract in detail. Read it before editing `TickScheduler`, `MacroEngine`, or `MicroPatchEngine`.
 
+**Read the pheromone strategy before tuning foraging.** `docs/pheromone-strategy.md` logs every food-trail tactic already A/B-tested â€” including a "What FAILED â€” do NOT retry" table (lowering vision, stronger/stickier trails, `followAlpha` sharpening, diffusion merging, etc.). Read it before changing trail deposit/evaporation/diffusion/following/gravitation or `foodVisionRadius`, and update it whenever you run a new pheromone experiment.
+
 ## Key Entry Points
 
 | Purpose | File |
@@ -31,5 +33,6 @@ Include the new version in the commit message (e.g. `fix(ant): clamp prevTurn â€
 | Ant state machine | `src/sim/ant.js` |
 | Tick orchestration | `src/sim/core/TickScheduler.js` |
 | World terrain + pheromones | `src/sim/world.js` |
+| Pheromone foraging strategy + experiment log | `docs/pheromone-strategy.md` |
 | Surface rendering | `src/render/SurfaceRenderer.js` |
 | Nest rendering | `src/render/NestRenderer.js` |
