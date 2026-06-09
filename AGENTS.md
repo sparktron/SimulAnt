@@ -35,6 +35,8 @@ Open at http://localhost:8000 after starting the server.
 
 **Ant AI is purely local.** Each ant decides using only its immediate state and pheromone readings — there is no central director. Colony-level behavior is emergent. Don't add global coordination; work through pheromone channels and state machine transitions in `src/sim/ant.js`.
 
+**Pheromone/foraging tuning is documented — read it first.** Before changing food-trail behavior (deposit, evaporation, diffusion, following, gravitation, vision radius) read [docs/pheromone-strategy.md](docs/pheromone-strategy.md). It records every tactic already A/B-tested, including a "What FAILED — do NOT retry" table (e.g. lowering vision, stronger/stickier trails, `followAlpha` sharpening, diffusion merging). Update that file when you run a new pheromone experiment so failed approaches aren't repeated.
+
 **Two independent cameras.** Surface and Nest views each have their own pan/zoom state. `InputRouter` routes pointer events to the active view's handler. Don't bypass InputRouter for view-specific interactions.
 
 ## Code Conventions
