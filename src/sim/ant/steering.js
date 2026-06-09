@@ -42,16 +42,30 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
   // normally only sense the 8 adjacent tiles, so two parallel lines a few tiles
   // apart never feel each other. Gravitation lets a carrier climb sideways onto
   // the dominant nearby corridor. gravUX/gravUY = unit vector toward it.
+  //
+  // HOMEWARD CONSTRAINT (critical): candidate tiles must be strictly closer to
+  // the entrance than the ant. Carriers deposit toFood every return tick, so the
+  // hottest nearby tile is often the one they just left — without this filter,
+  // gravitation pulls them back onto their own fresh deposit and they orbit the
+  // local maximum they created (a death spiral; measured 2x baseline circling).
+  // Requiring homeward progress makes the merge force a one-way pull toward the
+  // corridor, never a backward trap — at gain 0.4 this drops circling below even
+  // the no-gravitation baseline while keeping the field converged. Gravitation
+  // therefore needs an entrance reference; without one it simply does not apply.
   let gravUX = 0, gravUY = 0, gravStrength = 0;
-  if (config.trailGravitation && trailAttractionField && ant.carrying?.type === 'food') {
+  if (config.trailGravitation && trailAttractionField && entrance && ant.carrying?.type === 'food') {
     const R = config.trailGravitationRadius ?? 3;
     const here = trailAttractionField[world.index(ant.x, ant.y)] ?? 0;
+    const antDistToEntrance = Math.hypot(ant.x - entrance.x, ant.y - entrance.y);
     let bestV = here, bx = ant.x, by = ant.y;
     for (let oy = -R; oy <= R; oy += 1) {
       for (let ox = -R; ox <= R; ox += 1) {
         if (ox === 0 && oy === 0) continue;
         const sx = ant.x + ox, sy = ant.y + oy;
         if (!world.inBounds(sx, sy) || !world.isPassable(sx, sy)) continue;
+        // Homeward-only: skip tiles no closer to the nest than the ant. This is
+        // what prevents the self-deposit orbit described above.
+        if (Math.hypot(sx - entrance.x, sy - entrance.y) >= antDistToEntrance) continue;
         const v = trailAttractionField[world.index(sx, sy)] ?? 0;
         if (v > bestV) { bestV = v; bx = sx; by = sy; }
       }
