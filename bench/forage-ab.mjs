@@ -32,8 +32,10 @@ const TICKS = Number(process.argv[2]) || 5000;
 const SEED_COUNT = Number(process.argv[3]) || 6;
 
 // Extra overrides applied to BOTH conditions (e.g. { foodVisionRadius: 24 }).
-// Keep empty for a baseline run.
-const CONFIG_OVERRIDES = {};
+// Set via the AB_OVERRIDES env var as JSON for ergonomic sweeps, e.g.
+//   AB_OVERRIDES='{"headingBias":0.2}' node bench/forage-ab.mjs 5000 6
+// Falls back to empty (baseline) when unset.
+const CONFIG_OVERRIDES = process.env.AB_OVERRIDES ? JSON.parse(process.env.AB_OVERRIDES) : {};
 
 const CIRCLE_WINDOW = 30;       // ticks
 const CIRCLE_MAX_DISP = 5;      // tiles of net displacement to count as circling
