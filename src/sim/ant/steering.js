@@ -159,7 +159,7 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
         // Normalize by step length (same pattern as home channel) so the
         // magnitude is ≈ ±scale regardless of how far from the nest the ant
         // is.  The old formula (neighborDist * scale) produced absolute values
-        // of ~9+ at search distances, swamping headingBias (0.20) and
+        // of ~9+ at search distances, swamping headingBias (0.40) and
         // momentum (0.3) and making all 8 directions nearly equally weighted —
         // the correlated walk had no influence and ants appeared to bounce
         // randomly.  outwardProgress ≈ +1 stepping directly away from nest,
@@ -200,7 +200,7 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
     // not fight goal-directed home-pheromone steering.
     let headingContrib = 0;
     if (channel === 'food') {
-      const headingBias = config.headingBias ?? 0.20;
+      const headingBias = config.headingBias ?? 0.40;
       const dirLen = Math.hypot(DIRS[d][0], DIRS[d][1]);
       const dot = (DIRS[d][0] / dirLen) * Math.cos(ant.theta)
                 + (DIRS[d][1] / dirLen) * Math.sin(ant.theta);

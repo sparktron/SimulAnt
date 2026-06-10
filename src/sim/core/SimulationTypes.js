@@ -108,7 +108,7 @@ export function sanitizeTickConfig(config = {}) {
     walkMaxTurnRate: clampRangeNumber(config.walkMaxTurnRate, 0.45, 0.1, 1),
     meanderAmplitude: clampRangeNumber(config.meanderAmplitude, 0.05, 0, 0.2),
     pTurnSignFlip: clamp01(config.pTurnSignFlip, 0.85),
-    headingBias: clamp01(config.headingBias, 0.20),
+    headingBias: clamp01(config.headingBias, 0.40),
     obstacleLookahead: clampRangeNumber(config.obstacleLookahead, 2, 1, 5),
     obstacleTurnGain: clamp01(config.obstacleTurnGain, 0.30),
     dangerTurnLookahead: clampRangeNumber(config.dangerTurnLookahead, 2, 1, 5),
