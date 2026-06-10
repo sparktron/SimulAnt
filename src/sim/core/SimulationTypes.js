@@ -184,6 +184,13 @@ export function sanitizeTickConfig(config = {}) {
     followBeta: clampNonNegativeNumber(config.followBeta, 0),
     momentumBias: clampNonNegativeNumber(config.momentumBias, 0),
     reversePenalty: clampNonNegativeNumber(config.reversePenalty, 0),
+    // dangerAvoidanceWeight multiplies danger pheromone into every per-step
+    // steering weight; an undefined value from a partial config would NaN-poison
+    // movement, so guard it at the boundary (fallback mirrors steering.js).
+    dangerAvoidanceWeight: clampNonNegativeNumber(config.dangerAvoidanceWeight, 1.25),
+    nestEatCooldownTicks: clampPositiveInt(config.nestEatCooldownTicks, 30),
+    trailGravitationMinTrail: clampNonNegativeNumber(config.trailGravitationMinTrail, 0.5),
+    trailGravitationMax: clampNonNegativeNumber(config.trailGravitationMax, 4.0),
   };
 }
 

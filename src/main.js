@@ -108,6 +108,8 @@ const state = {
     broodStarvationTicks: 600,
     larvaeCrowdingThreshold: 8,
     workerEatNutrition: 25,
+    // Promoted from a code-only `?? 30` fallback in vitals.js.
+    nestEatCooldownTicks: 30,
     starvationRecoveryHealth: 5,
     healthDrainRate: 5,
     healthRegenRate: 1,
@@ -135,6 +137,8 @@ const state = {
     randomTurnChance: 0.02,
     momentumBias: 0.3,
     reversePenalty: 0.9,
+    // Promoted from a code-only `?? 1.25` fallback in steering.js.
+    dangerAvoidanceWeight: 1.25,
     homeDepositIntervalTicks: 3,
     homeDepositMinDistance: 20,
     innerScatterRadius: 6,
@@ -205,6 +209,10 @@ const state = {
     trailGravitation: true,
     trailGravitationGain: 0.4,
     trailGravitationRadius: 3,
+    // Promoted from code-only `?? fallbacks` in steering.js so they are
+    // sweepable in headless A/B runs. Values equal the prior fallbacks.
+    trailGravitationMinTrail: 0.5,
+    trailGravitationMax: 4.0,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,

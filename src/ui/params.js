@@ -563,6 +563,9 @@ export function getDefaultConfig() {
     broodStarvationTicks: 600,
     larvaeCrowdingThreshold: 8,
     workerEatNutrition: 25,
+    // Promoted from a code-only `?? 30` fallback in vitals.js: ticks an ant
+    // must wait between in-nest meals. Now tunable/sweepable.
+    nestEatCooldownTicks: 30,
     starvationRecoveryHealth: 5,
     healthDrainRate: 5,
     healthRegenRate: 1,
@@ -584,6 +587,9 @@ export function getDefaultConfig() {
     randomTurnChance: 0.02,
     momentumBias: 0.3,
     reversePenalty: 0.9,
+    // Promoted from a code-only `?? 1.25` fallback in steering.js. Multiplies
+    // danger-pheromone into a per-step steering penalty; now tunable/sweepable.
+    dangerAvoidanceWeight: 1.25,
     homeDepositIntervalTicks: 3,
     homeDepositMinDistance: 20,
     innerScatterRadius: 6,
@@ -612,6 +618,13 @@ export function getDefaultConfig() {
     trailGravitation: true,
     trailGravitationGain: 0.4,
     trailGravitationRadius: 3,
+    // Promoted from code-only `?? fallbacks` in steering.js so they are
+    // sweepable in headless A/B runs (values equal the prior fallbacks, so
+    // behavior is unchanged). trailGravitationMinTrail = minimum corridor
+    // strength before a carrier gravitates; trailGravitationMax = cap on the
+    // lateral pull. See docs/pheromone-strategy.md.
+    trailGravitationMinTrail: 0.5,
+    trailGravitationMax: 4.0,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,

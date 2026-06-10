@@ -146,7 +146,7 @@ the "failed" list.
 
 ---
 
-## Relevant config (current defaults, v0.45.1)
+## Relevant config (current defaults, v0.46.0)
 
 ```
 enablePheromones: true        foodVisionRadius: 18
@@ -155,7 +155,8 @@ followAlpha: 1.5              followBeta: 4.0         pheromoneMaxClamp: 150
 adaptiveTrail: true           recruitDecayPerStep: 0.97   recruitRichBudget: 1.6
 returnTrailBoostScale: 0.6    returnTrailBoostMax: 6.0    returnCarryNoiseScale: 0.1
 trailGravitation: true        trailGravitationGain: 0.4   trailGravitationRadius: 3
-  (code-only ?? defaults: trailGravitationMinTrail 0.5, trailGravitationMax 4.0)
+trailGravitationMinTrail: 0.5 trailGravitationMax: 4.0  (promoted to real
+  tunable defaults in v0.46.0 — previously code-only ?? fallbacks)
 foodTrailDistanceScale: 1.0   maxFoodTrailScale: 1.8      foodDepositMinDistance: 8
 trailLockThreshold: 1.0
 ```
