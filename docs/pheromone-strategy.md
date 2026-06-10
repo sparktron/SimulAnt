@@ -118,6 +118,31 @@ searchers keep exploring (convergence at no discovery cost).
    clusters mean any long-lived corridor decays into a pointer at a dead source.
    Everything that works does so by making trails *transient and discovery-led*.
 
+## Phase 2 finding (characterized) — "stronger recruitment" is the wrong lever
+
+The recruitment threshold is now measured directly (`test/steering.test.mjs`): a
+searcher crossing a single trail tile turns onto it only **~18% at v=0.3, ~34% at
+v=0.5** (typical mid-route single-carrier strengths), crossing 50% only above
+**v≈0.9**. So a lone discoverer's trail recruits almost nobody — the gait
+multiplier (forward ×1.6 vs sideways ×0.5) makes a perpendicular trail expensive
+to join. That is review bug #1, quantified.
+
+The tempting fix is "boost recruitment" (raise followBeta/followAlpha, or relax
+the gait toward strong trails). **The A/B baseline says do not.** At default
+config the harness measures **pickups ON 832 < OFF 903** — trails already *suppress*
+discovery, because the searchers that do get recruited are pulled off exploration
+onto existing (often depleting) corridors. Strengthening recruitment commits
+*more* searchers to those corridors — exactly the regression the "What FAILED"
+table already records for followAlpha/followBeta/stronger-deposits.
+
+**Conclusion:** weak recruitment is a *symptom*, not the disease. The disease is
+that trails point at sources that are no longer the best place to be, so recruiting
+onto them is net-negative. The productive levers are therefore the ones that make a
+trail's strength track *live* harvest success — future-directions #2
+(depletion-reactive decay) and #3 (two-pheromone recruitment) — after which
+*raising* recruitment becomes safe and beneficial. Measure every step with
+`bench/forage-ab.mjs`; the win condition is **pickups ON ≥ OFF**.
+
 ---
 
 ## Future directions (untested ideas worth trying)
