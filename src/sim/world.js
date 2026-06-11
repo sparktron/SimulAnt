@@ -360,7 +360,6 @@ export class World {
       );
     }
 
-    const decayFactor = Math.max(0, 1 - lambda - 4 * D);
     const threshold = 1e-4;
 
     // 1. Clear the cells the scratch buffer still holds non-zero from when it was
@@ -433,13 +432,20 @@ export class World {
         value = clampedValue < 1e-5 ? 0 : clampedValue;
       } else {
         let neighborSum = 0;
+        let passableNeighbors = 0;
 
-        if (x > 0 && mask[idx - 1]) neighborSum += srcField[idx - 1];
-        if (x < w - 1 && mask[idx + 1]) neighborSum += srcField[idx + 1];
-        if (y > 0 && mask[idx - w]) neighborSum += srcField[idx - w];
-        if (y < h - 1 && mask[idx + w]) neighborSum += srcField[idx + w];
+        if (x > 0 && mask[idx - 1]) { neighborSum += srcField[idx - 1]; passableNeighbors += 1; }
+        if (x < w - 1 && mask[idx + 1]) { neighborSum += srcField[idx + 1]; passableNeighbors += 1; }
+        if (y > 0 && mask[idx - w]) { neighborSum += srcField[idx - w]; passableNeighbors += 1; }
+        if (y < h - 1 && mask[idx + w]) { neighborSum += srcField[idx + w]; passableNeighbors += 1; }
 
-        const newValue = decayFactor * center + D * neighborSum;
+        // No-flux boundary (review bug #8): a cell can only diffuse OUT into its
+        // passable neighbors, so it loses D per passable neighbor — not a flat 4D.
+        // The old flat 4D leaked D*value into every wall/edge side, silently
+        // steepening the home-scent gradient in tunnels (~9%/tick at diffHome 0.18).
+        // Subtracting D*passableNeighbors conserves mass (outflow == neighbor inflow).
+        const localDecay = Math.max(0, 1 - lambda - D * passableNeighbors);
+        const newValue = localDecay * center + D * neighborSum;
         const clampedValue = Math.max(0, Math.min(clampMax, newValue));
         value = clampedValue < 1e-5 ? 0 : clampedValue;
       }

@@ -71,35 +71,32 @@ test('evaporation decays an isolated cell at exactly (1 - lambda*dt) per tick', 
 });
 
 // ---------------------------------------------------------------------------
-// 3. Boundary leak characterization (review bug #8). The kernel subtracts the
-//    full 4D from every cell but only RECEIVES flux from passable neighbors, so
-//    a cell loses D*value into each wall/edge neighbor. This pins the CURRENT
-//    (absorbing-boundary) behavior so an accidental change is caught.
-//
-//    NOTE: this is non-conservative at walls. A no-flux (reflecting) boundary —
-//    decayFactor computed per cell as (1 - lambda - D*passableNeighborCount) —
-//    would conserve mass and slow home-scent decay in tunnels (diffHome 0.18 =>
-//    ~9%/tick extra loss on a 2-wall tunnel cell). Changing it moves the
-//    pheromone-bench field hash and needs an A/B, so it is deliberately a
-//    separate decision, not folded into this test.
+// 3. No-flux boundary conserves mass at walls (review bug #8, fixed). The kernel
+//    subtracts D per PASSABLE neighbor (not a flat 4D), so a cell only loses what
+//    it can actually diffuse into open neighbors — diffusion against a wall/edge
+//    reflects instead of leaking D*value into the blocked side. Before the fix
+//    this leaked 0.4 per wall (0.8 for a 2-wall tunnel) and silently steepened
+//    the home-scent gradient in tunnels (~9%/tick at diffHome 0.18).
 // ---------------------------------------------------------------------------
-test('diffusion leaks D*value into each wall neighbor (absorbing boundary, bug #8)', () => {
+test('diffusion conserves mass against walls (no-flux boundary, bug #8 fixed)', () => {
   const config = {
     tickSeconds: 1, evapFood: 0, evapHome: 0, evapDanger: 0,
     diffFood: 0.2, diffHome: 0, diffDanger: 0, // D = 0.05
     diffIntervalTicks: 1, pheromoneMaxClamp: 1000,
   };
 
-  // One wall neighbor -> leak D*c*1 = 0.4
+  // One wall neighbor: mass conserved (was 7.6 under the old absorbing boundary).
   const w1 = new World(32, 32);
   allGround(w1);
   w1.terrain[w1.index(17, 16)] = TERRAIN.WALL;
   w1.markTerrainDirty();
   w1.depositToFood(w1.index(16, 16), 8.0);
   w1.updatePheromones(config, 1);
-  assert.ok(Math.abs(foodMass(w1) - 7.6) < 1e-6, `1-wall leak should be 0.4, mass=${foodMass(w1)}`);
+  assert.ok(Math.abs(foodMass(w1) - 8.0) < 1e-6, `1-wall mass must be conserved, got ${foodMass(w1)}`);
+  // The blocked side gets nothing; the 3 open neighbors share what the center shed.
+  assert.equal(w1.toFood[w1.index(17, 16)], 0, 'no pheromone diffuses into the wall');
 
-  // Tunnel (two opposing wall neighbors) -> leak D*c*2 = 0.8
+  // Tunnel (two opposing wall neighbors): still conserved.
   const w2 = new World(32, 32);
   allGround(w2);
   w2.terrain[w2.index(16, 15)] = TERRAIN.WALL;
@@ -107,7 +104,7 @@ test('diffusion leaks D*value into each wall neighbor (absorbing boundary, bug #
   w2.markTerrainDirty();
   w2.depositToFood(w2.index(16, 16), 8.0);
   w2.updatePheromones(config, 1);
-  assert.ok(Math.abs(foodMass(w2) - 7.2) < 1e-6, `2-wall leak should be 0.8, mass=${foodMass(w2)}`);
+  assert.ok(Math.abs(foodMass(w2) - 8.0) < 1e-6, `2-wall (tunnel) mass must be conserved, got ${foodMass(w2)}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -119,7 +116,6 @@ test('diffusion leaks D*value into each wall neighbor (absorbing boundary, bug #
 // ---------------------------------------------------------------------------
 function fullSweep(src, mask, w, h, lambda, D, clampMax) {
   const dst = new Float32Array(src.length);
-  const decayFactor = Math.max(0, 1 - lambda - 4 * D);
   const threshold = 1e-4;
   for (let idx = 0; idx < src.length; idx += 1) {
     if (!mask[idx]) { dst[idx] = 0; continue; }
@@ -139,11 +135,13 @@ function fullSweep(src, mask, w, h, lambda, D, clampMax) {
       value = v < 1e-5 ? 0 : v;
     } else {
       let sum = 0;
-      if (x > 0 && mask[idx - 1]) sum += src[idx - 1];
-      if (x < w - 1 && mask[idx + 1]) sum += src[idx + 1];
-      if (y > 0 && mask[idx - w]) sum += src[idx - w];
-      if (y < h - 1 && mask[idx + w]) sum += src[idx + w];
-      const v = Math.max(0, Math.min(clampMax, decayFactor * center + D * sum));
+      let passable = 0;
+      if (x > 0 && mask[idx - 1]) { sum += src[idx - 1]; passable += 1; }
+      if (x < w - 1 && mask[idx + 1]) { sum += src[idx + 1]; passable += 1; }
+      if (y > 0 && mask[idx - w]) { sum += src[idx - w]; passable += 1; }
+      if (y < h - 1 && mask[idx + w]) { sum += src[idx + w]; passable += 1; }
+      const localDecay = Math.max(0, 1 - lambda - D * passable);
+      const v = Math.max(0, Math.min(clampMax, localDecay * center + D * sum));
       value = v < 1e-5 ? 0 : v;
     }
     dst[idx] = value;

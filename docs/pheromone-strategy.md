@@ -106,11 +106,12 @@ searchers keep exploring (convergence at no discovery cost).
 
 ## Known limitations / why it "still needs work"
 
-1. **Net-negative at the shipped vision (18).** Trails (even converged) gather
-   ~7% less than no-trails at vision 18. They beat no-trails only at vision ≥ ~22.
-   So today trails are mostly a *visual/behavioral* feature at the cost of a few %
-   throughput. Raising vision back toward 22–24 would make them net-positive —
-   untested *in combination with* gravitation.
+1. **Net-negative at the shipped vision (18).** Trails gather ~5% less than
+   no-trails at vision 18 (trailGain −4.8%, 6 seeds×5000 via `bench/forage-ab.mjs`,
+   measured after the bug #8 no-flux fix improved it from ~−10%). They beat
+   no-trails only at higher vision. So today trails are mostly a *visual/behavioral*
+   feature at a few % throughput cost. Raising vision toward 22–24 would likely make
+   them net-positive — untested *in combination with* gravitation + the bug #8 fix.
 2. **Convergence is partial.** Spiral-safe gravitation lands at PR ~726, not the
    PR ~343 of the (spiral-prone) unconstrained version. Maximum convergence and
    spiral-safety are in tension because tight merging needs backward pulls.
