@@ -144,7 +144,11 @@ export function carryFood(ant, world, colony, rng, config, context) {
     ant._recruitBudget = (ant._recruitBudget ?? 0) * (config.recruitDecayPerStep ?? 0.97);
     recruitFactor = ant._recruitBudget;
   }
-  if (config.enablePheromones !== false && entranceFadeFraction > 0 && recruitFactor > 0) {
+  // Never lay a food trail on an in-nest/underground tile (review bug #7): if a
+  // carrier reaches here via the nest fall-through (no drop point + blocked
+  // shaft), depositing here paints a ghost corridor in the tunnels that pulls
+  // searchers at a spot no food was ever found. Food trails are a surface signal.
+  if (config.enablePheromones !== false && !context.inNest && entranceFadeFraction > 0 && recruitFactor > 0) {
     world.depositToFood(
       context.idx,
       config.depositFood * trailScale * entranceFadeFraction * recruitFactor,
