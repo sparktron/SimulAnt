@@ -392,79 +392,61 @@ test('surface food pellets do not decay over time', () => {
 });
 
 // ============================================================
-// FoodEconomySystem respawn cooldown behavior
+// FoodEconomySystem surface-count-gated respawn (v0.43.3)
 // ============================================================
 
 // Integration coverage against a real World + Colony. The respawn gates on the
-// colony's STORED FOOD relative to population (demand-tracking, v0.36.0), not on
-// raw uncollected surface-pellet count — see docs/starvation-collapse-rca.
-test('FoodEconomySystem does not spawn while stored food is above the reserve floor', () => {
-  const rng = new SeededRng('fes-above-floor');
+// number of FREE (unclaimed) surface pellets vs minSurfacePellets — NOT on stored
+// food relative to population. The old demand-tracking "reserve floor" model
+// (v0.36.0, reservePerAnt/minReserve/dropCooldownTicks/foodStored) was replaced;
+// those constructor params are now orphaned. See docs/pheromone-strategy.md and
+// docs/starvation-collapse-rca.
+function makeFes(spawn, opts = {}) {
+  const rng = new SeededRng(opts.seed ?? 'fes');
   const world = new World(160, 100);
   world.setNest(80, 50);
-  const colony = new Colony(world, rng, 10);
-
-  let spawnCalls = 0;
+  const colony = new Colony(world, rng, opts.ants ?? 10);
   const fes = new FoodEconomySystem({
     world,
     colony,
     rng,
-    spawnFoodCluster: () => { spawnCalls += 1; },
-    bootFoodTotal: 100,
-    reservePerAnt: 12,
-    minReserve: 300,
+    spawnFoodCluster: spawn,
+    bootFoodTotal: opts.bootFoodTotal ?? 100,
+    minSurfacePellets: opts.minSurfacePellets ?? 200,
   });
+  return { fes, colony };
+}
+const freePellets = (n) => Array.from({ length: n }, () => ({ takenByAntId: null }));
 
-  // 10 ants → floor max(300, 120) = 300; 5000 stored is plenty.
-  colony.foodStored = 5000;
-  fes.update({ tick: 0 });
-  assert.equal(spawnCalls, 0, 'no drop while stored food is above the floor');
+test('FoodEconomySystem does not spawn while free surface pellets are above the floor', () => {
+  let spawnCalls = 0;
+  const { fes } = makeFes(() => { spawnCalls += 1; }, { minSurfacePellets: 200 });
+  // 250 free pellets >= floor 200 → surface is well supplied.
+  fes.update({ foodPellets: freePellets(250) });
+  assert.equal(spawnCalls, 0, 'no drop while free surface pellets are above the floor');
 });
 
-test('FoodEconomySystem drops once when stored food falls below the reserve floor', () => {
-  const rng = new SeededRng('fes-below-floor');
-  const world = new World(160, 100);
-  world.setNest(80, 50);
-  const colony = new Colony(world, rng, 10);
-
+test('FoodEconomySystem drops once when free surface pellets fall below the floor', () => {
   let spawnCalls = 0;
-  const fes = new FoodEconomySystem({
-    world,
-    colony,
-    rng,
-    spawnFoodCluster: () => { spawnCalls += 1; },
-    bootFoodTotal: 100,
-    reservePerAnt: 12,
-    minReserve: 300,
-  });
-
-  colony.foodStored = 50; // 50 < 300 floor → famine
-  fes.update({ tick: 0 });
-  assert.equal(spawnCalls, 1, 'one drop when stored food is below the floor');
+  const { fes } = makeFes(() => { spawnCalls += 1; }, { minSurfacePellets: 200 });
+  fes.update({ foodPellets: freePellets(10) }); // 10 < 200 floor → famine
+  assert.equal(spawnCalls, 1, 'one drop when free surface pellets are below the floor');
 });
 
-test('FoodEconomySystem cooldown bounds the supply rate under sustained famine', () => {
-  const rng = new SeededRng('fes-cooldown');
-  const world = new World(160, 100);
-  world.setNest(80, 50);
-  const colony = new Colony(world, rng, 10);
-
+test('FoodEconomySystem respawn is self-limiting — a drop lifts the count back over the floor', () => {
+  // The model has no cooldown; it is bounded because each drop adds bootFoodTotal/4
+  // free pellets. Once those exist on the surface the count is back above the floor
+  // and no further drop fires — the surface count, not a timer, caps the supply.
   let spawnCalls = 0;
-  const fes = new FoodEconomySystem({
-    world,
-    colony,
-    rng,
-    spawnFoodCluster: () => { spawnCalls += 1; },
-    bootFoodTotal: 100,
-    reservePerAnt: 12,
-    minReserve: 300,
-    dropCooldownTicks: 60,
-  });
+  let lastCount = 0;
+  const { fes } = makeFes((x, y, r, count) => { spawnCalls += 1; lastCount = count; },
+    { bootFoodTotal: 800, minSurfacePellets: 200 });
 
-  colony.foodStored = 0; // sustained famine
-  for (let t = 0; t < 121; t += 1) fes.update({ tick: t });
+  fes.update({ foodPellets: freePellets(10) }); // famine → drop
+  assert.equal(spawnCalls, 1, 'first famine tick drops');
+  assert.equal(lastCount, 200, 'cluster is a quarter of bootFoodTotal (800/4)');
 
-  // Drops only at t=0, 60, 120 — the cooldown caps supply rate (vs the old
-  // "spawn every tick" behavior that flooded the surface).
-  assert.equal(spawnCalls, 3, `cooldown caps drops to one per 60 ticks (got ${spawnCalls})`);
+  // Simulate the dropped cluster now existing as free surface pellets (10 + 200).
+  fes.update({ foodPellets: freePellets(10 + lastCount) });
+  assert.equal(spawnCalls, 1, 'count back above the floor → no second drop (self-limiting)');
 });
