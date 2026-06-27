@@ -191,6 +191,18 @@ export function sanitizeTickConfig(config = {}) {
     nestEatCooldownTicks: clampPositiveInt(config.nestEatCooldownTicks, 30),
     trailGravitationMinTrail: clampNonNegativeNumber(config.trailGravitationMinTrail, 0.5),
     trailGravitationMax: clampNonNegativeNumber(config.trailGravitationMax, 4.0),
+
+    // Depletion-reactive decay (ON by default since v0.47.0). depletionReactive is
+    // a plain flag; the rest are guarded so a partial config can't NaN-poison the
+    // harvest field or the extra-evaporation multiplier. Fallbacks match the
+    // shipped getDefaultConfig() values (Phase 0 rule: no silent physics drift).
+    depletionReactive: config.depletionReactive === undefined ? true : Boolean(config.depletionReactive),
+    harvestRadius: clampFiniteRangeNumber(config.harvestRadius, 10, 0, 64),
+    harvestDeposit: clampNonNegativeNumber(config.harvestDeposit, 1.0),
+    harvestMaxClamp: Math.max(1e-6, clampNonNegativeNumber(config.harvestMaxClamp, 2.0)),
+    evapHarvest: clampNonNegativeNumber(config.evapHarvest, 0.5),
+    harvestProtectRef: Math.max(1e-6, clampNonNegativeNumber(config.harvestProtectRef, 0.2)),
+    depletionDecayBoost: clampNonNegativeNumber(config.depletionDecayBoost, 0.3),
   };
 }
 

@@ -1,28 +1,32 @@
 # Pheromone Foraging Strategy & Experiment Log
 
 **Maintained by:** Claude Code
-**Last updated:** 2026-06-08 (through v0.45.1)
+**Last updated:** 2026-06-27 (through v0.47.0)
 **Scope:** food/recruitment pheromone trails — `src/sim/ant/steering.js`
 (`moveByPheromone`), `src/sim/ant/decisions.js` (trail deposit + pickup),
-`src/sim/world.js` (`updatePheromones` evap/diffusion), config in
-`src/ui/params.js` (`getDefaultConfig`) + `src/main.js`.
+`src/sim/world.js` (`updatePheromones` evap/diffusion + depletion-reactive decay),
+config in `src/ui/params.js` (`getDefaultConfig`) + `src/main.js`.
 
 > **Purpose of this file:** record what has been *tried and measured* so we do
 > not re-run experiments that already failed. Before proposing a pheromone
-> change, check the "What FAILED" table first. Current status: **better than it
-> was, but still needs work** — at the shipped vision radius (18) trails are only
-> roughly break-even vs no-trails, and convergence is partial.
+> change, check the "What FAILED" table first. Current status: **trails are now
+> net-positive at the shipped vision radius (18)** as of v0.47.0 (depletion-reactive
+> decay) — the first time. Convergence is good; the residual cost is a few extra
+> points of carrier circling.
 
 ---
 
 ## TL;DR current state
 
 - Trails were historically **net-negative** for foraging (a bug, not a feature).
-- They are now roughly **break-even-to-slightly-positive**, converge into visible
-  corridors, and no longer trap carriers in death spirals.
-- The biggest remaining lever is **`foodVisionRadius`**: trails only *beat*
-  no-trails at vision ≥ ~22; the current default is 18 (a user preference), where
-  trails are ~7% below no-trails but visually converged and stable.
+- As of **v0.47.0** they are **net-positive at vision 18** (+0.5% trailGain vs
+  no-trails, 12 seeds × 5000) and — for the first time — beat no-trails on
+  *pickups* (discovery), thanks to **depletion-reactive decay** (see WORKS #4).
+- They converge into visible corridors and no longer trap carriers in death
+  spirals (though depletion-reactive decay costs ~+3pt circling vs the prior tune).
+- `foodVisionRadius` still helps trails monotonically; the default is 18 (a user
+  preference). The old "trails only beat no-trails at vision ≥22" ceiling no
+  longer holds — depletion-reactive decay clears it at 18.
 
 ---
 
@@ -81,11 +85,33 @@ searchers keep exploring (convergence at no discovery cost).
   baseline. Gain **0.4** is the measured sweet spot (0.3 wavers, ≥0.5 and/or
   radius 4 re-introduce circling).
 
+### 4. Depletion-reactive decay — `depletionReactive` (v0.47.0, ON by default)
+A successful pickup paints a decaying **harvest disk** (`world.harvest`, radius
+`harvestRadius` 10, `harvestDeposit` 1.0, clamp 2.0) at the food source. Each tick
+`toFood` gets **extra evaporation scaled by the *absence* of nearby harvest**
+(`depletionDecayBoost` 0.3 × `(1 − min(1, harvest/harvestProtectRef 0.2))`). A live
+source is re-painted every pickup, so its corridor stays protected and is
+reinforced by carrier deposits; once a source is exhausted its harvest zone fades
+(`evapHarvest` 0.5) and that corridor — no longer reinforced — collapses several
+times faster than baseline, retracting from the dead tip inward. Code:
+`world.js` `paintHarvest` + `#applyDepletionDecay`, deposit hook in `decisions.js`.
+- **Effect (12 seeds × 5000, vision 18, same-seed ON vs OFF):** **first net-positive
+  result at vision 18** — trailGain −3.6% → **+0.5%** (ON nutrition 31997 → 33370,
+  OFF held identical), and the **first time pickups ON ≥ OFF** (848→**890** vs 880),
+  i.e. the Phase 2 win condition. PR 1006 → **692** (converged).
+- **Dose is everything — gentle only.** Same mechanism at `depletionDecayBoost` 1.0
+  is **−8.6%** and triples circling: it shreds corridors into fragmented stubs
+  faster than carriers reinforce them, recreating the death-spiral pathology. At
+  0.3 carrier reinforcement wins the race so only genuinely-dead trails retract.
+  See the FAILED table ("Aggressive depletion-reactive decay").
+- **Residual cost:** ~+3pt carrier circling (6.7% → 9.6% of carry-ticks) vs the
+  prior tune — accepted as the price of the throughput + convergence win.
+
 ### Other settled facts that help
 - **Wider vision helps trails, narrow vision hurts them.** trailGain (ON vs OFF)
   rose monotonically with `foodVisionRadius`: 8→−16%, 12→−7%, 16→−4%, 24→+9%.
   Rich-source recruitment needs ≥3 pellets visible at once, which low vision
-  rarely provides. (Default is 18 by user choice; ~break-even.)
+  rarely provides. (Default is 18 by user choice; net-positive since v0.47.0.)
 
 ---
 
@@ -98,6 +124,7 @@ searchers keep exploring (convergence at no discovery cost).
 | **`followAlpha` sharpening for convergence** | only −8% PR, costs −11% nutrition | Acts on searchers too → over-commits them to one trail → kills exploration. |
 | **Diffusion bump (`diffFood` ↑) to merge parallel trails** | PR went UP (more fragmented), nutrition flat/down | Diffusion *spreads* mass outward; it does not focus it into a corridor. |
 | **High gravitation gain (≥0.5, or radius 4) to maximize convergence** | re-introduces death spirals (circling > baseline) | Aggressive lateral pull recreates the backward-orbit pathology. |
+| **Aggressive depletion-reactive decay** (`depletionDecayBoost` 1.0, the original default) | trailGain −8.6% (worse than the −3.6% baseline), pickups DOWN, circling tripled (4.8%→13%) | The extra `toFood` evaporation outpaces carrier reinforcement, shredding even live corridors into fragmented stubs that carriers orbit. The *gentle* version (boost 0.3) is the shipped win — see WORKS #4. Convergence (PR collapsed to ~300) is NOT a goal in itself; it cost discovery and throughput, exactly like every other over-convergence tactic here. |
 | **Anti-stall escape hatch** (suppress gravitation for carriers making no homeward progress) | redundant — no measurable benefit over the homeward filter alone | The homeward filter already prevents the orbit mechanism; the stall code was deleted. |
 | **Lower `headingBias` to free up trail recruitment** (sweep 0.40→0.10, 6 seeds×5000 via `bench/forage-ab.mjs`) | tiny relative gain, real absolute loss. trailGain best near 0.20 (−8.6% vs −10.2% @ 0.40) but inside seed noise; absolute pickups fell 832→764→609 and nutrition 30937→23254 as bias dropped, colony shrank 238→194. 0.10 is clearly worst (−19.8%). | headingBias's main job is keeping searchers committed to a heading so they COVER GROUND and discover food — not anti-recruitment. Lowering it just makes searchers wander and discover less in BOTH conditions. The −10% trailGain is structural (the gait multiplier blocks turns onto a crossed trail), not a headingBias artifact. Shipped 0.40 gives the best absolute throughput. |
 | **Carry-duration as a spiral metric** | could not distinguish spirals from unlucky long routes (identical with gravitation off) | A spiral is *moving without displacing*; measure net displacement over a window instead. |
@@ -106,18 +133,23 @@ searchers keep exploring (convergence at no discovery cost).
 
 ## Known limitations / why it "still needs work"
 
-1. **Net-negative at the shipped vision (18).** Trails gather ~5% less than
-   no-trails at vision 18 (trailGain −4.8%, 6 seeds×5000 via `bench/forage-ab.mjs`,
-   measured after the bug #8 no-flux fix improved it from ~−10%). They beat
-   no-trails only at higher vision. So today trails are mostly a *visual/behavioral*
-   feature at a few % throughput cost. Raising vision toward 22–24 would likely make
-   them net-positive — untested *in combination with* gravitation + the bug #8 fix.
-2. **Convergence is partial.** Spiral-safe gravitation lands at PR ~726, not the
-   PR ~343 of the (spiral-prone) unconstrained version. Maximum convergence and
-   spiral-safety are in tension because tight merging needs backward pulls.
-3. **The environment fights persistent trails.** Depleting + relocating food
+1. **~~Net-negative at the shipped vision (18).~~ RESOLVED in v0.47.0.** Trails are
+   now net-positive at vision 18 (trailGain +0.5%, 12 seeds×5000) via depletion-reactive
+   decay (WORKS #4). The gain is small and inside the per-seed noise band on any
+   single seed, but it is consistent on identical-seed ON-vs-OFF (OFF held byte-identical)
+   and the pickups-ON≥OFF crossing is the firmer signal. Higher vision still helps
+   further if the user ever raises it.
+2. **Residual carrier circling.** Depletion-reactive decay costs ~+3pt circling
+   (6.7%→9.6% of carry-ticks) — the throughput win's price. It is far below the
+   boost-1.0 pathology (13%) but above the prior gravitation-only tune. If circling
+   becomes visually objectionable, the lever is `depletionDecayBoost` (lower) or
+   `harvestProtectRef`/`harvestRadius` (wider protection lowered it to 2.8% on 6 seeds).
+3. **Convergence vs spiral-safety tension (unchanged).** Tight merging needs
+   backward pulls, which is what trades off against circling.
+4. **The environment fights persistent trails.** Depleting + relocating food
    clusters mean any long-lived corridor decays into a pointer at a dead source.
-   Everything that works does so by making trails *transient and discovery-led*.
+   Everything that works does so by making trails *transient and discovery-led* —
+   depletion-reactive decay (WORKS #4) is the most direct expression of this.
 
 ## Phase 2 finding (characterized) — "stronger recruitment" is the wrong lever
 

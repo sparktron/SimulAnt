@@ -38,6 +38,14 @@ export class World {
     this.toHome = new Float32Array(this.size);
     this.danger = new Float32Array(this.size);
 
+    // Harvest field (config.depletionReactive): a decaying "recent foraging
+    // success" map. A successful pickup paints a disk here; the field then
+    // accelerates toFood evaporation everywhere it is ABSENT, so a corridor to an
+    // exhausted source (no longer re-painted) collapses fast while a live source's
+    // corridor stays protected. Transient + sparse like the pheromone fields.
+    this.harvest = new Float32Array(this.size);
+    this._activeHarvest = [];
+
     // Double-buffer for pheromone updates: read from src, write to next, then swap
     this._toFoodNext = new Float32Array(this.size);
     this._toHomeNext = new Float32Array(this.size);
@@ -124,6 +132,17 @@ export class World {
   depositDanger(idx, amount, clampMax = Infinity) {
     this.danger[idx] = Math.min(clampMax, this.danger[idx] + amount);
     this._activeDanger.push(idx);
+  }
+
+  // Paint a disk of harvest "success" centered on a pickup. Only newly-activated
+  // cells (0 -> non-zero) are pushed to the active list, so it stays dup-free;
+  // re-painting a live source just tops up existing cells. See updatePheromones'
+  // depletion-reactive decay.
+  paintHarvest(cx, cy, radius, amount, clampMax) {
+    this.paintCircle(cx, cy, radius, (idx) => {
+      if (this.harvest[idx] === 0) this._activeHarvest.push(idx);
+      this.harvest[idx] = Math.min(clampMax, this.harvest[idx] + amount);
+    });
   }
 
   // Rebuild the live active lists by scanning the fields. Used after a bulk load
@@ -282,6 +301,7 @@ export class World {
       this._activeFood.length = 0; this._activeFoodScratch.length = 0;
       this._activeHome.length = 0; this._activeHomeScratch.length = 0;
       this._activeDanger.length = 0; this._activeDangerScratch.length = 0;
+      this.harvest.fill(0); this._activeHarvest.length = 0;
       return;
     }
     const dt = config.tickSeconds || 1 / 30;
@@ -316,6 +336,47 @@ export class World {
     this._activeFoodScratch = this._activeFood; this._activeFood = nf;
     this._activeHomeScratch = this._activeHome; this._activeHome = nh;
     this._activeDangerScratch = this._activeDanger; this._activeDanger = nd;
+
+    // Depletion-reactive decay: collapse food trails that no longer lead to a
+    // live source. Runs after the swap so it acts on the fresh toFood buffer and
+    // its active list. Off by default (opt-in experiment).
+    if (config.depletionReactive) this.#applyDepletionDecay(config, dt);
+  }
+
+  // Evolve the harvest field (decay) and apply EXTRA toFood evaporation wherever
+  // harvest is absent. A live source is re-painted every pickup, so its corridor
+  // stays protected (protection ~1, no extra decay) and is reinforced by carrier
+  // deposits; once a source is exhausted its harvest zone fades over tens of ticks
+  // and that corridor — no longer reinforced — collapses several times faster than
+  // baseline evaporation, retracting from the dead tip inward. See
+  // docs/pheromone-strategy.md (future direction #2).
+  #applyDepletionDecay(config, dt) {
+    // 1. Decay the harvest field over its (dup-free) active list.
+    const harvestLambda = Math.max(0, config.evapHarvest ?? 0.5) * dt;
+    const harvestKeep = Math.max(0, 1 - harvestLambda);
+    const harvest = this.harvest;
+    const survivors = [];
+    for (let k = 0; k < this._activeHarvest.length; k += 1) {
+      const idx = this._activeHarvest[k];
+      const v = harvest[idx] * harvestKeep;
+      if (v < 1e-4) { harvest[idx] = 0; } else { harvest[idx] = v; survivors.push(idx); }
+    }
+    this._activeHarvest = survivors;
+
+    // 2. Apply extra toFood evaporation scaled by ABSENCE of nearby harvest.
+    const protectRef = Math.max(1e-6, config.harvestProtectRef ?? 0.5);
+    const boost = Math.max(0, config.depletionDecayBoost ?? 1.0) * dt;
+    if (boost === 0) return;
+    const toFood = this.toFood;
+    for (let k = 0; k < this._activeFood.length; k += 1) {
+      const idx = this._activeFood[k];
+      const protection = Math.min(1, harvest[idx] / protectRef);
+      const extra = boost * (1 - protection);
+      // extra < 1, so the cell stays strictly positive — it remains a valid
+      // active-list entry and is snapped to 0 by the normal field update once it
+      // crosses the evaporation threshold, exactly like baseline decay.
+      if (extra > 0) toFood[idx] *= (1 - extra);
+    }
   }
 
   // Flat 1/0 passability per cell, matching isPassable() exactly. Cached and

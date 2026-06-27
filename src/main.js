@@ -213,6 +213,17 @@ const state = {
     // sweepable in headless A/B runs. Values equal the prior fallbacks.
     trailGravitationMinTrail: 0.5,
     trailGravitationMax: 4.0,
+    // Depletion-reactive decay (ON by default since v0.47.0): a pickup paints a
+    // harvest disk; toFood evaporates faster where harvest is absent, so trails to
+    // exhausted sources collapse while live corridors stay protected. Gentle dose
+    // (boost 0.3, not 1.0) is what makes it a win — see docs/pheromone-strategy.md.
+    depletionReactive: true,
+    harvestRadius: 10,
+    harvestDeposit: 1.0,
+    harvestMaxClamp: 2.0,
+    evapHarvest: 0.5,
+    harvestProtectRef: 0.2,
+    depletionDecayBoost: 0.3,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,

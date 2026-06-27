@@ -625,6 +625,21 @@ export function getDefaultConfig() {
     // lateral pull. See docs/pheromone-strategy.md.
     trailGravitationMinTrail: 0.5,
     trailGravitationMax: 4.0,
+    // Depletion-reactive decay (ON by default since v0.47.0): collapse food trails
+    // to exhausted sources fast while protecting live ones. A pickup paints a
+    // harvest disk (radius/deposit/clamp); harvest decays at evapHarvest; toFood
+    // gets up to depletionDecayBoost extra evaporation where harvest < protectRef.
+    // Gentle dose is critical — boost 1.0 shreds corridors into spirals (−8.6%),
+    // boost 0.3 lets carrier reinforcement win so only dead trails retract. First
+    // mechanism to make trails net-positive at vision 18 (+0.5% trailGain, pickups
+    // ON≥OFF, 12 seeds). See docs/pheromone-strategy.md.
+    depletionReactive: true,
+    harvestRadius: 10,
+    harvestDeposit: 1.0,
+    harvestMaxClamp: 2.0,
+    evapHarvest: 0.5,
+    harvestProtectRef: 0.2,
+    depletionDecayBoost: 0.3,
     debugSteeringContributions: false,
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,

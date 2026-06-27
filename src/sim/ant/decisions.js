@@ -248,6 +248,17 @@ export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pe
         ant._recruitBudget = abundantFood ? (config.recruitRichBudget ?? 1.6) : 1;
       }
       colony.removePelletById(pellet.id);
+      // Depletion-reactive decay: mark a live foraging zone at the pickup so the
+      // corridor leading here stays protected from the extra toFood evaporation
+      // (opt-in; default off). See world.#applyDepletionDecay.
+      if (config.depletionReactive) {
+        world.paintHarvest(
+          pellet.x, pellet.y,
+          config.harvestRadius ?? 6,
+          config.harvestDeposit ?? 1.0,
+          config.harvestMaxClamp ?? 2.0,
+        );
+      }
       ant.state = 'PICKUP';
       navigation.aimThetaAtEntrance(ant, colony);
     }
