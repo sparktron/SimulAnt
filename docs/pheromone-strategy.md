@@ -106,6 +106,21 @@ times faster than baseline, retracting from the dead tip inward. Code:
   See the FAILED table ("Aggressive depletion-reactive decay").
 - **Residual cost:** ~+3pt carrier circling (6.7% → 9.6% of carry-ticks) vs the
   prior tune — accepted as the price of the throughput + convergence win.
+- **Parameter sweep (v0.48.x, `bench/forage-sweep.mjs`, shared-OFF baseline) — the
+  shipped point is optimal; do NOT re-sweep.** 12-config OFAT at 6 seeds then a
+  12-seed confirmation of the top contenders. The shipped config (boost 0.3,
+  protectRef 0.2, radius 10, evapHarvest 0.5) is the **only** config that is both
+  net-positive trailGain AND clears pickups ON≥OFF at 12 seeds. Findings:
+  - **More-aggressive decay is worse** (boost 0.4 −7.7%; protectRef 0.1 −9.5%;
+    evapHarvest 1.0 −9.3%) — all spike circling to ~12% (the spiral pathology).
+  - **More-protection is also worse on throughput** (protectRef 0.5 −0.9%/pickups −5;
+    evapHarvest 0.25 −12.3%, colony shrank to 222 ants) — over-protected trails
+    persist toward dead sources. It DOES cut circling (protectRef 0.5 → 5.4%), so
+    protectRef 0.5 is the lever IF circling ever looks visually bad, at the cost of
+    the net-positive/pickups win.
+  - Optimum sits in a narrow basin; both directions fall off steeply. The earlier
+    `boost 0.3 / protectRef 0.2` choice was not luck. (6-seed ranking was noise:
+    protectRef 0.5 looked best at 6 seeds, −0.9% at 12 — trust 12-seed only.)
 
 ### Other settled facts that help
 - **Wider vision helps trails, narrow vision hurts them.** trailGain (ON vs OFF)
