@@ -224,7 +224,6 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
     diffIntervalTicks: 0,
     homeDepositIntervalTicks: 0,
     hazardDeathChance: 5,
-    randomTurnChance: -0.1,
     walkRho: 2,
     walkSigma: Number.NaN,
     walkMaxTurnRate: -2,
@@ -254,7 +253,6 @@ test('tick config sanitization clamps ant and colony safety-critical knobs', () 
   assert.equal(safe.diffIntervalTicks, 1);
   assert.equal(safe.homeDepositIntervalTicks, 1);
   assert.equal(safe.hazardDeathChance, 1);
-  assert.equal(safe.randomTurnChance, 0);
   assert.equal(safe.walkRho, 1);
   assert.equal(safe.walkSigma, 0.05);
   assert.equal(safe.walkMaxTurnRate, 0.45);
@@ -298,7 +296,6 @@ test('deterministic regression survives unsafe external config inputs via saniti
   unsafeConfig.diffIntervalTicks = 0;
   unsafeConfig.homeDepositIntervalTicks = 0;
   unsafeConfig.hazardDeathChance = 9;
-  unsafeConfig.randomTurnChance = -5;
   unsafeConfig.soldierSpawnChance = 7;
 
   const runA = new SimulationCore('determinism-unsafe-seed');

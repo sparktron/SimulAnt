@@ -101,7 +101,6 @@ export function sanitizeTickConfig(config = {}) {
     digRecruitRadius: clampFiniteRangeNumber(config.digRecruitRadius, 16, 4, 32),
     digWorkersPerFront: Math.floor(clampFiniteRangeNumber(config.digWorkersPerFront, 4, 1, 24)),
 
-    randomTurnChance: clamp01(config.randomTurnChance, 0),
     wanderNoise: clampNonNegativeNumber(config.wanderNoise, 0),
     walkRho: clamp01(config.walkRho, 0.75),
     walkSigma: clampRangeNumber(config.walkSigma, 0.05, 0, 0.2),
@@ -164,7 +163,6 @@ export function sanitizeTickConfig(config = {}) {
     nearEntranceScatterRadius: clampNonNegativeNumber(config.nearEntranceScatterRadius, 0),
     foodTrailDistanceScale: clampNonNegativeNumber(config.foodTrailDistanceScale, 1.0),
     foodDepositMinDistance: clampFiniteRangeNumber(config.foodDepositMinDistance, 8, 0, 200),
-    foodTrailDecayPerStep: clamp01(config.foodTrailDecayPerStep, 0.92),
     maxFoodTrailScale: Math.max(1, clampNonNegativeNumber(config.maxFoodTrailScale, 4.0)),
     homeScentBaseWeight: clampNonNegativeNumber(config.homeScentBaseWeight, 1),
     homeScentSearchStateScale: clampNonNegativeNumber(config.homeScentSearchStateScale, 1),

@@ -270,8 +270,9 @@ export class Ant {
       }
     }
 
-    // randomTurnChance is superseded by the correlated random walk in
-    // #updateWanderHeading; the memoryless random-kick is intentionally removed.
+    // Wander is the correlated random walk in #updateWanderHeading; the old
+    // memoryless random-kick (the removed randomTurnChance knob) is intentionally
+    // not reinstated here.
   }
 
   /**

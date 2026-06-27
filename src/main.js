@@ -63,9 +63,6 @@ const state = {
     depositHome: 0.15,
     dangerDeposit: 0.3,
     hazardDeathChance: 0.02,
-    foodPickupRate: 0.7,
-    digChance: 0.04,
-    digEnergyCost: 8,
     digHomeBoost: 0.9,
     digRecruitRadius: 16,
     digWorkersPerFront: 4,
@@ -132,7 +129,6 @@ const state = {
     // lost the recruitment benefit.
     followBeta: 4.0,
     wanderNoise: 0.02,
-    randomTurnChance: 0.02,
     momentumBias: 0.3,
     reversePenalty: 0.9,
     // Promoted from a code-only `?? 1.25` fallback in steering.js.
@@ -148,7 +144,6 @@ const state = {
     // would pull new searchers right back to the entrance.
     foodDepositMinDistance: 8,
     trailLockThreshold: 1.0,
-    foodTrailDecayPerStep: 0.92,
     // Modest distance scaling — 1.0 at entrance, up to 1.8 ≥16 tiles out.
     // Steeper scales (v0.26.6's 2.5) combined with bigger deposits created
     // sticky stale corridors. The remaining 1.8× boost still produces a

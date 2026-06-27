@@ -91,18 +91,14 @@ test('every code-only `config.X ?? default` knob is exposed in getDefaultConfig'
 // experiments (see docs/pheromone-strategy.md).
 // ---------------------------------------------------------------------------
 const KNOWN_UNWIRED = {
-  // Vestigial economy knobs that were never implemented.
-  digChance: 'never implemented; candidate for removal',
-  digEnergyCost: 'never implemented; candidate for removal',
-  foodPickupRate: 'never implemented; candidate for removal',
-  // Superseded behaviors.
-  soldierSpawnChance: 'brood soldier path reworked; knob no longer read',
-  randomTurnChance: 'superseded by the correlated random walk (walk* params)',
+  // Consumed only in the UI / debug layer (main.js), which the wired-scan treats
+  // as a declaration file — so these read as "unwired" by the sim-core scan but
+  // are NOT dead. Do NOT remove without also removing their main.js consumers.
+  soldierSpawnChance: 'written by the caste-allocation slider (main.js); not read by sim core',
+  debugSteeringContributions: 'gates the main.js steering-debug logger (maybeLogSteeringDebug); off by default',
+  debugSteeringLogIntervalTicks: 'interval for the main.js steering-debug logger',
+  // Deliberate steering-experiment stub — keep for future re-wiring.
   momentumBias: 'stubbed to 0 in steering.js; re-wiring is a steering experiment',
-  foodTrailDecayPerStep: 'superseded by adaptive recruitment decay (recruitDecayPerStep)',
-  // Debug instrumentation that was removed from the steering path.
-  debugSteeringContributions: 'steering debug path removed; knob no longer read',
-  debugSteeringLogIntervalTicks: 'steering debug path removed; knob no longer read',
 };
 
 test('every orphaned default is registered in KNOWN_UNWIRED (and vice versa)', () => {
