@@ -135,12 +135,10 @@ export function sanitizeTickConfig(config = {}) {
     queenSuccessionDelayTicks: clampPositiveInt(config.queenSuccessionDelayTicks, 150, 0),
     queenSuccessionFoodCost: clampNonNegativeNumber(config.queenSuccessionFoodCost, 60),
     queenSuccessionMinHealthFraction: clamp01(config.queenSuccessionMinHealthFraction, 0.5),
-    // Food respawn (FoodEconomySystem): drop fresh food when stored food falls
-    // below max(foodMinReserve, ants * foodReservePerAnt); a cooldown bounds the
-    // supply rate. See docs/starvation-collapse-rca-2026-06-02.md.
-    foodReservePerAnt: clampNonNegativeNumber(config.foodReservePerAnt, 40),
-    foodMinReserve: clampNonNegativeNumber(config.foodMinReserve, 300),
-    foodRespawnCooldownTicks: clampPositiveInt(config.foodRespawnCooldownTicks, 60, 1),
+    // Food respawn (FoodEconomySystem, v0.43.3 surface-count-gated): drop fresh
+    // food when free (unclaimed) surface pellets fall below minSurfacePellets.
+    // See docs/starvation-collapse-rca-2026-06-02.md.
+    minSurfacePellets: clampPositiveInt(config.minSurfacePellets, 200, 0),
     broodFoodDrainRate: clampNonNegativeNumber(config.broodFoodDrainRate, 0),
     broodGestationSeconds: clampNonNegativeNumber(config.broodGestationSeconds, 1),
     larvaeCrowdingThreshold: Math.floor(clampFiniteRangeNumber(config.larvaeCrowdingThreshold, 8, 0, 100)),

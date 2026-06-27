@@ -95,11 +95,6 @@ const KNOWN_UNWIRED = {
   digChance: 'never implemented; candidate for removal',
   digEnergyCost: 'never implemented; candidate for removal',
   foodPickupRate: 'never implemented; candidate for removal',
-  // Orphaned when FoodEconomySystem moved to surface-count-gated drops
-  // (config.minSurfacePellets). Likely related to the failing food-economy tests.
-  foodReservePerAnt: 'superseded by surface-count-gated respawn; candidate for removal',
-  foodMinReserve: 'superseded by surface-count-gated respawn; candidate for removal',
-  foodRespawnCooldownTicks: 'superseded by surface-count-gated respawn; candidate for removal',
   // Superseded behaviors.
   soldierSpawnChance: 'brood soldier path reworked; knob no longer read',
   randomTurnChance: 'superseded by the correlated random walk (walk* params)',
