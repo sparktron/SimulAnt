@@ -6,6 +6,8 @@
 (`moveByPheromone`), `src/sim/ant/decisions.js` (trail deposit + pickup),
 `src/sim/world.js` (`updatePheromones` evap/diffusion + depletion-reactive decay),
 config in `src/ui/params.js` (`getDefaultConfig`) + `src/main.js`.
+**See also:** `docs/2026-06-27-depletion-reactive-and-config-cleanup.md` — full
+session report (depletion-reactive decay derivation, param sweep, config cleanup).
 
 > **Purpose of this file:** record what has been *tried and measured* so we do
 > not re-run experiments that already failed. Before proposing a pheromone

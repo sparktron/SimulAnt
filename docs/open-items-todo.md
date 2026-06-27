@@ -32,3 +32,20 @@
 
 9. **Improve dev server path safety**
    - Sanitize request paths in `server.js` to prevent accidental path traversal during local hosting.
+
+10. **Harden the config-integrity invisible-knob check for optional chaining**
+    - `test/config-integrity.test.mjs` Test 1 regex `config\.X ??` misses `config?.X ??`.
+      `minSurfacePellets` stayed invisible because of this (fixed 2026-06-27). A new
+      `config?.`-read knob would slip the guard. See
+      `docs/2026-06-27-depletion-reactive-and-config-cleanup.md` Part 3.
+
+11. **Remove stale fixture keys for swept config params**
+    - Several `test/*.mjs` config fixtures still list removed params (`digChance`,
+      `foodPickupRate`, `randomTurnChance`, etc.) as inert extra keys. Harmless; churn to remove.
+
+## Pheromone roadmap (next forward lever)
+
+12. **Two-pheromone recruitment** (`docs/pheromone-strategy.md` future-direction #3)
+    - De-risked by depletion-reactive decay (v0.47.0): trails now point at live sources,
+      so strengthening recruitment may finally be safe (was a trap — see Phase 2 finding).
+    - Gate on `bench/forage-ab.mjs`; win condition is pickups ON ≥ OFF.
