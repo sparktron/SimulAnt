@@ -25,23 +25,19 @@ import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 const TICKS = Number(process.argv[2]) || 5000;
 const SEED_COUNT = Number(process.argv[3]) || 6;
 
-const D = (o) => ({ depletionReactive: true, ...o }); // depletion-on shorthand
+// Dual-mode shorthand (depletion-reactive route channel stays ON via defaults;
+// dualPheromone adds the recruitment channel on top).
+const DUAL = (o) => ({ dualPheromone: true, ...o });
 
-// The sweep. OFF is the shared baseline; "trails,noDepl" isolates the trail
-// machinery without depletion decay; the rest are OFAT around the shipped point.
 const CONFIGS = [
-  { name: 'OFF',              ov: { enablePheromones: false } },
-  { name: 'trails,noDepl',    ov: { depletionReactive: false } },
-  { name: 'shipped(.3/.2/10)', ov: D({}) },
-  { name: 'boost0.2',         ov: D({ depletionDecayBoost: 0.2 }) },
-  { name: 'boost0.4',         ov: D({ depletionDecayBoost: 0.4 }) },
-  { name: 'protectRef0.1',    ov: D({ harvestProtectRef: 0.1 }) },
-  { name: 'protectRef0.3',    ov: D({ harvestProtectRef: 0.3 }) },
-  { name: 'protectRef0.5',    ov: D({ harvestProtectRef: 0.5 }) },
-  { name: 'radius6',          ov: D({ harvestRadius: 6 }) },
-  { name: 'radius14',         ov: D({ harvestRadius: 14 }) },
-  { name: 'evapHarvest0.25',  ov: D({ evapHarvest: 0.25 }) },
-  { name: 'evapHarvest1.0',   ov: D({ evapHarvest: 1.0 }) },
+  { name: 'OFF',                ov: { enablePheromones: false } },
+  { name: 'single(shipped)',    ov: {} },                                   // the bar to beat
+  { name: 'dual-rich',          ov: DUAL({}) },                             // rich-only (new default gate)
+  { name: 'dual-rich,follow2',  ov: DUAL({ recruitFollowWeight: 2.0 }) },   // rich → stronger pull may be safe now
+  { name: 'dual-rich,follow4',  ov: DUAL({ recruitFollowWeight: 4.0 }) },
+  { name: 'dual-rich,deposit4', ov: DUAL({ depositRecruit: 4.0 }) },
+  { name: 'dual-rich,diff0.15', ov: DUAL({ diffRecruit: 0.15 }) },
+  { name: 'dual-allpickups',    ov: DUAL({ recruitRichOnly: false }) },     // old un-gated behavior (control)
 ];
 
 const CIRCLE_WINDOW = 30;

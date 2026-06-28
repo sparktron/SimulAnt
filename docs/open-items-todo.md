@@ -45,11 +45,11 @@
 
 ## Pheromone roadmap (next forward lever)
 
-12. **Two-pheromone recruitment** (`docs/pheromone-strategy.md` future-direction #3)
-    - De-risked by depletion-reactive decay (v0.47.0): trails now point at live sources,
-      so strengthening recruitment may finally be safe (was a trap — see Phase 2 finding).
-    - ✅ Scaffold shipped v0.49.0 behind `config.dualPheromone` (default off, single mode
-      byte-identical). `world.recruit` field, burst-on-pickup, searcher-read, 4 params.
-    - ⏭️ NEXT: A/B single vs dual + tune recruit params (evapRecruit/diffRecruit/
-      depositRecruit/recruitFollowWeight) via `bench/forage-sweep.mjs`. Win condition:
-      pickups ON ≥ OFF, ideally beating single mode's +9. NOT yet measured.
+12. **Two-pheromone recruitment** (`docs/pheromone-strategy.md` future-direction #3) — ❌ TESTED, NET-NEGATIVE
+    - Scaffold shipped v0.49.0 (`config.dualPheromone`, default off); A/B'd v0.49.1.
+    - Loses to single mode at every tuning (12-seed: single +0.5%/+9 vs best dual
+      −3.8%…−6.1%/−26…−51). Rich-only gating (`recruitRichOnly`) didn't help.
+    - Root cause: recruitment amplifies EXPLOITATION; this sim's bottleneck is
+      EXPLORATION of relocating food. Moved to the FAILED table. Toggle kept (off) as
+      a scaffold for a future exploration-PRESERVING recruitment idea only.
+    - A real #3 would push searchers toward NET-NEW territory, not onto known food.

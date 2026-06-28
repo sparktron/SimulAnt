@@ -144,6 +144,7 @@ times faster than baseline, retracting from the dead tip inward. Code:
 | **Aggressive depletion-reactive decay** (`depletionDecayBoost` 1.0, the original default) | trailGain −8.6% (worse than the −3.6% baseline), pickups DOWN, circling tripled (4.8%→13%) | The extra `toFood` evaporation outpaces carrier reinforcement, shredding even live corridors into fragmented stubs that carriers orbit. The *gentle* version (boost 0.3) is the shipped win — see WORKS #4. Convergence (PR collapsed to ~300) is NOT a goal in itself; it cost discovery and throughput, exactly like every other over-convergence tactic here. |
 | **Anti-stall escape hatch** (suppress gravitation for carriers making no homeward progress) | redundant — no measurable benefit over the homeward filter alone | The homeward filter already prevents the orbit mechanism; the stall code was deleted. |
 | **Lower `headingBias` to free up trail recruitment** (sweep 0.40→0.10, 6 seeds×5000 via `bench/forage-ab.mjs`) | tiny relative gain, real absolute loss. trailGain best near 0.20 (−8.6% vs −10.2% @ 0.40) but inside seed noise; absolute pickups fell 832→764→609 and nutrition 30937→23254 as bias dropped, colony shrank 238→194. 0.10 is clearly worst (−19.8%). | headingBias's main job is keeping searchers committed to a heading so they COVER GROUND and discover food — not anti-recruitment. Lowering it just makes searchers wander and discover less in BOTH conditions. The −10% trailGain is structural (the gait multiplier blocks turns onto a crossed trail), not a headingBias artifact. Shipped 0.40 gives the best absolute throughput. |
+| **Two-pheromone recruitment** (separate short-lived recruit channel; `config.dualPheromone`, scaffold v0.49.0, A/B'd v0.49.1 via `bench/forage-sweep.mjs`) | net-NEGATIVE vs single mode at EVERY tuning. 12-seed: single +0.5%/pickups +9 vs best dual −3.8% to −6.1%/pickups −26 to −51. Stronger recruitment → monotonically worse (follow0.5 −37 → follow2 −142 pickups). Rich-source gating (`recruitRichOnly`) changed nothing (−85 vs −87 pickups un-gated) — falsified the "recruiting to depleted crumbs" hypothesis. | **The decisive lesson of this whole file.** This sim's bottleneck is *discovering relocating food*, i.e. EXPLORATION. Recruitment — to any source, fresh/rich or not — concentrates searchers on KNOWN clusters, trading exploration for exploitation; food depletes & respawns elsewhere, so that trade is always a loss. The "least-bad" dual config was the one that recruited LEAST (wide weak diff0.15); as recruitment→0, dual→single. Every win in this file (depletion-reactive decay) works by making trails LESS committal; recruitment is the opposite. The toggle/scaffold is kept (default off) for a future exploration-preserving recruitment idea, NOT because the current mechanism helps. |
 | **Carry-duration as a spiral metric** | could not distinguish spirals from unlucky long routes (identical with gravitation off) | A spiral is *moving without displacing*; measure net displacement over a window instead. |
 
 ---
@@ -210,15 +211,17 @@ the "failed" list.
 3. **Two-pheromone recruitment** (separate short-lived "recruitment" channel from
    the long-lived "route" channel), à la real ant trail vs. recruitment scents.
    Lets discovery spread fast without polluting the stable corridor field.
-   **STATUS: scaffold IMPLEMENTED v0.49.0 behind `config.dualPheromone` (default
-   off = single mode, byte-identical).** `world.recruit` field + `depositRecruit`,
-   burst on pickup (`decisions.js`), searcher-read (`steering.js`); params
-   `evapRecruit 0.6 / diffRecruit 0.08 / depositRecruit 2.0 / recruitFollowWeight 1.0`.
-   Plumbing + determinism verified (`test/dual-pheromone.test.mjs`). **NOT YET
-   tuned or A/B'd for foraging benefit** — that is the next phase. The toggle is a
-   dev scaffold: keep tuning the single path; flip `dualPheromone:true` to develop
-   the dual path. Win condition unchanged: pickups ON ≥ OFF, ideally by a wider
-   margin than single mode's marginal +9.
+   **STATUS: IMPLEMENTED v0.49.0, A/B'd v0.49.1 → NET-NEGATIVE. Moved to the
+   FAILED table.** Scaffold behind `config.dualPheromone` (default off = single,
+   byte-identical) is retained for a FUTURE exploration-preserving recruitment
+   idea, but the current mechanism loses to single mode at every tuning (12-seed:
+   single +0.5%/+9 pickups vs best dual −3.8%…−6.1%/−26…−51). Rich-only gating
+   (`recruitRichOnly`) didn't help. Root cause: recruitment amplifies EXPLOITATION
+   of known clusters, but this sim's bottleneck is EXPLORATION of relocating food —
+   see the FAILED table row for the full analysis. Do NOT re-run the basic
+   "recruit searchers toward finds" framing; a viable #3 would have to *preserve or
+   increase* exploration (e.g. recruit only NET-NEW sources, or use the channel to
+   PUSH searchers AWAY from saturated areas), not pull searchers onto known food.
 4. **Searcher trail-following with a strength threshold** (winner-take-all only
    above a high `trailLockThreshold`), so weak fragments are ignored but a genuine
    dominant corridor recruits — without the global over-commitment `followAlpha`

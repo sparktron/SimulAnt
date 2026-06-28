@@ -259,7 +259,7 @@ export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pe
           config.harvestMaxClamp ?? 2.0,
         );
       }
-      depositRecruitmentBurst(world, config, pellet.x, pellet.y);
+      depositRecruitmentBurst(world, config, pellet.x, pellet.y, abundantFood);
       ant.state = 'PICKUP';
       navigation.aimThetaAtEntrance(ant, colony);
     }
@@ -295,7 +295,7 @@ export function pickUpPelletHere(ant, world, colony, rng, config, context, pelle
       ant._recruitBudget = abundantFoodHere ? (config.recruitRichBudget ?? 1.6) : 1;
     }
     colony.removePelletById(pellet.id);
-    depositRecruitmentBurst(world, config, pellet.x, pellet.y);
+    depositRecruitmentBurst(world, config, pellet.x, pellet.y, abundantFoodHere);
     ant.state = 'PICKUP';
     navigation.aimThetaAtEntrance(ant, colony);
   }
@@ -306,8 +306,15 @@ export function pickUpPelletHere(ant, world, colony, rng, config, context, pelle
 // bursts short-lived recruitment scent at the find so nearby searchers are pulled
 // toward this LIVE source — without polluting the long-lived toFood corridor field.
 // Inert in single mode. See docs/pheromone-strategy.md future-direction #3.
-function depositRecruitmentBurst(world, config, x, y) {
+//
+// `abundant` = the source had ≥3 pellets visible at pickup. With
+// config.recruitRichOnly (default on) only abundant sources recruit — recruiting
+// to a single-crumb pickup just points searchers at a now-empty tile (the Phase 2
+// "stronger recruitment is a trap" failure, reproduced via the recruit channel in
+// the v0.49.0 A/B). Real ants likewise recruit hard only to rich finds.
+function depositRecruitmentBurst(world, config, x, y, abundant) {
   if (!config.dualPheromone) return;
+  if (config.recruitRichOnly && !abundant) return;
   world.depositRecruit(world.index(x, y), config.depositRecruit ?? 2.0, config.pheromoneMaxClamp ?? 150);
 }
 

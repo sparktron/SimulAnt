@@ -229,6 +229,7 @@ const state = {
     diffRecruit: 0.08,
     depositRecruit: 2.0,
     recruitFollowWeight: 1.0,
+    recruitRichOnly: true,
     // Phase 1: correlated random walk tuning constants (ant movement core).
     // These are calibrated for 1-tile/tick discrete movement.  The spec values
     // (sigma=0.35, meanderAmp=0.25) assume a continuous sub-tile step size;

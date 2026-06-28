@@ -207,6 +207,7 @@ export function sanitizeTickConfig(config = {}) {
     diffRecruit: clamp01(config.diffRecruit, 0.08),
     depositRecruit: clampNonNegativeNumber(config.depositRecruit, 2.0),
     recruitFollowWeight: clampNonNegativeNumber(config.recruitFollowWeight, 1.0),
+    recruitRichOnly: config.recruitRichOnly === undefined ? true : Boolean(config.recruitRichOnly),
   };
 }
 

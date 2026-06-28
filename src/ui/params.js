@@ -631,6 +631,8 @@ export function getDefaultConfig() {
     diffRecruit: 0.08,       // higher diffusion to spread fresh finds (toFood is ~0.02; must stay < 0.25)
     depositRecruit: 2.0,     // burst strength laid at a fresh pickup (used in dual mode)
     recruitFollowWeight: 1.0, // how strongly searchers steer up the recruit gradient (dual mode)
+    recruitRichOnly: true,   // only abundant (≥3-pellet) sources burst recruitment — recruiting
+                             // to single crumbs points searchers at emptied tiles (see A/B)
     walkRho: 0.75,
     walkSigma: 0.05,
     walkMaxTurnRate: 0.45,
