@@ -53,3 +53,11 @@
       EXPLORATION of relocating food. Moved to the FAILED table. Toggle kept (off) as
       a scaffold for a future exploration-PRESERVING recruitment idea only.
     - A real #3 would push searchers toward NET-NEW territory, not onto known food.
+
+13. **Exploration / dispersion field** (`docs/exploration-field-design.md`) — ⏭️ SCOPED, next up
+    - Heir to the failed recruitment direction: a *repulsive* "explored" field laid by
+      searchers so they avoid recently-covered ground and discover relocating food sooner.
+    - Reuses the v0.49.0 4th-field scaffold (add `world.explored`, toggle `explorationField`).
+    - Increments: (1) add a coverage metric to `bench/forage-sweep.mjs`, (2) field plumbing
+      inert, (3) wire deposit+read, (4) sweep `exploreAvoidWeight`/`evapExplored`, (5) verdict.
+    - Win: pickups ON ≥ single (beat +9) AND coverage up, 12 seeds. Else → FAILED table.

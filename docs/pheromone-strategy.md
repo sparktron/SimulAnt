@@ -231,6 +231,13 @@ the "failed" list.
 6. **Persist the experiment harnesses** into `scripts/` and add a lightweight
    regression check that trails-ON ≥ trails-OFF at the default config, so future
    tuning can't silently regress foraging.
+7. **Exploration / dispersion field** — the heir to the failed recruitment direction.
+   A *repulsive* "explored" field laid by searchers so they avoid recently-covered
+   ground and discover relocating food sooner (the exploitation→exploration inversion
+   the recruitment failure pointed to). **Fully scoped in
+   `docs/exploration-field-design.md`** (hypothesis, mechanism, integration, a new
+   coverage metric, increments, risks). Reuses the v0.49.0 4th-field scaffold. The
+   single most promising untested lever. Highest expected value.
 
 ---
 
