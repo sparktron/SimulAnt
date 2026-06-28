@@ -1,7 +1,9 @@
 # Exploration / Dispersion Field — Design Scope
 
-**Status:** scoped, not implemented. **Topic:** pheromone foraging future-direction
-(supersedes the failed two-pheromone *recruitment* direction #3).
+**Status:** scoped, not implemented. **Topic:** the two-pheromone design space
+beyond the failed *recruitment* role — a repulsion field for exploration. Scopes
+the lead candidate (dispersion, role B) with dead-source repulsion (role C) folded
+in; see "The two-pheromone design space" for the full role taxonomy (A–E).
 **Read first:** `docs/pheromone-strategy.md` (esp. the FAILED table) and
 `docs/2026-06-27-depletion-reactive-and-config-cleanup.md`.
 
@@ -27,6 +29,47 @@ update/swap/clear, config toggle, transient/no-serialize). This direction adds a
 
 ---
 
+## The two-pheromone design space (what's tested vs open)
+
+The v0.49.x failure falsified ONE *role* for a second field — attractive
+recruitment — NOT the two-pheromone architecture. The architecture is a tool; what
+matters is what the field DOES. The discriminator that predicts success in this sim:
+
+> **Attraction fields amplify EXPLOITATION of known food → fail here.
+> Repulsion fields and role-segregation preserve EXPLORATION → open.**
+
+Recruitment failed because it was on the wrong side of that line, not from bad
+tuning (the `recruitRichOnly` control proved gating *which* clusters you attract to
+doesn't help — attracting to clusters at all is the problem). The remaining roles:
+
+| # | Second-field role | Serves | Status / odds |
+|---|---|---|---|
+| A | **Recruitment** — attract searchers to finds | exploitation | ❌ TESTED, net-negative (FAILED table) |
+| B | **Dispersion / "explored"** — repel searchers from recently-VISITED tiles | exploration | ⏭️ scoped below — **lead candidate** |
+| C | **Dead-source repulsion** — repel searchers from recently-EXHAUSTED clusters | exploration | ⏭️ novel; cheap; shares all plumbing with B (see below) |
+| D | **Scout/forager role-segregated trails** — scouts explore one field, foragers exploit `toFood` | both (division of labor) | 🔭 highest ceiling, heaviest lift (touches role assignment, not just a field) — defer |
+| E | Quality-weighted / net-new-only recruitment | exploitation | ❌ low odds — same wrong side of the line as A; only if B–D all fail |
+
+**B and C are siblings**, not alternatives: both are short-lived *repulsive* fields
+read by searchers, differing only in WHERE scent is laid — B at every searcher
+step (avoid re-covering ground), C at the moment/place a cluster depletes (avoid
+re-checking dead spots). C is the searcher-side complement to depletion-reactive
+decay, which only fixed the *route* half of "trails point at dead sources"; the
+*searcher re-checking a dead spot via vision/wander* half is still open. They can
+be built and A/B'd in the same experiment (one repulsion field, two deposit
+sources, each behind its own sub-flag) so we learn which source — or both — helps.
+
+**D (role segregation)** is the only idea that doesn't have to *choose* exploration
+over exploitation — it runs a dedicated scout force alongside trail-following
+foragers. Highest potential, but it reaches into caste/role logic rather than just
+adding a field, so it's deferred until the cheap repulsion experiments (B/C)
+resolve. If B/C win, D may be unnecessary; if they fail, D is the fallback.
+
+The rest of this doc scopes **B (dispersion)** as the lead, with **C (dead-source
+repulsion)** folded in as a second deposit source on the same field.
+
+---
+
 ## Hypothesis (falsifiable)
 
 > Searchers that are softly **repelled from recently-visited tiles** will cover
@@ -47,16 +90,30 @@ environment's ceiling.
 A new transient field `world.explored` — a decaying "the colony has recently been
 here" map, laid by SEARCHERS and used as a mild **repulsion** in steering.
 
-1. **Deposit (searchers only).** Each step a foraging searcher (state
-   `FORAGE_SEARCH`, not carrying) adds a small amount to `explored` at its tile.
-   Carriers and in-nest ants do NOT deposit (returning is not exploration).
-2. **Evolve.** Evaporates each tick (`evapExplored`) so "recently visited" decays
-   back to explorable over tens–hundreds of ticks; low/no diffusion (keep it local
-   — it marks where ants *were*, not a gradient to smear).
+One repulsion field, **two deposit sources** (each behind its own sub-flag so the
+A/B can attribute the effect):
+
+1. **Deposit B — searcher coverage (`exploreDepositVisited`).** Each step a foraging
+   searcher (state `FORAGE_SEARCH`, not carrying) adds a small amount to `explored`
+   at its tile. Carriers and in-nest ants do NOT deposit (returning is not
+   exploration). Marks "the colony has swept here recently."
+1b. **Deposit C — dead-source repulsion (`exploreDepositDepleted`).** When a food
+   source depletes (last pellet of a cluster taken / a pickup empties the local
+   area), paint a `explored` disk at that spot. Marks "this cluster is eaten out —
+   don't re-converge." This is the searcher-side complement to depletion-reactive
+   decay (which only retracts the *route*; searchers can still wander back to a dead
+   spot via vision/memory). Natural hook: the same pickup site in `decisions.js`,
+   firing when `colony.countVisiblePellets(...)` at the pickup has dropped to ~0.
+2. **Evolve.** Evaporates each tick (`evapExplored`) so "recently visited/dead"
+   decays back to explorable over tens–hundreds of ticks; low/no diffusion (keep it
+   local — it marks places, not a gradient to smear). C may want a slower decay than
+   B (a dead cluster stays dead longer than a footprint is stale) — a candidate
+   second evap constant if a single one proves too coarse.
 3. **Read (searchers only, soft).** In `moveByPheromone` (food channel,
    not carrying), SUBTRACT a contribution proportional to `explored[neighbor]` from
    the per-direction steer signal — a bias toward LESS-visited neighbors. Weak and
    additive, exactly mirroring how `recruitContribution` was added (but negative).
+   Both deposit sources feed the SAME field, so the read path is shared.
 
 ### The two hard constraints (where this dies if done wrong)
 - **Must never pull ants off food.** The repulsion is weak relative to food
@@ -76,9 +133,9 @@ here" map, laid by SEARCHERS and used as a mild **repulsion** in steering.
 | File | Change |
 |---|---|
 | `src/sim/world.js` | add `explored` + `_exploredNext` + active lists; `depositExplored`; wire into `updatePheromones` (update/swap), the `enablePheromones:false` clear, and `#rebuildActiveLists`. NOT serialized (transient, like `harvest`/`recruit`). |
-| `src/sim/ant/decisions.js` | in `forageSearch`, deposit `explored` at the ant's tile each search step (gated by `config.explorationField`). |
-| `src/sim/ant/steering.js` | in `moveByPheromone` (food channel, not carrying), subtract `explored[nidx] * exploreAvoidWeight` from the steer signal (gated). |
-| `src/ui/params.js`, `src/main.js`, `SimulationTypes.js` | toggle `explorationField` (default off) + params `evapExplored`, `diffExplored`, `depositExplored`, `exploreAvoidWeight`; sanitizer clamps mirroring the recruit params. |
+| `src/sim/ant/decisions.js` | **(B)** in `forageSearch`, deposit `explored` at the ant's tile each search step. **(C)** at the pickup site, when the local area is now empty, paint a `explored` disk. Both gated by `config.explorationField` + their sub-flags. |
+| `src/sim/ant/steering.js` | in `moveByPheromone` (food channel, not carrying), subtract `explored[nidx] * exploreAvoidWeight` from the steer signal (gated). Shared by both deposit sources. |
+| `src/ui/params.js`, `src/main.js`, `SimulationTypes.js` | toggle `explorationField` (default off) + sub-flags `exploreDepositVisited` / `exploreDepositDepleted` + params `evapExplored`, `diffExplored`, `depositExplored` (B), `depletedRepulseDeposit`/`depletedRepulseRadius` (C), `exploreAvoidWeight`; sanitizer clamps mirroring the recruit params. |
 | `test/exploration-field.test.mjs` | deposit/evap/clear/defaults characterization, like `dual-pheromone.test.mjs`. |
 
 Single mode (toggle off) stays byte-identical: deposit + read gated, field-update
@@ -110,10 +167,16 @@ single mode as the bar to beat.
    validates the metric.)
 2. **Field plumbing (inert)** in `world.js` + config toggle/params + test — same
    shape as v0.49.0; single mode byte-identical.
-3. **Wire deposit + read** (decisions.js / steering.js) behind `explorationField`.
-4. **A/B + sweep** `exploreAvoidWeight` (the dose), `evapExplored` (memory length),
+3. **Wire deposit + read** behind `explorationField`. Start with deposit source B
+   (searcher coverage) only — it's the purest test of the hypothesis.
+4. **A/B + sweep B** `exploreAvoidWeight` (the dose), `evapExplored` (memory length),
    `depositExplored`. Expect a narrow safe band for the avoid weight.
-5. **Verdict** → ship if it beats single (win condition), else FAILED-table it.
+5. **Add deposit source C** (dead-source repulsion) and A/B B-only vs C-only vs B+C
+   on the same shared field, to attribute the effect. C reuses the field + read path,
+   so it's a small add once B exists.
+6. **Verdict** → ship the winning combination if it beats single (win condition),
+   else FAILED-table the whole exploration-field direction (a strong "single path is
+   at the environment's ceiling" result).
 
 ---
 
