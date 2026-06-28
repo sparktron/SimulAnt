@@ -148,9 +148,14 @@ loops over an empty active list (no rng calls, no effect on other fields).
 The existing metrics (nutrition, pickups, PR, circling) don't directly show
 coverage, which is the whole point. Add to `bench/forage-sweep.mjs`:
 
-- **`coverage`** — count of UNIQUE surface tiles entered by searching ants over the
-  run (a `Uint8Array` visited mask, summed at the end). The direct test of the
-  hypothesis: does the mechanism actually spread searchers wider?
+- **`coverage`** — unique surface tiles entered by searching ants, measured as a
+  **RATE: averaged per `COVERAGE_WINDOW` (500) ticks**, NOT cumulative. The direct
+  test of the hypothesis: does the mechanism spread searchers onto more distinct
+  ground per unit time? **(Increment-1 finding: cumulative unique coverage SATURATES
+  — searchers eventually reach ~100% of the surface regardless of strategy by
+  ~1500+ ticks, so a cumulative metric can't discriminate. The visited mask is
+  reset each window and the per-window unique count averaged. This is why
+  "validate the metric before changing behavior" was increment 1.)**
 - Keep **pickups** as the outcome metric (discovery rate) and **nutrition** as the
   headline. Coverage going up while pickups don't = the mechanism spreads ants but
   not usefully (e.g. into dead map corners) → a tuning or constraint problem.
@@ -160,23 +165,60 @@ single mode as the bar to beat.
 
 ---
 
+## Increment 1 RESULTS (2026-06-28, `bench/forage-sweep.mjs`, 6 seeds × 5000)
+
+Coverage metric built (windowed) and **validated** — but it surfaced a finding that
+**re-weights the whole plan away from role B**.
+
+| config | coverage/window | covΔ% vs OFF | pickups vs OFF |
+|---|---|---|---|
+| OFF | 16746 | — | (903) |
+| single (shipped) | 15722 | −6.1% | +4 |
+| dual-recruit | 15431 | −7.9% | −85 |
+
+- **Metric validated:** recruitment lowers coverage (−7.9%) AND pickups (−85) — it
+  clumps searchers, exactly as the metric should show.
+- **KEY FINDING — coverage does NOT predict pickups.** OFF has the HIGHEST coverage
+  (+6% vs single) but FEWER pickups (903 vs 907). Maximum searcher spread (pure
+  random walk, no trails) does not beat single mode on discovery. **Raw coverage is
+  not the binding constraint on discovery in this sim.**
+- **Implication for role B (dispersion):** B's mechanism is "push coverage back up
+  toward OFF." But OFF *is* the high-coverage ceiling and it doesn't pay → B is
+  predicted to FAIL. Do not build B first (or at all) without a reason this analysis
+  misses. Skipping straight to a B A/B would likely just reproduce OFF's profile.
+- **Re-weight to role C (dead-source repulsion):** C is about WHERE searchers go
+  (avoid re-checking just-depleted spots), not raw spread — the coverage/pickups
+  decoupling says "where" matters, "how much" doesn't. C is now the lead.
+- **Alternative read:** the single path may simply be near the environment's
+  discovery ceiling (food respawn rate / vision / ant count bound pickups, not
+  searcher behavior). If C also fails, that is the conclusion.
+
+**Revised plan:** lead with **C**, treat **B** as likely-dead (test only to confirm
+the prediction if cheap), keep **D** as the structural fallback.
+
+---
+
 ## Increments
 
-1. **Coverage metric first.** Add `coverage` to the sweep harness and baseline
-   single vs OFF, so we can see coverage *before* changing behavior. (Cheap, and it
-   validates the metric.)
+1. ✅ **Coverage metric first.** DONE — windowed coverage in `bench/forage-sweep.mjs`,
+   validated; baseline above. Outcome redirected the plan (B→C). This is the value
+   of a metric-only increment before building anything.
+   **(Plan revised after increment 1: lead with C, not B — see results above.)**
 2. **Field plumbing (inert)** in `world.js` + config toggle/params + test — same
-   shape as v0.49.0; single mode byte-identical.
-3. **Wire deposit + read** behind `explorationField`. Start with deposit source B
-   (searcher coverage) only — it's the purest test of the hypothesis.
-4. **A/B + sweep B** `exploreAvoidWeight` (the dose), `evapExplored` (memory length),
-   `depositExplored`. Expect a narrow safe band for the avoid weight.
-5. **Add deposit source C** (dead-source repulsion) and A/B B-only vs C-only vs B+C
-   on the same shared field, to attribute the effect. C reuses the field + read path,
-   so it's a small add once B exists.
-6. **Verdict** → ship the winning combination if it beats single (win condition),
-   else FAILED-table the whole exploration-field direction (a strong "single path is
-   at the environment's ceiling" result).
+   shape as v0.49.0; single mode byte-identical. Shared by C and (if tested) B.
+3. **Wire deposit source C** (dead-source repulsion: paint the explored field at a
+   cluster the moment it depletes) + the shared searcher-read in `steering.js`,
+   behind `explorationField`. C is the lead because increment 1 showed raw coverage
+   (B's lever) doesn't predict pickups, but WHERE searchers go (C's lever) is untested.
+4. **A/B + sweep C** `exploreAvoidWeight` (dose), `evapExplored` (how long a dead
+   spot stays repulsive), `depletedRepulseRadius`. Win = pickups ON > single's +9.
+5. **Confirm-or-bury B** only if cheap: a single A/B of deposit source B (searcher
+   coverage). Increment 1 predicts it ≈ OFF's profile (no pickup gain); run it once
+   to confirm the prediction, then drop it.
+6. **Verdict** → ship C (and/or B) if it beats single (win condition), else
+   FAILED-table the exploration-field direction — a strong "single path is at the
+   environment's discovery ceiling" result (food respawn/vision/ant-count bound,
+   not searcher behavior).
 
 ---
 
