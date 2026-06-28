@@ -221,6 +221,14 @@ const state = {
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,
     enablePheromones: true,
+    // Two-pheromone recruitment (config.dualPheromone, default off = single mode).
+    // Second short-lived, high-diffusion recruitment channel; off → inert. See
+    // docs/pheromone-strategy.md future-direction #3.
+    dualPheromone: false,
+    evapRecruit: 0.6,
+    diffRecruit: 0.08,
+    depositRecruit: 2.0,
+    recruitFollowWeight: 1.0,
     // Phase 1: correlated random walk tuning constants (ant movement core).
     // These are calibrated for 1-tile/tick discrete movement.  The spec values
     // (sigma=0.35, meanderAmp=0.25) assume a continuous sub-tile step size;

@@ -259,6 +259,7 @@ export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pe
           config.harvestMaxClamp ?? 2.0,
         );
       }
+      depositRecruitmentBurst(world, config, pellet.x, pellet.y);
       ant.state = 'PICKUP';
       navigation.aimThetaAtEntrance(ant, colony);
     }
@@ -294,10 +295,20 @@ export function pickUpPelletHere(ant, world, colony, rng, config, context, pelle
       ant._recruitBudget = abundantFoodHere ? (config.recruitRichBudget ?? 1.6) : 1;
     }
     colony.removePelletById(pellet.id);
+    depositRecruitmentBurst(world, config, pellet.x, pellet.y);
     ant.state = 'PICKUP';
     navigation.aimThetaAtEntrance(ant, colony);
   }
   return didMove;
+}
+
+// Two-pheromone recruitment (config.dualPheromone, default off): a fresh pickup
+// bursts short-lived recruitment scent at the find so nearby searchers are pulled
+// toward this LIVE source — without polluting the long-lived toFood corridor field.
+// Inert in single mode. See docs/pheromone-strategy.md future-direction #3.
+function depositRecruitmentBurst(world, config, x, y) {
+  if (!config.dualPheromone) return;
+  world.depositRecruit(world.index(x, y), config.depositRecruit ?? 2.0, config.pheromoneMaxClamp ?? 150);
 }
 
 export function forageSearch(ant, world, colony, rng, config, context) {

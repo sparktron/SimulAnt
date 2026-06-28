@@ -619,6 +619,18 @@ export function getDefaultConfig() {
     debugSteeringLogIntervalTicks: 30,
     pheromoneMaxClamp: 150,
     enablePheromones: true,
+    // Two-pheromone recruitment (config.dualPheromone, default off = single mode).
+    // A second SHORT-LIVED, high-diffusion "recruitment" channel separate from the
+    // long-lived toFood "route" channel: a fresh pickup bursts recruitment scent
+    // that spreads fast to nearby searchers then evaporates, so discovery can be
+    // recruited hard without polluting the stable corridor field. When off, the
+    // recruit field stays empty and inert (single-mode behavior unchanged).
+    // See docs/pheromone-strategy.md future-direction #3.
+    dualPheromone: false,
+    evapRecruit: 0.6,        // fast evaporation — recruitment is volatile (toFood is 0.25)
+    diffRecruit: 0.08,       // higher diffusion to spread fresh finds (toFood is ~0.02; must stay < 0.25)
+    depositRecruit: 2.0,     // burst strength laid at a fresh pickup (used in dual mode)
+    recruitFollowWeight: 1.0, // how strongly searchers steer up the recruit gradient (dual mode)
     walkRho: 0.75,
     walkSigma: 0.05,
     walkMaxTurnRate: 0.45,

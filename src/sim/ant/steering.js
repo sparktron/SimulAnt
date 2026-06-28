@@ -193,6 +193,18 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
     const noise = rng.range(0, config.wanderNoise * noiseReduction);
     const boostedPherContribution = pherContribution * pherBoost;
 
+    // Two-pheromone recruitment (config.dualPheromone): searchers also climb the
+    // short-lived recruit gradient, additive alongside the toFood term and shaped
+    // by the same followAlpha/followBeta curve. Food channel only — carriers
+    // return on the home channel — so it pulls searchers toward FRESH finds
+    // without touching the long-lived route field. Inert in single mode (the
+    // recruit field is empty), so single-mode steering is byte-identical.
+    let recruitContribution = 0;
+    if (config.dualPheromone && channel === 'food') {
+      const rawRecruit = Math.pow((world.recruit[nidx] ?? 0) + epsilon, config.followAlpha);
+      recruitContribution = rawRecruit * config.followBeta * (config.recruitFollowWeight ?? 1.0);
+    }
+
     // Heading alignment: soft bias toward the persistent exploration heading
     // (ant.theta, maintained by #updateWanderHeading).  Uses the dot product
     // so alignment decays smoothly as the candidate direction diverges from
@@ -230,7 +242,7 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
       const gdot = (DIRS[d][0] / dirLen) * gravUX + (DIRS[d][1] / dirLen) * gravUY;
       gravContribution = Math.max(0, gdot) * gravStrength;
     }
-    const steerSignal = (boostedPherContribution + tieBias + reacquireBias + headingContrib + gravContribution) * directionalMult * trailBoost;
+    const steerSignal = (boostedPherContribution + recruitContribution + tieBias + reacquireBias + headingContrib + gravContribution) * directionalMult * trailBoost;
     const weight = Math.max(0, steerSignal + noise - reversePenalty - dangerPenalty - crowdingPenalty);
     weights.push({
       d,

@@ -199,6 +199,14 @@ export function sanitizeTickConfig(config = {}) {
     evapHarvest: clampNonNegativeNumber(config.evapHarvest, 0.5),
     harvestProtectRef: Math.max(1e-6, clampNonNegativeNumber(config.harvestProtectRef, 0.2)),
     depletionDecayBoost: clampNonNegativeNumber(config.depletionDecayBoost, 0.3),
+    // Two-pheromone recruitment (config.dualPheromone, default off). A plain flag;
+    // the channel params mirror the toFood evap/diff clamps. Fallbacks match
+    // getDefaultConfig() (Phase 0 rule: no silent physics drift).
+    dualPheromone: Boolean(config.dualPheromone),
+    evapRecruit: clampNonNegativeNumber(config.evapRecruit, 0.6),
+    diffRecruit: clamp01(config.diffRecruit, 0.08),
+    depositRecruit: clampNonNegativeNumber(config.depositRecruit, 2.0),
+    recruitFollowWeight: clampNonNegativeNumber(config.recruitFollowWeight, 1.0),
   };
 }
 
