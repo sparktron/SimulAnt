@@ -210,6 +210,15 @@ the "failed" list.
 3. **Two-pheromone recruitment** (separate short-lived "recruitment" channel from
    the long-lived "route" channel), à la real ant trail vs. recruitment scents.
    Lets discovery spread fast without polluting the stable corridor field.
+   **STATUS: scaffold IMPLEMENTED v0.49.0 behind `config.dualPheromone` (default
+   off = single mode, byte-identical).** `world.recruit` field + `depositRecruit`,
+   burst on pickup (`decisions.js`), searcher-read (`steering.js`); params
+   `evapRecruit 0.6 / diffRecruit 0.08 / depositRecruit 2.0 / recruitFollowWeight 1.0`.
+   Plumbing + determinism verified (`test/dual-pheromone.test.mjs`). **NOT YET
+   tuned or A/B'd for foraging benefit** — that is the next phase. The toggle is a
+   dev scaffold: keep tuning the single path; flip `dualPheromone:true` to develop
+   the dual path. Win condition unchanged: pickups ON ≥ OFF, ideally by a wider
+   margin than single mode's marginal +9.
 4. **Searcher trail-following with a strength threshold** (winner-take-all only
    above a high `trailLockThreshold`), so weak fragments are ignored but a genuine
    dominant corridor recruits — without the global over-commitment `followAlpha`

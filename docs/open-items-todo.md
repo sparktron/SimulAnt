@@ -48,4 +48,8 @@
 12. **Two-pheromone recruitment** (`docs/pheromone-strategy.md` future-direction #3)
     - De-risked by depletion-reactive decay (v0.47.0): trails now point at live sources,
       so strengthening recruitment may finally be safe (was a trap — see Phase 2 finding).
-    - Gate on `bench/forage-ab.mjs`; win condition is pickups ON ≥ OFF.
+    - ✅ Scaffold shipped v0.49.0 behind `config.dualPheromone` (default off, single mode
+      byte-identical). `world.recruit` field, burst-on-pickup, searcher-read, 4 params.
+    - ⏭️ NEXT: A/B single vs dual + tune recruit params (evapRecruit/diffRecruit/
+      depositRecruit/recruitFollowWeight) via `bench/forage-sweep.mjs`. Win condition:
+      pickups ON ≥ OFF, ideally beating single mode's +9. NOT yet measured.
