@@ -208,6 +208,10 @@ export function sanitizeTickConfig(config = {}) {
     depositRecruit: clampNonNegativeNumber(config.depositRecruit, 2.0),
     recruitFollowWeight: clampNonNegativeNumber(config.recruitFollowWeight, 1.0),
     recruitRichOnly: config.recruitRichOnly === undefined ? true : Boolean(config.recruitRichOnly),
+    // Exploration / dispersion field physics (config.explorationField). Repulsive
+    // marker: slow evap, no diffusion. Fallbacks match getDefaultConfig().
+    evapExplored: clampNonNegativeNumber(config.evapExplored, 0.1),
+    diffExplored: clamp01(config.diffExplored, 0.0),
   };
 }
 

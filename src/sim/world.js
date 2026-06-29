@@ -46,6 +46,14 @@ export class World {
     // when off this field stays empty and inert. Transient — not serialized.
     this.recruit = new Float32Array(this.size);
 
+    // Exploration / dispersion channel (config.explorationField): a REPULSIVE
+    // long-ish-lived field marking ground the colony has recently swept (searcher
+    // coverage) and clusters that recently depleted (dead-source repulsion).
+    // Searchers steer AWAY from it, spreading onto fresh ground and not re-checking
+    // eaten-out spots. Off by default; empty + inert when off. Transient — not
+    // serialized. See docs/exploration-field-design.md.
+    this.explored = new Float32Array(this.size);
+
     // Harvest field (config.depletionReactive): a decaying "recent foraging
     // success" map. A successful pickup paints a disk here; the field then
     // accelerates toFood evaporation everywhere it is ABSENT, so a corridor to an
@@ -59,6 +67,7 @@ export class World {
     this._toHomeNext = new Float32Array(this.size);
     this._dangerNext = new Float32Array(this.size);
     this._recruitNext = new Float32Array(this.size);
+    this._exploredNext = new Float32Array(this.size);
 
     // Per-tick passability mask shared by all three pheromone fields. The
     // diffusion inner loop queries passability of each cell and its 4 neighbors;
@@ -88,6 +97,8 @@ export class World {
     this._activeDangerScratch = [];
     this._activeRecruit = [];
     this._activeRecruitScratch = [];
+    this._activeExplored = [];
+    this._activeExploredScratch = [];
     // Reusable scratch for deduping the candidate set each tick (avoids a Set).
     this._candMark = new Uint8Array(this.size);
     this._candList = new Int32Array(this.size);
@@ -152,6 +163,15 @@ export class World {
     this._activeRecruit.push(idx);
   }
 
+  // Exploration/dispersion-channel deposit (config.explorationField). Same contract
+  // as the other deposits: registers the cell in the active list so it
+  // diffuses/evaporates. Used for searcher coverage (per-step) and dead-source
+  // repulsion (a disk via paintCircle); searchers read it as a repulsion.
+  depositExplored(idx, amount, clampMax = Infinity) {
+    this.explored[idx] = Math.min(clampMax, this.explored[idx] + amount);
+    this._activeExplored.push(idx);
+  }
+
   // Paint a disk of harvest "success" centered on a pickup. Only newly-activated
   // cells (0 -> non-zero) are pushed to the active list, so it stays dup-free;
   // re-painting a live source just tops up existing cells. See updatePheromones'
@@ -171,11 +191,13 @@ export class World {
     this._activeHome = [];
     this._activeDanger = [];
     this._activeRecruit = [];
+    this._activeExplored = [];
     for (let i = 0; i < this.size; i += 1) {
       if (this.toFood[i] !== 0) this._activeFood.push(i);
       if (this.toHome[i] !== 0) this._activeHome.push(i);
       if (this.danger[i] !== 0) this._activeDanger.push(i);
       if (this.recruit[i] !== 0) this._activeRecruit.push(i);
+      if (this.explored[i] !== 0) this._activeExplored.push(i);
     }
   }
 
@@ -316,14 +338,17 @@ export class World {
       this.toHome.fill(0);
       this.danger.fill(0);
       this.recruit.fill(0);
+      this.explored.fill(0);
       this._toFoodNext.fill(0);
       this._toHomeNext.fill(0);
       this._dangerNext.fill(0);
       this._recruitNext.fill(0);
+      this._exploredNext.fill(0);
       this._activeFood.length = 0; this._activeFoodScratch.length = 0;
       this._activeHome.length = 0; this._activeHomeScratch.length = 0;
       this._activeDanger.length = 0; this._activeDangerScratch.length = 0;
       this._activeRecruit.length = 0; this._activeRecruitScratch.length = 0;
+      this._activeExplored.length = 0; this._activeExploredScratch.length = 0;
       this.harvest.fill(0); this._activeHarvest.length = 0;
       return;
     }
@@ -336,6 +361,8 @@ export class World {
     // Recruitment channel diffuses faster (config.diffRecruit) to spread fresh
     // finds quickly; falls back to the food diffusion rate if unconfigured.
     const recruitDiff = shouldDiffuse ? (config.diffRecruit ?? config.diffFood) : 0;
+    // Exploration channel: a positional marker, so little/no diffusion by default.
+    const exploredDiff = shouldDiffuse ? (config.diffExplored ?? 0) : 0;
     // Recompute the passability mask once and reuse it across all three fields.
     const mask = this.#computePassabilityMask();
     // Use discrete diffusion equation: P_i^{t+1} = (1 - λ - 4D) * P_i^t + D * (neighbors sum)
@@ -349,6 +376,10 @@ export class World {
     // In single mode (dualPheromone off) nothing deposits here, so its active list
     // is empty and this is a no-op — single-mode results stay byte-identical.
     const nr = this.#updatePheromonesField(this.recruit, this._recruitNext, this._activeRecruit, this._activeRecruitScratch, config.evapRecruit ?? config.evapFood, recruitDiff, config.pheromoneMaxClamp, dt, mask);
+    // Exploration channel: slow evaporation (config.evapExplored) so a swept/dead
+    // spot stays repulsive for a while. Empty + no-op until explorationField wires
+    // deposits (increment 3), so single-mode results stay byte-identical.
+    const ne = this.#updatePheromonesField(this.explored, this._exploredNext, this._activeExplored, this._activeExploredScratch, config.evapExplored ?? 0.1, exploredDiff, config.pheromoneMaxClamp, dt, mask);
 
     // Double-buffer: each field updater fully defined its *Next scratch buffer
     // (writing every candidate, with all non-candidates left at 0), so swap the
@@ -359,6 +390,7 @@ export class World {
     const th = this.toHome; this.toHome = this._toHomeNext; this._toHomeNext = th;
     const td = this.danger; this.danger = this._dangerNext; this._dangerNext = td;
     const tr = this.recruit; this.recruit = this._recruitNext; this._recruitNext = tr;
+    const te = this.explored; this.explored = this._exploredNext; this._exploredNext = te;
 
     // Swap active lists in lockstep with the buffers: the new live list is the
     // freshly computed non-zeros; the new scratch list is the old live list
@@ -368,6 +400,7 @@ export class World {
     this._activeHomeScratch = this._activeHome; this._activeHome = nh;
     this._activeDangerScratch = this._activeDanger; this._activeDanger = nd;
     this._activeRecruitScratch = this._activeRecruit; this._activeRecruit = nr;
+    this._activeExploredScratch = this._activeExplored; this._activeExplored = ne;
 
     // Depletion-reactive decay: collapse food trails that no longer lead to a
     // live source. Runs after the swap so it acts on the fresh toFood buffer and

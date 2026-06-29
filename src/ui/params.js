@@ -633,6 +633,12 @@ export function getDefaultConfig() {
     recruitFollowWeight: 1.0, // how strongly searchers steer up the recruit gradient (dual mode)
     recruitRichOnly: true,   // only abundant (≥3-pellet) sources burst recruitment — recruiting
                              // to single crumbs points searchers at emptied tiles (see A/B)
+    // Exploration / dispersion field (config.explorationField, scaffold; the toggle
+    // + deposit/read land with the mechanism). Field physics only here — a repulsive
+    // marker, so slow evaporation (long-ish memory of swept/dead spots) and no
+    // diffusion (it marks places, not a gradient). See docs/exploration-field-design.md.
+    evapExplored: 0.1,       // slow decay — a swept/dead spot stays repulsive ~200 ticks
+    diffExplored: 0.0,       // positional marker; no spreading
     walkRho: 0.75,
     walkSigma: 0.05,
     walkMaxTurnRate: 0.45,

@@ -230,6 +230,10 @@ const state = {
     depositRecruit: 2.0,
     recruitFollowWeight: 1.0,
     recruitRichOnly: true,
+    // Exploration / dispersion field (config.explorationField) — field physics only
+    // here (repulsive marker: slow evap, no diffusion). See docs/exploration-field-design.md.
+    evapExplored: 0.1,
+    diffExplored: 0.0,
     // Phase 1: correlated random walk tuning constants (ant movement core).
     // These are calibrated for 1-tile/tick discrete movement.  The spec values
     // (sigma=0.35, meanderAmp=0.25) assume a continuous sub-tile step size;
