@@ -204,8 +204,10 @@ the prediction if cheap), keep **D** as the structural fallback.
    validated; baseline above. Outcome redirected the plan (B→C). This is the value
    of a metric-only increment before building anything.
    **(Plan revised after increment 1: lead with C, not B — see results above.)**
-2. **Field plumbing (inert)** in `world.js` + config toggle/params + test — same
-   shape as v0.49.0; single mode byte-identical. Shared by C and (if tested) B.
+2. ✅ **Field plumbing (inert)** — DONE v0.49.2. `world.explored` field + buffers +
+   `depositExplored` + update/swap/clear/rebuild; params `evapExplored 0.1` /
+   `diffExplored 0.0` wired into the always-on update; `test/exploration-field.test.mjs`;
+   single mode byte-identical (replay-hash green). Shared by C and (if tested) B.
 3. **Wire deposit source C** (dead-source repulsion: paint the explored field at a
    cluster the moment it depletes) + the shared searcher-read in `steering.js`,
    behind `explorationField`. C is the lead because increment 1 showed raw coverage
