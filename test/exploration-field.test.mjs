@@ -91,8 +91,16 @@ test('explored field params default sensibly and survive sanitize unchanged', ()
   const defaults = getDefaultConfig();
   assert.equal(defaults.evapExplored, 0.1);
   assert.equal(defaults.diffExplored, 0.0);
+  assert.equal(defaults.explorationField, false, 'single mode is the default');
+  assert.equal(defaults.exploreAvoidWeight, 1.0);
+  assert.equal(defaults.depositExplored, 0.5);
+  assert.equal(defaults.depletedRepulseDeposit, 2.0);
+  assert.equal(defaults.depletedRepulseRadius, 6);
+  assert.equal(defaults.depletedRepulseThreshold, 2);
 
   const safe = sanitizeTickConfig(defaults);
-  assert.equal(safe.evapExplored, defaults.evapExplored);
-  assert.equal(safe.diffExplored, defaults.diffExplored);
+  for (const k of ['evapExplored', 'diffExplored', 'explorationField', 'exploreAvoidWeight',
+    'depositExplored', 'depletedRepulseDeposit', 'depletedRepulseRadius', 'depletedRepulseThreshold']) {
+    assert.equal(safe[k], defaults[k], `${k} survives sanitize unchanged`);
+  }
 });

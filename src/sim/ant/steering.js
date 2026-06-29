@@ -135,6 +135,17 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
     const dangerAvoidanceWeight = config.dangerAvoidanceWeight ?? 1.25;
     const dangerPenalty = world.danger[nidx] * dangerAvoidanceWeight;
 
+    // Exploration / dispersion repulsion (config.explorationField): searchers AVOID
+    // tiles marked in the explored field — recently swept ground and recently
+    // depleted clusters (dead-source repulsion, role C). A penalty like danger,
+    // food channel only (carriers return on the home channel). Inert when off (the
+    // field is empty). The searcher-side complement to depletion-reactive decay.
+    // See docs/exploration-field-design.md.
+    let exploredPenalty = 0;
+    if (config.explorationField && channel === 'food') {
+      exploredPenalty = (world.explored[nidx] ?? 0) * (config.exploreAvoidWeight ?? 1.0);
+    }
+
     // Crowding avoidance: reduce weight toward congested tiles
     const crowdingPenalty = colony ? getCrowdingPenalty(ant, nx, ny, colony) : 0;
 
@@ -243,7 +254,7 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
       gravContribution = Math.max(0, gdot) * gravStrength;
     }
     const steerSignal = (boostedPherContribution + recruitContribution + tieBias + reacquireBias + headingContrib + gravContribution) * directionalMult * trailBoost;
-    const weight = Math.max(0, steerSignal + noise - reversePenalty - dangerPenalty - crowdingPenalty);
+    const weight = Math.max(0, steerSignal + noise - reversePenalty - dangerPenalty - crowdingPenalty - exploredPenalty);
     weights.push({
       d,
       w: weight,

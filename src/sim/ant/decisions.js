@@ -260,6 +260,7 @@ export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pe
         );
       }
       depositRecruitmentBurst(world, config, pellet.x, pellet.y, abundantFood);
+      depositDepletionRepulsion(world, colony, config, pellet.x, pellet.y);
       ant.state = 'PICKUP';
       navigation.aimThetaAtEntrance(ant, colony);
     }
@@ -296,6 +297,7 @@ export function pickUpPelletHere(ant, world, colony, rng, config, context, pelle
     }
     colony.removePelletById(pellet.id);
     depositRecruitmentBurst(world, config, pellet.x, pellet.y, abundantFoodHere);
+    depositDepletionRepulsion(world, colony, config, pellet.x, pellet.y);
     ant.state = 'PICKUP';
     navigation.aimThetaAtEntrance(ant, colony);
   }
@@ -316,6 +318,27 @@ function depositRecruitmentBurst(world, config, x, y, abundant) {
   if (!config.dualPheromone) return;
   if (config.recruitRichOnly && !abundant) return;
   world.depositRecruit(world.index(x, y), config.depositRecruit ?? 2.0, config.pheromoneMaxClamp ?? 150);
+}
+
+// Dead-source repulsion (config.explorationField, role C): when a pickup leaves the
+// local area exhausted (no pellets left within depletedRepulseRadius), paint a
+// repulsion disk into the explored field so searchers stop re-checking the dead
+// cluster and disperse to fresh ground. The searcher-side complement to
+// depletion-reactive decay, which only retracts the ROUTE. Inert in single mode.
+// See docs/exploration-field-design.md (increment 1 redirected the plan B→C).
+function depositDepletionRepulsion(world, colony, config, x, y) {
+  if (!config.explorationField) return;
+  const radius = config.depletedRepulseRadius ?? 6;
+  // Fire when this pickup leaves the area THINNING — at or below the threshold of
+  // remaining pellets (default 2, i.e. no longer "abundant", which is >=3). Waiting
+  // for a literal 0 almost never coincides with a pickup: ants abandon a dying
+  // cluster before its last pellet is taken, so the trigger must catch the thinning
+  // moment while ants are still actively picking. A still-rich spot stays
+  // attractive (no repulsion).
+  if (colony.countVisiblePellets(x, y, radius) > (config.depletedRepulseThreshold ?? 2)) return;
+  const amount = config.depletedRepulseDeposit ?? 2.0;
+  const clamp = config.pheromoneMaxClamp ?? 150;
+  world.paintCircle(x, y, radius, (idx) => world.depositExplored(idx, amount, clamp));
 }
 
 export function forageSearch(ant, world, colony, rng, config, context) {
@@ -353,6 +376,16 @@ export function forageSearch(ant, world, colony, rng, config, context) {
       config.depositHome * homeDepositFraction,
       config.pheromoneMaxClamp,
     );
+  }
+
+  // Exploration coverage (config.explorationField, role B): a searcher marks its
+  // current tile in the repulsion field so OTHER searchers disperse off
+  // recently-swept ground — and, via the slow evapExplored, off recently-DEPLETED
+  // clusters too (a rich cluster is heavily trafficked → accumulates repulsion that
+  // lingers as it empties → emergent dead-source repulsion, since the pickup-event
+  // trigger can't fire: ants pick in abundance, not scarcity). Inert when off.
+  if (config.explorationField && (config.depositExplored ?? 0) > 0 && !context.inNest) {
+    world.depositExplored(context.idx, config.depositExplored, config.pheromoneMaxClamp ?? 150);
   }
 
   const distFromEntrance = context.entrance

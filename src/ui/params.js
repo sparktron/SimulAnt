@@ -639,6 +639,12 @@ export function getDefaultConfig() {
     // diffusion (it marks places, not a gradient). See docs/exploration-field-design.md.
     evapExplored: 0.1,       // slow decay — a swept/dead spot stays repulsive ~200 ticks
     diffExplored: 0.0,       // positional marker; no spreading
+    explorationField: false, // master toggle for the dispersion/dead-source repulsion (default off)
+    exploreAvoidWeight: 1.0, // how strongly searchers avoid explored tiles (penalty, like danger)
+    depositExplored: 0.5,    // per-step searcher coverage deposit (role B); set 0 to disable B
+    depletedRepulseDeposit: 2.0, // repulsion painted into a depleted cluster (role C)
+    depletedRepulseRadius: 6,    // radius of the dead-source repulsion disk
+    depletedRepulseThreshold: 2, // fire when ≤ this many pellets remain in radius (thinning, not literally 0)
     walkRho: 0.75,
     walkSigma: 0.05,
     walkMaxTurnRate: 0.45,

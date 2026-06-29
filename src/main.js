@@ -234,6 +234,12 @@ const state = {
     // here (repulsive marker: slow evap, no diffusion). See docs/exploration-field-design.md.
     evapExplored: 0.1,
     diffExplored: 0.0,
+    explorationField: false,
+    exploreAvoidWeight: 1.0,
+    depositExplored: 0.5,
+    depletedRepulseDeposit: 2.0,
+    depletedRepulseRadius: 6,
+    depletedRepulseThreshold: 2,
     // Phase 1: correlated random walk tuning constants (ant movement core).
     // These are calibrated for 1-tile/tick discrete movement.  The spec values
     // (sigma=0.35, meanderAmp=0.25) assume a continuous sub-tile step size;

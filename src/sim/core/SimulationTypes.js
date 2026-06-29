@@ -212,6 +212,12 @@ export function sanitizeTickConfig(config = {}) {
     // marker: slow evap, no diffusion. Fallbacks match getDefaultConfig().
     evapExplored: clampNonNegativeNumber(config.evapExplored, 0.1),
     diffExplored: clamp01(config.diffExplored, 0.0),
+    explorationField: Boolean(config.explorationField),
+    exploreAvoidWeight: clampNonNegativeNumber(config.exploreAvoidWeight, 1.0),
+    depositExplored: clampNonNegativeNumber(config.depositExplored, 0.5),
+    depletedRepulseDeposit: clampNonNegativeNumber(config.depletedRepulseDeposit, 2.0),
+    depletedRepulseRadius: clampFiniteRangeNumber(config.depletedRepulseRadius, 6, 0, 64),
+    depletedRepulseThreshold: clampFiniteRangeNumber(config.depletedRepulseThreshold, 2, 0, 50),
   };
 }
 
