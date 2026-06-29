@@ -208,10 +208,19 @@ the prediction if cheap), keep **D** as the structural fallback.
    `depositExplored` + update/swap/clear/rebuild; params `evapExplored 0.1` /
    `diffExplored 0.0` wired into the always-on update; `test/exploration-field.test.mjs`;
    single mode byte-identical (replay-hash green). Shared by C and (if tested) B.
-3. **Wire deposit source C** (dead-source repulsion: paint the explored field at a
-   cluster the moment it depletes) + the shared searcher-read in `steering.js`,
-   behind `explorationField`. C is the lead because increment 1 showed raw coverage
-   (B's lever) doesn't predict pickups, but WHERE searchers go (C's lever) is untested.
+3. ✅ **Wire deposit + read** — DONE v0.49.3. Read (steering.js penalty, food channel)
+   + deposit B (searcher per-step) + deposit C (pickup, thinning cluster), behind
+   `explorationField`. Verified: off→empty (byte-identical), on→23k cells. **KEY
+   FINDING: the pickup-triggered role-C signal essentially never fires** —
+   instrumentation showed 396/397 pickups happen with 10+ pellets within radius 6.
+   Ants pick in ABUNDANCE, not scarcity; depletion is never observed *at a pickup*.
+   So **role B (searcher coverage + slow-evap emergent dead-zones) is the
+   implementable mechanism** — a heavily-trafficked (recently-rich) area accumulates
+   repulsion that lingers as it empties. C is kept but rarely fires. This also
+   nuances increment 1: B-as-repulsion changes WHERE searchers forage (off
+   recently-worked ground), a different lever than the raw coverage *amount* that
+   increment 1 found doesn't pay. B and C are independently disable-able (deposit
+   amount → 0) for attribution in the increment-4 A/B.
 4. **A/B + sweep C** `exploreAvoidWeight` (dose), `evapExplored` (how long a dead
    spot stays repulsive), `depletedRepulseRadius`. Win = pickups ON > single's +9.
 5. **Confirm-or-bury B** only if cheap: a single A/B of deposit source B (searcher
