@@ -29,15 +29,17 @@ const SEED_COUNT = Number(process.argv[3]) || 6;
 // dualPheromone adds the recruitment channel on top).
 const DUAL = (o) => ({ dualPheromone: true, ...o });
 
-// Increment 1 (exploration-field design): baseline the coverage metric before any
-// behavior change. OFF and single establish the exploration headroom; dual-recruit
-// is included to validate the metric (recruitment clumps searchers → coverage
-// should DROP, confirming the metric captures exploration). See
-// docs/exploration-field-design.md.
+// Increment 4 (exploration-field design): A/B single vs explorationField-on,
+// sweeping the repulsion dose. Defaults are likely too strong (explored hits ~26,
+// so avoidWeight 1.0 → penalty ~26 dwarfs the steer signal); sweep avoidWeight LOW
+// where penalty ~ steer signal. Role B (searcher coverage) is the firing mechanism;
+// C (dead-source pickup) rarely fires. See docs/exploration-field-design.md.
+const EXPL = (o) => ({ explorationField: true, ...o });
 const CONFIGS = [
   { name: 'OFF',               ov: { enablePheromones: false } },
-  { name: 'single(shipped)',   ov: {} },                  // the bar to beat
-  { name: 'dual-recruit',      ov: DUAL({}) },            // metric validation: should LOWER coverage
+  { name: 'single(shipped)',   ov: {} },                                   // the bar to beat
+  { name: 'expl,avoid0.1',     ov: EXPL({ exploreAvoidWeight: 0.1 }) },    // least-bad @ 6 seeds
+  { name: 'expl,avoid0.05',    ov: EXPL({ exploreAvoidWeight: 0.05 }) },   // 2nd
 ];
 
 const CIRCLE_WINDOW = 30;

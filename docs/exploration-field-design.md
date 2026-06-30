@@ -1,6 +1,20 @@
 # Exploration / Dispersion Field — Design Scope
 
-**Status:** scoped, not implemented. **Topic:** the two-pheromone design space
+**STATUS: TESTED → FAILED (v0.49.3). Kill condition met.** Role B (searcher
+dispersion) is net-negative vs single at every dose (12-seed: single +9 pickups vs
+best exploration −19; stronger repulsion → worse + circling spikes to ~9–14%). Role
+C (dead-source repulsion) almost never fires (ants pick in abundance, not scarcity).
+**Conclusion: the single path is at the environment's DISCOVERY CEILING** — both
+attract (recruitment) and repel (dispersion) searcher-steering interventions lose to
+doing nothing, so searcher behavior is not the binding constraint. Pickups (~900) are
+bounded by food respawn rate / `foodVisionRadius` / ant count. The scaffold
+(`config.explorationField`, default off) is retained per the kept-experiment
+precedent; the rest of this doc is the design as scoped (kept for the record). To
+raise discovery, change the ENVIRONMENT, not the pheromones.
+
+---
+
+**(Original scope follows.)** **Topic:** the two-pheromone design space
 beyond the failed *recruitment* role — a repulsion field for exploration. Scopes
 the lead candidate (dispersion, role B) with dead-source repulsion (role C) folded
 in; see "The two-pheromone design space" for the full role taxonomy (A–E).

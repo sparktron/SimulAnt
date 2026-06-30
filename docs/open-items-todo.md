@@ -54,10 +54,12 @@
       a scaffold for a future exploration-PRESERVING recruitment idea only.
     - A real #3 would push searchers toward NET-NEW territory, not onto known food.
 
-13. **Exploration / dispersion field** (`docs/exploration-field-design.md`) — ⏭️ SCOPED, next up
-    - Heir to the failed recruitment direction: a *repulsive* "explored" field laid by
-      searchers so they avoid recently-covered ground and discover relocating food sooner.
-    - Reuses the v0.49.0 4th-field scaffold (add `world.explored`, toggle `explorationField`).
-    - Increments: (1) add a coverage metric to `bench/forage-sweep.mjs`, (2) field plumbing
-      inert, (3) wire deposit+read, (4) sweep `exploreAvoidWeight`/`evapExplored`, (5) verdict.
-    - Win: pickups ON ≥ single (beat +9) AND coverage up, 12 seeds. Else → FAILED table.
+13. **Exploration / dispersion field** (`docs/exploration-field-design.md`) — ❌ TESTED, FAILED (v0.49.3)
+    - Built increments 1–4. Role B (searcher dispersion) net-negative at every dose
+      (12-seed: single +9 pickups vs best exploration −19; circling spikes to ~9–14%).
+      Role C (dead-source repulsion) almost never fires (ants pick in abundance).
+    - CONCLUSION: the single path is at the environment's DISCOVERY CEILING. Both attract
+      (recruitment) and repel (dispersion) searcher interventions lose to doing nothing →
+      searcher steering is not the binding constraint. In the FAILED table.
+    - To raise discovery, change the ENVIRONMENT (food respawn rate, foodVisionRadius,
+      ant count), not the pheromones. Pheromone-behavior tuning is exhausted.
