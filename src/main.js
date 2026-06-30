@@ -101,6 +101,8 @@ const state = {
     foodReservePerAnt: 12,
     foodMinReserve: 150,
     foodRespawnCooldownTicks: 60,
+    foodDropDistanceMin: 60,
+    foodDropDistanceRange: 40,
     broodFoodDrainRate: 0.005,
     broodGestationSeconds: 8,
     broodStarvationTicks: 600,

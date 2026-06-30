@@ -38,6 +38,8 @@ function makeSystem(opts = {}) {
     foodReservePerAnt: opts.foodReservePerAnt ?? 12,
     foodMinReserve: opts.foodMinReserve ?? 150,
     foodRespawnCooldownTicks: opts.foodRespawnCooldownTicks ?? 60,
+    foodDropDistanceMin: opts.foodDropDistanceMin ?? 60,
+    foodDropDistanceRange: opts.foodDropDistanceRange ?? 40,
   });
   return { sys, calls, colony };
 }
@@ -179,6 +181,20 @@ test('cooldown is skipped when no tick is supplied (tick-less callers/tests)', (
   sys.update({ foodPellets: pellets(0) });
   sys.update({ foodPellets: pellets(0) });
   assert.equal(calls.length, 2, 'no tick → not throttled');
+});
+
+test('drop distance band is configurable (the E4 logistics lever)', () => {
+  // Pull drops close to the nest: 20–30 tiles.
+  const close = makeSystem({ foodDropDistanceMin: 20, foodDropDistanceRange: 10 });
+  close.sys.update({ foodPellets: pellets(0) });
+  const dc = Math.hypot(close.calls[0].x - 128, close.calls[0].y - 128);
+  assert.ok(dc >= 18 && dc <= 32, `close band → ~20–30 tiles, got ${dc.toFixed(1)}`);
+
+  // Per-tick config overrides the constructor band.
+  const far = makeSystem({ foodDropDistanceMin: 20, foodDropDistanceRange: 10 });
+  far.sys.update({ foodPellets: pellets(0), config: { foodDropDistanceMin: 100, foodDropDistanceRange: 20 } });
+  const df = Math.hypot(far.calls[0].x - 128, far.calls[0].y - 128);
+  assert.ok(df >= 95, `config far band → >=100 tiles, got ${df.toFixed(1)}`);
 });
 
 test('config overrides the hunger params per tick', () => {

@@ -33,6 +33,8 @@ export class FoodEconomySystem {
     foodReservePerAnt = 12,
     foodMinReserve = 150,
     foodRespawnCooldownTicks = 60,
+    foodDropDistanceMin = 60,
+    foodDropDistanceRange = 40,
   }) {
     this.world = world;
     this.colony = colony;
@@ -48,6 +50,11 @@ export class FoodEconomySystem {
     // not self-limiting). Updated only on real ticks so tick-less callers/tests
     // are not throttled.
     this.foodRespawnCooldownTicks = foodRespawnCooldownTicks;
+    // Drop placement: distance band from the nest. Closer = shorter haul = a
+    // bigger economy (E1/E2 found the colony is logistics/distance-bound) but an
+    // easier game. A difficulty lever — see docs/environmental-foraging-tests.md.
+    this.foodDropDistanceMin = foodDropDistanceMin;
+    this.foodDropDistanceRange = foodDropDistanceRange;
     this._lastDropTick = -Infinity;
   }
 
@@ -72,11 +79,13 @@ export class FoodEconomySystem {
     const cooldown = config?.foodRespawnCooldownTicks ?? this.foodRespawnCooldownTicks;
     if (Number.isFinite(tick) && (tick - this._lastDropTick) < cooldown) return;
 
-    // Drop well away from the nest — never on the doorstep. Random angle,
-    // surface band only. 60–100 tiles forces real foraging; world-edge and
-    // surface-band guards in spawnFoodCluster clamp out-of-bounds placements.
+    // Drop away from the nest — never on the doorstep. Random angle, surface band
+    // only. The distance band forces real foraging; world-edge and surface-band
+    // guards in spawnFoodCluster clamp out-of-bounds placements.
+    const distMin = config?.foodDropDistanceMin ?? this.foodDropDistanceMin;
+    const distRange = config?.foodDropDistanceRange ?? this.foodDropDistanceRange;
     const angle = this.rng.range(0, Math.PI * 2);
-    const dist = 60 + this.rng.range(0, 40); // 60–100 tiles from the nest
+    const dist = distMin + this.rng.range(0, distRange);
     const x = Math.round(this.world.nestX + Math.cos(angle) * dist);
     const y = Math.round(this.world.nestY - Math.abs(Math.sin(angle)) * dist);
     const count = Math.round(this.bootFoodTotal / 4);

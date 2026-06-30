@@ -472,6 +472,24 @@ export const parameterDefinitions = {
     step: 10,
     advanced: true,
   },
+  foodDropDistanceMin: {
+    label: 'Food Drop Distance',
+    description: 'Nearest distance (tiles from nest) at which fresh food is dropped. Closer food = shorter haul = a larger, healthier colony (the economy is logistics-bound), but an easier game. Lower = easier.',
+    group: 'Food Economy',
+    min: 0,
+    max: 150,
+    step: 5,
+    advanced: true,
+  },
+  foodDropDistanceRange: {
+    label: 'Food Drop Spread',
+    description: 'Width of the drop distance band beyond the minimum (so drops land between min and min+spread tiles from the nest).',
+    group: 'Food Economy',
+    min: 0,
+    max: 150,
+    step: 5,
+    advanced: true,
+  },
 
   // =====================
   // DIGGING
@@ -565,6 +583,8 @@ export function getDefaultConfig() {
     foodReservePerAnt: 12,
     foodMinReserve: 150,
     foodRespawnCooldownTicks: 60,
+    foodDropDistanceMin: 60,
+    foodDropDistanceRange: 40,
     broodFoodDrainRate: 0.005,
     broodGestationSeconds: 8,
     broodStarvationTicks: 600,
