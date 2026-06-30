@@ -1,7 +1,32 @@
 # Environmental Foraging Tests — Design Scope
 
-**Status:** scoped, not run. **Topic:** raising foraging *income* by changing the
-ENVIRONMENT, now that pheromone-behavior tuning is exhausted.
+> ## ⚠️ KEY FINDINGS (2026-06-30, after the v0.50.0 safety-net fix)
+>
+> 1. **Confound fixed (v0.50.0):** the respawn net now fires on surface-low OR
+>    colony-hunger. Verified to reverse the RCA's "income saturates" pathology over
+>    8000 ticks.
+> 2. **MEASUREMENT HORIZON MATTERS:** E1/E2/E4/E5 first run at 8000 ticks all looked
+>    like a flat ~333 "equilibrium" — because 8000 is the PEAK, *before* the collapse.
+>    Survival must be measured at **≥16000 ticks**. 8000-tick numbers measure overshoot,
+>    not sustainability. (`antCap` is 2000, so ~333 is NOT a cap.)
+> 3. **The colony still COLLAPSES — overshoot-collapse, not pure starvation.** At
+>    16000 ticks (3 seeds): peak ~360–376 @~9000, then decline to final ~70–122. The
+>    larder exhausts ~tick 9000 (net −3198), triggering a die-off that is then SUSTAINED
+>    by an old-age wave (the synchronized boom cohort ages out: ~290 oldAge vs ~110
+>    starvation, inverting the RCA's ratio). The v0.50.0 fix RAISED the overshoot
+>    (peak 360 vs RCA's 129) rather than preventing the bust.
+> 4. **Single food levers don't fix overshoot.** More supply (E1 surface, E5 rate) funds
+>    a bigger overshoot; spatial levers (E2 vision, E4 distance) are already near-optimal
+>    at defaults (pushing either way is neutral-to-harmful). The root cause is the
+>    colony having **no growth brake** — the queen lays through the growth phase
+>    regardless of whether steady-state income can feed the result. **Next lever is
+>    BROOD/BIRTH REGULATION (colony mechanics), not food environment.** Re-running the
+>    food sweeps at 16000 is still worthwhile to confirm none prevents collapse.
+>
+> ---
+
+**Status:** scoped; E1/E2/E4/E5 run (see findings above). **Topic:** raising foraging
+*income* by changing the ENVIRONMENT, now that pheromone-behavior tuning is exhausted.
 **Read first:** `docs/pheromone-strategy.md` FAILED table + "discovery ceiling"
 finding (this is the heir to it) and `docs/starvation-collapse-rca-2026-06-02.md`
 (the same bottleneck, seen from the survival side).
