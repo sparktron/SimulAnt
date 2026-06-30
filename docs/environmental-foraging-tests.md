@@ -102,13 +102,15 @@ target population the user sets.
 
 ## Risks / caveats
 
-- **There is a known confound: the respawn safety net (RCA cause #2) gates on surface
-  pellet count, decoupled from `foodStored`, and "never fires."** That is a MECHANISM
-  bug, not an environment param. It may dominate any environmental sweep (the colony
-  starves with food on the map). **Consider fixing/【characterizing】 it first**, or at
-  least logging whether respawn fires during these runs — otherwise we may attribute
-  to "environment" what is really the broken safety net. This is the single biggest
-  threat to clean results and should be resolved up front.
+- ✅ **RESOLVED (v0.50.0): the respawn-safety-net confound is fixed.** The net now fires
+  on surface-low OR colony-hunger (`docs/starvation-collapse-rca-2026-06-02.md` cause #2).
+  Verified via `bench/starvation-trace.mjs` (8000 ticks, seed tick-profile): with the
+  hunger trigger OFF (old behavior) the colony reaches final 241; with it ON, final 340
+  and — critically — **income now scales with population (1.2k→25k/window) instead of
+  saturating**, with `net` oscillating around 0. So the RCA's central pathology is gone
+  and E1 measures against a HEALTHY food supply. NOTE this also reframes E1: income rose
+  when supply was unthrottled, so the colony was partly SUPPLY-throttled by the broken
+  net — E1 now characterizes the new baseline rather than the starved one.
 - Every lever is also a difficulty knob — pick a target population/survival horizon
   before declaring a "win," or the sweep optimizes toward a trivial sim.
 - Long runs (≥8000 × multiple seeds) are slower than the foraging A/Bs; budget for it.

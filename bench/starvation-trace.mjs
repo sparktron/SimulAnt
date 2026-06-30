@@ -15,9 +15,13 @@ import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 
 const END_TICK = Number(process.argv[2]) || 7000;
 const SAMPLE = Number(process.argv[3]) || 250;
-const SEED = 'tick-profile';
+const SEED = process.env.TRACE_SEED || 'tick-profile';
 
-const config = sanitizeTickConfig(getDefaultConfig());
+// Config overrides via env TRACE_OV (JSON), e.g.
+//   TRACE_OV='{"foodReservePerAnt":0,"foodMinReserve":0}'  → hunger trigger OFF (old behavior)
+const OVERRIDES = process.env.TRACE_OV ? JSON.parse(process.env.TRACE_OV) : {};
+const config = sanitizeTickConfig({ ...getDefaultConfig(), ...OVERRIDES });
+if (Object.keys(OVERRIDES).length) console.log(`# overrides: ${JSON.stringify(OVERRIDES)}`);
 const sim = new SimulationCore(SEED);
 const colony = sim.colony;
 
@@ -66,6 +70,11 @@ console.log(hdr.map((h) => h.padStart(8)).join(' '));
 let prevDeaths = 0;
 let prevCause = { starvation: 0, oldAge: 0, hazard: 0, other: 0 };
 
+// Survival summary accumulators.
+let peakAnts = 0;
+let peakTick = 0;
+let collapseTick = -1; // first tick the colony hits 0 after having had ants
+
 for (let tick = 0; tick <= END_TICK; tick += 1) {
   if (tick % SAMPLE === 0) {
     const dDeaths = colony.deaths - prevDeaths;
@@ -101,8 +110,15 @@ for (let tick = 0; tick <= END_TICK; tick += 1) {
     depositedNutrition = 0; consumedNutrition = 0; depositEvents = 0;
   }
   sim.update(config);
+
+  const n = colony.ants.length;
+  if (n > peakAnts) { peakAnts = n; peakTick = tick; }
+  if (n === 0 && peakAnts > 0 && collapseTick < 0) collapseTick = tick;
 }
 
 console.log('\nfinal role counts:', roleCounts());
 console.log('final state counts:', stateCounts());
 console.log('cumulative deathsByCause:', colony.deathsByCause);
+console.log(`\nSURVIVAL: peak ${peakAnts} @${peakTick} | final ${colony.ants.length} `
+  + `| collapse ${collapseTick < 0 ? 'NONE' : `@${collapseTick}`} `
+  + `| starved ${colony.deathsByCause.starvation} oldAge ${colony.deathsByCause.oldAge}`);
