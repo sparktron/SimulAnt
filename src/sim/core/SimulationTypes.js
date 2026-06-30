@@ -134,10 +134,15 @@ export function sanitizeTickConfig(config = {}) {
     queenSuccessionDelayTicks: clampPositiveInt(config.queenSuccessionDelayTicks, 150, 0),
     queenSuccessionFoodCost: clampNonNegativeNumber(config.queenSuccessionFoodCost, 60),
     queenSuccessionMinHealthFraction: clamp01(config.queenSuccessionMinHealthFraction, 0.5),
-    // Food respawn (FoodEconomySystem, v0.43.3 surface-count-gated): drop fresh
-    // food when free (unclaimed) surface pellets fall below minSurfacePellets.
-    // See docs/starvation-collapse-rca-2026-06-02.md.
+    // Food respawn (FoodEconomySystem, v0.50.0 dual-trigger): drop fresh food when
+    // EITHER free surface pellets fall below minSurfacePellets OR the larder
+    // (foodStored) falls below max(foodMinReserve, ants*foodReservePerAnt). A
+    // cooldown bounds the rate (hunger trigger isn't self-limiting). Fixes the
+    // RCA cause #2 — see docs/starvation-collapse-rca-2026-06-02.md.
     minSurfacePellets: clampPositiveInt(config.minSurfacePellets, 200, 0),
+    foodReservePerAnt: clampNonNegativeNumber(config.foodReservePerAnt, 12),
+    foodMinReserve: clampNonNegativeNumber(config.foodMinReserve, 150),
+    foodRespawnCooldownTicks: clampPositiveInt(config.foodRespawnCooldownTicks, 60, 0),
     broodFoodDrainRate: clampNonNegativeNumber(config.broodFoodDrainRate, 0),
     broodGestationSeconds: clampNonNegativeNumber(config.broodGestationSeconds, 1),
     larvaeCrowdingThreshold: Math.floor(clampFiniteRangeNumber(config.larvaeCrowdingThreshold, 8, 0, 100)),

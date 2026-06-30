@@ -3,15 +3,19 @@ import assert from 'node:assert/strict';
 import { FoodEconomySystem } from '../src/sim/systems/FoodEconomySystem.js';
 import { SeededRng } from '../src/sim/rng.js';
 
-// FoodEconomySystem (v0.43.3 surface-count-gated strategy): a respawn fires when
-// the number of FREE (unclaimed) surface pellets falls below minSurfacePellets,
-// dropping one small cluster (bootFoodTotal/4) 60–100 tiles from the nest so ants
-// must forage for it. It reads world geometry, the colony's ant count, its rng,
-// and spawnFoodCluster — lightweight fakes fully exercise the logic.
+// FoodEconomySystem (v0.50.0 dual-trigger strategy): a respawn fires when EITHER
+// free (unclaimed) surface pellets fall below minSurfacePellets OR the larder
+// (foodStored) falls below max(foodMinReserve, ants*foodReservePerAnt), dropping one
+// small cluster (bootFoodTotal/4) 60–100 tiles from the nest. A foodRespawnCooldownTicks
+// rate-limit (skipped when no `tick` is supplied) bounds the supply. It reads world
+// geometry, the colony's ant count + foodStored, its rng, and spawnFoodCluster —
+// lightweight fakes fully exercise the logic.
 //
-// NOTE: this replaced the old v0.36.0 demand-tracking "reserve floor" model
-// (reservePerAnt / minReserve / dropCooldownTicks / foodStored). Those params are
-// orphaned — the constructor no longer reads them. See docs and config-integrity.
+// HISTORY: v0.43.3 was surface-count-ONLY, which let distant uncollected pellets keep
+// the surface count high and silence respawn while the colony starved (the RCA cause
+// #2). v0.50.0 revives the reserve params (foodReservePerAnt / foodMinReserve /
+// foodRespawnCooldownTicks) as the hunger trigger + rate limit. See
+// docs/starvation-collapse-rca-2026-06-02.md.
 function makeWorld() {
   return { width: 256, height: 256, nestX: 128, nestY: 128 };
 }
@@ -20,6 +24,9 @@ function makeSystem(opts = {}) {
   const calls = [];
   const colony = {
     ants: new Array(opts.ants ?? 100).fill({}),
+    // High by default so surface-trigger tests isolate the surface gate; hunger
+    // tests pass a low foodStored explicitly.
+    foodStored: opts.foodStored ?? 1_000_000,
   };
   const sys = new FoodEconomySystem({
     world: makeWorld(),
@@ -28,6 +35,9 @@ function makeSystem(opts = {}) {
     spawnFoodCluster: (x, y, r, count) => calls.push({ x, y, r, count }),
     bootFoodTotal: opts.bootFoodTotal ?? 390,
     minSurfacePellets: opts.minSurfacePellets ?? 200,
+    foodReservePerAnt: opts.foodReservePerAnt ?? 12,
+    foodMinReserve: opts.foodMinReserve ?? 150,
+    foodRespawnCooldownTicks: opts.foodRespawnCooldownTicks ?? 60,
   });
   return { sys, calls, colony };
 }
@@ -116,4 +126,66 @@ test('cluster size tracks bootFoodTotal (a quarter of it)', () => {
   const { sys, calls } = makeSystem({ bootFoodTotal: 800, minSurfacePellets: 200 });
   sys.update({ foodPellets: pellets(0) });
   assert.equal(calls[0].count, 200, 'cluster size is a quarter of the boot total (800/4)');
+});
+
+// --- v0.50.0 hunger trigger (RCA cause #2 fix) ------------------------------
+
+test('HUNGER trigger fires even when the surface is full (the RCA bug fix)', () => {
+  // 500 free pellets sit uncollected (e.g. unreachable) — the old surface-only
+  // gate would stay silent. With a starved larder the colony is HUNGRY → drop.
+  const { sys, calls } = makeSystem({
+    ants: 100, foodStored: 0, minSurfacePellets: 200,
+  });
+  sys.update({ foodPellets: pellets(500) });
+  assert.equal(calls.length, 1, 'hungry larder fires the net despite a full surface');
+});
+
+test('a well-stocked larder AND full surface → no drop', () => {
+  const { sys, calls } = makeSystem({
+    ants: 100, foodStored: 1_000_000, minSurfacePellets: 200,
+  });
+  sys.update({ foodPellets: pellets(500) });
+  assert.equal(calls.length, 0, 'neither trigger crosses → silent');
+});
+
+test('hunger floor is population-scaled: max(minReserve, ants*perAnt)', () => {
+  // 100 ants * 12 = 1200 floor (above the 150 minReserve).
+  const hungry = makeSystem({ ants: 100, foodStored: 1199, foodReservePerAnt: 12, foodMinReserve: 150 });
+  hungry.sys.update({ foodPellets: pellets(500) });
+  assert.equal(hungry.calls.length, 1, 'foodStored 1199 < 1200 floor → hungry');
+
+  const fed = makeSystem({ ants: 100, foodStored: 1200, foodReservePerAnt: 12, foodMinReserve: 150 });
+  fed.sys.update({ foodPellets: pellets(500) });
+  assert.equal(fed.calls.length, 0, 'foodStored 1200 >= floor → not hungry (inclusive)');
+
+  // Tiny colony: the minReserve floor dominates the per-ant term.
+  const tiny = makeSystem({ ants: 1, foodStored: 149, foodReservePerAnt: 12, foodMinReserve: 150 });
+  tiny.sys.update({ foodPellets: pellets(500) });
+  assert.equal(tiny.calls.length, 1, '1 ant: floor is max(150, 12)=150; 149 < 150 → hungry');
+});
+
+test('cooldown rate-limits drops when a real tick is supplied', () => {
+  const { sys, calls } = makeSystem({ ants: 100, foodStored: 0, foodRespawnCooldownTicks: 60 });
+  sys.update({ foodPellets: pellets(0), tick: 1000 });
+  assert.equal(calls.length, 1, 'first drop fires');
+  sys.update({ foodPellets: pellets(0), tick: 1030 }); // 30 < 60 cooldown
+  assert.equal(calls.length, 1, 'within cooldown → suppressed (prevents hunger flooding)');
+  sys.update({ foodPellets: pellets(0), tick: 1060 }); // 60 >= 60 cooldown
+  assert.equal(calls.length, 2, 'cooldown elapsed → drops again');
+});
+
+test('cooldown is skipped when no tick is supplied (tick-less callers/tests)', () => {
+  const { sys, calls } = makeSystem({ ants: 100, foodStored: 0 });
+  sys.update({ foodPellets: pellets(0) });
+  sys.update({ foodPellets: pellets(0) });
+  assert.equal(calls.length, 2, 'no tick → not throttled');
+});
+
+test('config overrides the hunger params per tick', () => {
+  // Constructor floor 0 (never hungry); config lifts perAnt so the colony is hungry.
+  const { sys, calls } = makeSystem({ ants: 100, foodStored: 500, foodReservePerAnt: 0, foodMinReserve: 0 });
+  sys.update({ foodPellets: pellets(500) });
+  assert.equal(calls.length, 0, 'ctor floor 0 → not hungry, surface full → silent');
+  sys.update({ foodPellets: pellets(500), config: { foodReservePerAnt: 12, foodMinReserve: 150 } });
+  assert.equal(calls.length, 1, 'config floor 1200 > 500 → hungry → drop');
 });

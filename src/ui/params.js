@@ -445,6 +445,33 @@ export const parameterDefinitions = {
     step: 25,
     advanced: false,
   },
+  foodReservePerAnt: {
+    label: 'Hunger Reserve / Ant',
+    description: 'The respawn safety net ALSO fires when the larder (foodStored) falls below max(min reserve, ants × this). Per-ant reserve target. Higher = the colony is judged "hungry" sooner, so food drops more readily (easier).',
+    group: 'Food Economy',
+    min: 0,
+    max: 100,
+    step: 1,
+    advanced: true,
+  },
+  foodMinReserve: {
+    label: 'Hunger Reserve Floor',
+    description: 'Lower bound on the hunger threshold above, so a tiny colony still keeps a minimum larder before the safety net relaxes.',
+    group: 'Food Economy',
+    min: 0,
+    max: 2000,
+    step: 25,
+    advanced: true,
+  },
+  foodRespawnCooldownTicks: {
+    label: 'Respawn Cooldown',
+    description: 'Minimum ticks between safety-net drops. Bounds the food supply RATE — the hunger trigger is not self-limiting, so without this a starving colony that cannot reach distant food would flood the map. Higher = scarcer (harder).',
+    group: 'Food Economy',
+    min: 0,
+    max: 600,
+    step: 10,
+    advanced: true,
+  },
 
   // =====================
   // DIGGING
@@ -535,6 +562,9 @@ export function getDefaultConfig() {
     queenSuccessionFoodCost: 60,
     queenSuccessionMinHealthFraction: 0.5,
     minSurfacePellets: 200,
+    foodReservePerAnt: 12,
+    foodMinReserve: 150,
+    foodRespawnCooldownTicks: 60,
     broodFoodDrainRate: 0.005,
     broodGestationSeconds: 8,
     broodStarvationTicks: 600,
