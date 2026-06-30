@@ -63,3 +63,13 @@
       searcher steering is not the binding constraint. In the FAILED table.
     - To raise discovery, change the ENVIRONMENT (food respawn rate, foodVisionRadius,
       ant count), not the pheromones. Pheromone-behavior tuning is exhausted.
+
+14. **Environmental foraging tests** (`docs/environmental-foraging-tests.md`) — ⏭️ SCOPED, heir to #12/#13
+    - Heir to the discovery-ceiling finding: raise foraging *income* via the environment,
+      objective = stop the starvation collapse (`docs/starvation-collapse-rca-2026-06-02.md`).
+    - Levers: foodVisionRadius, minSurfacePellets, bootFoodTotal, drop distance, antCap,
+      pellet nutrition. Harness: `bench/starvation-trace.mjs` (long runs ≥8000, abs outcomes).
+    - E1 (pivotal): sweep minSurfacePellets UP → supply-bound vs search-bound. Then E2 vision.
+    - ⚠️ CONFOUND FIRST: the respawn safety net (RCA cause #2) gates on surface count, never
+      fires — a MECHANISM bug that may dominate any environment sweep. Fix/characterize up front.
+    - Difficulty decision, not an optimization: pick a target population before declaring a win.
