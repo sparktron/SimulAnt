@@ -245,9 +245,32 @@ just 5 seeds), so neither n=5-6 experiment reaches significance, and getting
 opposite-signed results from two underpowered runs is exactly what pure noise
 looks like. **Neither experiment is trustworthy at this sample size.**
 
-**Current status: reverted to OFF (v0.52.3) pending a properly-powered
-confirmation** (~20+ seeds, paired, at ≥16000 ticks, with the diff's standard
-error reported alongside the mean — not just point estimates). The
-`queenLayingIncomeBrake` scaffold, EMA trend tracker, and both A/B harnesses
-stay in the codebase; only the shipped default changed. Overshoot-collapse
-itself remains UNFIXED — this is back to an open problem, not a regression.
+**Confirmed NULL RESULT (n=20, 18000 ticks, same seed set as the original A/B):**
+
+```
+Paired diff (on - off) per seed, sensitivity=40:
+mean diff +7.7   SD 67.9   SE 15.2   |diff/SE| 0.51
+extinctions: 1/20 -> 1/20 (identical)
+```
+
+At n=20 the standard error tightened from ~20-62 (the two n=5-6 runs) down to
+15.2, and the mean diff landed close to zero — this is not "still unresolved,"
+it's a settled null: **`queenLayingIncomeBrake` at sensitivity=40 has no
+detectable effect** on final population or extinction rate. The apparent win
+(+24.3, n=6) and apparent loss (-54.6, n=5) were both sampling noise from
+underpowered runs, now resolved by more data rather than either one panning
+out.
+
+**Current status: `queenLayingIncomeBrake` stays off by default (v0.52.3+).**
+This lever, AS IMPLEMENTED (EMA of net foodStored delta, sensitivity 40, gating
+egg-laying), does not fix overshoot-collapse. The scaffold, EMA tracker, and
+A/B harnesses stay in the codebase for reference — treat this as the food/
+colony-mechanics equivalent of the pheromone-strategy "What FAILED" table: a
+tested and ruled-out approach, not a pending experiment. Overshoot-collapse
+remains an OPEN problem. Possible untried directions: a harder-throttling
+sensitivity outside the 20-140 range already sampled (though the sensitivity
+sweep at n=5 is itself underpowered and would need its own n=20 confirmation
+before trusting any value), or a fundamentally different growth-regulation
+signal (e.g. gating on forager return-rate directly, or a hard population
+soft-cap tied to measured steady-state throughput, rather than a stockpile-
+trend proxy).
