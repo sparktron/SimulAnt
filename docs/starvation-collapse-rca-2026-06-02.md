@@ -220,8 +220,34 @@ dose-sensitive and non-monotonic: 20/30/40/60 all avoided single-seed extinction
 but 80 caused it — has not yet been swept across the full 6-seed set, so 40
 (the tested default) stands until a wider sweep says otherwise.
 
-**Shipped ON by default in v0.52.0.** Interestingly it does not lower the peak
-much (327→350) — it delays and moderates the crash rather than preventing the
-overshoot outright. Fully flattening the peak would need the brake to act
-earlier/harder, which is exactly the failure mode sensitivity=80 hit on a single
-seed; worth a wider multi-seed sensitivity sweep before pushing further.
+**Shipped ON by default in v0.52.1 — then RETRACTED in v0.52.3.** A follow-up
+multi-seed sensitivity sweep (`bench/growth-brake-sensitivity-sweep.mjs`, 5
+seeds `sens-sweep-0..4`, 16000 ticks) tested sensitivity ∈ {0(off),20,40,60,80,
+100,140} and found baseline (off) beating EVERY brake setting, including the
+sensitivity=40 shipped in v0.52.1:
+
+| sensitivity | avg final | extinctions |
+|---|---|---|
+| 0 (off) | **102.6** | 0/5 |
+| 20 | 61.4 | 0/5 |
+| 40 (shipped) | 48.0 | 1/5 |
+| 60 | 47.0 | 0/5 |
+| 80 | 43.0 | 0/5 |
+| 100 | 61.0 | 1/5 |
+| 140 | 81.2 | 0/5 |
+
+This directly contradicts the original A/B (avg final 22.2→46.5 favoring
+brake ON). Reconciling both as PAIRED comparisons (same seeds, off vs on@40):
+original A/B mean diff +24.3 (SE≈20.4, ~1.2 SE from zero); sweep mean diff
+**-54.6** (SE≈62, opposite sign). Per-seed final-population variance is large
+(SD on the order of 100 ants — single-condition results ranged 0 to 291 across
+just 5 seeds), so neither n=5-6 experiment reaches significance, and getting
+opposite-signed results from two underpowered runs is exactly what pure noise
+looks like. **Neither experiment is trustworthy at this sample size.**
+
+**Current status: reverted to OFF (v0.52.3) pending a properly-powered
+confirmation** (~20+ seeds, paired, at ≥16000 ticks, with the diff's standard
+error reported alongside the mean — not just point estimates). The
+`queenLayingIncomeBrake` scaffold, EMA trend tracker, and both A/B harnesses
+stay in the codebase; only the shipped default changed. Overshoot-collapse
+itself remains UNFIXED — this is back to an open problem, not a regression.

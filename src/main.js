@@ -85,10 +85,15 @@ const state = {
     // reacts to the stockpile, which stays "full" during the overshoot), then
     // crashes once brood/adult momentum outruns supply. When enabled, laying
     // also throttles on a smoothed income TREND, not just current stock level.
-    // A/B'd v0.52.0 (bench/growth-brake-ab.mjs, 6 seeds x 18000 ticks): avg
-    // final pop 22.2->46.5, extinctions 1/6->0/6. See docs/starvation-collapse-
-    // rca-2026-06-02.md "Overshoot-collapse" section. Shipped ON by default.
-    queenLayingIncomeBrake: true,
+    // v0.52.1 shipped this ON based on a 6-seed A/B (+24.3 avg final ants),
+    // but a follow-up sensitivity sweep on a DIFFERENT 5-seed set showed
+    // baseline beating every brake setting (-54.6 avg diff at the same
+    // sensitivity). Per-seed final-population variance is large enough
+    // (SD ~100 ants) that neither result is statistically significant at
+    // n=5-6 — this is unresolved, not confirmed. Reverted to off pending a
+    // properly-powered (~20 seed) confirmation. See docs/starvation-collapse-
+    // rca-2026-06-02.md "Overshoot-collapse" section.
+    queenLayingIncomeBrake: false,
     queenLayingTrendAlpha: 0.01,
     queenLayingTrendSensitivity: 40,
     // Trophallaxis: a fed ant can pass a small amount of hunger to an
