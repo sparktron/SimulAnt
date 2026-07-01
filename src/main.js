@@ -80,6 +80,15 @@ const state = {
     // that self-limits the queen and ties birth rate to her condition.
     queenEggHealthCost: 0.05,
     queenLayingMinHealth: 0.2,
+    // Growth brake (v0.52.0): counters overshoot-collapse — the colony grows
+    // past what steady-state food income can sustain (foodLayMultiplier only
+    // reacts to the stockpile, which stays "full" during the overshoot), then
+    // crashes once brood/adult momentum outruns supply. When enabled, laying
+    // also throttles on a smoothed income TREND, not just current stock level.
+    // Off by default pending A/B (see bench/starvation-trace.mjs, TRACE_OV).
+    queenLayingIncomeBrake: false,
+    queenLayingTrendAlpha: 0.01,
+    queenLayingTrendSensitivity: 40,
     // Trophallaxis: a fed ant can pass a small amount of hunger to an
     // adjacent hungry one each tick. Rates are intentionally small — this is
     // a survival-pressure release, not the primary feeding channel.

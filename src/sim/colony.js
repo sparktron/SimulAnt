@@ -87,6 +87,10 @@ export class Colony {
     this._nestFoodTiles = new Set();  // occupied nest food tile keys: "x,y"
     this._virtualFoodStored = 0;  // bootstrap food not backed by physical pellets
     this._aliveWorkerCount = 0;  // cache of alive worker count, updated each tick
+    // Growth-brake income trend: EMA of net foodStored delta per tick, normalized
+    // by foodStoreTarget. See #updateQueenAndBrood / config.queenLayingIncomeBrake.
+    this._foodIncomeTrend = 0;
+    this._prevFoodStoredForTrend = this.foodStored;
 
     // Spawn initial ants with some soldiers for visual distinction.
     //
@@ -183,6 +187,18 @@ export class Colony {
     // rolling buffer. Foragers work until the store reaches 90% of this,
     // so a larger colony keeps more reserves without over-hoarding.
     this.foodStoreTarget = Math.max(100, this.ants.length * 5);
+
+    // Growth brake: smooth the net foodStored delta into an EMA, normalized by
+    // the size-scaled target, so #updateQueenAndBrood can react to a worsening
+    // income TREND instead of only the current stockpile level (which only
+    // drops after growth has already overshot what income can sustain).
+    const trendAlpha = config.queenLayingTrendAlpha ?? 0.01;
+    const deltaFraction = this.foodStoreTarget > 0
+      ? (this.foodStored - this._prevFoodStoredForTrend) / this.foodStoreTarget
+      : 0;
+    this._foodIncomeTrend += trendAlpha * (deltaFraction - this._foodIncomeTrend);
+    this._prevFoodStoredForTrend = this.foodStored;
+
     // Deposit entrance pheromone every 5 ticks to prevent saturation flooding
     if (this._updateCounter % 5 === 0) this.#depositEntrancePheromone(config);
     this.#updateQueenSurvival(config);
@@ -516,12 +532,25 @@ export class Colony {
     // bring births to a complete halt and the colony would lose its
     // workforce-renewal pipeline entirely.
     const foodLayMultiplier = Math.max(0.2, foodFraction);
+    // Growth brake (config.queenLayingIncomeBrake, default off): foodLayMultiplier
+    // above is a lagging signal — full stores read as "safe" even when the
+    // population is already bigger than steady-state income can sustain. This
+    // adds a leading term based on _foodIncomeTrend (set in update()) so laying
+    // throttles down while income is trending negative, not only once the
+    // buffer is nearly empty. See project memory "overshoot-collapse".
+    let layMultiplier = foodLayMultiplier;
+    if (config.queenLayingIncomeBrake) {
+      const sensitivity = config.queenLayingTrendSensitivity ?? 40;
+      const trendPenalty = Math.max(0, -this._foodIncomeTrend) * sensitivity;
+      const incomeTrendMultiplier = Math.max(0.2, 1 - trendPenalty);
+      layMultiplier = Math.min(layMultiplier, incomeTrendMultiplier);
+    }
     const minLayHealthFraction = config.queenLayingMinHealth ?? 0.2;
     const canLay = healthFraction >= minLayHealthFraction
       && this.foodStored >= config.queenEggFoodCost;
 
     if (canLay) {
-      this.queen.eggProgress += healthFraction * foodLayMultiplier;
+      this.queen.eggProgress += healthFraction * layMultiplier;
       if (this.queen.eggProgress >= config.queenEggTicks) {
         this.queen.eggProgress = 0;
         // Egg cost deducts from the canonical total and the virtual sub-ledger.
