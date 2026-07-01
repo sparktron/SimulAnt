@@ -80,22 +80,19 @@ const state = {
     // that self-limits the queen and ties birth rate to her condition.
     queenEggHealthCost: 0.05,
     queenLayingMinHealth: 0.2,
-    // Growth brake (v0.52.0): counters overshoot-collapse — the colony grows
-    // past what steady-state food income can sustain (foodLayMultiplier only
-    // reacts to the stockpile, which stays "full" during the overshoot), then
-    // crashes once brood/adult momentum outruns supply. When enabled, laying
-    // also throttles on a smoothed income TREND, not just current stock level.
-    // v0.52.1 shipped this ON based on a 6-seed A/B (+24.3 avg final ants),
-    // but a follow-up sensitivity sweep on a DIFFERENT 5-seed set showed
-    // baseline beating every brake setting (-54.6 avg diff at the same
-    // sensitivity). Per-seed final-population variance is large enough
-    // (SD ~100 ants) that neither result is statistically significant at
-    // n=5-6 — this is unresolved, not confirmed. Reverted to off pending a
-    // properly-powered (~20 seed) confirmation. See docs/starvation-collapse-
-    // rca-2026-06-02.md "Overshoot-collapse" section.
-    queenLayingIncomeBrake: false,
-    queenLayingTrendAlpha: 0.01,
-    queenLayingTrendSensitivity: 40,
+    // Oophagy: real ant/wasp/bee colonies actively cull freshly laid eggs and
+    // stage-1 larvae to reclaim their nutrients when nurses can't keep the
+    // brood chamber fed, rather than losing that investment to a slow
+    // starved corpse. Triggers after oophagyDelayTicks of sustained severe
+    // underfeeding (broodFeedRatio<0.3); recycles oophagyRecycleNutrition
+    // back into foodStored. A colony-wide stockpile-trend "growth brake" was
+    // tried instead (v0.52.0-.4) and A/B'd out at n=20 seeds — no effect on
+    // population/extinction. Replaced by this and queen-health-only laying
+    // (see the comment in #updateQueenAndBrood) — both local/biological
+    // signals instead of a global stock statistic. See docs/starvation-
+    // collapse-rca-2026-06-02.md "Overshoot-collapse" section.
+    oophagyDelayTicks: 120,
+    oophagyRecycleNutrition: 5,
     // Trophallaxis: a fed ant can pass a small amount of hunger to an
     // adjacent hungry one each tick. Rates are intentionally small — this is
     // a survival-pressure release, not the primary feeding channel.

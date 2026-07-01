@@ -261,16 +261,40 @@ detectable effect** on final population or extinction rate. The apparent win
 underpowered runs, now resolved by more data rather than either one panning
 out.
 
-**Current status: `queenLayingIncomeBrake` stays off by default (v0.52.3+).**
-This lever, AS IMPLEMENTED (EMA of net foodStored delta, sensitivity 40, gating
-egg-laying), does not fix overshoot-collapse. The scaffold, EMA tracker, and
-A/B harnesses stay in the codebase for reference — treat this as the food/
-colony-mechanics equivalent of the pheromone-strategy "What FAILED" table: a
-tested and ruled-out approach, not a pending experiment. Overshoot-collapse
-remains an OPEN problem. Possible untried directions: a harder-throttling
-sensitivity outside the 20-140 range already sampled (though the sensitivity
-sweep at n=5 is itself underpowered and would need its own n=20 confirmation
-before trusting any value), or a fundamentally different growth-regulation
-signal (e.g. gating on forager return-rate directly, or a hard population
-soft-cap tied to measured steady-state throughput, rather than a stockpile-
-trend proxy).
+**Superseded v0.53.0 — the whole colony-wide-aggregate approach was retired,
+not just this one lever.** `queenLayingIncomeBrake` (EMA of net foodStored
+delta) does not fix overshoot-collapse and was a confirmed null at n=20.
+Rather than keep hunting for a working global-stock signal, the design pivoted
+away from that whole FAMILY of mechanism: no real ant queen has any awareness
+of colony-wide reserves — she only responds to her own fed condition. The
+`bench/growth-brake-ab.mjs` and `bench/growth-brake-sensitivity-sweep.mjs`
+harnesses (and the `queenLayingIncomeBrake`/`queenLayingTrendAlpha`/
+`queenLayingTrendSensitivity` config keys and `Colony#_foodIncomeTrend`
+tracker) were removed entirely rather than kept as an inert toggle — this
+family of approach is retired, not paused.
+
+**Replacement (v0.53.0), two locally-grounded mechanisms instead:**
+
+1. **Queen laying depends ONLY on her own health**, not on
+   `foodStored/foodStoreTarget` at all (`#updateQueenAndBrood` in
+   `src/sim/colony.js`). Food scarcity still reaches her — indirectly, through
+   the existing courier/trophallaxis feeding chain degrading her health when
+   foraging fails — but nothing reads a colony-wide statistic directly.
+2. **Oophagy**: nurses actively cull freshly-laid eggs/stage-1 larvae
+   (`config.oophagyDelayTicks`, default 120 ticks of sustained
+   `broodFeedRatio<0.3`) and recycle `config.oophagyRecycleNutrition`
+   (default 5) back into the store, rather than losing that investment to a
+   slow, non-recycling starvation death (`broodStarvationTicks`, unchanged,
+   still applies to later-stage larvae with more sunk cost). This reacts to
+   the brood chamber's actual per-tick feed ratio — a local signal — not a
+   colony-wide stockpile level.
+
+Both mirror documented real ant/wasp/bee colony behavior (queen fecundity
+gated by personal nutrition status; brood cannibalism to reclaim nutrients
+under stress) rather than an omniscient global-statistics hack. **Not yet A/B
+validated** — a single-seed sanity trace (peak 357, final 163, collapse NONE
+@18000 ticks) shows nothing broke, but per the statistical-power lesson above,
+that is not evidence of an improvement and should not be read as one. Whether
+this actually raises survival vs. the pre-v0.53.0 baseline is an open
+follow-up; if pursued, start at n≈20 seeds given what a smaller sample already
+cost here. Overshoot-collapse itself remains an OPEN problem either way.

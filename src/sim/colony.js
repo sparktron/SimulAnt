@@ -87,10 +87,6 @@ export class Colony {
     this._nestFoodTiles = new Set();  // occupied nest food tile keys: "x,y"
     this._virtualFoodStored = 0;  // bootstrap food not backed by physical pellets
     this._aliveWorkerCount = 0;  // cache of alive worker count, updated each tick
-    // Growth-brake income trend: EMA of net foodStored delta per tick, normalized
-    // by foodStoreTarget. See #updateQueenAndBrood / config.queenLayingIncomeBrake.
-    this._foodIncomeTrend = 0;
-    this._prevFoodStoredForTrend = this.foodStored;
 
     // Spawn initial ants with some soldiers for visual distinction.
     //
@@ -187,18 +183,6 @@ export class Colony {
     // rolling buffer. Foragers work until the store reaches 90% of this,
     // so a larger colony keeps more reserves without over-hoarding.
     this.foodStoreTarget = Math.max(100, this.ants.length * 5);
-
-    // Growth brake: smooth the net foodStored delta into an EMA, normalized by
-    // the size-scaled target, so #updateQueenAndBrood can react to a worsening
-    // income TREND instead of only the current stockpile level (which only
-    // drops after growth has already overshot what income can sustain).
-    const trendAlpha = config.queenLayingTrendAlpha ?? 0.01;
-    const deltaFraction = this.foodStoreTarget > 0
-      ? (this.foodStored - this._prevFoodStoredForTrend) / this.foodStoreTarget
-      : 0;
-    this._foodIncomeTrend += trendAlpha * (deltaFraction - this._foodIncomeTrend);
-    this._prevFoodStoredForTrend = this.foodStored;
-
     // Deposit entrance pheromone every 5 ticks to prevent saturation flooding
     if (this._updateCounter % 5 === 0) this.#depositEntrancePheromone(config);
     this.#updateQueenSurvival(config);
@@ -510,47 +494,29 @@ export class Colony {
   #updateQueenAndBrood(config) {
     const dt = config.tickSeconds || BASE_TICK_SECONDS;
 
-    // Egg laying is gated on three things: food, queen energy, and a minimum
-    // health floor. Progress accumulates at a rate proportional to her health
-    // fraction AND the colony's food reserves — a healthy queen with full
-    // stores lays at the configured rate; a wounded queen or a queen above
-    // an empty store lays proportionally fewer eggs. The food taper is the
-    // key piece that lets the colony anticipate scarcity instead of laying
-    // flat-out until stores hit zero and then crashing.
+    // Egg laying depends ONLY on the queen's own physiological condition, not
+    // on any colony-wide food statistic — a real queen has no awareness of
+    // total nest reserves; she just responds to how well-fed SHE personally
+    // is (mirrors real ant/bee fecundity being driven by her fat-body/nutrition
+    // status via attendant trophallaxis, not a colony census). Food scarcity
+    // still reaches her, just indirectly and locally: if foraging fails,
+    // couriers feed her less (feedQueen/#updateQueenFoodRequest), her health
+    // drops, and eggProgress slows and eventually stops on its own.
     //
-    // Telemetry from v0.26.9 showed exactly this failure mode: foodStored
-    // dropped from 4829 → 0 over ~1200 ticks while the queen kept laying at
-    // full rate, then stopped abruptly. The colony peaked just as food ran
-    // out and had no buffer for the resulting cascade.
+    // A colony-wide stock-ratio taper (foodStored/foodStoreTarget) was tried
+    // here through v0.52.x (including a "growth brake" income-trend variant)
+    // and A/B'd out: a 20-seed confirmation found no effect on population or
+    // extinction (see docs/starvation-collapse-rca-2026-06-02.md). Replaced
+    // with this simpler, locally-grounded, and unambiguously biological rule.
     const healthFraction = this.queen.healthMax > 0
       ? Math.max(0, Math.min(1, this.queen.health / this.queen.healthMax))
       : 0;
-    const foodTarget = Math.max(1, this.foodStoreTarget);
-    const foodFraction = Math.min(1, this.foodStored / foodTarget);
-    // Min floor of 0.2 so the queen keeps producing some replacements even
-    // when stores are nearly empty — without it, a brief food dip would
-    // bring births to a complete halt and the colony would lose its
-    // workforce-renewal pipeline entirely.
-    const foodLayMultiplier = Math.max(0.2, foodFraction);
-    // Growth brake (config.queenLayingIncomeBrake, default off): foodLayMultiplier
-    // above is a lagging signal — full stores read as "safe" even when the
-    // population is already bigger than steady-state income can sustain. This
-    // adds a leading term based on _foodIncomeTrend (set in update()) so laying
-    // throttles down while income is trending negative, not only once the
-    // buffer is nearly empty. See project memory "overshoot-collapse".
-    let layMultiplier = foodLayMultiplier;
-    if (config.queenLayingIncomeBrake) {
-      const sensitivity = config.queenLayingTrendSensitivity ?? 40;
-      const trendPenalty = Math.max(0, -this._foodIncomeTrend) * sensitivity;
-      const incomeTrendMultiplier = Math.max(0.2, 1 - trendPenalty);
-      layMultiplier = Math.min(layMultiplier, incomeTrendMultiplier);
-    }
     const minLayHealthFraction = config.queenLayingMinHealth ?? 0.2;
     const canLay = healthFraction >= minLayHealthFraction
       && this.foodStored >= config.queenEggFoodCost;
 
     if (canLay) {
-      this.queen.eggProgress += healthFraction * layMultiplier;
+      this.queen.eggProgress += healthFraction;
       if (this.queen.eggProgress >= config.queenEggTicks) {
         this.queen.eggProgress = 0;
         // Egg cost deducts from the canonical total and the virtual sub-ledger.
@@ -619,6 +585,22 @@ export class Colony {
         larva.malnourishmentTicks = (larva.malnourishmentTicks || 0) + 1;
       } else {
         larva.malnourishmentTicks = 0;
+      }
+
+      // Oophagy: real ant/wasp/bee colonies actively cull their least-invested
+      // brood — freshly laid eggs/stage-1 larvae — to reclaim nutrients when
+      // nurses can't keep the chamber fed, rather than losing that investment
+      // to a slow starved corpse. Reacts to broodFeedRatio, the chamber's ACTUAL
+      // delivery this tick — a local signal, not a colony-wide stockpile read.
+      // Later-stage larvae (more sunk cost) are left to the slower starvation
+      // path below, matching the real-world preference to protect more mature
+      // brood first.
+      const oophagyDelayTicks = config.oophagyDelayTicks ?? 120;
+      if (larva.stage === 1 && larva.malnourishmentTicks >= oophagyDelayTicks) {
+        this.larvae.splice(i, 1);
+        this.queen.brood -= 1;
+        this.foodStored += config.oophagyRecycleNutrition ?? 5;
+        continue;
       }
 
       // Starving larva dies — remove it and release the brood slot.

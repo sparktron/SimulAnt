@@ -265,10 +265,16 @@ test('queen stops laying entirely below queenLayingMinHealth', () => {
   assert.equal(colony.queen.eggsLaid, eggsBefore, 'Queen below min-health floor should not lay');
 });
 
-test('queen egg-laying rate tapers as colony food reserves shrink', () => {
-  // Companion to the health-scaling test, isolating the food-reserve
-  // multiplier added in v0.27.1. Queen is healthy; the only variable is
-  // foodStored relative to foodStoreTarget. Low food → fewer eggs.
+test('queen egg-laying rate is invariant to colony food-reserve level', () => {
+  // A colony-wide foodStored/foodStoreTarget taper existed through v0.52.x
+  // (including a "growth brake" income-trend variant) but was A/B'd out at
+  // n=20 seeds with no effect on population/extinction (see
+  // docs/starvation-collapse-rca-2026-06-02.md). It was removed by design:
+  // a real queen has no awareness of colony-wide reserves, only of her own
+  // fed condition (queen health, driven by actual courier/trophallaxis
+  // feeding). This test locks in that laying rate depends ONLY on health,
+  // not on the stockpile level, as long as the minimal per-egg food cost is
+  // affordable.
   function countEggsAtFoodFraction(foodFraction) {
     const world = new World(64, 64);
     const rng = new SeededRng(`food-lay-rate-${foodFraction}`);
@@ -289,8 +295,6 @@ test('queen egg-laying rate tapers as colony food reserves shrink', () => {
 
     const eggsBefore = colony.queen.eggsLaid;
     for (let i = 0; i < 200; i += 1) {
-      // Pin foodStored and foodStoreTarget every tick so the lay-multiplier
-      // sees a stable foodFraction across the run.
       colony.foodStored = foodFraction * 100;
       colony.foodStoreTarget = 100;
       colony.update(config);
@@ -302,9 +306,41 @@ test('queen egg-laying rate tapers as colony food reserves shrink', () => {
   const lowStoreEggs = countEggsAtFoodFraction(0.3);
 
   assert.ok(fullStoreEggs > 0, 'Queen with full stores should lay eggs');
-  assert.ok(
-    lowStoreEggs < fullStoreEggs * 0.7,
-    `Low-store queen should lay markedly fewer eggs (full=${fullStoreEggs}, low=${lowStoreEggs})`,
+  assert.equal(
+    lowStoreEggs, fullStoreEggs,
+    `Laying rate should not depend on stock level (full=${fullStoreEggs}, low=${lowStoreEggs})`,
+  );
+});
+
+test('oophagy culls a severely underfed stage-1 larva and recycles its nutrition', () => {
+  // Mirrors real ant/wasp/bee brood cannibalism: when nurses can't keep the
+  // chamber fed (broodFeedRatio<0.3, a LOCAL per-tick delivery signal, not a
+  // colony-wide stockpile read), the least-invested brood is culled and its
+  // nutrients reclaimed rather than lost to a slow starved corpse.
+  const world = new World(64, 64);
+  const rng = new SeededRng('oophagy-test');
+  const colony = new Colony(world, rng, 0);
+  const config = createTestConfig();
+  config.broodFoodDrainRate = 10;  // demand > 0 so an empty store starves the chamber
+  config.broodGestationSeconds = 1000;  // slow enough the larva stays at stage 1
+  config.oophagyDelayTicks = 5;
+  config.oophagyRecycleNutrition = 7;
+  config.queenEggTicks = 1e6;      // don't let the queen lay a replacement mid-test
+  colony.foodStored = 0;           // nothing available to feed the brood chamber
+  colony.queen.brood = 1;
+  colony.larvae = [{ stage: 1, progress: 0 }];
+  colony.setNestEntrances([]);
+  colony.setSurfaceFoodPellets([]);
+
+  for (let i = 0; i < 6; i += 1) {
+    colony.update(config);
+  }
+
+  assert.equal(colony.larvae.length, 0, 'severely underfed stage-1 larva should be culled');
+  assert.equal(colony.queen.brood, 0, 'brood count should drop with the culled larva');
+  assert.equal(
+    colony.foodStored, config.oophagyRecycleNutrition,
+    'culling should recycle its nutrition back into the store',
   );
 });
 
