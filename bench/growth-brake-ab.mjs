@@ -72,6 +72,23 @@ console.log(`Growth brake A/B — endTick=${END_TICK} seeds=${SEED_COUNT} sensit
 const off = summarize('BRAKE OFF (baseline)', offRows);
 const on = summarize('BRAKE ON', onRows);
 
+// Paired-diff stats (same seed, on - off), not just the two means in isolation.
+// A point-estimate diff alone is not a verdict — v0.52.1 shipped on a 6-seed
+// diff that didn't hold up (see project memory "overshoot-collapse" /
+// feedback "statistical-power-ab"). Report mean, SD, and standard error so a
+// diff under ~2 SE from zero reads as "unresolved," not a win or loss.
+const diffs = seeds.map((_, i) => onRows[i].finalAnts - offRows[i].finalAnts);
+const n = diffs.length;
+const meanDiff = diffs.reduce((s, d) => s + d, 0) / n;
+const variance = diffs.reduce((s, d) => s + (d - meanDiff) ** 2, 0) / n;
+const sd = Math.sqrt(variance);
+const se = sd / Math.sqrt(n);
+const tStat = se > 0 ? meanDiff / se : 0; // se=0 means zero variance across seeds, i.e. no measurable effect
+const significant = se > 0 && Math.abs(tStat) >= 2; // rough 2-SE rule of thumb, not a formal p-value
+
+console.log(`\nPaired diff (on - off) per seed: [${diffs.join(', ')}]`);
+console.log(`mean diff ${meanDiff.toFixed(1)}  SD ${sd.toFixed(1)}  SE ${se.toFixed(1)}`
+  + `  |diff/SE| ${Math.abs(tStat).toFixed(2)}`);
 console.log(`\nVERDICT: avgFinal ${off.avgFinal.toFixed(1)} -> ${on.avgFinal.toFixed(1)}`
-  + ` (${on.avgFinal >= off.avgFinal ? '+' : ''}${(on.avgFinal - off.avgFinal).toFixed(1)})`
+  + ` (${meanDiff >= 0 ? '+' : ''}${meanDiff.toFixed(1)}, ${significant ? 'SIGNIFICANT' : 'NOT significant — unresolved at this n'})`
   + `, extinctions ${off.extinctions}/${SEED_COUNT} -> ${on.extinctions}/${SEED_COUNT}`);
