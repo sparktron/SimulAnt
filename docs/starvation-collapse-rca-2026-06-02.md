@@ -291,10 +291,28 @@ family of approach is retired, not paused.
 
 Both mirror documented real ant/wasp/bee colony behavior (queen fecundity
 gated by personal nutrition status; brood cannibalism to reclaim nutrients
-under stress) rather than an omniscient global-statistics hack. **Not yet A/B
-validated** — a single-seed sanity trace (peak 357, final 163, collapse NONE
-@18000 ticks) shows nothing broke, but per the statistical-power lesson above,
-that is not evidence of an improvement and should not be read as one. Whether
-this actually raises survival vs. the pre-v0.53.0 baseline is an open
-follow-up; if pursued, start at n≈20 seeds given what a smaller sample already
-cost here. Overshoot-collapse itself remains an OPEN problem either way.
+under stress) rather than an omniscient global-statistics hack.
+
+**A/B'd at n=20 (same seed set as the growth-brake experiments, 18000 ticks,
+NEW=v0.53.0 vs OLD=pre-v0.53.0 baseline via a temporary git worktree at commit
+89960e9, since the old formula was deleted rather than left as a toggle):**
+
+```
+Paired diff (NEW - OLD) per seed, final population:
+mean diff +82.0   SD 61.6   SE 13.8   |diff/SE| 5.95
+avg final: 49.9 -> 131.9 (+82.0, >2.6x)
+avg peak:  341.3 -> 345.9 (roughly unchanged)
+extinctions: 1/20 -> 1/20 (same seed goes extinct either way — a fragile
+  seed independent of this mechanism)
+```
+
+**This is a real, statistically significant win** — |diff/SE|=5.95 is far past
+the ~2 SE threshold that the retired brake failed to clear (0.51). Unlike the
+retired brake, this doesn't reduce the peak (which stayed ~341→346) — the
+entire effect is in POST-peak survival, i.e. it doesn't prevent the initial
+overshoot but substantially improves how many ants make it through the
+subsequent bust. Confirms the biological-signal redesign (queen-health-only
+laying + oophagy) both realizes the realism goal AND outperforms the old
+global-stock-taper mechanism it replaced. Overshoot-collapse (the initial
+peak-then-crash shape) is technically still present — this raised the floor
+of the crash substantially, not the ceiling of the peak.
