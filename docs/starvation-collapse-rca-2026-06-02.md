@@ -177,3 +177,51 @@ queen alive + >50 ants).
 - `_lastDropTick` is transient (not serialized): a save/load during famine may
   permit one extra immediate drop. Negligible.
 - Directions #2/#3 (throughput, sink) remain in place and complementary.
+
+## Overshoot-collapse (2026-06-30) and the growth-brake fix (v0.52.0)
+
+The v0.50.0 respawn-safety-net fix (dual-trigger: surface-low OR colony-hunger)
+reversed the income-saturation pathology above and let colonies grow much
+larger (peak ~360 vs ~129 pre-fix) — but that raised a NEW failure mode instead
+of preventing collapse: the colony overshoots to ~340-360 ants around tick
+8000-9000, then crashes to near-zero by tick 16000-18000, with the death-cause
+ratio inverted (mostly old-age, not starvation) — a synchronized founding-cohort
+die-off compounding a food deficit the larger population can't sustain.
+**Measure at ≥16000 ticks, not 8000** — at 8000 the colony is at its pre-collapse
+peak, so every food-lever sweep at that horizon looks like a flat "equilibrium."
+Food-supply levers (more surface food, vision radius, drop-distance band,
+respawn rate) were all swept and none fix it — the bottleneck isn't food supply,
+it's that nothing throttles population growth to match steady-state income.
+
+**Root cause:** `#updateQueenAndBrood`'s `foodLayMultiplier` only reacts to the
+current stockpile level (`foodStored / foodStoreTarget`), which reads "full"
+throughout the overshoot — it's a lagging signal that only drops once the
+buffer is already draining, by which point brood/adult population momentum is
+already past what income can sustain.
+
+**Fix:** added `config.queenLayingIncomeBrake` — an EMA of net `foodStored`
+delta per tick (`Colony#_foodIncomeTrend`, normalized by `foodStoreTarget`,
+smoothing `queenLayingTrendAlpha=0.01`) that throttles egg laying further when
+income is trending negative, via `queenLayingTrendSensitivity` (default 40).
+This is a leading signal — it reacts to the trajectory, not just the level.
+
+**A/B result (`bench/growth-brake-ab.mjs`, 6 seeds × 18000 ticks):**
+
+| | avg peak | avg final @18000 | extinctions |
+|---|---|---|---|
+| brake OFF (baseline) | 327 | 22.2 | 1/6 |
+| brake ON (sensitivity=40) | 350 | 46.5 | **0/6** |
+
+Brake ON more than doubles average final population and eliminates extinction
+entirely across the seed set. Single-seed comparisons are NOT reliable for this
+lever — sensitivity=40 beat baseline on seed `growth-brake-ab` but lost to it on
+`growth-brake-seed2`; only the 6-seed average settled it. Sensitivity is also
+dose-sensitive and non-monotonic: 20/30/40/60 all avoided single-seed extinction
+but 80 caused it — has not yet been swept across the full 6-seed set, so 40
+(the tested default) stands until a wider sweep says otherwise.
+
+**Shipped ON by default in v0.52.0.** Interestingly it does not lower the peak
+much (327→350) — it delays and moderates the crash rather than preventing the
+overshoot outright. Fully flattening the peak would need the brake to act
+earlier/harder, which is exactly the failure mode sensitivity=80 hit on a single
+seed; worth a wider multi-seed sensitivity sweep before pushing further.

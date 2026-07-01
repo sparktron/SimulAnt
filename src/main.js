@@ -85,8 +85,10 @@ const state = {
     // reacts to the stockpile, which stays "full" during the overshoot), then
     // crashes once brood/adult momentum outruns supply. When enabled, laying
     // also throttles on a smoothed income TREND, not just current stock level.
-    // Off by default pending A/B (see bench/starvation-trace.mjs, TRACE_OV).
-    queenLayingIncomeBrake: false,
+    // A/B'd v0.52.0 (bench/growth-brake-ab.mjs, 6 seeds x 18000 ticks): avg
+    // final pop 22.2->46.5, extinctions 1/6->0/6. See docs/starvation-collapse-
+    // rca-2026-06-02.md "Overshoot-collapse" section. Shipped ON by default.
+    queenLayingIncomeBrake: true,
     queenLayingTrendAlpha: 0.01,
     queenLayingTrendSensitivity: 40,
     // Trophallaxis: a fed ant can pass a small amount of hunger to an

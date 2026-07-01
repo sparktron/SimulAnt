@@ -583,7 +583,7 @@ export function getDefaultConfig() {
     queenEggFoodCost: 0.02,
     queenEggHealthCost: 0.05,
     queenLayingMinHealth: 0.2,
-    queenLayingIncomeBrake: false,
+    queenLayingIncomeBrake: true,
     queenLayingTrendAlpha: 0.01,
     queenLayingTrendSensitivity: 40,
     trophallaxisRate: 2.0,
