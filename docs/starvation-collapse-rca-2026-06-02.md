@@ -316,3 +316,48 @@ laying + oophagy) both realizes the realism goal AND outperforms the old
 global-stock-taper mechanism it replaced. Overshoot-collapse (the initial
 peak-then-crash shape) is technically still present — this raised the floor
 of the crash substantially, not the ceiling of the peak.
+
+## Nest-space carrying capacity (v0.54.0) — targeting the peak itself
+
+v0.53.0 raised the floor of the crash but left the peak (~341-346 ants)
+untouched. To flatten the peak itself — not just improve post-crash survival —
+added a third biologically-grounded, LOCAL mechanism: nest-space carrying
+capacity. Real ant/termite colonies are physically bound by dug nest volume;
+growth beyond available space is a literal physical constraint (nowhere to
+put new brood/workers), not a colony-wide accounting statistic.
+
+`#updateQueenAndBrood` now computes `nestCapacity = nestSpaceBaseCapacity +
+excavatedTiles/nestSpaceTilesPerAnt` (mirroring `larvaeCrowding`'s existing
+accumulate/decay shape, applied to population vs. dug space instead of brood
+density vs. nurse attention) and gates egg-laying on a `nestCrowding` signal
+that ramps when population exceeds capacity. Defaults:
+`nestSpaceBaseCapacity=300` (matches the 300-ant founding cohort so early game
+isn't penalized before any digging happens), `nestSpaceTilesPerAnt=2`.
+
+**Sanity check (single seed, corrected after an initial testing mistake — see
+below):** same-seed comparison of default capacity (300) vs. a much tighter
+override (120, tilesPerAnt=4) on seed `nest-cap-check2`:
+
+```
+default (cap=300):  peak 361 @10091  final 134
+override (cap=120): peak 282 @7815   final 155
+```
+
+Confirms the mechanism works as designed — a tighter capacity does flatten the
+peak (361→282, ~22%) with comparable-or-better final survival on this seed.
+**This is single-seed evidence only** — per this session's statistical-power
+lesson, NOT sufficient to tune the default or claim a validated improvement.
+The 300 default was chosen conservatively (matches founding population, so it
+doesn't regress anything already validated in v0.53.0's n=20 A/B) rather than
+tuned for maximum peak-flattening. A proper next step, if pursued: sweep
+`nestSpaceBaseCapacity` at n≈20 seeds to find where it actually helps without
+starving the colony too early, following the exact methodology this whole doc
+has converged on (n=20 minimum, paired diff, report SE, ≥16000 ticks).
+
+**Process note:** an earlier attempt to sanity-check this (running the
+override at 18000 ticks and comparing against a *different* trace I'd run in
+between, without re-checking the actual adjacent output) produced a false
+"no effect at all" result — not a code bug, just sloppy same-seed comparison.
+Re-running both conditions explicitly side-by-side in one command caught it.
+Worth remembering: always diff two outputs you can see in the same place,
+not one fresh run against a remembered number.

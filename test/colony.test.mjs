@@ -344,6 +344,59 @@ test('oophagy culls a severely underfed stage-1 larva and recycles its nutrition
   );
 });
 
+test('nest-space crowding throttles egg-laying once population exceeds excavated capacity', () => {
+  // Real ant/termite colonies are capacity-bound by physically dug nest
+  // volume. This locks in that a population past nestSpaceBaseCapacity (with
+  // no excavatedTiles to compensate) lays markedly fewer eggs than one within
+  // capacity, mirroring larvaeCrowding's accumulate/decay shape but gating
+  // laying instead of gestation speed.
+  function countEggsAtPopulation(antCount) {
+    const world = new World(64, 64);
+    const rng = new SeededRng(`nest-crowd-${antCount}`);
+    const colony = new Colony(world, rng, 0);
+    const config = createTestConfig();
+    config.queenEggTicks = 4;
+    config.queenEggFoodCost = 0;
+    config.queenEggHealthCost = 0;
+    config.queenLayingMinHealth = 0;
+    config.queenHungerDrain = 0;
+    config.queenHealthDrainRate = 0;
+    config.queenHealthRecoveryPerNutrition = 0;
+    config.nestSpaceBaseCapacity = 10;
+    config.nestSpaceTilesPerAnt = 1000;  // excavatedTiles stays 0, so no extra room
+    config.antCap = antCount;  // freeze population so hatching can't drift it past antCount
+    colony.foodStored = 1e6;
+    colony.queen.health = colony.queen.healthMax;
+    colony.queen.hunger = colony.queen.hungerMax;
+    // Lightweight ant stubs: only the fields colony.update() actually reads
+    // (grid position, role/workFocus, alive flag) — avoids real Ant foraging
+    // behavior from adding unrelated noise to this test.
+    colony.ants = Array.from({ length: antCount }, () => (
+      { alive: true, role: 'worker', workFocus: 'forage', x: 0, y: 0, update: () => {} }
+    ));
+    colony.setNestEntrances([]);
+    colony.setSurfaceFoodPellets([]);
+
+    const eggsBefore = colony.queen.eggsLaid;
+    // nestCrowding ramps slowly (+0.002/tick, same rate as larvaeCrowding) so
+    // it takes ~500 ticks to saturate — a short window wouldn't show the
+    // full brake effect.
+    for (let i = 0; i < 700; i += 1) {
+      colony.update(config);
+    }
+    return colony.queen.eggsLaid - eggsBefore;
+  }
+
+  const underCapacityEggs = countEggsAtPopulation(5);
+  const overCapacityEggs = countEggsAtPopulation(50);
+
+  assert.ok(underCapacityEggs > 0, 'Queen under nest capacity should lay eggs');
+  assert.ok(
+    overCapacityEggs < underCapacityEggs * 0.5,
+    `Crowded queen should lay markedly fewer eggs (under=${underCapacityEggs}, over=${overCapacityEggs})`,
+  );
+});
+
 // --- Trophallaxis ---
 
 // Walls in all 8 neighbors of (cx, cy) except for the one tile listed in `keepOpen`,

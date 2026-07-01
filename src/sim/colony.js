@@ -78,6 +78,7 @@ export class Colony {
 
     this.larvae = [];  // array of { stage: 1-4, progress: 0-1 }
     this.larvaeCrowding = 0;  // 0–1; slows gestation when brood is dense and untended
+    this.nestCrowding = 0;  // 0–1; throttles egg-laying when population outgrows dug nest space
     this.excavatedTiles = 0;
     this.onExcavate = null;
     this.onDepositDirt = null;
@@ -511,12 +512,31 @@ export class Colony {
     const healthFraction = this.queen.healthMax > 0
       ? Math.max(0, Math.min(1, this.queen.health / this.queen.healthMax))
       : 0;
+
+    // Nest-space crowding: real ant/termite colonies are capacity-bound by
+    // physically dug nest volume — growth beyond what's been excavated is a
+    // literal physical constraint (nowhere to put new brood/workers), not an
+    // accounting abstraction. Mirrors larvaeCrowding below (same accumulate/
+    // decay shape), but measures population against excavatedTiles instead of
+    // brood density against nurse attention. This is the peak-flattening
+    // lever: unlike health-only laying (which reacts to the queen's own fed
+    // condition), this caps growth directly at whatever size the colony has
+    // actually dug room for.
+    const nestCapacity = (config.nestSpaceBaseCapacity ?? 300)
+      + this.excavatedTiles / Math.max(1, config.nestSpaceTilesPerAnt ?? 2);
+    if (this.ants.length > nestCapacity) {
+      this.nestCrowding = Math.min(1, this.nestCrowding + 0.002);
+    } else {
+      this.nestCrowding = Math.max(0, this.nestCrowding - 0.001);
+    }
+    const nestCrowdingBrake = Math.max(0.05, 1 - this.nestCrowding);
+
     const minLayHealthFraction = config.queenLayingMinHealth ?? 0.2;
     const canLay = healthFraction >= minLayHealthFraction
       && this.foodStored >= config.queenEggFoodCost;
 
     if (canLay) {
-      this.queen.eggProgress += healthFraction;
+      this.queen.eggProgress += healthFraction * nestCrowdingBrake;
       if (this.queen.eggProgress >= config.queenEggTicks) {
         this.queen.eggProgress = 0;
         // Egg cost deducts from the canonical total and the virtual sub-ledger.
