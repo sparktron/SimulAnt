@@ -250,11 +250,12 @@ export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pe
       colony.removePelletById(pellet.id);
       // Depletion-reactive decay: mark a live foraging zone at the pickup so the
       // corridor leading here stays protected from the extra toFood evaporation
-      // (opt-in; default off). See world.#applyDepletionDecay.
+      // (ON by default since v0.47.0). See world.#applyDepletionDecay. Fallbacks
+      // match the shipped getDefaultConfig() values (Phase 0: no silent drift).
       if (config.depletionReactive) {
         world.paintHarvest(
           pellet.x, pellet.y,
-          config.harvestRadius ?? 6,
+          config.harvestRadius ?? 10,
           config.harvestDeposit ?? 1.0,
           config.harvestMaxClamp ?? 2.0,
         );

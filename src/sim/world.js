@@ -404,7 +404,7 @@ export class World {
 
     // Depletion-reactive decay: collapse food trails that no longer lead to a
     // live source. Runs after the swap so it acts on the fresh toFood buffer and
-    // its active list. Off by default (opt-in experiment).
+    // its active list. ON by default since v0.47.0 (gated so it can be A/B'd off).
     if (config.depletionReactive) this.#applyDepletionDecay(config, dt);
   }
 
@@ -429,8 +429,12 @@ export class World {
     this._activeHarvest = survivors;
 
     // 2. Apply extra toFood evaporation scaled by ABSENCE of nearby harvest.
-    const protectRef = Math.max(1e-6, config.harvestProtectRef ?? 0.5);
-    const boost = Math.max(0, config.depletionDecayBoost ?? 1.0) * dt;
+    // Fallbacks match the shipped getDefaultConfig()/sanitizeTickConfig values
+    // (Phase 0 rule: no silent physics drift). Do NOT restore the old 1.0 boost —
+    // that is the documented "trap" dose that loses the A/B; the win is the gentle
+    // 0.3. See docs/pheromone-strategy.md.
+    const protectRef = Math.max(1e-6, config.harvestProtectRef ?? 0.2);
+    const boost = Math.max(0, config.depletionDecayBoost ?? 0.3) * dt;
     if (boost === 0) return;
     const toFood = this.toFood;
     for (let k = 0; k < this._activeFood.length; k += 1) {
