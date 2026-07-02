@@ -1324,6 +1324,13 @@ export class Colony {
       queenSuccessions: this.queenSuccessions,
       queen: this.queen,
       larvae: this.larvae,
+      // Crowding accumulators are behavioral substate carried across ticks (see
+      // the ant-substate note below): both ramp slowly (+0.002/tick) and gate
+      // population growth, so a reload that reset them to 0 would let a mature,
+      // capacity-throttled colony lay at full rate for ~500 ticks — silently
+      // undoing the nest-space cap (v0.54.0) and the brood-crowding brake.
+      larvaeCrowding: this.larvaeCrowding,
+      nestCrowding: this.nestCrowding,
       excavatedTiles: this.excavatedTiles,
       nestFoodPellets: this.nestFoodPellets,
       workAllocation: this.workAllocation,
@@ -1395,6 +1402,12 @@ export class Colony {
       ? data.larvae.filter((larva) => larva && Number.isFinite(larva.stage) && Number.isFinite(larva.progress))
       : [];
     colony.excavatedTiles = data.excavatedTiles || 0;
+    // Restore the crowding accumulators (clamped to [0,1]); missing/invalid → 0,
+    // matching a fresh colony. See the serialize() note.
+    colony.larvaeCrowding = Number.isFinite(data.larvaeCrowding)
+      ? Math.max(0, Math.min(1, data.larvaeCrowding)) : 0;
+    colony.nestCrowding = Number.isFinite(data.nestCrowding)
+      ? Math.max(0, Math.min(1, data.nestCrowding)) : 0;
     colony.nestFoodPellets = Array.isArray(data.nestFoodPellets)
       ? data.nestFoodPellets
         .map((pellet) => {

@@ -770,6 +770,33 @@ test('colony serializes and deserializes round-trip', () => {
   assert.ok(restored.queen.alive);
 });
 
+test('crowding accumulators survive serialization round-trip', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('crowding-serialize');
+  const colony = new Colony(world, rng, 5);
+
+  colony.larvaeCrowding = 0.42;
+  colony.nestCrowding = 0.73;
+
+  const data = colony.serialize();
+  const restored = Colony.fromSerialized(world, new SeededRng('other'), data);
+
+  assert.equal(restored.larvaeCrowding, 0.42);
+  assert.equal(restored.nestCrowding, 0.73);
+});
+
+test('crowding accumulators clamp to [0,1] and default to 0 on restore', () => {
+  const world = new World(64, 64);
+  const restored = Colony.fromSerialized(world, new SeededRng('other'), {
+    larvaeCrowding: 5,      // out of range → clamped to 1
+    nestCrowding: undefined, // missing → 0
+    ants: [],
+  });
+
+  assert.equal(restored.larvaeCrowding, 1);
+  assert.equal(restored.nestCrowding, 0);
+});
+
 test('stepCounter survives serialization round-trip', () => {
   const world = new World(64, 64);
   const rng = new SeededRng('step-serialize');
