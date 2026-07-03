@@ -403,11 +403,11 @@ export const parameterDefinitions = {
   },
   nestSpaceTilesPerAnt: {
     label: 'Nest Space Tiles/Ant',
-    description: 'Excavated tiles needed per additional ant of capacity beyond the base. Lower = digging expands capacity faster.',
+    description: 'Excavated tiles needed per additional ant of capacity beyond the base. Lower = digging expands capacity faster. Must stay high enough that excavation can’t outrun population (colonies dig ~2500 tiles by tick 18000) or the cap never binds.',
     group: 'Queen',
     min: 0.1,
-    max: 10,
-    step: 0.1,
+    max: 200,
+    step: 1,
     advanced: true,
   },
   queenHungerDrain: {
@@ -604,7 +604,7 @@ export function getDefaultConfig() {
     oophagyDelayTicks: 120,
     oophagyRecycleNutrition: 5,
     nestSpaceBaseCapacity: 300,
-    nestSpaceTilesPerAnt: 2,
+    nestSpaceTilesPerAnt: 40,
     trophallaxisRate: 2.0,
     trophallaxisDonorMinHungerFraction: 0.6,
     trophallaxisRecipientMaxHungerFraction: 0.4,

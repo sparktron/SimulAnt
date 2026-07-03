@@ -523,7 +523,7 @@ export class Colony {
     // condition), this caps growth directly at whatever size the colony has
     // actually dug room for.
     const nestCapacity = (config.nestSpaceBaseCapacity ?? 300)
-      + this.excavatedTiles / Math.max(1, config.nestSpaceTilesPerAnt ?? 2);
+      + this.excavatedTiles / Math.max(1, config.nestSpaceTilesPerAnt ?? 40);
     if (this.ants.length > nestCapacity) {
       this.nestCrowding = Math.min(1, this.nestCrowding + 0.002);
     } else {

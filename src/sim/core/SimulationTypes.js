@@ -120,7 +120,7 @@ export function sanitizeTickConfig(config = {}) {
     oophagyDelayTicks: Math.floor(clampFiniteRangeNumber(config.oophagyDelayTicks, 120, 0, 600)),
     oophagyRecycleNutrition: clampNonNegativeNumber(config.oophagyRecycleNutrition, 5),
     nestSpaceBaseCapacity: clampNonNegativeNumber(config.nestSpaceBaseCapacity, 300),
-    nestSpaceTilesPerAnt: clampRangeNumber(config.nestSpaceTilesPerAnt, 2, 0.1, 10),
+    nestSpaceTilesPerAnt: clampRangeNumber(config.nestSpaceTilesPerAnt, 40, 0.1, 200),
     trophallaxisRate: clampNonNegativeNumber(config.trophallaxisRate, 0),
     trophallaxisDonorMinHungerFraction: clamp01(config.trophallaxisDonorMinHungerFraction, 0.6),
     trophallaxisRecipientMaxHungerFraction: clamp01(config.trophallaxisRecipientMaxHungerFraction, 0.4),

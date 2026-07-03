@@ -93,16 +93,24 @@ const state = {
     // collapse-rca-2026-06-02.md "Overshoot-collapse" section.
     oophagyDelayTicks: 120,
     oophagyRecycleNutrition: 5,
-    // Nest-space carrying capacity (v0.54.0): population beyond nestCapacity
-    // (base + excavatedTiles/nestSpaceTilesPerAnt) throttles egg-laying via
-    // nestCrowding, mirroring larvaeCrowding's accumulate/decay shape. This is
-    // the peak-flattening lever — health-only laying and oophagy (above)
-    // improved post-peak survival but didn't touch the overshoot itself;
-    // mirrors how real ant/termite colonies are capacity-bound by dug nest
-    // volume. Base matches the default 300-ant founding cohort so it isn't
-    // penalized before any digging happens.
+    // Nest-space carrying capacity (v0.54.0, tilesPerAnt fixed v0.54.4):
+    // population beyond nestCapacity (base + excavatedTiles/nestSpaceTilesPerAnt)
+    // throttles egg-laying via nestCrowding, mirroring larvaeCrowding's
+    // accumulate/decay shape. This is the peak-flattening lever — health-only
+    // laying and oophagy (above) improved post-peak survival but didn't touch
+    // the overshoot itself; mirrors how real ant/termite colonies are
+    // capacity-bound by dug nest volume. Base matches the default 300-ant
+    // founding cohort so it isn't penalized before any digging happens.
+    //
+    // tilesPerAnt=2 (shipped v0.54.0) NEVER bound: colonies dig ~2500 tiles by
+    // tick 18000, so excavatedTiles/2 alone adds +1250 capacity — far outrunning
+    // peak population (~345) and leaving nestCrowding stuck at 0 for the entire
+    // run at every tested base value (80-600), confirmed via n=20 sweep
+    // (bench/nest-capacity-sweep.mjs) 2026-07-02. Raised to 40 so digging can't
+    // outrun the brake; still needs its own n=20 base-capacity sweep to pick a
+    // validated default (see project_overshoot_collapse memory).
     nestSpaceBaseCapacity: 300,
-    nestSpaceTilesPerAnt: 2,
+    nestSpaceTilesPerAnt: 40,
     // Trophallaxis: a fed ant can pass a small amount of hunger to an
     // adjacent hungry one each tick. Rates are intentionally small — this is
     // a survival-pressure release, not the primary feeding channel.
