@@ -25,6 +25,19 @@ const QUEEN_SPEED_RATIO = 0.1;
 const BASE_TICK_SECONDS = 1 / 30;
 const DEBUG_NEST_FOOD_LOGS = false;
 
+// Shared accumulate/decay shape for the [0,1] crowding accumulators
+// (larvaeCrowding, nestCrowding): press toward 1 while over capacity, relax
+// toward 0 otherwise. Pressure builds 2× faster than it releases so a colony
+// oscillating around its capacity still feels sustained crowding.
+const CROWDING_RISE_PER_TICK = 0.002;
+const CROWDING_FALL_PER_TICK = 0.001;
+
+function stepCrowding(value, overCapacity) {
+  return overCapacity
+    ? Math.min(1, value + CROWDING_RISE_PER_TICK)
+    : Math.max(0, value - CROWDING_FALL_PER_TICK);
+}
+
 export class Colony {
   constructor(world, rng, initialAnts = 300) {
     this.world = world;
@@ -516,19 +529,15 @@ export class Colony {
     // Nest-space crowding: real ant/termite colonies are capacity-bound by
     // physically dug nest volume — growth beyond what's been excavated is a
     // literal physical constraint (nowhere to put new brood/workers), not an
-    // accounting abstraction. Mirrors larvaeCrowding below (same accumulate/
-    // decay shape), but measures population against excavatedTiles instead of
-    // brood density against nurse attention. This is the peak-flattening
+    // accounting abstraction. Shares stepCrowding with larvaeCrowding below,
+    // but measures population against excavatedTiles instead of brood density
+    // against nurse attention. This is the peak-flattening
     // lever: unlike health-only laying (which reacts to the queen's own fed
     // condition), this caps growth directly at whatever size the colony has
     // actually dug room for.
     const nestCapacity = (config.nestSpaceBaseCapacity ?? 300)
       + this.excavatedTiles / Math.max(1, config.nestSpaceTilesPerAnt ?? 40);
-    if (this.ants.length > nestCapacity) {
-      this.nestCrowding = Math.min(1, this.nestCrowding + 0.002);
-    } else {
-      this.nestCrowding = Math.max(0, this.nestCrowding - 0.001);
-    }
+    this.nestCrowding = stepCrowding(this.nestCrowding, this.ants.length > nestCapacity);
     const nestCrowdingBrake = Math.max(0.05, 1 - this.nestCrowding);
 
     const minLayHealthFraction = config.queenLayingMinHealth ?? 0.2;
@@ -576,11 +585,7 @@ export class Colony {
     // Accumulates when count exceeds the threshold; decays naturally when not overcrowded.
     // Nurse calls to spreadLarvae() actively drive it down.
     const crowdingThreshold = config.larvaeCrowdingThreshold ?? 8;
-    if (this.larvae.length > crowdingThreshold) {
-      this.larvaeCrowding = Math.min(1, this.larvaeCrowding + 0.002);
-    } else {
-      this.larvaeCrowding = Math.max(0, this.larvaeCrowding - 0.001);
-    }
+    this.larvaeCrowding = stepCrowding(this.larvaeCrowding, this.larvae.length > crowdingThreshold);
 
     const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio) * (1 - this.larvaeCrowding * 0.4));
 
