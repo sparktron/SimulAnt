@@ -15,14 +15,11 @@
      This is cosmetic (render/HUD only) and documented at `getTotalStoredFood`.
 
 2. **Save/load schema migration is minimal**
-   - Saves carry schema version 1; legacy saves are handled defensively and
-     newer saves emit a diagnostic. Future incompatible format changes still
-     need explicit migration steps.
+   - Saves carry schema version 1; malformed structure is rejected atomically,
+     legacy saves retain safe defaults, and newer saves emit a diagnostic.
+     Future incompatible format changes still need explicit migration steps.
 
-3. **UI control duplication remains partially legacy-driven**
-   - Legacy sliders are wired into canonical state, but old UI affordances still exist and can confuse future maintainers.
-
-4. **Performance risk at high entity counts** (partially mitigated)
+3. **Performance risk at high entity counts** (partially mitigated)
    - Profiled (docs/perf-profile-2026-06-02.md): the full-grid pheromone update
      dominates (~28% of tick), not the suspected food-pellet scans (~0.7%).
    - Mitigated: passability-mask caching + pheromone double-buffering cut the

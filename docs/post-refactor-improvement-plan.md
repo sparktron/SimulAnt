@@ -1,6 +1,6 @@
 # Post-refactor Improvement Plan
 
-Status checked against landed `master` at **v0.54.11** on 2026-07-12. The
+Status checked against landed `master` at **v0.54.13** on 2026-07-12. The
 uncommitted worktree changes were excluded from this reconciliation.
 
 ## Current assessment
@@ -13,6 +13,10 @@ uncommitted worktree changes were excluded from this reconciliation.
   (`src/sim/ant/`) without changing the replay contract.
 - Config sanitization covers the shipped runtime surface, and the
   config-integrity scan now recognizes optional-chained fallbacks.
+- Save restoration validates its structural boundary before mutating live
+  state, while legacy saves retain compatible defaults where possible.
+- The caste-allocation triangle is the sole user-facing soldier-allocation
+  control; obsolete duplicate state has been removed.
 
 ## Recommended next improvements (small-step roadmap)
 

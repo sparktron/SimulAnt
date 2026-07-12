@@ -4,7 +4,7 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 
 > ⚡ **No build step required** — just serve static files and play.
 
-Current landed version: **v0.54.11**. The simulation includes deterministic
+Current landed version: **v0.54.13**. The simulation includes deterministic
 save/load, biological crowding controls, nest-space carrying capacity, and
 cached surface terrain rendering.
 
@@ -39,7 +39,7 @@ cached surface terrain rendering.
 ### 🎛️ Interactive tools
 - Paint: food, wall, water, danger, erase.
 - Brush radius, sim speed, and ant cap sliders.
-- Colony worker/soldier target sliders.
+- Colony work and caste allocation triangles.
 - Quick actions: spawn food at cursor, add food to store, starve selected ant (debug/cheat controls).
 
 ### 🧱 Robust UI architecture
@@ -124,6 +124,7 @@ These settings feed directly into simulation behavior and spawn strategy.
 
 ## 💾 Save / Load
 Use **SAVE** and **LOAD** to persist simulation state in `localStorage`.
+Malformed saves are rejected without replacing the active simulation.
 
 ---
 

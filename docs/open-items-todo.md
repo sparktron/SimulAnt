@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.54.11** on 2026-07-12. The
+Status checked against landed `master` at **v0.54.13** on 2026-07-12. The
 uncommitted worktree changes were excluded from this reconciliation.
 
 ## Completed
@@ -27,6 +27,10 @@ uncommitted worktree changes were excluded from this reconciliation.
 13. ✅ Made saves resilient to local-storage failures, preserved ant
     id-derived behavior across reloads, and added exact Float32 field
     round-trips (v0.54.7–v0.54.11).
+14. ✅ Made restore validation atomic: malformed world, nest, and ant data is
+    rejected before it can replace the live simulation (v0.54.12).
+15. ✅ Removed the duplicate soldier-allocation parameter control and obsolete
+    `casteTargets` save state; the caste triangle is canonical (v0.54.13).
 
 ## Active near-term
 
