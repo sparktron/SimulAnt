@@ -334,8 +334,24 @@ test('loadFromSerialized treats a versionless save as legacy (0) and still loads
   restored.loadFromSerialized(snap);
 
   assert.equal(restored.loadedSchemaVersion, 0);
+  assert.equal(restored.migratedSchemaVersion, SAVE_SCHEMA_VERSION);
   assert.equal(restored.colony.ants.length, sim.colony.ants.length);
   assert.ok(restored.world.nestRadius > 0, 'legacy save keeps the constructor default nest radius');
+});
+
+test('loadFromSerialized migrates v1 saves to v2 without mutating the source snapshot', () => {
+  const sim = new SimulationCore('schema-v1');
+  const v1Save = sim.serialize({ casteTargets: { workers: 80, soldiers: 20 } });
+  v1Save.schemaVersion = 1;
+  const original = JSON.stringify(v1Save);
+
+  const restored = new SimulationCore('other');
+  restored.loadFromSerialized(v1Save);
+
+  assert.equal(restored.loadedSchemaVersion, 1);
+  assert.equal(restored.migratedSchemaVersion, 2);
+  assert.equal(restored.serialize({}).schemaVersion, SAVE_SCHEMA_VERSION);
+  assert.equal(JSON.stringify(v1Save), original, 'migration must not mutate the caller-owned snapshot');
 });
 
 test('loadFromSerialized rejects malformed snapshots without mutating live state', () => {
