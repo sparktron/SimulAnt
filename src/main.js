@@ -860,7 +860,26 @@ function recoverFromRenderError(error) {
  * Called by the Save control. Side effect: writes JSON under STORAGE_KEY.
  */
 function saveState() {
-  const save = simCore.serialize({
+  let payload;
+  try {
+    payload = JSON.stringify(buildSaveData());
+    localStorage.setItem(STORAGE_KEY, payload);
+  } catch (error) {
+    // Serialization or the localStorage write failed (most likely
+    // QuotaExceededError — a mature world's save is multi-MB). Without this
+    // catch the error would bubble to the window 'error' listener and put the
+    // whole simulation into fatal-error mode from a Save click.
+    const sizeNote = payload ? ` Save payload was ${(payload.length / 1024 / 1024).toFixed(1)}MB.` : '';
+    console.error(
+      `[SimAnt] Save failed — the game state was NOT stored.${sizeNote} `
+      + 'If this is a quota error, clear old site data or export a log instead. Details:',
+      error,
+    );
+  }
+}
+
+function buildSaveData() {
+  return simCore.serialize({
     simSpeed: state.simSpeed,
     config: state.config,
     overlays: state.overlays,
@@ -883,7 +902,6 @@ function saveState() {
       },
     },
   });
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
 }
 
 /**
