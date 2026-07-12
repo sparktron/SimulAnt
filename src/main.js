@@ -921,7 +921,16 @@ function loadState() {
     return;
   }
 
-  simCore.loadFromSerialized(data);
+  try {
+    simCore.loadFromSerialized(data);
+  } catch (error) {
+    console.error(
+      '[SimAnt] Saved game has an invalid structure — keeping the current simulation unchanged. '
+      + 'Reset or clear the saved game to start fresh:',
+      error,
+    );
+    return;
+  }
   syncRenderWorld();
 
   Object.assign(state.config, data.state?.config || {});

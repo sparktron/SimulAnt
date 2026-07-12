@@ -407,6 +407,12 @@ export class SimulationCore {
    * scheduler dependencies synced to restored world and colony instances.
    */
   loadFromSerialized(data) {
+    // Validate the structural requirements before replacing any live state. A
+    // malformed localStorage entry must leave the running simulation intact,
+    // rather than partially rebuilding it and then throwing midway through
+    // World/Colony restoration.
+    this.#assertValidSerializedSnapshot(data);
+
     // Saves predating versioning lack schemaVersion → treat as legacy (0). A
     // newer-than-supported version is loaded best-effort (the field-by-field
     // restore below is defensive) but flagged so corruption/forward-compat
@@ -444,23 +450,32 @@ export class SimulationCore {
     this.#rebuildTickPipeline();
     this.tick = data.tick || 0;
     this.foodPellets = Array.isArray(data.foodPellets)
-      ? data.foodPellets.map((pellet) => {
-        const restored = new FoodPellet(pellet.id, pellet.x, pellet.y, pellet.nutrition);
-        restored.takenByAntId = typeof pellet.takenByAntId === 'string' ? pellet.takenByAntId : null;
-        return restored;
-      })
+      ? data.foodPellets
+        .filter((pellet) => pellet
+          && this.world.inBounds(pellet.x, pellet.y)
+          && Number.isFinite(pellet.nutrition))
+        .map((pellet) => {
+          const restored = new FoodPellet(pellet.id, pellet.x, pellet.y, pellet.nutrition);
+          restored.takenByAntId = typeof pellet.takenByAntId === 'string' ? pellet.takenByAntId : null;
+          return restored;
+        })
       : [];
     this.nextPelletId = data.nextPelletId || 1;
 
-    if (Array.isArray(data.nestEntrances) && data.nestEntrances.length > 0) {
-      this.nestEntrances = data.nestEntrances.map((entry, index) => ({
-        id: entry.id || `entrance-${index}`,
-        x: entry.x,
-        y: entry.y,
-        excavatedSoilTotal: entry.excavatedSoilTotal || 0,
-        soilOnSurface: entry.soilOnSurface || 0,
-        radius: entry.radius || 2,
-      }));
+    const restoredEntrances = Array.isArray(data.nestEntrances)
+      ? data.nestEntrances
+        .filter((entry) => entry && this.world.inBounds(entry.x, entry.y))
+        .map((entry, index) => ({
+          id: entry.id || `entrance-${index}`,
+          x: entry.x,
+          y: entry.y,
+          excavatedSoilTotal: entry.excavatedSoilTotal || 0,
+          soilOnSurface: entry.soilOnSurface || 0,
+          radius: entry.radius || 2,
+        }))
+      : [];
+    if (restoredEntrances.length > 0) {
+      this.nestEntrances = restoredEntrances;
     } else {
       this.nestEntrances = [
         {
@@ -486,6 +501,50 @@ export class SimulationCore {
     this.macroEngine.syncHomeTerritory(this.world.nestX, this.world.nestY);
   }
 
+  #assertValidSerializedSnapshot(data) {
+    if (!isRecord(data)) {
+      throw new TypeError('[SimAnt] Saved game must be an object.');
+    }
+    if (!isRecord(data.world) || !isRecord(data.colony)) {
+      throw new TypeError('[SimAnt] Saved game is missing world or colony state.');
+    }
+
+    const { world } = data;
+    const expectedWidth = this.world.width;
+    const expectedHeight = this.world.height;
+    const expectedSize = this.world.size;
+    if (world.width !== expectedWidth || world.height !== expectedHeight) {
+      throw new RangeError(
+        `[SimAnt] Saved world dimensions must be ${expectedWidth}×${expectedHeight}.`,
+      );
+    }
+
+    if (!Number.isInteger(world.nestX) || !Number.isInteger(world.nestY)
+      || world.nestX < 0 || world.nestX >= expectedWidth
+      || world.nestY < 0 || world.nestY >= expectedHeight
+      || (world.entranceY !== undefined && (!Number.isInteger(world.entranceY)
+        || world.entranceY < 0 || world.entranceY >= expectedHeight))
+      || (world.nestRadius !== undefined
+        && (!Number.isFinite(world.nestRadius) || world.nestRadius <= 0))) {
+      throw new TypeError('[SimAnt] Saved world has invalid nest coordinates.');
+    }
+
+    for (const field of ['terrain', 'food', 'toFood', 'toHome', 'danger']) {
+      if (!isGridArray(world[field], expectedSize)) {
+        throw new TypeError(`[SimAnt] Saved world field "${field}" has an invalid length.`);
+      }
+    }
+    if (world.nestFood !== undefined && !isGridArray(world.nestFood, expectedSize)) {
+      throw new TypeError('[SimAnt] Saved world field "nestFood" has an invalid length.');
+    }
+    if (!Array.isArray(data.colony.ants) || !data.colony.ants.every((ant) => isRecord(ant)
+      && Number.isInteger(ant.x) && Number.isInteger(ant.y)
+      && ant.x >= 0 && ant.x < expectedWidth
+      && ant.y >= 0 && ant.y < expectedHeight)) {
+      throw new TypeError('[SimAnt] Saved colony has an invalid ant list.');
+    }
+  }
+
   // Single source of truth for dig-system construction + wiring. Every rebuild
   // path (reset, nest tool, clearWorld, load) must route through here so the
   // onNewEntrance callback can never drift out of sync again — historically the
@@ -500,4 +559,12 @@ export class SimulationCore {
     this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
     this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
   }
+}
+
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isGridArray(value, length) {
+  return (Array.isArray(value) || ArrayBuffer.isView(value)) && value.length === length;
 }

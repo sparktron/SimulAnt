@@ -332,12 +332,46 @@ test('loadFromSerialized treats a versionless save as legacy (0) and still loads
   const sim = new SimulationCore('schema-legacy');
   const snap = sim.serialize({});
   delete snap.schemaVersion; // a pre-versioning save
+  delete snap.world.nestRadius;
 
   const restored = new SimulationCore('other');
   restored.loadFromSerialized(snap);
 
   assert.equal(restored.loadedSchemaVersion, 0);
   assert.equal(restored.colony.ants.length, sim.colony.ants.length);
+  assert.ok(restored.world.nestRadius > 0, 'legacy save keeps the constructor default nest radius');
+});
+
+test('loadFromSerialized rejects malformed snapshots without mutating live state', () => {
+  const sim = new SimulationCore('malformed-save');
+  const before = sim.serialize({});
+  const malformed = structuredClone(before);
+  malformed.world.toFood.pop();
+
+  assert.throws(
+    () => sim.loadFromSerialized(malformed),
+    /toFood.*invalid length/,
+  );
+  assert.deepEqual(sim.serialize({}), before, 'failed restore must leave the active simulation intact');
+});
+
+test('loadFromSerialized rejects missing world or malformed ant state', () => {
+  const sim = new SimulationCore('malformed-save-shape');
+  assert.throws(() => sim.loadFromSerialized({}), /missing world or colony state/);
+
+  const malformed = sim.serialize({});
+  malformed.colony.ants[0] = null;
+  assert.throws(() => sim.loadFromSerialized(malformed), /invalid ant list/);
+});
+
+test('loadFromSerialized rejects invalid nest coordinates before replacing live state', () => {
+  const sim = new SimulationCore('malformed-save-nest');
+  const before = sim.serialize({});
+  const malformed = structuredClone(before);
+  malformed.world.nestX = -1;
+
+  assert.throws(() => sim.loadFromSerialized(malformed), /invalid nest coordinates/);
+  assert.deepEqual(sim.serialize({}), before);
 });
 
 test('loadFromSerialized flags a newer-than-supported save but still loads', () => {

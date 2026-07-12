@@ -665,7 +665,9 @@ export class World {
     world.nestX = data.nestX;
     world.nestY = data.nestY;
     world.entranceY = Number.isFinite(data.entranceY) ? data.entranceY : world.nestY;
-    world.nestRadius = data.nestRadius;
+    world.nestRadius = Number.isFinite(data.nestRadius) && data.nestRadius > 0
+      ? data.nestRadius
+      : world.nestRadius;
     world.terrain.set(data.terrain);
     world.markTerrainDirty();
     world.food.set(data.food);
