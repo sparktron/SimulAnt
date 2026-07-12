@@ -770,6 +770,32 @@ test('colony serializes and deserializes round-trip', () => {
   assert.ok(restored.queen.alive);
 });
 
+test('id-derived miss-threshold offset follows the restored id, not the constructor id', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('offset-restore');
+  const colony = new Colony(world, rng, 5);
+
+  const data = colony.serialize();
+  // A different rng makes the throwaway constructor ids diverge from the saved
+  // ones, so a stale (constructor-derived) offset would be caught here.
+  const restored = Colony.fromSerialized(world, new SeededRng('other'), data);
+
+  for (let i = 0; i < restored.ants.length; i += 1) {
+    const ant = restored.ants[i];
+    assert.equal(ant.id, colony.ants[i].id, 'restored ant keeps its saved id');
+    assert.equal(
+      ant.surfaceSearchMissThresholdOffsetTicks,
+      Ant.missThresholdOffsetFromId(ant.id),
+      `offset for ${ant.id} must derive from the restored id`,
+    );
+    assert.equal(
+      ant.surfaceSearchMissThresholdOffsetTicks,
+      colony.ants[i].surfaceSearchMissThresholdOffsetTicks,
+      'reloaded ant behaves like the uninterrupted one',
+    );
+  }
+});
+
 test('crowding accumulators survive serialization round-trip', () => {
   const world = new World(64, 64);
   const rng = new SeededRng('crowding-serialize');

@@ -42,6 +42,15 @@ export class Ant {
     return '#d93828';
   }
 
+  // Deterministic per-ant offset (-15..+15) on the surface-search miss
+  // threshold, derived from the id so it survives save/load. Anything derived
+  // from the id must be recomputed wherever the id is (re)assigned — see
+  // Colony.fromSerialized, which restores saved ids over constructor-random ones.
+  static missThresholdOffsetFromId(id) {
+    const antIdNumeric = Number.parseInt(String(id ?? '').slice(4), 10) || 0;
+    return (antIdNumeric % 31) - 15;
+  }
+
   static getJobColor(state, workFocus, role = 'worker') {
     if (role === 'soldier') return '#9a5aff';  // Bright purple for soldiers
 
@@ -161,8 +170,7 @@ export class Ant {
     // Work specialization and behavior tracking
     this.workFocus = 'forage';
     this.failedSurfaceFoodSearchTicks = 0;
-    const antIdNumeric = Number.parseInt(this.id.slice(4), 10) || 0;
-    this.surfaceSearchMissThresholdOffsetTicks = (antIdNumeric % 31) - 15;
+    this.surfaceSearchMissThresholdOffsetTicks = Ant.missThresholdOffsetFromId(this.id);
     this.lastSteeringDebug = null;
     this._lastNestEatTick = -Infinity;
     // Trail re-acquisition: remember last on-trail direction for a few ticks

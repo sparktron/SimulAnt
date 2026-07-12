@@ -1429,6 +1429,10 @@ export class Colony {
     colony.ants = (Array.isArray(data.ants) ? data.ants : []).map((a) => {
       const ant = new Ant(a.x, a.y, rng, a.role || 'worker');
       ant.id = a.id || ant.id;
+      // The constructor derived this from its own throwaway random id; the
+      // restored id must drive it or a reloaded run diverges from an
+      // uninterrupted one (each ant returns to the nest on a different tick).
+      ant.surfaceSearchMissThresholdOffsetTicks = Ant.missThresholdOffsetFromId(ant.id);
       ant.dir = a.dir;
       ant.hunger = a.hunger ?? ant.hunger;
       ant.health = a.health ?? ant.health;
