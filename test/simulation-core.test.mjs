@@ -280,7 +280,7 @@ test('serialize and loadFromSerialized round-trip preserves state', () => {
   assert.equal(sim2.foodPellets.length, sim.foodPellets.length);
 });
 
-test('food accounting invariant holds across many ticks (foodStored == virtual + pellets)', () => {
+test('food accounting invariant holds across many ticks (foodStored == all ledger parts)', () => {
   const config = createConfig();
   const sim = new SimulationCore('food-conservation');
   const c = sim.colony;
@@ -290,10 +290,12 @@ test('food accounting invariant holds across many ticks (foodStored == virtual +
   // silently masked by getTotalStoredFood()'s Math.max, so assert it directly.
   for (let t = 0; t < 300; t += 1) {
     sim.update(config);
-    const reconstructed = c._virtualFoodStored + c.getNestPelletNutritionTotal();
+    const reconstructed = c._virtualFoodStored
+      + c.getNestPelletNutritionTotal()
+      + c._foodLedgerAdjustment;
     assert.ok(
       Math.abs(c.foodStored - reconstructed) < 1e-6,
-      `tick ${t}: foodStored ${c.foodStored} drifted from virtual+pellets ${reconstructed}`,
+      `tick ${t}: foodStored ${c.foodStored} drifted from the reconstructed ledger ${reconstructed}`,
     );
   }
 });
@@ -349,9 +351,31 @@ test('loadFromSerialized migrates v1 saves to v2 without mutating the source sna
   restored.loadFromSerialized(v1Save);
 
   assert.equal(restored.loadedSchemaVersion, 1);
-  assert.equal(restored.migratedSchemaVersion, 2);
+  assert.equal(restored.migratedSchemaVersion, SAVE_SCHEMA_VERSION);
   assert.equal(restored.serialize({}).schemaVersion, SAVE_SCHEMA_VERSION);
   assert.equal(JSON.stringify(v1Save), original, 'migration must not mutate the caller-owned snapshot');
+});
+
+test('loadFromSerialized migrates v2 food-ledger drift into the v3 adjustment', () => {
+  const sim = new SimulationCore('schema-v2-ledger');
+  const v2Save = sim.serialize({});
+  v2Save.schemaVersion = 2;
+  v2Save.colony.virtualFoodStored = 0;
+  v2Save.colony.foodStored = 8;
+  v2Save.colony.nestFoodPellets = [{ x: 128, y: 134, amount: 10 }];
+  delete v2Save.colony.foodLedgerAdjustment;
+
+  const restored = new SimulationCore('other');
+  restored.loadFromSerialized(v2Save);
+
+  assert.equal(restored.migratedSchemaVersion, 3);
+  assert.equal(restored.colony._foodLedgerAdjustment, -2);
+  assert.equal(
+    restored.colony.foodStored,
+    restored.colony._virtualFoodStored
+      + restored.colony.getNestPelletNutritionTotal()
+      + restored.colony._foodLedgerAdjustment,
+  );
 });
 
 test('loadFromSerialized rejects malformed snapshots without mutating live state', () => {

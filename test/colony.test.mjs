@@ -1101,7 +1101,11 @@ test('food accounting: consumeFromStore keeps foodStored == virtual + pellet led
   const colony = new Colony(world, new SeededRng('food-invariant'), 10);
 
   const drift = () => Math.abs(
-    colony.foodStored - (colony._virtualFoodStored + colony.getNestPelletNutritionTotal()),
+    colony.foodStored - (
+      colony._virtualFoodStored
+      + colony.getNestPelletNutritionTotal()
+      + colony._foodLedgerAdjustment
+    ),
   );
   assert.ok(drift() < 1e-6, 'invariant holds at construction (all virtual)');
 
@@ -1117,4 +1121,30 @@ test('food accounting: consumeFromStore keeps foodStored == virtual + pellet led
   // Drain most of the store so consumption reaches the physical pellets.
   colony.consumeFromStore(colony.foodStored - 10);
   assert.ok(drift() < 1e-6, 'invariant holds after consuming into physical pellets');
+});
+
+test('egg costs balance the food ledger without changing physical nest markers', () => {
+  const world = new World(64, 64);
+  const colony = new Colony(world, new SeededRng('egg-ledger'), 0);
+  const config = createTestConfig();
+  config.queenEggTicks = 1;
+  config.queenEggFoodCost = 2;
+  config.queenHungerDrain = 0;
+
+  colony.foodStored = 0;
+  colony._virtualFoodStored = 0;
+  colony.depositPellet(10, world.nestX, world.nestY + 6);
+  const pelletsBefore = structuredClone(colony.nestFoodPellets);
+  const tilesBefore = new Set(colony._nestFoodTiles);
+
+  colony.update(config);
+
+  assert.equal(colony.foodStored, 8);
+  assert.equal(colony._foodLedgerAdjustment, -2);
+  assert.deepEqual(colony.nestFoodPellets, pelletsBefore, 'egg cost must not alter marker amounts or placement');
+  assert.deepEqual(colony._nestFoodTiles, tilesBefore, 'egg cost must not free a future drop tile');
+  assert.equal(
+    colony.foodStored,
+    colony._virtualFoodStored + colony.getNestPelletNutritionTotal() + colony._foodLedgerAdjustment,
+  );
 });

@@ -53,6 +53,10 @@ export class Colony {
     this.surfaceFoodPellets = [];
     this.nestEntrances = [];
     this.nestFoodPellets = [];
+    // Signed non-pellet adjustments (egg investment and oophagy recycling).
+    // Keeping these separate lets physical pellet markers remain stable for
+    // deterministic drop placement while the aggregate food ledger balances.
+    this._foodLedgerAdjustment = 0;
 
     this.workAllocation = { forage: 90, dig: 5, nurse: 5 };
     // Soldiers patrol the entrance and eat from the store but never forage, so
@@ -551,15 +555,11 @@ export class Colony {
       this.queen.eggProgress += healthFraction * nestCrowdingBrake;
       if (this.queen.eggProgress >= config.queenEggTicks) {
         this.queen.eggProgress = 0;
-        // Egg cost deducts from the canonical total and the virtual sub-ledger.
-        // It deliberately does NOT drain nestFoodPellets: those markers feed
-        // _nestFoodTiles, which findNestFoodDropPoint reads to place deposits, so
-        // draining them here would shift drop placement and perturb the
-        // deterministic trajectory. The resulting small upward drift of the
-        // pellet ledger vs foodStored is cosmetic (render/HUD only) — foodStored
-        // remains the canonical spendable total. See getTotalStoredFood.
+        // Keep physical pellet markers stable: they drive _nestFoodTiles and
+        // therefore deterministic drop placement. The signed adjustment records
+        // this non-pellet egg investment so the full food ledger still balances.
         this.foodStored -= config.queenEggFoodCost;
-        this._virtualFoodStored = Math.max(0, this._virtualFoodStored - config.queenEggFoodCost);
+        this._foodLedgerAdjustment -= config.queenEggFoodCost;
         this.queen.eggsLaid += 1;
         this.queen.brood += 1;
         const eggHealthCost = config.queenEggHealthCost ?? 0;
@@ -627,7 +627,9 @@ export class Colony {
       if (larva.stage === 1 && larva.malnourishmentTicks >= oophagyDelayTicks) {
         this.larvae.splice(i, 1);
         this.queen.brood -= 1;
-        this.foodStored += config.oophagyRecycleNutrition ?? 5;
+        const recycledNutrition = config.oophagyRecycleNutrition ?? 5;
+        this.foodStored += recycledNutrition;
+        this._foodLedgerAdjustment += recycledNutrition;
         continue;
       }
 
@@ -985,18 +987,14 @@ export class Colony {
   }
 
   // foodStored is the SINGLE CANONICAL nest-food total — the spendable amount.
-  // It has two sub-ledgers:
+  // It has three sub-ledgers:
   //   - _virtualFoodStored: the bootstrap ration, not backed by a physical pellet
   //   - nestFoodPellets:    physical markers (also feed _nestFoodTiles, which
   //                         findNestFoodDropPoint reads to place deposits)
+  //   - _foodLedgerAdjustment: signed non-pellet egg/recycling adjustments
   // consumeFromStore drains virtual first, then pellets, keeping
-  //   foodStored ≈ _virtualFoodStored + getNestPelletNutritionTotal()
-  // The one exception is egg-laying, which deducts from foodStored + virtual but
-  // not pellets (draining pellets there would shift drop placement and perturb
-  // determinism), so the pellet ledger can drift slightly ABOVE foodStored. That
-  // drift is cosmetic. This getter returns the canonical foodStored directly —
-  // the old max(foodStored, pelletTotal) reconciliation just surfaced that
-  // cosmetic pellet drift in the HUD instead of the true spendable total.
+  //   foodStored = _virtualFoodStored + pellet total + adjustment.
+  // This getter returns the canonical foodStored directly.
   getTotalStoredFood() {
     return this.foodStored;
   }
@@ -1331,6 +1329,7 @@ export class Colony {
       foodStored: this.foodStored,
       virtualFoodStored: this._virtualFoodStored,
       virtualFoodInitial: this._virtualFoodInitial,
+      foodLedgerAdjustment: this._foodLedgerAdjustment,
       births: this.births,
       deaths: this.deaths,
       deathsByCause: { ...this.deathsByCause },
@@ -1432,6 +1431,9 @@ export class Colony {
         })
         .filter((pellet) => Number.isFinite(pellet.x) && Number.isFinite(pellet.y) && Number.isFinite(pellet.amount) && pellet.amount > 0)
       : [];
+    colony._foodLedgerAdjustment = Number.isFinite(data.foodLedgerAdjustment)
+      ? data.foodLedgerAdjustment
+      : colony.foodStored - colony._virtualFoodStored - colony.getNestPelletNutritionTotal();
     colony.#rebuildNestFoodTiles();
     colony.setWorkAllocation(data.workAllocation || colony.workAllocation);
     colony.setCasteAllocation(data.casteAllocation || colony.casteAllocation);

@@ -37,7 +37,7 @@ const SURFACE_DEPOSIT_RATIO = 0.7;
 // that needs migration on load. Saves written before versioning existed have no
 // schemaVersion field and are treated as version 0 (legacy). Every supported
 // historical version has a named step in SAVE_MIGRATIONS below.
-export const SAVE_SCHEMA_VERSION = 2;
+export const SAVE_SCHEMA_VERSION = 3;
 
 export class SimulationCore {
   /**
@@ -576,6 +576,7 @@ function isGridArray(value, length) {
 const SAVE_MIGRATIONS = {
   0: migrateV0ToV1,
   1: migrateV1ToV2,
+  2: migrateV2ToV3,
 };
 
 function migrateSaveData(data, version) {
@@ -599,4 +600,23 @@ function migrateV1ToV2(data) {
   const state = isRecord(data.state) ? { ...data.state } : data.state;
   if (isRecord(state)) delete state.casteTargets;
   return { ...data, schemaVersion: 2, state };
+}
+
+function migrateV2ToV3(data) {
+  if (!isRecord(data) || !isRecord(data.colony)) {
+    return isRecord(data) ? { ...data, schemaVersion: 3 } : data;
+  }
+  const colony = { ...data.colony };
+  const pelletTotal = Array.isArray(colony.nestFoodPellets)
+    ? colony.nestFoodPellets.reduce((sum, pellet) => {
+      const amount = Number.isFinite(pellet?.amount)
+        ? pellet.amount
+        : (Number.isFinite(pellet?.nutrition) ? pellet.nutrition : 0);
+      return sum + amount;
+    }, 0)
+    : 0;
+  const foodStored = Number.isFinite(colony.foodStored) ? colony.foodStored : 0;
+  const virtualFoodStored = Number.isFinite(colony.virtualFoodStored) ? colony.virtualFoodStored : 0;
+  colony.foodLedgerAdjustment = foodStored - virtualFoodStored - pelletTotal;
+  return { ...data, schemaVersion: 3, colony };
 }
