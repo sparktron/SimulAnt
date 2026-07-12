@@ -164,11 +164,12 @@ excludes. They are NOT dead:
   `maybeLogSteeringDebug` (`main.js`); a live, default-off debug logger.
 - `momentumBias` — deliberate steering-experiment stub (stubbed to 0 in steering.js).
 
-### Latent gap flagged (not yet fixed)
+### Latent gap flagged (fixed in v0.54.6)
 The config-integrity "invisible knob" check uses regex `config\.X\s*\?\?`, which
 **does not match optional chaining** `config?.X ?? fallback`. That blind spot is
 how `minSurfacePellets` stayed invisible. If a new knob is added with `config?.`,
-the guard will miss it. **Hardening that regex is a worthwhile Phase-0 follow-up.**
+the guard would miss it. v0.54.6 updated the scan to recognize both forms and
+added a regression test for the optional-chained form.
 
 ---
 
@@ -194,7 +195,7 @@ the guard will miss it. **Hardening that regex is a worthwhile Phase-0 follow-up
   next forward lever. Now de-risked: depletion-reactive decay made trails point at
   live sources, so the previously-unsafe "strengthen recruitment" path may now be
   safe. Build on the confirmed depletion baseline.
-- **Harden the invisible-knob regex** for optional chaining (see Part 3).
+- ~~Harden the invisible-knob regex~~ — completed in v0.54.6 (see Part 3).
 - **Inert cleanup (optional):** stale fixture keys for the removed params still
   linger in several `test/*.mjs` files; harmless, churn to remove.
 - **`protectRef 0.5`** is the documented escape hatch if carrier circling (9.6%)

@@ -1,17 +1,29 @@
 # Post-refactor Improvement Plan
 
+Status checked against landed `master` at **v0.54.11** on 2026-07-12. The
+uncommitted worktree changes were excluded from this reconciliation.
+
 ## Current assessment
 
-- Core boundaries are now explicit (`TickScheduler`, `MicroPatchEngine`, `MacroEngine`), but engine lifecycle wiring is repeated in multiple `SimulationCore` paths.
-- Macro home-territory coordinates can drift when nest location changes unless explicitly synchronized.
-- Macro state deserialization accepted raw objects without full validation.
-- Determinism coverage exists, but lacked tests for nest relocation + macro sync.
+- Core boundaries are explicit (`TickScheduler`, `MicroPatchEngine`, `MacroEngine`),
+  and `SimulationCore` now centralizes engine rebuild wiring.
+- Macro home-territory synchronization and defensive macro deserialization are
+  implemented and covered by deterministic tests.
+- The `Ant` class has since been decomposed into focused behavior modules
+  (`src/sim/ant/`) without changing the replay contract.
+- Config sanitization covers the shipped runtime surface, and the
+  config-integrity scan now recognizes optional-chained fallbacks.
 
 ## Recommended next improvements (small-step roadmap)
 
 1. **SimulationCore lifecycle cleanup** (done): centralize engine rebuild in one helper to reduce drift bugs.
 2. **Macro boundary hardening** (done): sanitize macro deserialization and keep home territory synchronized to nest moves.
 3. **Deterministic contract tests** (done): add coverage for nest-tool macro sync and malformed macro save recovery.
-4. **Phase extraction follow-up** (next): split `Ant.update` into pure helper phases (`sense`, `choose`, `apply`) without behavior changes.
-5. **Input validation pass** (next): apply explicit range guards for non-pheromone config knobs used by ant and dig systems.
-6. **Performance baselining** (later): add a reproducible micro-benchmark before making perf-oriented structural changes.
+4. **Pure phase extraction** (deferred): split `Ant.update` into explicit
+   `sense`, `choose`, and `apply` phases only if a concrete maintenance need
+   justifies the added behavior-ordering risk. The lower-risk module
+   decomposition already landed in v0.31.1–v0.31.5.
+5. **Config-integrity hardening** (done): the invisible-knob check detects
+   optional-chained reads such as `config?.foo ?? fallback` (v0.54.6).
+6. **Performance baselining** (active): use the fixed-seed benchmark harnesses
+   before making additional hot-loop structural changes.

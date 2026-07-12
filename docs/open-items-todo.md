@@ -1,45 +1,47 @@
 # Open Items / TODO Plan
 
-## Completed in this session (Option A)
+Status checked against landed `master` at **v0.54.11** on 2026-07-12. The
+uncommitted worktree changes were excluded from this reconciliation.
+
+## Completed
 
 1. ✅ Implemented `diffIntervalTicks` cadence gating for diffusion while keeping evaporation active each tick.
 2. ✅ Added simulation module smoke-import test coverage.
 3. ✅ Sanitized loaded runtime config before applying it to active state.
 4. ✅ Routed legacy caste sliders through colony-status allocation state updates.
 5. ✅ Added deterministic replay hash regression test.
+6. ✅ Added save schema versioning, legacy-save handling, forward-version
+   diagnostics, and round-trip tests (v0.30.0).
+7. ✅ Completed the `Ant` decomposition into vitals, navigation, steering,
+   roles, and decision modules (v0.31.1–v0.31.5).
+8. ✅ Established `foodStored` as the canonical spendable nest-food total
+   (v0.40.0).
+9. ✅ Hardened the dev server against raw and encoded path traversal
+   (v0.30.1).
+10. ✅ Added deterministic long-run survival coverage and corrected the
+    surface-count respawn safety net (v0.50.0 onward).
+11. ✅ Added biological growth controls and nest-space carrying capacity,
+    including serialized crowding state (v0.52.0–v0.54.4).
+12. ✅ Hardened the config-integrity scan to detect optional-chained inline
+    fallbacks such as `config?.foo ?? fallback` (v0.54.6).
+13. ✅ Made saves resilient to local-storage failures, preserved ant
+    id-derived behavior across reloads, and added exact Float32 field
+    round-trips (v0.54.7–v0.54.11).
 
-## Near-term (next session)
+## Active near-term
 
-1. **Harden save/load validation path further**
-   - Add schema-version guard with migration fallback and corruption diagnostics.
-
-## Medium-term
-
-5. **Refactor `Ant` class into smaller behavior units**
-   - Extract steering, feeding, and role behavior handlers to reduce complexity and regression risk.
-
-6. **Optimize hot loops with measured profiling**
+1. **Optimize hot loops with measured profiling**
    - Profile pheromone updates and food-pellet scans under large colonies.
    - Add benchmark scenarios with fixed seeds.
 
-7. **Consolidate food accounting model**
-   - Clarify canonical source across `foodStored`, virtual reserve, pellet lists, and world tile cache.
+## Medium-term
+
+1. **Consolidate style source of truth**
+   - Reduce duplication between inline `<style>` in `index.html` and `styles.css`.
 
 ## Low-priority / cleanup
 
-8. **Consolidate style source of truth**
-   - Reduce duplication between inline `<style>` in `index.html` and `styles.css`.
-
-9. **Improve dev server path safety**
-   - Sanitize request paths in `server.js` to prevent accidental path traversal during local hosting.
-
-10. **Harden the config-integrity invisible-knob check for optional chaining**
-    - `test/config-integrity.test.mjs` Test 1 regex `config\.X ??` misses `config?.X ??`.
-      `minSurfacePellets` stayed invisible because of this (fixed 2026-06-27). A new
-      `config?.`-read knob would slip the guard. See
-      `docs/2026-06-27-depletion-reactive-and-config-cleanup.md` Part 3.
-
-11. **Remove stale fixture keys for swept config params**
+3. **Remove stale fixture keys for swept config params**
     - Several `test/*.mjs` config fixtures still list removed params (`digChance`,
       `foodPickupRate`, `randomTurnChance`, etc.) as inert extra keys. Harmless; churn to remove.
 

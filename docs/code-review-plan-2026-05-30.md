@@ -1,7 +1,33 @@
 # SimulAnt — Systematic Code Review Plan (2026-05-30)
 
-Baseline: **v0.27.6**, `master` clean. Source = 8,572 LOC across 41 JS files in `src/`.
-Test suite = `node --test test/*.mjs` → **265 tests, 263 pass, 2 fail** (see §0).
+This document is the historical review plan from 2026-05-30. It was reconciled
+against landed `master` at **v0.54.11** on 2026-07-12; the uncommitted worktree
+changes were excluded. Current source is 36 JavaScript files under `src/`, and
+the test suite is **349/349 passing**.
+
+The original v0.27.6 baseline and its failing-test counts below are retained as
+review history, not as current repository status.
+
+## Current disposition
+
+The review plan's implementation work has landed through the current baseline:
+
+| Area | Disposition in landed code |
+|---|---|
+| §0 pre-flight | Complete; the two renderer failures were resolved in v0.27.7 |
+| §1 determinism / RNG | Complete; RNG cursor persistence and replay-hash coverage landed in v0.28.0+ |
+| §2 tick orchestration | Complete; explicit phase order, sanitizer, lifecycle rebuild, and macro sync are covered |
+| §3 ant behavior | Complete for the planned decomposition; modules landed in v0.31.1–v0.31.5 |
+| §4–§5 colony and food economy | Core accounting and respawn work landed; later growth/capacity work is in v0.52.0–v0.54.4 |
+| §6–§8 world, digging, rendering | Cadence, boundary, saved-front, and renderer-purity coverage landed |
+| §9 config / main wiring | Range sanitization and config-integrity coverage landed, including optional-chained fallbacks |
+| §10 UI / input | Save schema versioning and view/input coverage landed; inline-style duplication remains open |
+| §11 infra | Server path traversal hardening landed in v0.30.1 |
+
+Remaining actionable items are tracked in
+[`docs/open-items-todo.md`](open-items-todo.md). This disposition is a landed-code
+reconciliation, not a claim that every historical review bullet received a new
+line-by-line audit.
 
 This plan partitions the codebase into logical sections, orders them by **risk**
 (size × churn × invariant-criticality), and for each defines *what to look for*,
@@ -16,12 +42,13 @@ These were found while building this plan and are concrete, not hypothetical:
 
 | # | Finding | Evidence | Action |
 |---|---------|----------|--------|
-| 0.1 | **2 failing tests** in `test/nest-renderer.test.mjs` | `not ok 163` (`2 !== 0`), `not ok 164` (`8 !== 6`) | Triage first — a red suite blinds every later section |
-| 0.2 | Test 163 asserts *"queen marker should not render by default"* but v0.13.10 commit deliberately made the queen **always** render | `git log NestRenderer.js` = "always show queen with distinctive marker" | **Stale test** — update assertion to match intended behavior |
-| 0.3 | Test 164 brood-larvae count `8 !== 6` | brood rendering count drift | Decide canonical count, fix test or renderer |
-| 0.4 | Audit docs are partially stale | `exhaustive-audit-2026-04-22.md` lists `#consumePelletForHealth` "undefined" + `Math.random()` — **both already fixed** (method defined at `ant.js:1534`; `Math.random` only in comments) | Mark that audit superseded by this doc |
+| 0.1 | **2 failing tests** in the original `test/nest-renderer.test.mjs` run | `not ok 163` (`2 !== 0`), `not ok 164` (`8 !== 6`) | Resolved in v0.27.7; current suite is 349/349 green |
+| 0.2 | Test 163 expected no default queen marker although the renderer intentionally always shows it | `git log NestRenderer.js` = "always show queen with distinctive marker" | Assertion updated in v0.27.7 |
+| 0.3 | Test 164 brood-larvae count drift | renderer/test contract mismatch | Resolved in v0.27.7 |
+| 0.4 | Audit docs were partially stale | `exhaustive-audit-2026-04-22.md` listed already-fixed symbols | Superseded; retained as historical audit material |
 
-**Gate:** suite must be green (or failures consciously accepted) before §1 begins.
+**Historical gate:** this gate was satisfied before the later review phases;
+the current full suite is 349/349 green.
 
 ---
 
@@ -83,7 +110,9 @@ Bug class to hunt: **off-by-one in tick counter** vs. modulo cadence; partial-ti
 
 ## Phase 3 — Ant behavior (`src/sim/ant.js`, `behavior/NestState.js`) — heaviest
 
-1836 LOC, top of `KNOWN_ISSUES`. Budget the most time here. Map the state machine first
+The original 1,836-line class was decomposed; `ant.js` is now 450 LOC, with
+behavior modules under `src/sim/ant/`. Review the state machine across those
+modules rather than treating the old class size as current.
 (`get_symbol_outline` / call hierarchy), then review per state.
 
 Look for:
@@ -101,7 +130,8 @@ Feature candidates: per-ant debug inspector (click an ant → state, target, hun
 
 ## Phase 4 — Colony & population (`src/sim/colony.js`, `ColonyStats.js`)
 
-1319 LOC; owns the food-accounting tangle and population dynamics.
+1,495 LOC; owns food accounting and population dynamics. The original food
+accounting concern has a canonical `foodStored` balance and regression coverage.
 
 Look for:
 - **Canonical food source of truth**: `foodStored` vs virtual reserve vs pellet records vs world-tile cache. Map all writers/readers; prove the canonical getter can't disagree with the sum of parts. This is THE known correctness risk.
@@ -116,7 +146,8 @@ Feature candidate: food-flow sankey/over-time chart in the status panel.
 
 ## Phase 5 — Food economy (`Food.js`, `systems/FoodEconomySystem.js`)
 
-Small (68 LOC) but cross-cuts §3–4. Review *with* the §4 ledger map open.
+The economy is split between `Food.js` (36 LOC) and
+`systems/FoodEconomySystem.js` (95 LOC); review it with the §4 accounting model.
 
 Look for: pellet lifecycle (spawn → claimed → consumed → removed) has no leak/double-free;
 boot-cluster placement (v0.27.4–0.27.6) is seeded; `depositFood` threshold (0.7) is config-guarded.
@@ -130,7 +161,8 @@ pheromone; grid-boundary handling (no wrap-around bleed unless intended); the di
 conserves or intentionally loses mass consistently.
 
 Perf: this is the named hotspot at high entity counts. Measure before changing — add the
-**benchmark harness** (`open-items-todo` item 6) with fixed seeds; set a per-tick budget.
+Benchmark harnesses now exist (`bench/tick-profile.mjs`, `bench/pheromone-bench.mjs`,
+and the foraging/starvation sweeps). Further baseline work remains in the roadmap.
 
 Feature candidate: pheromone-field debug heatmap toggle.
 
@@ -160,9 +192,8 @@ intent; no per-frame allocation churn in hot draw loops.
 **Most-churned files** ⇒ highest regression risk. 60+ params.
 
 Look for:
-- **Range guards** on every non-pheromone knob (`post-refactor` item 5 = open). Each param
-  needs min/max/type clamping at the sanitize boundary; a malformed slider/preset must not
-  reach a `NaN` into the sim.
+- Range guards are present for the shipped config surface and are exercised by
+  config-integrity tests, including optional-chained inline fallbacks.
 - `getDefaultConfig` consistency (v0.27.6 fixed a *stale* default — audit the rest for the same class of bug: a default that no longer matches its consumer).
 - Preset load = config sanitize path is the same one save/load uses (no second, weaker validator).
 
@@ -178,8 +209,9 @@ state *and* a dead legacy path; delete the dead one. `triangleMath` (caste alloc
 unit-test the barycentric math edge cases (corners, degenerate). `runtimeErrorGate` — confirm
 it actually halts/flags on sim exceptions rather than swallowing them.
 
-Save/load: **add explicit schema versioning + migration** (open across 3 docs) with corruption
-diagnostics and tests for malformed saves.
+Save/load schema versioning, legacy handling, forward-version diagnostics, and
+malformed-save tests have landed (v0.30.0+). Future schema changes should add
+explicit migrations rather than relying only on defensive field restoration.
 
 Feature candidate (agent-native): expose every user control as a programmatic command so an
 agent can drive the sim headless — pairs with the benchmark harness.
@@ -188,9 +220,8 @@ agent can drive the sim headless — pairs with the benchmark harness.
 
 ## Phase 11 — Infra (`server.js`, test suite)
 
-- `server.js`: **sanitize request paths** against traversal (`open-items-todo` #9) — local-only,
-  low sev, quick win.
-- Coverage gaps: cross-reference §1–10 with existing `test/*.mjs`; the suite is broad (265 tests)
+- `server.js` path traversal hardening landed in v0.30.1 and has regression tests.
+- Coverage gaps: cross-reference §1–10 with existing `test/*.mjs`; the suite is broad (349 tests)
   but check for the *untested* hot symbols (use jcodemunch `get_untested_symbols`).
 - Style source-of-truth dedup between inline `<style>` and `styles.css` (cleanup).
 

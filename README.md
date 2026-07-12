@@ -4,6 +4,10 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 
 > ⚡ **No build step required** — just serve static files and play.
 
+Current landed version: **v0.54.11**. The simulation includes deterministic
+save/load, biological crowding controls, nest-space carrying capacity, and
+cached surface terrain rendering.
+
 ---
 
 ## 📚 Table of Contents
@@ -159,6 +163,7 @@ Upload:
 - [Onboarding analysis](docs/onboarding-analysis.md)
 - [Implementation report (2026-04-22)](docs/2026-04-22-fix-implementation-report.md)
 - [Open items / TODO plan](docs/open-items-todo.md)
+- [Systematic code-review status](docs/code-review-plan-2026-05-30.md)
 - [Known issues](docs/KNOWN_ISSUES.md)
 - [Change history](CHANGE_HISTORY.md)
 
