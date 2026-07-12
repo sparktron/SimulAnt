@@ -1,9 +1,9 @@
 # SimulAnt — Systematic Code Review Plan (2026-05-30)
 
 This document is the historical review plan from 2026-05-30. It was reconciled
-against landed `master` at **v0.54.13** on 2026-07-12; the uncommitted worktree
+against landed `master` at **v0.56.0** on 2026-07-12; the uncommitted worktree
 changes were excluded. Current source is 36 JavaScript files under `src/`, and
-the test suite is **353/353 passing**.
+the test suite is **358/358 passing**.
 
 The original v0.27.6 baseline and its failing-test counts below are retained as
 review history, not as current repository status.
@@ -18,10 +18,10 @@ The review plan's implementation work has landed through the current baseline:
 | §1 determinism / RNG | Complete; RNG cursor persistence and replay-hash coverage landed in v0.28.0+ |
 | §2 tick orchestration | Complete; explicit phase order, sanitizer, lifecycle rebuild, and macro sync are covered |
 | §3 ant behavior | Complete for the planned decomposition; modules landed in v0.31.1–v0.31.5 |
-| §4–§5 colony and food economy | Core accounting and respawn work landed; later growth/capacity work is in v0.52.0–v0.54.4 |
+| §4–§5 colony and food economy | Core accounting, respawn, and non-pellet ledger balancing landed through v0.56.0 |
 | §6–§8 world, digging, rendering | Cadence, boundary, saved-front, and renderer-purity coverage landed |
 | §9 config / main wiring | Range sanitization and config-integrity coverage landed, including optional-chained fallbacks |
-| §10 UI / input | Save validation, view/input coverage, and canonical caste allocation landed; inline-style duplication remains open |
+| §10 UI / input | Save validation, view/input coverage, canonical caste allocation, and a single external stylesheet landed |
 | §11 infra | Server path traversal hardening landed in v0.30.1 |
 
 Remaining actionable items are tracked in
@@ -42,13 +42,13 @@ These were found while building this plan and are concrete, not hypothetical:
 
 | # | Finding | Evidence | Action |
 |---|---------|----------|--------|
-| 0.1 | **2 failing tests** in the original `test/nest-renderer.test.mjs` run | `not ok 163` (`2 !== 0`), `not ok 164` (`8 !== 6`) | Resolved in v0.27.7; current suite is 353/353 green |
+| 0.1 | **2 failing tests** in the original `test/nest-renderer.test.mjs` run | `not ok 163` (`2 !== 0`), `not ok 164` (`8 !== 6`) | Resolved in v0.27.7; current suite is 358/358 green |
 | 0.2 | Test 163 expected no default queen marker although the renderer intentionally always shows it | `git log NestRenderer.js` = "always show queen with distinctive marker" | Assertion updated in v0.27.7 |
 | 0.3 | Test 164 brood-larvae count drift | renderer/test contract mismatch | Resolved in v0.27.7 |
 | 0.4 | Audit docs were partially stale | `exhaustive-audit-2026-04-22.md` listed already-fixed symbols | Superseded; retained as historical audit material |
 
 **Historical gate:** this gate was satisfied before the later review phases;
-the current full suite is 353/353 green.
+the current full suite is 358/358 green.
 
 ---
 
@@ -209,10 +209,10 @@ state *and* a dead legacy path; delete the dead one. `triangleMath` (caste alloc
 unit-test the barycentric math edge cases (corners, degenerate). `runtimeErrorGate` — confirm
 it actually halts/flags on sim exceptions rather than swallowing them.
 
-Save/load schema versioning, legacy handling, forward-version diagnostics, and
-atomic malformed-save rejection have landed (v0.30.0–v0.54.12). Future schema
-changes should add explicit migrations rather than relying only on defensive
-field restoration.
+Save/load schema versioning, legacy handling, forward-version diagnostics,
+atomic malformed-save rejection, and explicit migrations through schema v3 have
+landed (v0.30.0–v0.56.0). Future schema changes should add a tested migration
+step rather than relying only on defensive field restoration.
 
 Feature candidate (agent-native): expose every user control as a programmatic command so an
 agent can drive the sim headless — pairs with the benchmark harness.
@@ -222,9 +222,9 @@ agent can drive the sim headless — pairs with the benchmark harness.
 ## Phase 11 — Infra (`server.js`, test suite)
 
 - `server.js` path traversal hardening landed in v0.30.1 and has regression tests.
-- Coverage gaps: cross-reference §1–10 with existing `test/*.mjs`; the suite is broad (353 tests)
+- Coverage gaps: cross-reference §1–10 with existing `test/*.mjs`; the suite is broad (358 tests)
   but check for the *untested* hot symbols (use jcodemunch `get_untested_symbols`).
-- Style source-of-truth dedup between inline `<style>` and `styles.css` (cleanup).
+- Stylesheet source-of-truth consolidation landed in v0.54.14.
 
 ---
 

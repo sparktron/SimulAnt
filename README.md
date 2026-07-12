@@ -4,9 +4,9 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 
 > ⚡ **No build step required** — just serve static files and play.
 
-Current landed version: **v0.54.13**. The simulation includes deterministic
-save/load, biological crowding controls, nest-space carrying capacity, and
-cached surface terrain rendering.
+Current landed version: **v0.56.0**. The simulation includes deterministic
+save/load with explicit migrations, biological crowding controls, nest-space
+carrying capacity, and cached surface terrain rendering.
 
 ---
 
@@ -124,6 +124,8 @@ These settings feed directly into simulation behavior and spawn strategy.
 
 ## 💾 Save / Load
 Use **SAVE** and **LOAD** to persist simulation state in `localStorage`.
+Malformed saves are rejected without replacing the active simulation; older
+supported saves migrate forward automatically.
 Malformed saves are rejected without replacing the active simulation.
 
 ---

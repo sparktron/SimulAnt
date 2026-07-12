@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.54.13** on 2026-07-12. The
+Status checked against landed `master` at **v0.56.0** on 2026-07-12. The
 uncommitted worktree changes were excluded from this reconciliation.
 
 ## Completed
@@ -31,23 +31,19 @@ uncommitted worktree changes were excluded from this reconciliation.
     rejected before it can replace the live simulation (v0.54.12).
 15. ✅ Removed the duplicate soldier-allocation parameter control and obsolete
     `casteTargets` save state; the caste triangle is canonical (v0.54.13).
+16. ✅ Removed stale test fixture keys for retired configuration parameters.
+17. ✅ Consolidated styling in `styles.css`; `index.html` no longer carries an
+    inline duplicate stylesheet (v0.54.14).
+18. ✅ Added fixed-seed performance baselines and opt-in budget checks for
+    whole ticks and pheromone updates.
+19. ✅ Added named, sequential save migrations through schema v3 (v0.55.0–v0.56.0).
+20. ✅ Balanced the canonical food ledger with signed non-pellet adjustments,
+    preserving physical nest-marker placement and determinism (v0.56.0).
 
-## Active near-term
+## Active work
 
-1. **Optimize hot loops with measured profiling**
-   - Profile pheromone updates and food-pellet scans under large colonies.
-   - Add benchmark scenarios with fixed seeds.
-
-## Medium-term
-
-1. **Consolidate style source of truth**
-   - Reduce duplication between inline `<style>` in `index.html` and `styles.css`.
-
-## Low-priority / cleanup
-
-3. **Remove stale fixture keys for swept config params**
-    - Several `test/*.mjs` config fixtures still list removed params (`digChance`,
-      `foodPickupRate`, `randomTurnChance`, etc.) as inert extra keys. Harmless; churn to remove.
+No general maintenance fixes are currently queued. The remaining planned work is
+the experiment-driven environmental foraging program below.
 
 ## Pheromone roadmap (next forward lever)
 

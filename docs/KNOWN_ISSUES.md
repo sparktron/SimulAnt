@@ -2,22 +2,22 @@
 
 ## Active
 
-1. **Food accounting — canonical model established (v0.40.0)**
+1. **Food accounting — canonical model established (v0.56.0)**
    - `foodStored` is now the documented single canonical nest-food total, with two
      sub-ledgers (`_virtualFoodStored` bootstrap reserve + `nestFoodPellets`
      physical markers) that `consumeFromStore` keeps summing to it. The
      `getTotalStoredFood()` getter returns canonical `foodStored` directly (the old
      `max(foodStored, pelletTotal)` reconciliation just surfaced cosmetic pellet
      drift in the HUD). Guarded by an invariant test.
-   - Remaining (minor): egg-laying deducts from `foodStored`+virtual but not
-     `nestFoodPellets` (draining them would perturb deposit placement and break
-     determinism), so the pellet ledger can drift slightly above `foodStored`.
-     This is cosmetic (render/HUD only) and documented at `getTotalStoredFood`.
+   - A signed non-pellet adjustment records egg investment and oophagy recycling,
+     so `foodStored` exactly reconstructs from virtual food, pellet markers, and
+     the adjustment without changing deterministic marker placement.
 
-2. **Save/load schema migration is minimal**
-   - Saves carry schema version 1; malformed structure is rejected atomically,
-     legacy saves retain safe defaults, and newer saves emit a diagnostic.
-     Future incompatible format changes still need explicit migration steps.
+2. **Future save-schema migration work**
+   - Saves carry schema version 3; v0→v1, v1→v2, and v2→v3 are named,
+     non-mutating migration steps. Malformed structure is rejected atomically and
+     newer saves emit a diagnostic. Future incompatible formats need another
+     named migration and test.
 
 3. **Performance risk at high entity counts** (partially mitigated)
    - Profiled (docs/perf-profile-2026-06-02.md): the full-grid pheromone update
@@ -29,4 +29,5 @@
      per-tick perf-at-scale is partly moot until starvation is addressed.
 
 ## Suggested next actions
-- Add profiling harness for large-ant scenarios and set performance budgets.
+
+- Use the fixed-seed performance budgets before optimizing a hot path.
