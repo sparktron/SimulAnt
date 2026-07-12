@@ -9,6 +9,7 @@
  *
  *   node bench/tick-profile.mjs            # default 4000 grow + 1500 measure
  *   node bench/tick-profile.mjs 6000 2000  # grow / measure tick counts
+ *   PERF_CHECK_BUDGET=1 node bench/tick-profile.mjs
  *
  * For a function-level breakdown, run under the V8 profiler:
  *   node --prof bench/tick-profile.mjs && node --prof-process isolate-*.log | head -60
@@ -24,6 +25,8 @@ import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 const GROW_TICKS = Number(process.argv[2]) || 4000;
 const MEASURE_TICKS = Number(process.argv[3]) || 1500;
 const SEED = 'tick-profile';
+const TICK_BUDGET_MS = Number(process.env.PERF_TICK_BUDGET_MS || 2.0);
+const CHECK_BUDGET = process.env.PERF_CHECK_BUDGET === '1';
 
 const config = sanitizeTickConfig(getDefaultConfig());
 
@@ -44,6 +47,11 @@ const t1 = process.hrtime.bigint();
 const msPerTick = Number(t1 - t0) / 1e6 / MEASURE_TICKS;
 console.log(`\nfull tick: ${msPerTick.toFixed(4)} ms/tick over ${MEASURE_TICKS} ticks `
   + `(${(1000 / msPerTick).toFixed(0)} ticks/sec, ${sim.colony.ants.length} ants)`);
+if (CHECK_BUDGET) {
+  const status = msPerTick <= TICK_BUDGET_MS ? 'PASS' : 'FAIL';
+  console.log(`tick budget: ${status} (${msPerTick.toFixed(4)} <= ${TICK_BUDGET_MS.toFixed(4)} ms/tick)`);
+  if (status === 'FAIL') process.exitCode = 1;
+}
 
 // --- Phase 3: attribute time to suspected hotspots ------------------------
 // Lightweight monkeypatch timing. hrtime per call adds overhead, so these

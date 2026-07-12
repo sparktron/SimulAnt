@@ -1,5 +1,27 @@
 # Performance Profile — 2026-06-02
 
+## Reproducible baseline and budgets (refreshed 2026-07-12, v0.54.14)
+
+The fixed-seed harnesses now have opt-in budget checks. Timings vary by host,
+so these are conservative regression tripwires rather than CI requirements:
+
+| Harness | Fixed scenario | Measured baseline | Budget | Determinism check |
+|---|---|---:|---:|---|
+| `bench/tick-profile.mjs` | 4,000 grow + 1,500 measured ticks | 1.0055 ms/tick | 2.00 ms/tick | `toFood` hash `322159963` after the attribution phase |
+| `bench/pheromone-bench.mjs` | 200 warmup + 2,000 isolated updates | 0.0380 ms/tick | 0.12 ms/tick | `toFood` hash `379589893` |
+
+Run both checks explicitly when changing a hot path:
+
+```bash
+PERF_CHECK_BUDGET=1 node bench/tick-profile.mjs
+PERF_CHECK_BUDGET=1 node bench/pheromone-bench.mjs
+```
+
+Override the threshold only to characterize a different host, e.g.
+`PERF_TICK_BUDGET_MS=3 PERF_CHECK_BUDGET=1 node bench/tick-profile.mjs`.
+Investigate a budget failure or an unexpected deterministic hash change before
+claiming a performance improvement.
+
 Measured profiling of the per-tick simulation under a grown colony, addressing
 `open-items-todo.md` #6 ("profile pheromone updates and food-pellet scans under
 large colonies") and KNOWN_ISSUES #5. Harness: `bench/tick-profile.mjs`

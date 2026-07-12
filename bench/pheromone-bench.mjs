@@ -5,15 +5,16 @@
  * full-grid (256x256) diffusion/evaporation passes. Run with:
  *
  *   node bench/pheromone-bench.mjs
+ *   PERF_CHECK_BUDGET=1 node bench/pheromone-bench.mjs
  *
  * It warms the JIT, populates realistic terrain + pheromone fields by running
  * the real simulation, then times N updatePheromones calls with diffusion on
  * every tick (diffIntervalTicks=1 — the worst case). Output also prints a field
  * hash so behavior-preserving changes can be verified (the hash must not move).
  *
- * Reference budget (developer machine, 2026-05): ~1.1 ms/tick after the
- * passability-mask optimization (was ~1.4 ms). Treat a regression above
- * ~1.5 ms/tick, or any change to the field hash, as something to investigate.
+ * Reference budget (developer machine, 2026-07): 0.0380 ms/tick. The opt-in
+ * 0.12 ms/tick budget leaves room for host variance while flagging large
+ * regressions. Treat any hash change as something to investigate.
  */
 import { SimulationCore } from '../src/sim/SimulationCore.js';
 
@@ -31,9 +32,6 @@ const config = {
   depositHome: 0.12,
   dangerDeposit: 0.6,
   hazardDeathChance: 0.02,
-  foodPickupRate: 0.7,
-  digChance: 0.04,
-  digEnergyCost: 8,
   digHomeBoost: 0.9,
   queenEggTicks: 20,
   queenEggFoodCost: 0.8,
@@ -48,6 +46,8 @@ const config = {
 
 const WARMUP = 200;
 const ITERATIONS = 2000;
+const PHEROMONE_BUDGET_MS = Number(process.env.PERF_PHEROMONE_BUDGET_MS || 0.12);
+const CHECK_BUDGET = process.env.PERF_CHECK_BUDGET === '1';
 
 const sim = new SimulationCore('phero-bench');
 for (let i = 0; i < 200; i += 1) sim.update(config); // realistic terrain + fields
@@ -69,3 +69,8 @@ for (let i = 0; i < field.length; i += 1) {
 
 console.log(`updatePheromones: ${msPerTick.toFixed(4)} ms/tick over ${ITERATIONS} iterations`);
 console.log(`toFood field hash: ${hash >>> 0} (must be stable across behavior-preserving changes)`);
+if (CHECK_BUDGET) {
+  const status = msPerTick <= PHEROMONE_BUDGET_MS ? 'PASS' : 'FAIL';
+  console.log(`pheromone budget: ${status} (${msPerTick.toFixed(4)} <= ${PHEROMONE_BUDGET_MS.toFixed(4)} ms/tick)`);
+  if (status === 'FAIL') process.exitCode = 1;
+}
