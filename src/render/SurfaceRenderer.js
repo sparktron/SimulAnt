@@ -52,11 +52,15 @@ export class SurfaceRenderer {
     this._off = document.createElement('canvas');
     this._offCtx = this._off.getContext('2d');
 
-    this._entranceCache = new Map();
+    // Cache key of the last terrain bitmap rendered into _off. The render
+    // loop runs at display rate but terrain/pheromones change only on sim
+    // ticks (or tool edits), so most frames can reuse the previous bitmap.
+    this._terrainCacheKey = '';
   }
 
   setWorld(world) {
     this.world = world;
+    this._terrainCacheKey = '';
   }
 
   resize() {
@@ -82,7 +86,6 @@ export class SurfaceRenderer {
 
   draw(colony, overlays, nestEntrances, foodPellets, options = {}) {
     this.#enforceSurfaceViewBounds();
-    this.#buildEntranceCache(colony, nestEntrances);
     const { ctx } = this;
     const cw = this.canvas.clientWidth;
     const ch = this.canvas.clientHeight;
@@ -109,6 +112,20 @@ export class SurfaceRenderer {
     const { world } = this;
     const W = world.width;
     const H = world.nestY + 1;
+
+    // Rebuild the offscreen bitmap only when something it depicts changed:
+    // terrain always feeds it; the pheromone fields only matter while a
+    // field overlay is visible. Otherwise reuse the cached bitmap — at 60fps
+    // over a ~12 ticks/sec sim this skips most rebuilds even with scent on.
+    const fieldsVisible = overlays.showToFood || overlays.showToHome || overlays.showScent || overlays.showDanger;
+    const cacheKey = `${world.terrainVersion ?? -1}|${fieldsVisible ? world.fieldsVersion ?? -1 : 'off'}`
+      + `|${!!overlays.showToFood}|${!!overlays.showToHome}|${!!overlays.showScent}|${!!overlays.showDanger}`;
+    if (cacheKey === this._terrainCacheKey && this._off.width === W && this._off.height === H) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this._off, 0, 0);
+      return;
+    }
+    this._terrainCacheKey = cacheKey;
 
     this._off.width = W;
     this._off.height = H;
@@ -186,27 +203,6 @@ export class SurfaceRenderer {
     for (const entrance of nestEntrances) drawSoilMound(ctx, entrance);
   }
 
-  #buildEntranceCache(colony, nestEntrances) {
-    if (!Array.isArray(nestEntrances) || nestEntrances.length === 0) {
-      this._entranceCache.clear();
-      return;
-    }
-
-    this._entranceCache.clear();
-    for (const ant of colony?.ants || []) {
-      let nearestEntrance = null;
-      let minDist = Infinity;
-      for (const entrance of nestEntrances) {
-        const dist = Math.hypot(ant.x - entrance.x, ant.y - entrance.y);
-        if (dist < minDist) {
-          minDist = dist;
-          nearestEntrance = entrance;
-        }
-      }
-      this._entranceCache.set(ant.id, nearestEntrance);
-    }
-  }
-
   #drawAnts(ctx, colony, nestEntrances, selectedAntId, showDebugStats, overlays = {}) {
     const { world } = this;
     const halfViewW = this.canvas.clientWidth / this.zoom * 0.5;
@@ -225,7 +221,20 @@ export class SurfaceRenderer {
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       const antTerrain = terrain ? terrain[ant.y * worldW + ant.x] : undefined;
       if (antTerrain === TERRAIN.TUNNEL || antTerrain === TERRAIN.CHAMBER) continue;
-      const nearestEntrance = this._entranceCache.get(ant.id);
+      // Skip ants below their nearest entrance mouth (they belong to the nest
+      // view). Inline nearest-entrance scan — entrances are few (≤ ~3), so a
+      // per-ant loop beats the per-frame id-keyed Map this used to build.
+      let nearestEntrance = null;
+      let nearestD2 = Infinity;
+      for (const entrance of nestEntrances) {
+        const dx = ant.x - entrance.x;
+        const dy = ant.y - entrance.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < nearestD2) {
+          nearestD2 = d2;
+          nearestEntrance = entrance;
+        }
+      }
       if (nearestEntrance && ant.y > nearestEntrance.y) continue;
       if (overlays.showAntJobs && (ant.state !== ant._cachedJobState || ant.workFocus !== ant._cachedJobWorkFocus)) {
         ant.jobColor = Ant.getJobColor(ant.state, ant.workFocus, ant.role);

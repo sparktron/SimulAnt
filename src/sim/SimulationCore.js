@@ -306,6 +306,7 @@ export class SimulationCore {
           this.world.danger[idx] = 0;
           erasedCells.add(`${x},${y}`);
         });
+        this.world.markFieldsDirty();
         this.foodPellets = this.foodPellets.filter((pellet) => !erasedCells.has(`${pellet.x},${pellet.y}`));
         break;
       }
@@ -318,6 +319,7 @@ export class SimulationCore {
             this.world.setTerrain(idx, TERRAIN.TUNNEL);
           }
         });
+        this.world.markFieldsDirty();
         break;
       case 'fill':
         // Seal TUNNEL/CHAMBER terrain back to SOIL in the underground area.

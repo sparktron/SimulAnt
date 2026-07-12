@@ -164,6 +164,17 @@ test('pheromone evaporation reduces values over time', () => {
   assert.ok(world.danger[idx] < 5.0, 'Danger pheromone should evaporate');
 });
 
+test('pheromone mutations advance the render-cache version', () => {
+  const world = new World(16, 16);
+  const initialVersion = world.fieldsVersion;
+
+  world.depositToFood(world.index(5, 5), 1);
+  assert.equal(world.fieldsVersion, initialVersion + 1);
+
+  world.markFieldsDirty();
+  assert.equal(world.fieldsVersion, initialVersion + 2);
+});
+
 test('pheromone values clamp to zero below threshold', () => {
   const world = new World(16, 16);
   const idx = world.index(5, 5);

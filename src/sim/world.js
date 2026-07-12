@@ -103,6 +103,14 @@ export class World {
     this._candMark = new Uint8Array(this.size);
     this._candList = new Int32Array(this.size);
 
+    // Render-cache versions: renderers compare these to skip rebuilding their
+    // terrain/overlay bitmaps on frames where nothing they depict changed
+    // (the render loop runs at display rate; sim ticks are usually slower).
+    // terrainVersion bumps on any terrain write; fieldsVersion bumps whenever
+    // the pheromone fields evolve or are bulk-cleared.
+    this.terrainVersion = 0;
+    this.fieldsVersion = 0;
+
     this.nestX = Math.floor(width * 0.5);
     this.nestY = Math.floor(height * 0.5);
     // Entrance sits at the surface boundary row (bottom of surface view).
@@ -128,12 +136,20 @@ export class World {
   setTerrain(idx, value) {
     this.terrain[idx] = value;
     this._passabilityDirty = true;
+    this.terrainVersion += 1;
   }
 
   // Signal that terrain changed via a bulk/direct write (e.g. a fill loop or
   // typed-array .set()) so the next mask query rebuilds.
   markTerrainDirty() {
     this._passabilityDirty = true;
+    this.terrainVersion += 1;
+  }
+
+  // Signal that a pheromone field changed outside updatePheromones(). This
+  // keeps render caches correct after tool edits that clear individual cells.
+  markFieldsDirty() {
+    this.fieldsVersion += 1;
   }
 
   // Canonical pheromone deposits. Callers MUST use these instead of writing
@@ -144,16 +160,19 @@ export class World {
   depositToFood(idx, amount, clampMax = Infinity) {
     this.toFood[idx] = Math.min(clampMax, this.toFood[idx] + amount);
     this._activeFood.push(idx);
+    this.markFieldsDirty();
   }
 
   depositToHome(idx, amount, clampMax = Infinity) {
     this.toHome[idx] = Math.min(clampMax, this.toHome[idx] + amount);
     this._activeHome.push(idx);
+    this.markFieldsDirty();
   }
 
   depositDanger(idx, amount, clampMax = Infinity) {
     this.danger[idx] = Math.min(clampMax, this.danger[idx] + amount);
     this._activeDanger.push(idx);
+    this.markFieldsDirty();
   }
 
   // Recruitment-channel deposit (config.dualPheromone). Same contract as the
@@ -241,7 +260,7 @@ export class World {
       }
     }
 
-    this._passabilityDirty = true;
+    this.markTerrainDirty();
     this.#carveStarterNest();
   }
 
@@ -312,7 +331,7 @@ export class World {
       }
     }
 
-    this._passabilityDirty = true;
+    this.markTerrainDirty();
   }
 
   /*
@@ -350,6 +369,7 @@ export class World {
       this._activeRecruit.length = 0; this._activeRecruitScratch.length = 0;
       this._activeExplored.length = 0; this._activeExploredScratch.length = 0;
       this.harvest.fill(0); this._activeHarvest.length = 0;
+      this.fieldsVersion += 1;
       return;
     }
     const dt = config.tickSeconds || 1 / 30;
@@ -406,6 +426,8 @@ export class World {
     // live source. Runs after the swap so it acts on the fresh toFood buffer and
     // its active list. ON by default since v0.47.0 (gated so it can be A/B'd off).
     if (config.depletionReactive) this.#applyDepletionDecay(config, dt);
+
+    this.fieldsVersion += 1;
   }
 
   // Evolve the harvest field (decay) and apply EXTRA toFood evaporation wherever
@@ -615,6 +637,13 @@ export class World {
   }
 
   serialize() {
+    // Float32 fields are serialized at 9 significant digits — the exact
+    // round-trip precision for float32 (Float32Array.set re-rounds the parsed
+    // float64 back to the identical 32-bit value), so loads stay bit-identical
+    // while the JSON is ~40% smaller than the default float64 repr on non-zero
+    // cells. Saves land in localStorage (~5MB quota), so payload size is a
+    // real constraint on large, pheromone-saturated worlds.
+    const compactFloats = (field) => Array.from(field, (v) => (v === 0 ? 0 : Number(v.toPrecision(9))));
     return {
       width: this.width,
       height: this.height,
@@ -623,11 +652,11 @@ export class World {
       entranceY: this.entranceY,
       nestRadius: this.nestRadius,
       terrain: Array.from(this.terrain),
-      food: Array.from(this.food),
-      nestFood: Array.from(this.nestFood),
-      toFood: Array.from(this.toFood),
-      toHome: Array.from(this.toHome),
-      danger: Array.from(this.danger),
+      food: compactFloats(this.food),
+      nestFood: compactFloats(this.nestFood),
+      toFood: compactFloats(this.toFood),
+      toHome: compactFloats(this.toHome),
+      danger: compactFloats(this.danger),
     };
   }
 

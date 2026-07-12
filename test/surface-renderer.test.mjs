@@ -31,10 +31,11 @@ function createFakeCanvasContext() {
 
 function createOffscreenContext() {
   return {
+    putImageDataCalls: 0,
     createImageData(w, h) {
       return { data: new Uint8ClampedArray(w * h * 4) };
     },
-    putImageData() {},
+    putImageData() { this.putImageDataCalls += 1; },
   };
 }
 
@@ -169,11 +170,14 @@ test('SurfaceRenderer recomputes nearest entrance as ants move between draws', (
     const overlays = { showToFood: false, showScent: false, showToHome: false, showDanger: false };
 
     renderer.draw(colony, overlays, entrances, []);
+    assert.equal(offscreenCtx.putImageDataCalls, 1, 'first draw builds terrain bitmap');
     mainCtx.fillRectCalls.length = 0;
 
     ant.x = 20;
     ant.y = 7;
     renderer.draw(colony, overlays, entrances, []);
+
+    assert.equal(offscreenCtx.putImageDataCalls, 1, 'unchanged terrain bitmap is reused');
 
     const unitRects = mainCtx.fillRectCalls.filter((call) => call.w === 1 && call.h === 1);
     assert.ok(
