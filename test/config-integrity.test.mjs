@@ -57,13 +57,14 @@ function isWired(key) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 1: No invisible knobs. Every parameter read with an inline `config.X ??`
-// fallback must also exist in getDefaultConfig, otherwise it cannot be tuned in
-// the editor or swept in a headless run — the experiment never moves it.
+// Test 1: No invisible knobs. Every parameter read with an inline
+// `config.X ??` or `config?.X ??` fallback must also exist in getDefaultConfig,
+// otherwise it cannot be tuned in the editor or swept in a headless run — the
+// experiment never moves it.
 // ---------------------------------------------------------------------------
 test('every code-only `config.X ?? default` knob is exposed in getDefaultConfig', () => {
   const defaults = getDefaultConfig();
-  const knobRe = /config\.([A-Za-z_][A-Za-z0-9_]*)\s*\?\?/g;
+  const knobRe = /config\?*\.([A-Za-z_][A-Za-z0-9_]*)\s*\?\?/g;
   const knobs = new Set();
   for (const [file, code] of CODE_BY_FILE) {
     // The sanitizer is the guard layer, not a consumer — its own `?? fallbacks`
@@ -79,6 +80,15 @@ test('every code-only `config.X ?? default` knob is exposed in getDefaultConfig'
     [],
     'Invisible knobs (read with a "config.X ?? fallback" but absent from getDefaultConfig): '
       + `${missing.join(', ')}. Add them to getDefaultConfig + main.js so they are tunable/sweepable.`,
+  );
+});
+
+test('invisible-knob scan recognizes optional-chained config fallbacks', () => {
+  const source = 'const value = config?.newOptionalKnob ?? 42;';
+  const knobRe = /config\?*\.([A-Za-z_][A-Za-z0-9_]*)\s*\?\?/g;
+  assert.deepEqual(
+    [...source.matchAll(knobRe)].map((match) => match[1]),
+    ['newOptionalKnob'],
   );
 });
 
