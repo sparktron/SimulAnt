@@ -21,9 +21,6 @@ function createConfig() {
     depositHome: 0.12,
     dangerDeposit: 0.6,
     hazardDeathChance: 0.02,
-    foodPickupRate: 0.7,
-    digChance: 0.04,
-    digEnergyCost: 8,
     digHomeBoost: 0.9,
     queenEggTicks: 20,
     queenEggFoodCost: 0.8,
@@ -55,7 +52,6 @@ function createConfig() {
     followAlpha: 1.5,
     followBeta: 3.4,
     wanderNoise: 0.06,
-    randomTurnChance: 0.045,
     momentumBias: 0.3,
     reversePenalty: 0.9,
     homeDepositIntervalTicks: 3,
@@ -313,7 +309,6 @@ test('deterministic regression survives unsafe external config inputs via saniti
 test('workers deposit carried food into persistent nestFoodPellets at nest entrance', () => {
   const sim = new SimulationCore('nest-food-deposit-seed');
   const config = createConfig();
-  config.digChance = 0;
   const ant = sim.colony.ants[0];
   sim.colony.ants = [ant];
   sim.colony.queen.alive = false;
