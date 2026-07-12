@@ -154,7 +154,7 @@ const state = {
     workerEmergencyEatNutrition: 35,
     carryingHungerDrainRate: 0.5,
     fightingHungerDrainRate: 3,
-    soldierSpawnChance: 0.05,  // 5% chance for soldiers to spawn via brood
+    soldierSpawnChance: 0.05,  // Derived from the caste-allocation triangle
     foodVisionRadius: 18,
     surfaceFoodSearchMaxMissTicks: 400,  // Give foragers much more time to find food
     surfaceReturnToNestHungerThreshold: 0.6,  // Return after timeout with safety margin
@@ -300,10 +300,6 @@ const state = {
     dangerTurnLookahead: 2, // tiles off theta to probe danger pheromone
     dangerTurnGain: 0.40,   // max radians/tick when one side fully dominates
   },
-  casteTargets: {
-    workers: 100,
-    soldiers: 0,
-  },
   colonyStatus: {
     workAllocation: { forage: 55, dig: 20, nurse: 25 },
     casteAllocation: { workers: 85, soldiers: 10, breeders: 5 },
@@ -443,8 +439,6 @@ const colonyStatusPanel = new ColonyStatusPanel({
       soldiers: percentages.b,
       breeders: percentages.c,
     };
-    state.casteTargets.workers = percentages.a;
-    state.casteTargets.soldiers = percentages.b;
     applyColonyStatusToConfig();
   },
 });
@@ -883,7 +877,6 @@ function buildSaveData() {
     simSpeed: state.simSpeed,
     config: state.config,
     overlays: state.overlays,
-    casteTargets: state.casteTargets,
     colonyStatus: state.colonyStatus,
     selectedTool: state.selectedTool,
     brushRadius: state.brushRadius,
@@ -936,7 +929,6 @@ function loadState() {
   Object.assign(state.config, data.state?.config || {});
   Object.assign(state.config, sanitizeTickConfig(state.config));
   Object.assign(state.overlays, data.state?.overlays || {});
-  Object.assign(state.casteTargets, data.state?.casteTargets || {});
   if (data.state?.colonyStatus) {
     Object.assign(state.colonyStatus.workAllocation, data.state.colonyStatus.workAllocation || {});
     Object.assign(state.colonyStatus.casteAllocation, data.state.colonyStatus.casteAllocation || {});

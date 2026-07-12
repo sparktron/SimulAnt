@@ -459,16 +459,6 @@ export const parameterDefinitions = {
     step: 100,
     advanced: true,
   },
-  soldierSpawnChance: {
-    label: 'Soldier Spawn Chance',
-    description: 'Chance newly laid eggs become soldiers vs workers. Higher = more soldiers, more defense. Lower = mostly workers.',
-    group: 'Population',
-    min: 0,
-    max: 0.2,
-    step: 0.01,
-    advanced: true,
-  },
-
   // =====================
   // FOOD ECONOMY
   // =====================

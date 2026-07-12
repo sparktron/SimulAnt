@@ -14,7 +14,7 @@ function parseLiteral(value) {
 
 function getRuntimeConfigDefaults() {
   const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-  const configBlock = mainSource.match(/config:\s*\{([\s\S]*?)\n  \},\n  casteTargets:/)?.[1];
+  const configBlock = mainSource.match(/config:\s*\{([\s\S]*?)\n  \},\n  colonyStatus:/)?.[1];
   assert.ok(configBlock, 'runtime config block should be parseable');
 
   const runtimeDefaults = {};

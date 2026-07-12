@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ParameterEditor } from '../src/ui/ParameterEditor.js';
+import { parameterDefinitions } from '../src/ui/params.js';
 
 class FakeElement {
   constructor(tagName) {
@@ -159,4 +160,12 @@ test('ParameterEditor renders initial expanded parameter groups on first paint',
     if (oldLocalStorage === undefined) delete globalThis.localStorage;
     else globalThis.localStorage = oldLocalStorage;
   }
+});
+
+test('ParameterEditor does not expose a duplicate soldier-allocation control', () => {
+  assert.equal(
+    Object.hasOwn(parameterDefinitions, 'soldierSpawnChance'),
+    false,
+    'the caste allocation triangle is the sole user-facing soldier-allocation control',
+  );
 });
