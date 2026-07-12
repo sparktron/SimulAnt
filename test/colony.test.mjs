@@ -900,12 +900,7 @@ test('countAntsAt returns correct count after grid rebuild', () => {
     ant.y = 20;
   }
   // Manually rebuild the grid (update() would move ants)
-  colony._antGrid.clear();
-  for (const ant of colony.ants) {
-    if (!ant.alive) continue;
-    const key = `${ant.x},${ant.y}`;
-    colony._antGrid.set(key, (colony._antGrid.get(key) || 0) + 1);
-  }
+  colony.rebuildAntGridFromAnts();
 
   assert.equal(colony.countAntsAt(20, 20), 5);
   assert.equal(colony.countAntsAt(10, 10), 0);
@@ -922,12 +917,7 @@ test('countAntsAt excludes dead ants', () => {
   }
   colony.ants[0].alive = false;
   // Manually rebuild the grid
-  colony._antGrid.clear();
-  for (const ant of colony.ants) {
-    if (!ant.alive) continue;
-    const key = `${ant.x},${ant.y}`;
-    colony._antGrid.set(key, (colony._antGrid.get(key) || 0) + 1);
-  }
+  colony.rebuildAntGridFromAnts();
 
   assert.equal(colony.countAntsAt(15, 15), 2);
 });

@@ -1109,13 +1109,13 @@ test('forager still follows a strong outbound trail under heavy local crowding n
 
   // Create dense traffic in the local neighborhood to emulate the
   // entrance-basin congestion seen in gameplay.
-  colony._antGrid = new Map();
+  colony._antGrid.fill(0);
   for (let x = ant.x - 2; x <= ant.x + 2; x += 1) {
     for (let y = ant.y - 2; y <= ant.y + 2; y += 1) {
-      colony._antGrid.set(`${x},${y}`, 8);
+      colony._antGrid[world.index(x, y)] = 8;
     }
   }
-  colony._antGrid.set(`${ant.x},${ant.y}`, 1);
+  colony._antGrid[world.index(ant.x, ant.y)] = 1;
 
   // Lay a strong food trail directly east of the ant.
   for (let step = 1; step <= 4; step += 1) {

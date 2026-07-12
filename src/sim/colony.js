@@ -96,7 +96,10 @@ export class Colony {
     this.onExcavate = null;
     this.onDepositDirt = null;
     this._updateCounter = 0;
-    this._antGrid = new Map();  // spatial hash: "x,y" → count
+    // Per-tile ant counts, indexed by world.index(x, y). A typed array instead
+    // of a "x,y"-string Map: getCrowdingPenalty samples ~200 tiles per moving
+    // ant per tick, so key allocation + hashing dominated the steering cost.
+    this._antGrid = new Int16Array(world.size);
     this._digFronts = [];  // active dig front positions, set by DigSystem each tick
     this._nestFoodTiles = new Set();  // occupied nest food tile keys: "x,y"
     this._virtualFoodStored = 0;  // bootstrap food not backed by physical pellets
@@ -1267,20 +1270,20 @@ export class Colony {
   }
 
   countAntsAt(x, y) {
-    return this._antGrid.get(`${x},${y}`) || 0;
+    // Callers probe neighborhoods that can extend past the world edge
+    // (e.g. getCrowdingPenalty's 5×5 sweep) — treat out-of-bounds as empty,
+    // matching the old Map's miss behavior.
+    if (!this.world.inBounds(x, y)) return 0;
+    return this._antGrid[this.world.index(x, y)];
   }
 
   // Live-updates the ant grid when an ant moves within a tick. Without this,
   // the grid reflects only tick-start positions, so many ants see zero crowd
   // at their exit target and all stack onto the same tile before the next rebuild.
   moveAntInGrid(fromX, fromY, toX, toY) {
-    const fromKey = `${fromX},${fromY}`;
-    const prev = this._antGrid.get(fromKey) || 0;
-    if (prev <= 1) this._antGrid.delete(fromKey);
-    else this._antGrid.set(fromKey, prev - 1);
-
-    const toKey = `${toX},${toY}`;
-    this._antGrid.set(toKey, (this._antGrid.get(toKey) || 0) + 1);
+    const fromIdx = this.world.index(fromX, fromY);
+    if (this._antGrid[fromIdx] > 0) this._antGrid[fromIdx] -= 1;
+    this._antGrid[this.world.index(toX, toY)] += 1;
   }
 
   #rebuildNestFoodTiles() {
@@ -1294,12 +1297,18 @@ export class Colony {
   }
 
   #rebuildAntGrid() {
-    this._antGrid.clear();
+    this.rebuildAntGridFromAnts();
+  }
+
+  // Public so tests can rebuild the grid after manually repositioning ants
+  // without depending on the grid's storage representation.
+  rebuildAntGridFromAnts() {
+    this._antGrid.fill(0);
     for (let i = 0; i < this.ants.length; i += 1) {
       const ant = this.ants[i];
       if (!ant.alive) continue;
-      const key = `${ant.x},${ant.y}`;
-      this._antGrid.set(key, (this._antGrid.get(key) || 0) + 1);
+      if (!this.world.inBounds(ant.x, ant.y)) continue;
+      this._antGrid[this.world.index(ant.x, ant.y)] += 1;
     }
   }
 
