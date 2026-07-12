@@ -312,6 +312,23 @@ test('world serializes and deserializes correctly', () => {
   assert.equal(restored.nestY, world.nestY);
 });
 
+test('world serialization preserves Float32 pheromone fields exactly', () => {
+  const world = new World(16, 16);
+  const values = [Math.PI, 1 / 3, 1e-6, 123.456789, 0.987654321];
+  const fields = [world.food, world.nestFood, world.toFood, world.toHome, world.danger];
+
+  for (let i = 0; i < fields.length; i += 1) {
+    fields[i][world.index(i + 2, i + 3)] = values[i];
+  }
+
+  const restored = World.fromSerialized(world.serialize());
+  assert.deepEqual(restored.food, world.food);
+  assert.deepEqual(restored.nestFood, world.nestFood);
+  assert.deepEqual(restored.toFood, world.toFood);
+  assert.deepEqual(restored.toHome, world.toHome);
+  assert.deepEqual(restored.danger, world.danger);
+});
+
 // --- Pheromone Stats ---
 
 test('getPheromoneStats returns accurate summary', () => {
