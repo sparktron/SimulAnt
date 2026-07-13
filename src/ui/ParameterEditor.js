@@ -37,12 +37,24 @@ export class ParameterEditor {
     this.renderParameterGroups();
   }
 
+  syncFromState() {
+    Object.keys(parameterDefinitions).forEach((key) => {
+      const value = this.state.config[key];
+      if (!Number.isFinite(value)) return;
+      const slider = document.getElementById(`param-${key}-range`);
+      const input = document.getElementById(`param-${key}-number`);
+      if (slider) slider.value = value;
+      if (input) input.value = value;
+    });
+  }
+
   renderPresetControls() {
     const presetDiv = document.createElement('div');
     presetDiv.className = 'preset-controls';
 
     const label = document.createElement('label');
     label.textContent = 'Presets:';
+    label.htmlFor = 'presetSelect';
 
     const select = document.createElement('select');
     select.id = 'presetSelect';
@@ -57,17 +69,27 @@ export class ParameterEditor {
     });
 
     select.addEventListener('change', e => {
-      if (e.target.value) {
-        this.loadPreset(e.target.value);
-      }
+      loadBtn.disabled = !e.target.value;
+      deleteBtn.disabled = !e.target.value;
+    });
+
+    const loadBtn = document.createElement('button');
+    loadBtn.type = 'button';
+    loadBtn.textContent = 'Load';
+    loadBtn.disabled = true;
+    loadBtn.addEventListener('click', () => {
+      if (select.value) this.loadPreset(select.value);
     });
 
     const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
     saveBtn.textContent = 'Save';
     saveBtn.addEventListener('click', () => this.showSavePresetDialog());
 
     const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
     deleteBtn.textContent = 'Delete';
+    deleteBtn.disabled = true;
     deleteBtn.addEventListener('click', () => {
       const selected = select.value;
       if (selected) {
@@ -77,12 +99,14 @@ export class ParameterEditor {
     });
 
     const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
     resetBtn.textContent = 'Reset to Defaults';
     resetBtn.className = 'reset-btn';
     resetBtn.addEventListener('click', () => this.resetToDefaults());
 
     presetDiv.appendChild(label);
     presetDiv.appendChild(select);
+    presetDiv.appendChild(loadBtn);
     presetDiv.appendChild(saveBtn);
     presetDiv.appendChild(deleteBtn);
     presetDiv.appendChild(resetBtn);
@@ -121,20 +145,27 @@ export class ParameterEditor {
       'Obstacle Avoidance',
       'Health',
       'Nest Behavior',
+      'Food Economy',
       'Digging',
       'Pheromone',
       'Queen',
       'Population',
     ];
 
-    groupOrder.forEach(group => {
-      if (!grouped[group]) return;
+    const orderedGroups = [
+      ...groupOrder.filter(group => grouped[group]),
+      ...Object.keys(grouped).filter(group => !groupOrder.includes(group)),
+    ];
+
+    orderedGroups.forEach(group => {
 
       const groupDiv = document.createElement('div');
       groupDiv.className = 'parameter-group';
 
-      const header = document.createElement('div');
+      const header = document.createElement('button');
+      header.type = 'button';
       header.className = 'group-header';
+      header.setAttribute('aria-expanded', String(this.expandedGroups.has(group)));
       header.addEventListener('click', () => this.toggleGroup(group));
 
       const arrow = document.createElement('span');
@@ -175,6 +206,7 @@ export class ParameterEditor {
     const label = document.createElement('label');
     label.className = 'param-label';
     label.textContent = param.label;
+    label.htmlFor = `param-${param.key}-number`;
 
     // Add help icon if description exists
     if (param.description) {
@@ -182,6 +214,8 @@ export class ParameterEditor {
       helpIcon.className = 'param-help-icon';
       helpIcon.textContent = '?';
       helpIcon.title = param.description;
+      helpIcon.tabIndex = 0;
+      helpIcon.setAttribute('aria-label', param.description);
       labelContainer.appendChild(label);
       labelContainer.appendChild(helpIcon);
     } else {
@@ -193,14 +227,17 @@ export class ParameterEditor {
 
     const slider = document.createElement('input');
     slider.type = 'range';
+    slider.id = `param-${param.key}-range`;
     slider.min = param.min;
     slider.max = param.max;
     slider.step = param.step;
     slider.value = this.state.config[param.key] ?? param.min;
     slider.className = 'param-slider';
+    slider.setAttribute('aria-label', param.label);
 
     const input = document.createElement('input');
     input.type = 'number';
+    input.id = `param-${param.key}-number`;
     input.min = param.min;
     input.max = param.max;
     input.step = param.step;
@@ -272,8 +309,6 @@ export class ParameterEditor {
       }
       // Re-render to update all sliders and inputs
       this.render();
-      // Reset the select
-      document.getElementById('presetSelect').value = '';
     }
   }
 

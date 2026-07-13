@@ -45,6 +45,7 @@ test('HUD health bars bind to selected health and aggregate health stats', () =>
   });
 
   assert.equal(elements.get('healthYellow').style.height, '42%');
+  assert.equal(elements.get('healthFocusLabel').textContent, 'SEL');
   assert.equal(elements.get('healthBlack').style.height, '20%');
   assert.equal(elements.get('healthRed').style.height, '90%');
   assert.equal(elements.get('hudHealthStats').textContent, 'MIN:20.0 AVG:55.0 MAX:90.0');
@@ -84,6 +85,7 @@ test('HUD health bars fall back to aggregate average when no selected ant', () =
   });
 
   assert.equal(elements.get('healthYellow').style.height, '35%');
+  assert.equal(elements.get('healthFocusLabel').textContent, 'AVG');
   assert.equal(elements.get('hudBreeders').textContent, '0');
   assert.equal(elements.get('hudNurses').textContent, '1');
   assert.equal(elements.get('hudForagers').textContent, '2');

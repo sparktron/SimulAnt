@@ -66,6 +66,7 @@ html, body {
   flex-shrink: 0;
 }
 .palette-btn:active { border-style: inset; }
+.palette-btn.active { border-style: inset; background: #d3ead3; }
 .palette-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -103,7 +104,15 @@ html, body {
 }
 .health-block h3 { margin: 0 0 3px; font-size: 11px; }
 
-.health-bars { display: flex; gap: 4px; }
+.health-bars { display: flex; gap: 5px; }
+
+.health-meter {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  font-size: 8px;
+  font-weight: bold;
+}
 
 .bar-wrap {
   width: 14px; height: 64px;
@@ -188,7 +197,9 @@ input[type='range'] { width: 100%; }
   font-family: 'Courier New', monospace;
 }
 
-.status-title { margin: 0 0 8px; font-size: 18px; }
+.dialog-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.status-title { margin: 0; font-size: 18px; }
+.dialog-heading button { font-family: inherit; }
 .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .triangle-control h3 { margin: 0 0 4px; font-size: 11px; }
 .triangle-svg { width: 100%; max-width: 180px; touch-action: none; }
@@ -300,7 +311,9 @@ kbd {
 }
 
 .group-header {
+  width: 100%;
   background: #d0d0d0;
+  border: 0;
   border-bottom: 1px solid #999;
   padding: 2px 4px;
   cursor: pointer;
@@ -310,6 +323,8 @@ kbd {
   align-items: center;
   font-weight: bold;
   font-size: 9px;
+  font-family: inherit;
+  text-align: left;
 }
 
 .group-header:hover {
@@ -389,7 +404,8 @@ kbd {
 }
 
 /* Tooltip on hover */
-.param-help-icon:hover::after {
+.param-help-icon:hover::after,
+.param-help-icon:focus::after {
   content: attr(title);
   position: absolute;
   bottom: 100%;
@@ -411,7 +427,8 @@ kbd {
 }
 
 /* Tooltip arrow */
-.param-help-icon:hover::before {
+.param-help-icon:hover::before,
+.param-help-icon:focus::before {
   content: '';
   position: absolute;
   bottom: 100%;

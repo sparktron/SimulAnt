@@ -16,6 +16,7 @@ class FakeElement {
     this.max = '';
     this.step = '';
     this.value = '';
+    this.attributes = new Map();
   }
 
   appendChild(child) {
@@ -25,6 +26,10 @@ class FakeElement {
 
   addEventListener(type, handler) {
     this.listeners.set(type, handler);
+  }
+
+  setAttribute(name, value) {
+    this.attributes.set(name, String(value));
   }
 
   dispatch(type) {
@@ -155,6 +160,65 @@ test('ParameterEditor renders initial expanded parameter groups on first paint',
       findChild(container, (el) => el.tagName === 'input' && el.type === 'range'),
       'initially expanded groups should render parameter sliders on first paint',
     );
+  } finally {
+    globalThis.document = oldDocument;
+    if (oldLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = oldLocalStorage;
+  }
+});
+
+test('ParameterEditor renders every basic parameter group, including Food Economy', () => {
+  const oldDocument = globalThis.document;
+  const oldLocalStorage = globalThis.localStorage;
+  const container = new FakeElement('div');
+  globalThis.localStorage = {
+    getItem() { return null; },
+    setItem() {},
+  };
+  globalThis.document = {
+    querySelector() { return container; },
+    createElement(tagName) { return new FakeElement(tagName); },
+  };
+
+  try {
+    new ParameterEditor('#parameterEditorContainer', { config: {} }, () => {});
+    const foodEconomyTitle = findChild(
+      container,
+      (el) => el.className === 'group-title' && el.textContent === 'Food Economy',
+    );
+    assert.ok(foodEconomyTitle, 'Food Economy controls should not be dropped by the group ordering');
+  } finally {
+    globalThis.document = oldDocument;
+    if (oldLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = oldLocalStorage;
+  }
+});
+
+test('ParameterEditor keeps preset Load and Delete actions available after selection', () => {
+  const oldDocument = globalThis.document;
+  const oldLocalStorage = globalThis.localStorage;
+  const container = new FakeElement('div');
+  globalThis.localStorage = {
+    getItem() { return JSON.stringify({ Stable: { walkRho: 0.5 } }); },
+    setItem() {},
+  };
+  globalThis.document = {
+    querySelector() { return container; },
+    createElement(tagName) { return new FakeElement(tagName); },
+  };
+
+  try {
+    new ParameterEditor('#parameterEditorContainer', { config: { walkRho: 0.75 } }, () => {});
+    const select = findChild(container, (el) => el.tagName === 'select');
+    const load = findChild(container, (el) => el.tagName === 'button' && el.textContent === 'Load');
+    const remove = findChild(container, (el) => el.tagName === 'button' && el.textContent === 'Delete');
+
+    assert.equal(load.disabled, true);
+    assert.equal(remove.disabled, true);
+    select.value = 'Stable';
+    select.dispatch('change');
+    assert.equal(load.disabled, false);
+    assert.equal(remove.disabled, false);
   } finally {
     globalThis.document = oldDocument;
     if (oldLocalStorage === undefined) delete globalThis.localStorage;

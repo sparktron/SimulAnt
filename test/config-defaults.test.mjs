@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { getDefaultConfig } from '../src/ui/params.js';
+import { getDefaultConfig, parameterDefinitions } from '../src/ui/params.js';
 import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 
 function parseLiteral(value) {
@@ -41,6 +41,16 @@ test('parameter editor defaults match runtime config defaults', () => {
       editorDefaults[key],
       runtimeDefault,
       `default mismatch for ${key}`,
+    );
+  }
+});
+
+test('every parameter editor default fits its visible input range', () => {
+  const defaults = getDefaultConfig();
+  for (const [key, definition] of Object.entries(parameterDefinitions)) {
+    assert.ok(
+      defaults[key] >= definition.min && defaults[key] <= definition.max,
+      `${key} default ${defaults[key]} must fit ${definition.min}..${definition.max}`,
     );
   }
 });

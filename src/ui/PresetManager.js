@@ -15,7 +15,15 @@ export class PresetManager {
   loadPresetsFromStorage() {
     try {
       const stored = localStorage.getItem(PRESETS_KEY);
-      return stored ? JSON.parse(stored) : {};
+      if (!stored) return {};
+      const parsed = JSON.parse(stored);
+      if (!isPlainObject(parsed)) {
+        console.warn('[SimAnt] Ignoring malformed parameter presets: expected a JSON object.');
+        return {};
+      }
+      return Object.fromEntries(
+        Object.entries(parsed).filter(([, config]) => isPlainObject(config)),
+      );
     } catch (e) {
       console.warn('[SimAnt] Could not load saved parameter presets from localStorage — using defaults. Storage may be full or disabled in your browser:', e);
       return {};
@@ -37,15 +45,17 @@ export class PresetManager {
    * Save the current config as a named preset
    */
   savePreset(name, config) {
+    if (typeof name !== 'string' || !name.trim() || !isPlainObject(config)) return false;
     this.presets[name] = { ...config };
     this.savePresetsToStorage();
+    return true;
   }
 
   /**
    * Load a preset by name
    */
   loadPreset(name) {
-    return this.presets[name] ? { ...this.presets[name] } : null;
+    return Object.hasOwn(this.presets, name) ? { ...this.presets[name] } : null;
   }
 
   /**
@@ -67,6 +77,10 @@ export class PresetManager {
    * Check if a preset exists
    */
   presetExists(name) {
-    return name in this.presets;
+    return Object.hasOwn(this.presets, name);
   }
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

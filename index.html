@@ -30,9 +30,9 @@
           <div class="health-block">
             <h3>HEALTH</h3>
             <div class="health-bars">
-              <div class="bar-wrap"><div id="healthYellow" class="bar yellow"></div></div>
-              <div class="bar-wrap"><div id="healthBlack" class="bar black"></div></div>
-              <div class="bar-wrap"><div id="healthRed" class="bar red"></div></div>
+              <div class="health-meter"><div class="bar-wrap"><div id="healthYellow" class="bar yellow" role="progressbar" aria-label="Selected or average ant health" aria-valuemin="0" aria-valuemax="100"></div></div><span id="healthFocusLabel">AVG</span></div>
+              <div class="health-meter"><div class="bar-wrap"><div id="healthBlack" class="bar black" role="progressbar" aria-label="Minimum ant health" aria-valuemin="0" aria-valuemax="100"></div></div><span>MIN</span></div>
+              <div class="health-meter"><div class="bar-wrap"><div id="healthRed" class="bar red" role="progressbar" aria-label="Maximum ant health" aria-valuemin="0" aria-valuemax="100"></div></div><span>MAX</span></div>
             </div>
           </div>
 
@@ -55,6 +55,7 @@
             <button id="scentBtn" class="palette-btn">SCENT</button>
             <button id="jobsBtn" class="palette-btn">JOBS</button>
             <button id="pheromoneBtn" class="palette-btn">PHERO: ON</button>
+            <button id="helpBtn" class="palette-btn">HELP</button>
             <button id="downloadLogBtn" class="palette-btn" title="Download rolling colony stats as JSONL (Y key)">LOG ↓</button>
           </div>
         </aside>
@@ -75,9 +76,9 @@
         </main>
 
         <aside class="right-panel">
-          <div class="hud-tabs">
-            <button id="statsTabBtn" class="hud-tab-btn active" data-tab="stats">STATS</button>
-            <button id="paramsTabBtn" class="hud-tab-btn" data-tab="params">PARAMS</button>
+          <div class="hud-tabs" role="tablist" aria-label="Right panel">
+            <button id="statsTabBtn" class="hud-tab-btn active" role="tab" aria-controls="statsView" aria-selected="true" data-tab="stats">STATS</button>
+            <button id="paramsTabBtn" class="hud-tab-btn" role="tab" aria-controls="paramsView" aria-selected="false" data-tab="params">PARAMS</button>
           </div>
 
           <div id="statsView" class="hud-view active">
@@ -113,10 +114,10 @@
       </div>
     </div>
 
-    <dialog id="helpPanel">
-      <h2>How to Play</h2>
+    <dialog id="helpPanel" aria-labelledby="helpTitle">
+      <h2 id="helpTitle">How to Play</h2>
       <ul>
-        <li><kbd>TAB</kbd>: Toggle SURFACE / NEST view</li>
+        <li><kbd>Q</kbd>: Toggle SURFACE / NEST view</li>
         <li><kbd>Space</kbd>: Pause/Resume</li>
         <li><kbd>N</kbd>: Step one tick</li>
         <li><kbd>R</kbd>: Reset simulation</li>
@@ -127,6 +128,7 @@
         <li><kbd>L</kbd>: Toggle to-home pheromone overlay</li>
         <li><kbd>V</kbd>: Toggle SCENT overlay (food+home)</li>
         <li><kbd>J</kbd>: Toggle ant JOB color visualization</li>
+        <li><kbd>P</kbd>: Toggle pheromone simulation</li>
         <li><kbd>O</kbd>: Add +50 nutrition to nest FoodStore (cheat)</li>
         <li><kbd>K</kbd>: Set selected ant hunger low (cheat)</li>
         <li><kbd>D</kbd>: Toggle danger pheromone overlay</li>
@@ -140,8 +142,11 @@
     </dialog>
 
 
-    <dialog id="statusPanel">
-      <h2 class="status-title">STATUS</h2>
+    <dialog id="statusPanel" aria-labelledby="statusTitle">
+      <div class="dialog-heading">
+        <h2 id="statusTitle" class="status-title">STATUS</h2>
+        <button id="closeStatusBtn" type="button">Close</button>
+      </div>
       <div class="status-grid">
         <div id="workTriangleContainer"></div>
         <div id="casteTriangleContainer"></div>

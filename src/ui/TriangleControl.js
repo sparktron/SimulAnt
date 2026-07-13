@@ -1,6 +1,7 @@
 import { barycentricWeights, clampPointToTriangle, normalizeWeights, weightsToPercent } from './triangleMath.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const KEYBOARD_STEP = 4;
 
 export class TriangleControl {
   constructor({ container, title, labels, initialWeights, onChange }) {
@@ -25,6 +26,9 @@ export class TriangleControl {
     this.svg = document.createElementNS(SVG_NS, 'svg');
     this.svg.setAttribute('viewBox', '0 0 180 160');
     this.svg.setAttribute('class', 'triangle-svg');
+    this.svg.setAttribute('role', 'slider');
+    this.svg.setAttribute('tabindex', '0');
+    this.svg.setAttribute('aria-label', `${title}. Use arrow keys to adjust the allocation.`);
 
     const polygon = document.createElementNS(SVG_NS, 'polygon');
     polygon.setAttribute(
@@ -48,8 +52,25 @@ export class TriangleControl {
       if (!this.dragging) return;
       this.#setPointFromPointer(event);
     });
-    this.svg.addEventListener('pointerup', () => {
+    const endDrag = () => {
       this.dragging = false;
+    };
+    this.svg.addEventListener('pointerup', endDrag);
+    this.svg.addEventListener('pointercancel', endDrag);
+    this.svg.addEventListener('lostpointercapture', endDrag);
+    this.svg.addEventListener('keydown', (event) => {
+      const delta = {
+        ArrowLeft: { x: -KEYBOARD_STEP, y: 0 },
+        ArrowRight: { x: KEYBOARD_STEP, y: 0 },
+        ArrowUp: { x: 0, y: -KEYBOARD_STEP },
+        ArrowDown: { x: 0, y: KEYBOARD_STEP },
+      }[event.key];
+      if (!delta) return;
+      event.preventDefault();
+      this.setPoint({
+        x: this.currentPoint.x + delta.x,
+        y: this.currentPoint.y + delta.y,
+      });
     });
 
     this.root.appendChild(this.svg);
@@ -86,11 +107,16 @@ export class TriangleControl {
   setPoint(point) {
     const clamped = clampPointToTriangle(point, this.vertices.a, this.vertices.b, this.vertices.c);
     const weights = normalizeWeights(barycentricWeights(clamped, this.vertices.a, this.vertices.b, this.vertices.c));
+    this.currentPoint = clamped;
     this.currentWeights = weights;
     this.marker.setAttribute('cx', clamped.x.toFixed(2));
     this.marker.setAttribute('cy', clamped.y.toFixed(2));
 
     const percentages = weightsToPercent(weights);
+    this.svg.setAttribute(
+      'aria-valuetext',
+      `${this.labels[0]} ${percentages.a}%, ${this.labels[1]} ${percentages.b}%, ${this.labels[2]} ${percentages.c}%`,
+    );
     this.labelNodes.a.textContent = `${this.labels[0]}: ${percentages.a}%`;
     this.labelNodes.b.textContent = `${this.labels[1]}: ${percentages.b}%`;
     this.labelNodes.c.textContent = `${this.labels[2]}: ${percentages.c}%`;

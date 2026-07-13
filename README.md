@@ -4,13 +4,15 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 
 > ⚡ **No build step required** — just serve static files and play.
 
-Current landed version: **v0.56.4**. The simulation includes deterministic
+Current landed version: **v0.56.9**. The simulation includes deterministic
 save/load with explicit migrations, biological crowding controls, nest-space
 carrying capacity, cached surface terrain rendering, and an explicit
 replay-guarded `Ant.update` sense → choose → apply pipeline. Food-respawn drops
 now use a 12-seed, long-run-tested 30–60-tile logistics band.
 The 300-ant nest-capacity baseline is also validated against tighter and looser
-capacity settings in a 20-seed long-run sweep.
+capacity settings in a 20-seed long-run sweep. GUI controls now resynchronize
+after loading, expose explicit overlay state, render every parameter group, and
+support keyboard navigation for allocation controls.
 
 ---
 
@@ -91,15 +93,18 @@ Compatible with **Node.js 18+** (no `package.json`, no install step —
 - `Space` — Pause / Resume
 - `N` — Step one tick
 - `R` — Reset using current seed
-- `Tab` — Toggle SURFACE / NEST view
+- `Q` — Toggle SURFACE / NEST view
 - `H` — Open/close help panel
 
 ### Tools & overlays
-- `1..5` — Select paint tool (food, wall, water, danger, erase)
+- `1..7` — Select paint tool (food, wall, water, danger, erase, dig, fill)
 - `T` — Toggle to-food pheromone overlay
 - `L` — Toggle to-home pheromone overlay
 - `D` — Toggle danger overlay
 - `V` — Toggle scent overlay
+- `J` — Toggle ant job colors and legend
+- `P` — Enable / disable pheromone simulation
+- `Y` — Download the rolling stats log (`Shift+Y` for CSV)
 
 ### Digging + debug actions
 - `F` — Spawn food cluster near cursor (surface)
@@ -123,6 +128,8 @@ Use the **COLONY STATUS** button to open weighted triangle controls for:
 - **Caste allocation** (workers / soldiers / breeders)
 
 These settings feed directly into simulation behavior and spawn strategy.
+The triangles can be clicked or dragged; when focused, arrow keys move the
+allocation marker.
 
 ---
 
@@ -130,7 +137,8 @@ These settings feed directly into simulation behavior and spawn strategy.
 Use **SAVE** and **LOAD** to persist simulation state in `localStorage`.
 Malformed saves are rejected without replacing the active simulation; older
 supported saves migrate forward automatically.
-Malformed saves are rejected without replacing the active simulation.
+Loading also refreshes sliders, tool selection, parameter inputs, and overlay
+button states so the controls match the restored simulation.
 
 ---
 

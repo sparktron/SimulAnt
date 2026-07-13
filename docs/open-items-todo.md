@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.56.3** on 2026-07-12. The
+Status checked against landed `master` at **v0.56.9** on 2026-07-12. The
 uncommitted worktree changes were excluded from this reconciliation.
 
 ## Completed
@@ -51,6 +51,10 @@ uncommitted worktree changes were excluded from this reconciliation.
     peak without a detectable final-population gain.
 24. ✅ Extended environmental-foraging reports with deposited nutrition, store
     consumption, net flow, and death-cause summaries per seed (v0.56.4).
+25. ✅ Completed the GUI control review: save/load now reconciles visible
+    controls, Food Economy parameters render, preset load/delete actions work,
+    toggle buttons report state, and health/allocation visualizations are
+    labeled and keyboard-accessible (v0.56.9).
 
 ## Active work
 

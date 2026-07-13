@@ -44,6 +44,7 @@ export function updateHud(stats) {
   );
 
   const focusHealth = Number.isFinite(stats.selectedAntHealth) ? stats.selectedAntHealth : healthStats.avg;
+  setText('healthFocusLabel', Number.isFinite(stats.selectedAntHealth) ? 'SEL' : 'AVG');
   setBar('healthYellow', clampPercent(focusHealth));
   setBar('healthBlack', clampPercent(healthStats.min));
   setBar('healthRed', clampPercent(healthStats.max));
@@ -98,5 +99,10 @@ function setText(id, value) {
 
 function setBar(id, valuePercent) {
   const el = document.getElementById(id);
-  if (el) el.style.height = `${valuePercent}%`;
+  if (el) {
+    el.style.height = `${valuePercent}%`;
+    if (typeof el.setAttribute === 'function') {
+      el.setAttribute('aria-valuenow', String(Math.round(valuePercent)));
+    }
+  }
 }

@@ -99,12 +99,13 @@ export function createControls(state, actions) {
   const scentBtn = byId('scentBtn');
   const jobsBtn = byId('jobsBtn');
   const pheromoneBtn = byId('pheromoneBtn');
+  const helpBtn = byId('helpBtn');
   const downloadLogBtn = byId('downloadLogBtn');
   const helpPanel = byId('helpPanel');
 
   startPauseBtn.addEventListener('click', () => {
     state.paused = !state.paused;
-    syncPauseButton(startPauseBtn, state.paused);
+    sync();
   });
   stepBtn.addEventListener('click', () => actions.stepOnce());
   resetBtn.addEventListener('click', () => actions.reset(seedInput.value));
@@ -123,6 +124,7 @@ export function createControls(state, actions) {
   antCapSlider.addEventListener('input', () => {
     state.config.antCap = Number(antCapSlider.value);
     byId('antCapLabel').textContent = `${state.config.antCap}`;
+    if (actions.onConfigChange) actions.onConfigChange();
   });
 
   document.querySelectorAll('input[name="tool"]').forEach((radio) => {
@@ -135,18 +137,24 @@ export function createControls(state, actions) {
   loadBtn.addEventListener('click', () => actions.load());
   clearBtn.addEventListener('click', () => actions.clearWorld());
   scentBtn.addEventListener('click', () => {
-    if (actions.toggleScentOverlay) actions.toggleScentOverlay();
+    if (actions.toggleScentOverlay) {
+      actions.toggleScentOverlay();
+      sync();
+    }
   });
   jobsBtn.addEventListener('click', () => {
     state.overlays.showAntJobs = !state.overlays.showAntJobs;
-    const legend = byId('jobLegend');
-    legend.classList.toggle('active', state.overlays.showAntJobs);
+    sync();
+  });
+  helpBtn.addEventListener('click', () => {
+    if (helpPanel.open) helpPanel.close();
+    else helpPanel.showModal();
   });
   byId('closeHelpBtn').addEventListener('click', () => helpPanel.close());
   pheromoneBtn.addEventListener('click', () => {
     if (actions.togglePheromones) {
-      const enabled = actions.togglePheromones();
-      pheromoneBtn.textContent = enabled ? 'PHERO: ON' : 'PHERO: OFF';
+      actions.togglePheromones();
+      sync();
     }
   });
   downloadLogBtn.addEventListener('click', () => {
@@ -165,15 +173,15 @@ export function createControls(state, actions) {
   const isSurfaceView = () => !actions.getView || actions.getView() === 'SURFACE';
 
   document.addEventListener('keydown', (event) => {
-    // Don't steal keys while the user is typing in any text/number field.
-    if (event.target.matches('input[type="text"], input[type="number"], textarea')) return;
+    // Preserve native typing, activation, arrow-key, and Tab behavior whenever
+    // focus is inside an interactive control.
+    if (event.target.matches?.('input, textarea, select, button, [contenteditable="true"]')) return;
 
     if (event.code === 'Space') {
       event.preventDefault();
       state.paused = !state.paused;
-      syncPauseButton(startPauseBtn, state.paused);
-    } else if (event.code === 'Tab') {
-      event.preventDefault();
+      sync();
+    } else if (event.key.toLowerCase() === 'q') {
       actions.toggleView();
     } else if (event.key.toLowerCase() === 'n') {
       actions.stepOnce();
@@ -197,7 +205,10 @@ export function createControls(state, actions) {
       state.overlays.showToFood = !state.overlays.showToFood;
     } else if (event.key.toLowerCase() === 'v') {
       if (!isSurfaceView()) return;
-      if (actions.toggleScentOverlay) actions.toggleScentOverlay();
+      if (actions.toggleScentOverlay) {
+        actions.toggleScentOverlay();
+        sync();
+      }
     } else if (event.key.toLowerCase() === 'l') {
       if (!isSurfaceView()) return;
       state.overlays.showToHome = !state.overlays.showToHome;
@@ -206,14 +217,13 @@ export function createControls(state, actions) {
       state.overlays.showDanger = !state.overlays.showDanger;
     } else if (event.key.toLowerCase() === 'j') {
       state.overlays.showAntJobs = !state.overlays.showAntJobs;
-      const legend = byId('jobLegend');
-      legend.classList.toggle('active', state.overlays.showAntJobs);
+      sync();
     } else if (event.key.toLowerCase() === 'y') {
       if (actions.downloadLog) actions.downloadLog(event.shiftKey ? 'csv' : 'jsonl');
     } else if (event.key.toLowerCase() === 'p') {
       if (actions.togglePheromones) {
-        const enabled = actions.togglePheromones();
-        pheromoneBtn.textContent = enabled ? 'PHERO: ON' : 'PHERO: OFF';
+        actions.togglePheromones();
+        sync();
       }
     } else if (event.code === 'F3') {
       event.preventDefault();
@@ -229,17 +239,54 @@ export function createControls(state, actions) {
     }
   });
 
-  syncPauseButton(startPauseBtn, state.paused);
-
-  // Establish the initial enabled/disabled control state for the starting view.
-  if (actions.getView) {
-    syncToolPalette(state, actions.getView());
-    syncSurfaceOnlyControls(actions.getView());
+  function sync() {
+    const view = actions.getView ? actions.getView() : 'SURFACE';
+    syncControlState(state, view);
   }
+
+  sync();
+  return { sync };
 }
 
 function syncPauseButton(button, paused) {
   button.textContent = paused ? 'START' : 'PAUSE';
+  button.setAttribute('aria-pressed', String(paused));
+}
+
+/**
+ * Reconciles persistent controls with the canonical UI state.
+ * Save restoration and duplicated config inputs call this explicitly so the
+ * visible widgets never describe stale values.
+ */
+export function syncControlState(state, view) {
+  syncPauseButton(byId('startPauseBtn'), Boolean(state.paused));
+
+  syncRange('speedSlider', 'speedLabel', state.simSpeed, (value) => `${Number(value).toFixed(1)}x`);
+  syncRange('brushSlider', 'brushLabel', state.brushRadius, String);
+  syncRange('antCapSlider', 'antCapLabel', state.config.antCap, String);
+
+  const selected = document.querySelector(`input[name="tool"][value="${state.selectedTool}"]`);
+  if (selected) selected.checked = true;
+
+  syncToggleButton(byId('scentBtn'), 'SCENT', Boolean(state.overlays.showScent));
+  syncToggleButton(byId('jobsBtn'), 'JOBS', Boolean(state.overlays.showAntJobs));
+  syncToggleButton(byId('pheromoneBtn'), 'PHERO', state.config.enablePheromones !== false);
+  byId('jobLegend').classList.toggle('active', Boolean(state.overlays.showAntJobs));
+
+  syncToolPalette(state, view);
+  syncSurfaceOnlyControls(view);
+}
+
+function syncRange(inputId, labelId, value, format) {
+  const input = byId(inputId);
+  input.value = String(value);
+  byId(labelId).textContent = format(input.value);
+}
+
+function syncToggleButton(button, label, active) {
+  button.textContent = `${label}: ${active ? 'ON' : 'OFF'}`;
+  button.classList.toggle('active', active);
+  button.setAttribute('aria-pressed', String(active));
 }
 
 function byId(id) {

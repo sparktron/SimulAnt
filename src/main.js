@@ -1,4 +1,4 @@
-import { createControls, syncToolPalette, syncSurfaceOnlyControls } from './ui/controls.js';
+import { createControls } from './ui/controls.js';
 import { updateHud } from './ui/hud.js';
 import { SurfaceRenderer } from './render/SurfaceRenderer.js';
 import { NestRenderer } from './render/NestRenderer.js';
@@ -365,7 +365,8 @@ new InputRouter(canvas, viewManager, {
   },
 });
 
-createControls(state, {
+let parameterEditor = null;
+const controls = createControls(state, {
   stepOnce: () => simCore.update(state.config),
   reset: (seed) => {
     state.seed = seed || state.seed;
@@ -410,6 +411,7 @@ createControls(state, {
     const carved = simCore.forceChamberAtDigFront(state.config);
     state.debug.digStatus = carved ? 'AUTO-DIG: CHAMBER CARVED' : 'AUTO-DIG: CHAMBER FAILED';
   },
+  onConfigChange: () => parameterEditor?.syncFromState(),
 });
 
 const colonyStatusPanel = new ColonyStatusPanel({
@@ -444,10 +446,11 @@ const colonyStatusPanel = new ColonyStatusPanel({
 });
 
 // Initialize parameter editor
-const parameterEditor = new ParameterEditor('#parameterEditorContainer', state, () => {
+parameterEditor = new ParameterEditor('#parameterEditorContainer', state, () => {
   // Parameters are already mutated in state.config; write sanitized values back
   // so malformed UI or preset input cannot persist NaN/unsafe config state.
   Object.assign(state.config, sanitizeTickConfig(state.config));
+  controls.sync();
 });
 
 // Setup tab switching
@@ -462,11 +465,15 @@ function switchTab(tabName) {
     paramsView.classList.remove('active');
     statsBtn.classList.add('active');
     paramsBtn.classList.remove('active');
+    statsBtn.setAttribute('aria-selected', 'true');
+    paramsBtn.setAttribute('aria-selected', 'false');
   } else if (tabName === 'params') {
     statsView.classList.remove('active');
     paramsView.classList.add('active');
     statsBtn.classList.remove('active');
     paramsBtn.classList.add('active');
+    statsBtn.setAttribute('aria-selected', 'false');
+    paramsBtn.setAttribute('aria-selected', 'true');
   }
 }
 
@@ -486,12 +493,7 @@ viewManager.onChange((mode) => {
   }
   mustById('viewToggleBtn').textContent = mode === VIEW.SURFACE ? 'VIEW: SURFACE' : 'VIEW: NEST';
   mustById('modeIndicator').textContent = mode;
-  // Surface tools (food/wall/water/...) vs nest tools (dig/fill) are only
-  // meaningful in their own view — enable the applicable set and re-home the
-  // selection if the active tool just became inert.
-  syncToolPalette(state, mode);
-  // The SCENT button (surface-only overlays) is disabled outside SURFACE view.
-  syncSurfaceOnlyControls(mode);
+  controls.sync();
 });
 
 let accumulator = 0;
@@ -915,7 +917,13 @@ function buildSaveData() {
  * before mutating runtime state to avoid fatal crashes from corrupted saves.
  */
 function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
+  let raw;
+  try {
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch (error) {
+    console.error('[SimAnt] Load failed because browser storage is unavailable:', error);
+    return;
+  }
   if (!raw) return;
   let data;
   try {
@@ -950,10 +958,10 @@ function loadState() {
     work: state.colonyStatus.workAllocation,
     caste: state.colonyStatus.casteAllocation,
   });
-  state.simSpeed = data.state?.simSpeed || state.simSpeed;
+  state.simSpeed = clampUiNumber(data.state?.simSpeed, state.simSpeed, 0.5, 10);
   const savedTool = data.state?.selectedTool;
   state.selectedTool = EDIT_TOOLS.has(savedTool) ? savedTool : 'food';
-  state.brushRadius = data.state?.brushRadius || state.brushRadius;
+  state.brushRadius = clampUiNumber(data.state?.brushRadius, state.brushRadius, 1, 24);
   state.selectedAntId = data.state?.selectedAntId || null;
 
   const surfaceCam = data.state?.cameras?.surface;
@@ -971,6 +979,13 @@ function loadState() {
 
   const mode = data.state?.viewMode;
   if (mode === VIEW.SURFACE || mode === VIEW.NEST) viewManager.setView(mode);
+  controls.sync();
+  parameterEditor.syncFromState();
+}
+
+function clampUiNumber(value, fallback, min, max) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
 }
 
 

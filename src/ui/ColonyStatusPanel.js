@@ -10,12 +10,14 @@ export class ColonyStatusPanel {
 
     this.openButton = byId('colonyStatusBtn');
     this.dialog = byId('statusPanel');
+    this.closeButton = byId('closeStatusBtn');
     const workContainer = byId('workTriangleContainer');
     const casteContainer = byId('casteTriangleContainer');
 
     const missing = [
       ['colonyStatusBtn', this.openButton],
       ['statusPanel', this.dialog],
+      ['closeStatusBtn', this.closeButton],
       ['workTriangleContainer', workContainer],
       ['casteTriangleContainer', casteContainer],
     ]
@@ -31,6 +33,8 @@ export class ColonyStatusPanel {
     }
 
     this.enabled = true;
+    this.openButton.setAttribute('aria-haspopup', 'dialog');
+    this.openButton.setAttribute('aria-controls', 'statusPanel');
 
     this.workTriangle = new TriangleControl({
       container: workContainer,
@@ -52,6 +56,7 @@ export class ColonyStatusPanel {
       if (this.dialog.open) this.dialog.close();
       else this.dialog.showModal();
     });
+    this.closeButton.addEventListener('click', () => this.dialog.close());
 
     this.dialog.addEventListener('click', (event) => {
       const rect = this.dialog.getBoundingClientRect();

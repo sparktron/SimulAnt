@@ -249,8 +249,8 @@ export const parameterDefinitions = {
     description: 'How fast food trails decay. Higher = trails fade quickly, forces re-foraging. Lower = stale trails persist, can confuse ants.',
     group: 'Pheromone',
     min: 0,
-    max: 0.1,
-    step: 0.005,
+    max: 1,
+    step: 0.01,
     advanced: true,
   },
   evapHome: {
