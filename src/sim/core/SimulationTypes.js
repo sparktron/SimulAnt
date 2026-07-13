@@ -196,8 +196,17 @@ export function sanitizeTickConfig(config = {}) {
     // movement, so guard it at the boundary (fallback mirrors steering.js).
     dangerAvoidanceWeight: clampNonNegativeNumber(config.dangerAvoidanceWeight, 1.25),
     nestEatCooldownTicks: clampPositiveInt(config.nestEatCooldownTicks, 30),
+    trailGravitationGain: clampNonNegativeNumber(config.trailGravitationGain, 0.4),
+    trailGravitationRadius: clampNonNegativeNumber(config.trailGravitationRadius, 3),
     trailGravitationMinTrail: clampNonNegativeNumber(config.trailGravitationMinTrail, 0.5),
     trailGravitationMax: clampNonNegativeNumber(config.trailGravitationMax, 4.0),
+
+    // Adaptive recruitment decay (adaptiveTrail): a NaN in either knob makes
+    // ant._recruitBudget NaN in decisions.js, and `recruitFactor > 0` then
+    // fails forever — every food-trail deposit silently stops. Guard both at
+    // the boundary (fallbacks match getDefaultConfig, Phase 0 rule).
+    recruitDecayPerStep: clamp01(config.recruitDecayPerStep, 0.97),
+    recruitRichBudget: clampNonNegativeNumber(config.recruitRichBudget, 1.6),
 
     // Depletion-reactive decay (ON by default since v0.47.0). depletionReactive is
     // a plain flag; the rest are guarded so a partial config can't NaN-poison the
