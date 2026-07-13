@@ -584,6 +584,18 @@ test('deterministic replay hash remains stable for fixed seed + ticks', () => {
   assert.notEqual(hashA, hashC, 'Replay hash should differ for a different seed');
 });
 
+test('ant sense choose apply phases preserve the captured replay baseline', () => {
+  // Captured immediately before extracting Ant.update into explicit phases.
+  // Update this only alongside an intentional simulation behavior change.
+  const config = sanitizeTickConfig(getDefaultConfig());
+  const sim = new SimulationCore('ant-phase-baseline');
+
+  for (let i = 0; i < 360; i += 1) sim.update(config);
+
+  const replayHash = hashString(JSON.stringify(sim.serialize({})));
+  assert.equal(replayHash, 1910926194);
+});
+
 // Survival regression: with the PRODUCTION defaults, the colony used to peak
 // ~129 ants then starve to zero by ~tick 6000 (132 starvation deaths, ~215
 // pellets left uncollected). The throughput lift (foodVisionRadius), soldier-

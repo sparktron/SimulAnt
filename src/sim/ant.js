@@ -4,11 +4,8 @@
     Each ant maintains a deterministic FSM with states like FORAGE_SEARCH,
     RETURN_HOME, DIG, NURSE, etc. Every tick, an ant:
     1. Senses the world (location, nearby food, pheromones, entrance)
-    2. Checks for hazards (water/enemies)
-    3. Makes pre-movement decisions (eating, depositing)
-    4. Decides movement intent and moves one tile
-    5. Re-checks hazards at new location
-    6. Applies vital drains (hunger, health)
+    2. Chooses behavior and movement, including pre-movement hazards
+    3. Applies post-movement hazards, fallback movement, and vital drains
 
     Key design patterns:
     - Uses seeded RNG for determinism (never Math.random())
@@ -199,6 +196,21 @@ export class Ant {
    */
   update(world, colony, rng, config) {
     if (!this.alive) return;
+
+    const context = this.#sensePhase(world, colony, config);
+    const decision = this.#choosePhase(world, colony, rng, config, context);
+    if (decision.halted) return;
+
+    this.#applyPhase(world, colony, rng, config, context, decision.didMove);
+  }
+
+  /**
+   * Prepares all local state needed by the decision phase.
+   *
+   * Keep this phase free of random draws: its output is consumed by the later
+   * phases without changing the established replay order.
+   */
+  #sensePhase(world, colony, config) {
     this._currentColony = colony;
 
     if (this.carrying?.type === 'food' || this.carrying?.type === 'queen-food') {
@@ -207,24 +219,40 @@ export class Ant {
       this.carryingType = 'none';
     }
 
-    const context = this.#sense(world, colony, config);
-    if (this.#resolveHazard(world, colony, rng, config, context.idx)) return;
+    return this.#senseLocalContext(world, colony, config);
+  }
+
+  /**
+   * Resolves pre-movement hazards, local actions, and the movement decision.
+   */
+  #choosePhase(world, colony, rng, config, context) {
+    if (this.#resolveHazard(world, colony, rng, config, context.idx)) {
+      return { halted: true, didMove: false };
+    }
 
     this.#applyPreMoveDecisions(colony, rng, config, context);
 
-    let didMove = this.#decideAndMove(world, colony, rng, config, context);
+    return {
+      halted: false,
+      didMove: this.#decideAndMove(world, colony, rng, config, context),
+    };
+  }
 
+  /**
+   * Finalizes a chosen action with post-movement safety checks and vitals.
+   */
+  #applyPhase(world, colony, rng, config, context, didMove) {
     const currentIdx = world.index(this.x, this.y);
     if (currentIdx !== context.idx && this.#resolveHazard(world, colony, rng, config, currentIdx)) return;
 
-    didMove = this.#applyFallbackMovement(world, colony, rng, config, context.entrance, didMove);
+    const moved = this.#applyFallbackMovement(world, colony, rng, config, context.entrance, didMove);
     // Re-derive in-nest status from the post-movement position so the
     // carry-hunger surcharge follows whether the ant is currently in transit,
     // not whether it started the tick underground.
     const inNestAfter = isInNestSpatial(world, this.x, this.y)
       || (world.isUndergroundTile(this.x, this.y)
         && (context.entrance ? this.y > context.entrance.y : false));
-    vitals.applyVitals(this, colony, config, context.dt, didMove, inNestAfter);
+    vitals.applyVitals(this, colony, config, context.dt, moved, inNestAfter);
   }
 
   /**
@@ -233,7 +261,7 @@ export class Ant {
    * Returns derived values used by decision and movement phases so downstream
    * logic stays deterministic and avoids recomputing index/entrance lookups.
    */
-  #sense(world, colony, config) {
+  #senseLocalContext(world, colony, config) {
     const dt = config.tickSeconds || 1 / 30;
     const idx = world.index(this.x, this.y);
     const entrance = colony.nearestEntrance(this.x, this.y);
