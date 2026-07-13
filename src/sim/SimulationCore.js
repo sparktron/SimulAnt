@@ -51,7 +51,6 @@ export class SimulationCore {
     this.nestEntrances = [];
     this.foodPellets = [];
     this.nextPelletId = 1;
-    this.stats = new ColonyStats();
     this.reset(seed);
   }
 
@@ -64,6 +63,10 @@ export class SimulationCore {
   reset(seed = 'simant-default') {
     this.seed = seed;
     this.rng = new SeededRng(this.seed);
+    // Fresh stats buffer: without this, a Reset keeps the previous run's
+    // samples (tick numbers restart at 0, so downloaded logs interleave two
+    // runs) and peakPopulation carries over.
+    this.stats = new ColonyStats();
     this.world = new World(256, 256);
 
     const wallCount = 6 + Math.floor(this.rng.next() * 5);
