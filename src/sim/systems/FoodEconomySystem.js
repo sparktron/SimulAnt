@@ -18,8 +18,8 @@
     tick), so without a cooldown it would flood the map. The surface trigger is
     self-limiting (a drop lifts the count), but the cooldown gates both uniformly.
 
-    - Drop well away from the nest (60–100 tiles) so ants must forage (placement is
-      a separate difficulty lever — see docs/environmental-foraging-tests.md).
+    - Drop 30–60 tiles from the nest so ants still forage without the longer haul
+      undermining long-run survival (see docs/environmental-foraging-tests.md).
     - Cluster size is kept small (bootFoodTotal/4) to avoid flooding the map.
 */
 export class FoodEconomySystem {
@@ -33,8 +33,8 @@ export class FoodEconomySystem {
     foodReservePerAnt = 12,
     foodMinReserve = 150,
     foodRespawnCooldownTicks = 60,
-    foodDropDistanceMin = 60,
-    foodDropDistanceRange = 40,
+    foodDropDistanceMin = 30,
+    foodDropDistanceRange = 30,
   }) {
     this.world = world;
     this.colony = colony;

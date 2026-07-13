@@ -6,7 +6,7 @@ import { SeededRng } from '../src/sim/rng.js';
 // FoodEconomySystem (v0.50.0 dual-trigger strategy): a respawn fires when EITHER
 // free (unclaimed) surface pellets fall below minSurfacePellets OR the larder
 // (foodStored) falls below max(foodMinReserve, ants*foodReservePerAnt), dropping one
-// small cluster (bootFoodTotal/4) 60–100 tiles from the nest. A foodRespawnCooldownTicks
+// small cluster (bootFoodTotal/4) 30–60 tiles from the nest. A foodRespawnCooldownTicks
 // rate-limit (skipped when no `tick` is supplied) bounds the supply. It reads world
 // geometry, the colony's ant count + foodStored, its rng, and spawnFoodCluster —
 // lightweight fakes fully exercise the logic.
@@ -38,8 +38,8 @@ function makeSystem(opts = {}) {
     foodReservePerAnt: opts.foodReservePerAnt ?? 12,
     foodMinReserve: opts.foodMinReserve ?? 150,
     foodRespawnCooldownTicks: opts.foodRespawnCooldownTicks ?? 60,
-    foodDropDistanceMin: opts.foodDropDistanceMin ?? 60,
-    foodDropDistanceRange: opts.foodDropDistanceRange ?? 40,
+    foodDropDistanceMin: opts.foodDropDistanceMin ?? 30,
+    foodDropDistanceRange: opts.foodDropDistanceRange ?? 30,
   });
   return { sys, calls, colony };
 }
@@ -107,8 +107,9 @@ test('respawn drop lands on the surface band, well away from the nest', () => {
   assert.equal(calls.length, 1);
   assert.ok(calls[0].y <= 128 - 2, `drop y ${calls[0].y} must be above the horizon`);
   const d = Math.hypot(calls[0].x - 128, calls[0].y - 128);
-  // Strategy drops 60–100 tiles out so ants must forage; allow rounding/clamp slack.
-  assert.ok(d >= 55 && d <= 105, `drop should be 60–100 tiles from nest, got ${d.toFixed(1)}`);
+  // The long-run environmental sweep selected 30–60 tiles as the sustainable
+  // logistics band; allow rounding/clamp slack at either edge.
+  assert.ok(d >= 25 && d <= 65, `drop should be 30–60 tiles from nest, got ${d.toFixed(1)}`);
   assert.equal(calls[0].r, 8, 'fixed cluster radius');
 });
 
