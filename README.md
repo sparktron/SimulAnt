@@ -4,11 +4,13 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 
 > ⚡ **No build step required** — just serve static files and play.
 
-Current landed version: **v0.56.3**. The simulation includes deterministic
+Current landed version: **v0.56.4**. The simulation includes deterministic
 save/load with explicit migrations, biological crowding controls, nest-space
 carrying capacity, cached surface terrain rendering, and an explicit
 replay-guarded `Ant.update` sense → choose → apply pipeline. Food-respawn drops
-now use a long-run-tested 30–60-tile logistics band.
+now use a 12-seed, long-run-tested 30–60-tile logistics band.
+The 300-ant nest-capacity baseline is also validated against tighter and looser
+capacity settings in a 20-seed long-run sweep.
 
 ---
 
@@ -170,6 +172,7 @@ Upload:
 - [Open items / TODO plan](docs/open-items-todo.md)
 - [Systematic code-review status](docs/code-review-plan-2026-05-30.md)
 - [Known issues](docs/KNOWN_ISSUES.md)
+- [Environmental foraging experiments](docs/environmental-foraging-tests.md)
 - [Change history](CHANGE_HISTORY.md)
 
 ---

@@ -354,6 +354,15 @@ tuned for maximum peak-flattening. A proper next step, if pursued: sweep
 starving the colony too early, following the exact methodology this whole doc
 has converged on (n=20 minimum, paired diff, report SE, ≥16000 ticks).
 
+**Completed 20-seed sweep (18,000 ticks):** capacity 300 is the correct shipped
+baseline. It averaged peak 350.3 and final 226.7 with no extinctions. Tighter
+caps were materially harmful: 80 finished at 88.9 (−137.8, SE 14.3; one
+extinction) and 150 at 175.2 (−51.5, SE 13.3). Looser 450 and 600 settings were
+identical in this sample: peak 366.6 (+16.4, SE 3.0, significant) but final
+229.4 (+2.8, SE 8.9, not detectable), with no extinctions. Do not change the
+capacity default; it already provides the best population/overshoot tradeoff
+tested here.
+
 **Process note:** an earlier attempt to sanity-check this (running the
 override at 18000 ticks and comparing against a *different* trace I'd run in
 between, without re-checking the actual adjacent output) produced a false

@@ -43,8 +43,14 @@ uncommitted worktree changes were excluded from this reconciliation.
     changing RNG ordering, protected by a captured fixed-seed replay baseline
     (v0.56.1).
 22. ✅ Added a 16,000-tick multi-seed environmental-foraging sweep and selected
-    30–60-tile food drops: it raised final population from 199.3 to 236.0 across
-    three fixed seeds while all retained at least 150 ants (v0.56.2–v0.56.3).
+    30–60-tile food drops: its 12-seed validation averaged 261.3 final ants,
+    bottomed at 217, and retained every queen and the ≥150-ant target
+    (v0.56.2–v0.56.3).
+23. ✅ Validated the 300-ant nest-capacity baseline over 20 seeds × 18,000 ticks:
+    tighter caps significantly reduce final population, while 450/600 raise the
+    peak without a detectable final-population gain.
+24. ✅ Extended environmental-foraging reports with deposited nutrition, store
+    consumption, net flow, and death-cause summaries per seed (v0.56.4).
 
 ## Active work
 
@@ -77,6 +83,7 @@ the experiment-driven environmental foraging program below.
       300-ant nest-capacity ceiling.
     - `bench/environmental-foraging-sweep.mjs` characterizes supply, vision, and
       drop-distance changes without retracing failed pheromone work.
-    - Three-seed results: supply-800 186.3 final; vision-24 164.3; baseline 199.3;
+    - Initial results: supply-800 186.3 final; vision-24 164.3; baseline 199.3;
       close 30–60 drops 236.0 and 3/3 target hits. The close band ships in v0.56.3.
-    - Run 12 seeds before changing another environmental default.
+    - Follow-up 12-seed validation: close drops average 261.3 final ants, with a
+      217 minimum, queens alive 12/12, and target hits 12/12.

@@ -18,8 +18,9 @@
 > 4. **The 16,000-tick logistics sweep selected closer drops (v0.56.3).** Three
 >    fixed seeds show that higher standing supply (mean final 186.3) and wider
 >    vision (164.3) underperform the 60–100-tile baseline (199.3). Moving drops
->    to **30–60 tiles** is the only tested change that improves every seed
->    (236.0 final; 227 minimum; 3/3 meet the 150-ant target), so it is now the
+>    to **30–60 tiles** is the only tested change that improves every seed. The
+>    follow-up 12-seed validation finished at 261.3 final ants on average, with
+>    a 217-ant minimum, queens alive 12/12, and target hits 12/12. It remains the
 >    default. Pheromone recruitment and dispersion remain retired failures.
 >
 > ---
@@ -60,14 +61,16 @@ the sustainable population).
 
 Pheromone A/Bs compared ON vs OFF on an identical environment. **Here the environment
 IS the variable, so there is no shared baseline** — we measure ABSOLUTE colony
-outcomes and trends across each sweep. Primary metrics (all already in
-`bench/starvation-trace.mjs`, which traces income/consumption/population per window):
+outcomes and trends across each sweep. Primary metrics:
 
 - **Survival** — does the colony reach the end of a LONG run (≥ 8000–10000 ticks)
   without collapsing to ~0? (Collapse tick if it does.)
 - **Peak & final population** — overshoot vs sustained size.
-- **Income vs consumption** per 250-tick window — does income track population, or
-  saturate (the RCA signature)? The core diagnostic.
+- **Income vs consumption** — deposited nutrition, canonical store consumption, and
+  net flow per seed. This distinguishes a sustainable flow from a temporarily
+  large buffer.
+- **Death causes** — starvation, old age, hazard, and other deaths per seed. These
+  distinguish an economy failure from population turnover or terrain risk.
 - **Nutrition delivered** and **pickups** — discovery/throughput (from forage-sweep).
 
 Runs must be LONG (≥8000): starvation emerges ~tick 6000, so 5000-tick foraging
@@ -105,7 +108,9 @@ A/Bs would miss it. Several fixed seeds; report trends, not single points.
 - **E4 — Drop distance (completed, v0.56.3).** Three fixed seeds × 16,000 ticks:
   30–60 drops finished at 230, 251, and 227 ants (mean 236.0), versus baseline
   219, 183, and 196 (mean 199.3). All close-drop runs retained their queen and
-  met the 150-ant target, so 30–60 is now the default band.
+  met the 150-ant target, so 30–60 is now the default band. The follow-up
+  12-seed validation confirmed 261.3 mean final ants, 217 minimum, 12/12 queens
+  alive, and 12/12 target hits.
 - **E5 — Pure income dials (nutrition / cluster size).** Confirm they scale income
   linearly (sanity / difficulty-dial calibration), not a discovery change.
 
@@ -115,8 +120,9 @@ A/Bs would miss it. Several fixed seeds; report trends, not single points.
 
 `bench/environmental-foraging-sweep.mjs` now runs the real `SimulationCore`
 with supply, vision, and drop-distance scenarios. It defaults to 16,000 ticks
-and three fixed seeds, reports final/peak populations and target hits, and can
-run a named scenario or a wider seed set without editing source:
+and three fixed seeds, reports final/peak populations, target hits, deposited
+nutrition, consumption, net food flow, and death causes per seed. It can run a
+named scenario or a wider seed set without editing source:
 
 ```
 node bench/environmental-foraging-sweep.mjs 16000 12
@@ -143,7 +149,6 @@ target population the user sets.
   and E1 measures against a HEALTHY food supply. NOTE this also reframes E1: income rose
   when supply was unthrottled, so the colony was partly SUPPLY-throttled by the broken
   net — E1 now characterizes the new baseline rather than the starved one.
-- The shipped 30–60 result is a three-seed characterization, not a claim that
-  every future difficulty choice is statistically settled. Use the 12-seed command
-  above before changing another environmental default.
+- The shipped 30–60 band passed its 12-seed validation. Use the same 12-seed
+  command before changing another environmental default.
 - Long runs (≥8000 × multiple seeds) are slower than the foraging A/Bs; budget for it.
