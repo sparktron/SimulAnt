@@ -829,7 +829,7 @@ export class Colony {
    * Spreads overcrowded larvae to reduce brood pile density.
    * Called by nurse ants periodically.
    */
-  spreadLarvae(rng) {
+  spreadLarvae() {
     if (this.larvae.length <= 4) return;
     // Each nurse tending pass reduces crowding, accelerating brood development.
     this.larvaeCrowding = Math.max(0, this.larvaeCrowding - 0.05);

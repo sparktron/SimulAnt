@@ -606,8 +606,8 @@ function loop(now) {
         pherStats: simCore.world.getPheromoneStats(),
         antsSurface: hudCounts.surface,
         antsUnderground: hudCounts.underground,
-        followingFood: simCore.colony.ants.filter((ant) => ant.state === 'FORAGE_SEARCH' || ant.state === 'GO_TO_FOOD').length,
-        followingHome: simCore.colony.ants.filter((ant) => ant.state === 'RETURN_HOME' || ant.state === 'CARRY_TO_NEST').length,
+        followingFood: hudCounts.followingFood,
+        followingHome: hudCounts.followingHome,
         deaths: simCore.colony.deaths,
         deathsByCause: simCore.colony.deathsByCause,
         virtualFoodRemaining: simCore.colony._virtualFoodStored,
@@ -637,6 +637,8 @@ function getHudAntCounts(ants, nestY) {
     jobsNurse: 0,
     surface: 0,
     underground: 0,
+    followingFood: 0,
+    followingHome: 0,
   };
 
   if (!Array.isArray(ants)) return counts;
@@ -648,6 +650,15 @@ function getHudAntCounts(ants, nestY) {
       counts.underground += 1;
     } else {
       counts.surface += 1;
+    }
+
+    // HUD "FOLLOW" readout: outbound vs homebound foragers. RETURN_HOME and
+    // STORE_FOOD_IN_NEST are the real homebound states (an earlier version
+    // counted the never-set 'CARRY_TO_NEST', so H: was permanently undercounted).
+    if (ant.state === 'FORAGE_SEARCH' || ant.state === 'GO_TO_FOOD') {
+      counts.followingFood += 1;
+    } else if (ant.state === 'RETURN_HOME' || ant.state === 'STORE_FOOD_IN_NEST') {
+      counts.followingHome += 1;
     }
 
     if (ant.role === 'worker') {

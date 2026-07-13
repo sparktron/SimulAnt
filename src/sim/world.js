@@ -616,8 +616,11 @@ export class World {
     let sumHome = 0;
     let passable = 0;
 
+    // Same predicate as isPassable — reuse the cached mask instead of
+    // re-deriving it from terrain codes here (one definition of passability).
+    const mask = this.#computePassabilityMask();
     for (let i = 0; i < this.size; i += 1) {
-      if (this.terrain[i] === TERRAIN.WALL || this.terrain[i] === TERRAIN.WATER || this.terrain[i] === TERRAIN.SOIL) continue;
+      if (!mask[i]) continue;
       passable += 1;
       const food = this.toFood[i];
       const home = this.toHome[i];

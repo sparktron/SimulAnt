@@ -19,7 +19,7 @@ const SENESCENCE_START_FRACTION = 0.8;
     - Hunger drains from movement/carrying/fighting at configured rates
     - Starving (hunger <= 0) triggers rapid health loss (starvation penalty)
     - Health drains from work (movement, carrying) independently of hunger
-    - Well-fed ants (hunger > 65%) passively regen health if healthy
+    - Well-fed ants (hunger > 50%) passively regen health if healthy
     - Natural death: age (after maxAge * 0.8, senescence drains health)
     - Starvation death: when health reaches 0
 
@@ -153,7 +153,7 @@ export function tryEatFromNest(ant, colony, inNest, config) {
   if (!critical && ticksSinceLastEat < eatCooldown) return false;
 
   // Hunger-based eating: eat when hungry, not when health dips.
-  // Health regenerates passively when hunger > 65%, so feeding hunger
+  // Health regenerates passively when hunger > 50%, so feeding hunger
   // is the correct lever.  Critical-health ants still get priority.
   const hungry = ant.hunger < ant.hungerMax * 0.35;
   if (!hungry && !critical) return false;
@@ -163,7 +163,7 @@ export function tryEatFromNest(ant, colony, inNest, config) {
     : config.workerEatNutrition;
   // Clamp intake to remaining hunger capacity so we don't waste food.
   // If hunger is already full there is nothing to absorb — passive regen
-  // (hunger > 65%) will restore health without consuming colony stores.
+  // (hunger > 50%) will restore health without consuming colony stores.
   const hungerCapacity = Math.max(0, ant.hungerMax - ant.hunger);
   if (hungerCapacity <= 0) return false;
   const requestedIntake = Math.max(1, Math.min(requested, hungerCapacity));

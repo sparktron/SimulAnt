@@ -460,19 +460,4 @@ export class Ant {
     }
     return didMove;
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }

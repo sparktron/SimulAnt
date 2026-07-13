@@ -136,7 +136,7 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
 
   // Spread overcrowded larvae periodically (every ~60 ticks per nurse)
   if (ant.stepCounter % 60 === 0 && colony.larvae.length > 1) {
-    colony.spreadLarvae(rng);
+    colony.spreadLarvae();
   }
 
   // Tend brood: move toward the brood area.
