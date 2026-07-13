@@ -217,54 +217,72 @@ export function foragerExitNest(ant, world, colony, rng, config, context) {
   return steering.moveThroughEntranceShaft(ant, world, context.entrance, context.entrance.y, rng);
 }
 
+/*
+    Shared on-tile pellet handling: eat it for health when the ant needs food,
+    otherwise claim it and fire every pickup side effect (recruit-budget seed,
+    depletion-reactive harvest paint, recruitment burst, dead-source repulsion).
+
+    Extracted from the two pickup entry points, whose near-identical bodies had
+    already drifted: only the visible-pellet path painted harvest, so the
+    depletion-reactive corridor protection silently depended on which branch
+    found the pellet. One body means the side-effect set cannot fork again.
+    No rng.* calls here, so the per-tick draw order is unchanged.
+*/
+function eatOrClaimPelletAtTile(ant, world, colony, config, pellet) {
+  // In an abundant food source with health below 60%, eat a pellet
+  // for personal health before picking up one to carry home.  This
+  // keeps foragers alive on long trips and doesn't waste food since
+  // the source is plentiful.
+  const abundantFood = colony.countVisiblePellets(ant.x, ant.y, config.foodVisionRadius) >= 3;
+  const needsPersonalFood = ant.health < ant.healthMax * 0.6;
+  if (vitals.isLowHealth(ant)) {
+    vitals.consumePelletForHealthThenCarry(ant, colony, pellet, config);
+    ant.state = 'EAT';
+    return;
+  }
+  if (abundantFood && needsPersonalFood) {
+    // Eat this pellet outright for health, then next tick pick up another to carry
+    vitals.consumePelletForHealth(ant, colony, pellet, config);
+    ant.state = 'EAT';
+    return;
+  }
+
+  pellet.takenByAntId = ant.id;
+  ant.carrying = {
+    type: 'food',
+    pelletId: pellet.id,
+    pelletNutrition: pellet.nutrition,
+    pickupDistance: navigation.distanceToEntrance(ant, colony),
+  };
+  ant.carryingType = 'food';
+  // Seed adaptive recruitment budget: rich sources recruit harder.
+  if (config.adaptiveTrail) {
+    ant._recruitBudget = abundantFood ? (config.recruitRichBudget ?? 1.6) : 1;
+  }
+  colony.removePelletById(pellet.id);
+  // Depletion-reactive decay: mark a live foraging zone at the pickup so the
+  // corridor leading here stays protected from the extra toFood evaporation
+  // (ON by default since v0.47.0). See world.#applyDepletionDecay. Fallbacks
+  // match the shipped getDefaultConfig() values (Phase 0: no silent drift).
+  if (config.depletionReactive) {
+    world.paintHarvest(
+      pellet.x, pellet.y,
+      config.harvestRadius ?? 10,
+      config.harvestDeposit ?? 1.0,
+      config.harvestMaxClamp ?? 2.0,
+    );
+  }
+  depositRecruitmentBurst(world, config, pellet.x, pellet.y, abundantFood);
+  depositDepletionRepulsion(world, colony, config, pellet.x, pellet.y);
+  ant.state = 'PICKUP';
+  navigation.aimThetaAtEntrance(ant, colony);
+}
+
 export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pellet) {
   let didMove = false;
   ant.failedSurfaceFoodSearchTicks = 0;
   if (ant.x === pellet.x && ant.y === pellet.y) {
-    // In an abundant food source with health below 60%, eat a pellet
-    // for personal health before picking up one to carry home.  This
-    // keeps foragers alive on long trips and doesn't waste food since
-    // the source is plentiful.
-    const abundantFood = colony.countVisiblePellets(ant.x, ant.y, config.foodVisionRadius) >= 3;
-    const needsPersonalFood = ant.health < ant.healthMax * 0.6;
-    if (vitals.isLowHealth(ant)) {
-      vitals.consumePelletForHealthThenCarry(ant,colony, pellet, config);
-      ant.state = 'EAT';
-    } else if (abundantFood && needsPersonalFood) {
-      // Eat this pellet outright for health, then next tick pick up another to carry
-      vitals.consumePelletForHealth(ant,colony, pellet, config);
-      ant.state = 'EAT';
-    } else {
-      pellet.takenByAntId = ant.id;
-      ant.carrying = {
-        type: 'food',
-        pelletId: pellet.id,
-        pelletNutrition: pellet.nutrition,
-        pickupDistance: navigation.distanceToEntrance(ant, colony),
-      };
-      ant.carryingType = 'food';
-      // Seed adaptive recruitment budget: rich sources recruit harder.
-      if (config.adaptiveTrail) {
-        ant._recruitBudget = abundantFood ? (config.recruitRichBudget ?? 1.6) : 1;
-      }
-      colony.removePelletById(pellet.id);
-      // Depletion-reactive decay: mark a live foraging zone at the pickup so the
-      // corridor leading here stays protected from the extra toFood evaporation
-      // (ON by default since v0.47.0). See world.#applyDepletionDecay. Fallbacks
-      // match the shipped getDefaultConfig() values (Phase 0: no silent drift).
-      if (config.depletionReactive) {
-        world.paintHarvest(
-          pellet.x, pellet.y,
-          config.harvestRadius ?? 10,
-          config.harvestDeposit ?? 1.0,
-          config.harvestMaxClamp ?? 2.0,
-        );
-      }
-      depositRecruitmentBurst(world, config, pellet.x, pellet.y, abundantFood);
-      depositDepletionRepulsion(world, colony, config, pellet.x, pellet.y);
-      ant.state = 'PICKUP';
-      navigation.aimThetaAtEntrance(ant, colony);
-    }
+    eatOrClaimPelletAtTile(ant, world, colony, config, pellet);
   } else {
     ant.state = vitals.isLowHealth(ant) ? 'SEEK_FOOD_HEAL' : 'GO_TO_FOOD';
     didMove = steering.moveToward(ant, world, pellet.x, pellet.y, rng);
@@ -272,37 +290,12 @@ export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pe
   return didMove;
 }
 
+// Defensive path: reachable only if a pellet underfoot is somehow missed by
+// findVisiblePellet (which already wins at distance 0 for any vision radius).
 export function pickUpPelletHere(ant, world, colony, rng, config, context, pellet) {
-  let didMove = false;
   ant.failedSurfaceFoodSearchTicks = 0;
-  const abundantFoodHere = colony.countVisiblePellets(ant.x, ant.y, config.foodVisionRadius) >= 3;
-  const needsFoodHere = ant.health < ant.healthMax * 0.6;
-  if (vitals.isLowHealth(ant)) {
-    vitals.consumePelletForHealthThenCarry(ant,colony, pellet, config);
-    ant.state = 'EAT';
-  } else if (abundantFoodHere && needsFoodHere) {
-    vitals.consumePelletForHealth(ant,colony, pellet, config);
-    ant.state = 'EAT';
-  } else {
-    pellet.takenByAntId = ant.id;
-    ant.carrying = {
-      type: 'food',
-      pelletId: pellet.id,
-      pelletNutrition: pellet.nutrition,
-      pickupDistance: navigation.distanceToEntrance(ant, colony),
-    };
-    ant.carryingType = 'food';
-    // Seed adaptive recruitment budget: rich sources recruit harder.
-    if (config.adaptiveTrail) {
-      ant._recruitBudget = abundantFoodHere ? (config.recruitRichBudget ?? 1.6) : 1;
-    }
-    colony.removePelletById(pellet.id);
-    depositRecruitmentBurst(world, config, pellet.x, pellet.y, abundantFoodHere);
-    depositDepletionRepulsion(world, colony, config, pellet.x, pellet.y);
-    ant.state = 'PICKUP';
-    navigation.aimThetaAtEntrance(ant, colony);
-  }
-  return didMove;
+  eatOrClaimPelletAtTile(ant, world, colony, config, pellet);
+  return false;
 }
 
 // Two-pheromone recruitment (config.dualPheromone, default off): a fresh pickup

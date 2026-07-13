@@ -112,10 +112,12 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
     ant.carryingType = 'none';
   }
 
-  // Feed the queen if she is hungry or her health is declining
+  // Feed the queen if she is hungry or her health is declining.
+  // Guard on queen?.alive BEFORE reading her vitals — the previous order
+  // dereferenced queen.hunger a line above the null-safe check it relied on.
   const queen = colony.queen;
-  const queenNeedsFood = queen.hunger < queen.hungerMax * 0.25
-    || queen.health < queen.healthMax * 0.6;
+  const queenNeedsFood = !!queen
+    && (queen.hunger < queen.hungerMax * 0.25 || queen.health < queen.healthMax * 0.6);
   if (queen?.alive && !ant.carrying?.type
       && queenNeedsFood
       && colony.foodStored > 2
