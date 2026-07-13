@@ -15,18 +15,18 @@
 >    by an old-age wave (the synchronized boom cohort ages out: ~290 oldAge vs ~110
 >    starvation, inverting the RCA's ratio). The v0.50.0 fix RAISED the overshoot
 >    (peak 360 vs RCA's 129) rather than preventing the bust.
-> 4. **Single food levers don't fix overshoot.** More supply (E1 surface, E5 rate) funds
->    a bigger overshoot; spatial levers (E2 vision, E4 distance) are already near-optimal
->    at defaults (pushing either way is neutral-to-harmful). The root cause is the
->    colony having **no growth brake** — the queen lays through the growth phase
->    regardless of whether steady-state income can feed the result. **Next lever is
->    BROOD/BIRTH REGULATION (colony mechanics), not food environment.** Re-running the
->    food sweeps at 16000 is still worthwhile to confirm none prevents collapse.
+> 4. **The 16,000-tick logistics sweep selected closer drops (v0.56.3).** Three
+>    fixed seeds show that higher standing supply (mean final 186.3) and wider
+>    vision (164.3) underperform the 60–100-tile baseline (199.3). Moving drops
+>    to **30–60 tiles** is the only tested change that improves every seed
+>    (236.0 final; 227 minimum; 3/3 meet the 150-ant target), so it is now the
+>    default. Pheromone recruitment and dispersion remain retired failures.
 >
 > ---
 
-**Status:** scoped; E1/E2/E4/E5 run (see findings above). **Topic:** raising foraging
-*income* by changing the ENVIRONMENT, now that pheromone-behavior tuning is exhausted.
+**Status:** initial long-run characterization landed in v0.56.3. **Topic:** raising
+foraging *income* by changing the ENVIRONMENT, now that pheromone-behavior tuning is
+exhausted.
 **Read first:** `docs/pheromone-strategy.md` FAILED table + "discovery ceiling"
 finding (this is the heir to it) and `docs/starvation-collapse-rca-2026-06-02.md`
 (the same bottleneck, seen from the survival side).
@@ -49,10 +49,10 @@ not "more pickups" in the abstract — it is **raise saturating income enough th
 economy can feed the population it grows** (i.e. stop the starvation collapse / lift
 the sustainable population).
 
-> **This is a GAME-DESIGN / difficulty decision, not an optimization with one right
-> answer.** Every lever below also changes difficulty. The tests CHARACTERIZE the
-> levers (sensitivity + cost); the user picks the target difficulty. Flagged
-> explicitly so we don't "optimize" the sim into triviality.
+> **Target agreed for this simulation:** retain at least **150 ants at tick 16,000**
+> in every fixed seed, while keeping the existing 300-ant nest-capacity ceiling.
+> Every lever changes difficulty, so wider confirmation should keep using this
+> explicit target rather than optimizing for pickups alone.
 
 ---
 
@@ -82,7 +82,7 @@ A/Bs would miss it. Several fixed seeds; report trends, not single points.
 | **Vision** | `foodVisionRadius` (18, user-pinned) | wider vision → each searcher finds food over a larger area → income rises ~quadratically | the most direct discovery lever; how much vision buys survival |
 | **Surface supply** | `minSurfacePellets` (200) | more standing food → higher income IF search-bound; flat IF already supply-saturated | distinguishes SEARCH-bound vs SUPPLY-bound (see E2 — the key experiment) |
 | **Cluster size** | `bootFoodTotal` (390 → drop = /4) | bigger/richer drops → more per discovered cluster → higher income per find | whether throughput is per-find limited |
-| **Drop distance** | respawn 60–100 tiles from nest (in `FoodEconomySystem`) | closer food → shorter carry + easier discovery → higher income | how much the "forage far" rule costs the economy |
+| **Drop distance** | respawn 30–60 tiles from nest (in `FoodEconomySystem`) | closer food → shorter carry + easier discovery → higher income | selected in the v0.56.3 long-run sweep |
 | **Searcher count** | `antCap` / forager fraction | RCA says headcount is NOT the bottleneck → MORE ants should NOT raise income (and adds mouths) | confirms/refutes the RCA's central claim directly |
 | **Pellet nutrition** | per-pellet nutrition | scales income linearly without changing discovery | a pure income knob — the "difficulty dial" baseline |
 
@@ -102,8 +102,10 @@ A/Bs would miss it. Several fixed seeds; report trends, not single points.
 - **E3 — Searcher count (confirm the RCA).** Vary `antCap` / forager share. RCA
   predicts income saturates regardless → adding ants only adds mouths. If income DOES
   rise with searchers, the RCA was wrong and headcount is a lever after all.
-- **E4 — Drop distance.** Pull respawn closer (e.g. 30–60 vs 60–100). Quantifies how
-  much the "forage far" design choice costs survival.
+- **E4 — Drop distance (completed, v0.56.3).** Three fixed seeds × 16,000 ticks:
+  30–60 drops finished at 230, 251, and 227 ants (mean 236.0), versus baseline
+  219, 183, and 196 (mean 199.3). All close-drop runs retained their queen and
+  met the 150-ant target, so 30–60 is now the default band.
 - **E5 — Pure income dials (nutrition / cluster size).** Confirm they scale income
   linearly (sanity / difficulty-dial calibration), not a discovery change.
 
@@ -111,13 +113,18 @@ A/Bs would miss it. Several fixed seeds; report trends, not single points.
 
 ## Harness
 
-`bench/starvation-trace.mjs` already traces the right things (income/consumption/
-population/pellets per window) and runs long. Plan:
-1. Confirm it accepts config overrides (like the `AB_OVERRIDES` pattern in
-   `forage-ab.mjs`); if not, add that so each lever can be swept without editing code.
-2. Add a one-line SURVIVAL summary per run (peak pop, final pop, collapse tick,
-   mean income/consumption over the back half) for easy cross-config comparison.
-3. Run E1 first (decisive + cheap), then E2.
+`bench/environmental-foraging-sweep.mjs` now runs the real `SimulationCore`
+with supply, vision, and drop-distance scenarios. It defaults to 16,000 ticks
+and three fixed seeds, reports final/peak populations and target hits, and can
+run a named scenario or a wider seed set without editing source:
+
+```
+node bench/environmental-foraging-sweep.mjs 16000 12
+node bench/environmental-foraging-sweep.mjs 16000 12 near-30-60
+```
+
+The harness disables HUD-history collection only; that observer has no simulation
+feedback and is not part of the measured outcome.
 
 Discipline: ≥8000 ticks, multiple seeds, report trends. No "vs OFF" — absolute
 outcomes. A lever "wins" if income tracks consumption and the colony sustains a
@@ -136,6 +143,7 @@ target population the user sets.
   and E1 measures against a HEALTHY food supply. NOTE this also reframes E1: income rose
   when supply was unthrottled, so the colony was partly SUPPLY-throttled by the broken
   net — E1 now characterizes the new baseline rather than the starved one.
-- Every lever is also a difficulty knob — pick a target population/survival horizon
-  before declaring a "win," or the sweep optimizes toward a trivial sim.
+- The shipped 30–60 result is a three-seed characterization, not a claim that
+  every future difficulty choice is statistically settled. Use the 12-seed command
+  above before changing another environmental default.
 - Long runs (≥8000 × multiple seeds) are slower than the foraging A/Bs; budget for it.

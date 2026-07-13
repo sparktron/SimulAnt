@@ -1,7 +1,7 @@
 # SimulAnt — Systematic Code Review Plan (2026-05-30)
 
 This document is the historical review plan from 2026-05-30. It was reconciled
-against landed `master` at **v0.56.1** on 2026-07-12; the uncommitted worktree
+against landed `master` at **v0.56.3** on 2026-07-12; the uncommitted worktree
 changes were excluded. Current source is 36 JavaScript files under `src/`, and
 the test suite is **359/359 passing**.
 
@@ -18,7 +18,7 @@ The review plan's implementation work has landed through the current baseline:
 | §1 determinism / RNG | Complete; RNG cursor persistence and replay-hash coverage landed in v0.28.0+ |
 | §2 tick orchestration | Complete; explicit phase order, sanitizer, lifecycle rebuild, and macro sync are covered |
 | §3 ant behavior | Complete; modules landed in v0.31.1–v0.31.5 and explicit sense → choose → apply orchestration in v0.56.1 |
-| §4–§5 colony and food economy | Core accounting, respawn, and non-pellet ledger balancing landed through v0.56.0 |
+| §4–§5 colony and food economy | Core accounting, respawn, non-pellet ledger balancing, and a 30–60-tile long-run-tested drop band landed through v0.56.3 |
 | §6–§8 world, digging, rendering | Cadence, boundary, saved-front, and renderer-purity coverage landed |
 | §9 config / main wiring | Range sanitization and config-integrity coverage landed, including optional-chained fallbacks |
 | §10 UI / input | Save validation, view/input coverage, canonical caste allocation, and a single external stylesheet landed |

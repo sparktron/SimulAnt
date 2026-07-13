@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.56.1** on 2026-07-12. The
+Status checked against landed `master` at **v0.56.3** on 2026-07-12. The
 uncommitted worktree changes were excluded from this reconciliation.
 
 ## Completed
@@ -42,6 +42,9 @@ uncommitted worktree changes were excluded from this reconciliation.
 21. ✅ Split `Ant.update` into explicit sense → choose → apply phases without
     changing RNG ordering, protected by a captured fixed-seed replay baseline
     (v0.56.1).
+22. ✅ Added a 16,000-tick multi-seed environmental-foraging sweep and selected
+    30–60-tile food drops: it raised final population from 199.3 to 236.0 across
+    three fixed seeds while all retained at least 150 ants (v0.56.2–v0.56.3).
 
 ## Active work
 
@@ -69,12 +72,11 @@ the experiment-driven environmental foraging program below.
     - To raise discovery, change the ENVIRONMENT (food respawn rate, foodVisionRadius,
       ant count), not the pheromones. Pheromone-behavior tuning is exhausted.
 
-14. **Environmental foraging tests** (`docs/environmental-foraging-tests.md`) — ⏭️ SCOPED, heir to #12/#13
-    - Heir to the discovery-ceiling finding: raise foraging *income* via the environment,
-      objective = stop the starvation collapse (`docs/starvation-collapse-rca-2026-06-02.md`).
-    - Levers: foodVisionRadius, minSurfacePellets, bootFoodTotal, drop distance, antCap,
-      pellet nutrition. Harness: `bench/starvation-trace.mjs` (long runs ≥8000, abs outcomes).
-    - E1 (pivotal): sweep minSurfacePellets UP → supply-bound vs search-bound. Then E2 vision.
-    - ⚠️ CONFOUND FIRST: the respawn safety net (RCA cause #2) gates on surface count, never
-      fires — a MECHANISM bug that may dominate any environment sweep. Fix/characterize up front.
-    - Difficulty decision, not an optimization: pick a target population before declaring a win.
+14. **Environmental foraging tests** (`docs/environmental-foraging-tests.md`) — ✅ INITIAL FIX LANDED
+    - Target: every fixed seed retains at least 150 ants at tick 16,000; retain the
+      300-ant nest-capacity ceiling.
+    - `bench/environmental-foraging-sweep.mjs` characterizes supply, vision, and
+      drop-distance changes without retracing failed pheromone work.
+    - Three-seed results: supply-800 186.3 final; vision-24 164.3; baseline 199.3;
+      close 30–60 drops 236.0 and 3/3 target hits. The close band ships in v0.56.3.
+    - Run 12 seeds before changing another environmental default.
