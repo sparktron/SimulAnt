@@ -1,6 +1,6 @@
 # Post-refactor Improvement Plan
 
-Status checked against landed `master` at **v0.56.0** on 2026-07-12. The
+Status checked against landed `master` at **v0.56.1** on 2026-07-12. The
 uncommitted worktree changes were excluded from this reconciliation.
 
 ## Current assessment
@@ -10,7 +10,8 @@ uncommitted worktree changes were excluded from this reconciliation.
 - Macro home-territory synchronization and defensive macro deserialization are
   implemented and covered by deterministic tests.
 - The `Ant` class has since been decomposed into focused behavior modules
-  (`src/sim/ant/`) without changing the replay contract.
+  (`src/sim/ant/`), and `Ant.update` has explicit sense → choose → apply
+  orchestration without changing the replay contract.
 - Config sanitization covers the shipped runtime surface, and the
   config-integrity scan now recognizes optional-chained fallbacks.
 - Save restoration validates its structural boundary before mutating live
@@ -25,10 +26,10 @@ uncommitted worktree changes were excluded from this reconciliation.
 1. **SimulationCore lifecycle cleanup** (done): centralize engine rebuild in one helper to reduce drift bugs.
 2. **Macro boundary hardening** (done): sanitize macro deserialization and keep home territory synchronized to nest moves.
 3. **Deterministic contract tests** (done): add coverage for nest-tool macro sync and malformed macro save recovery.
-4. **Pure phase extraction** (deferred): split `Ant.update` into explicit
-   `sense`, `choose`, and `apply` phases only if a concrete maintenance need
-   justifies the added behavior-ordering risk. The lower-risk module
-   decomposition already landed in v0.31.1–v0.31.5.
+4. **Pure phase extraction** (done): `Ant.update` now has explicit `sense`,
+   `choose`, and `apply` phases, protected by a pre-extraction fixed-seed
+   replay baseline (v0.56.1). The lower-risk module decomposition landed in
+   v0.31.1–v0.31.5.
 5. **Config-integrity hardening** (done): the invisible-knob check detects
    optional-chained reads such as `config?.foo ?? fallback` (v0.54.6).
 6. **Performance baselining** (done): fixed-seed whole-tick and pheromone

@@ -1,9 +1,9 @@
 # SimulAnt — Systematic Code Review Plan (2026-05-30)
 
 This document is the historical review plan from 2026-05-30. It was reconciled
-against landed `master` at **v0.56.0** on 2026-07-12; the uncommitted worktree
+against landed `master` at **v0.56.1** on 2026-07-12; the uncommitted worktree
 changes were excluded. Current source is 36 JavaScript files under `src/`, and
-the test suite is **358/358 passing**.
+the test suite is **359/359 passing**.
 
 The original v0.27.6 baseline and its failing-test counts below are retained as
 review history, not as current repository status.
@@ -17,7 +17,7 @@ The review plan's implementation work has landed through the current baseline:
 | §0 pre-flight | Complete; the two renderer failures were resolved in v0.27.7 |
 | §1 determinism / RNG | Complete; RNG cursor persistence and replay-hash coverage landed in v0.28.0+ |
 | §2 tick orchestration | Complete; explicit phase order, sanitizer, lifecycle rebuild, and macro sync are covered |
-| §3 ant behavior | Complete for the planned decomposition; modules landed in v0.31.1–v0.31.5 |
+| §3 ant behavior | Complete; modules landed in v0.31.1–v0.31.5 and explicit sense → choose → apply orchestration in v0.56.1 |
 | §4–§5 colony and food economy | Core accounting, respawn, and non-pellet ledger balancing landed through v0.56.0 |
 | §6–§8 world, digging, rendering | Cadence, boundary, saved-front, and renderer-purity coverage landed |
 | §9 config / main wiring | Range sanitization and config-integrity coverage landed, including optional-chained fallbacks |
@@ -42,13 +42,13 @@ These were found while building this plan and are concrete, not hypothetical:
 
 | # | Finding | Evidence | Action |
 |---|---------|----------|--------|
-| 0.1 | **2 failing tests** in the original `test/nest-renderer.test.mjs` run | `not ok 163` (`2 !== 0`), `not ok 164` (`8 !== 6`) | Resolved in v0.27.7; current suite is 358/358 green |
+| 0.1 | **2 failing tests** in the original `test/nest-renderer.test.mjs` run | `not ok 163` (`2 !== 0`), `not ok 164` (`8 !== 6`) | Resolved in v0.27.7; current suite is 359/359 green |
 | 0.2 | Test 163 expected no default queen marker although the renderer intentionally always shows it | `git log NestRenderer.js` = "always show queen with distinctive marker" | Assertion updated in v0.27.7 |
 | 0.3 | Test 164 brood-larvae count drift | renderer/test contract mismatch | Resolved in v0.27.7 |
 | 0.4 | Audit docs were partially stale | `exhaustive-audit-2026-04-22.md` listed already-fixed symbols | Superseded; retained as historical audit material |
 
 **Historical gate:** this gate was satisfied before the later review phases;
-the current full suite is 358/358 green.
+the current full suite is 359/359 green.
 
 ---
 
@@ -122,7 +122,9 @@ Look for:
 - Movement arbitration: "earlier ants claim pellets first" — verify `takenByAntId` claim is atomic within the tick and cleared on death/drop.
 - Departure delay determinism (was the old `Math.random` bug — confirm fully seeded now).
 
-Refactor candidates (long-requested in 3 docs): **split `Ant.update` into pure `sense → choose → apply` phases** and extract role handlers. Do this *behavior-preserving*, guarded by a replay-hash test captured **before** the refactor.
+Completed refactor: `Ant.update` uses explicit `sense → choose → apply` phases;
+the focused behavior modules remain extracted. The change is behavior-preserving
+and guarded by a replay baseline captured before the refactor (v0.56.1).
 
 Feature candidates: per-ant debug inspector (click an ant → state, target, hunger, RNG draws); role-distribution telemetry.
 
@@ -222,7 +224,7 @@ agent can drive the sim headless — pairs with the benchmark harness.
 ## Phase 11 — Infra (`server.js`, test suite)
 
 - `server.js` path traversal hardening landed in v0.30.1 and has regression tests.
-- Coverage gaps: cross-reference §1–10 with existing `test/*.mjs`; the suite is broad (358 tests)
+- Coverage gaps: cross-reference §1–10 with existing `test/*.mjs`; the suite is broad (359 tests)
   but check for the *untested* hot symbols (use jcodemunch `get_untested_symbols`).
 - Stylesheet source-of-truth consolidation landed in v0.54.14.
 

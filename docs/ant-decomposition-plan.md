@@ -3,7 +3,7 @@
 Decompose the 1,820-line `src/sim/ant.js` `Ant` class into smaller, focused
 behavior units. Tracks KNOWN_ISSUES #1 and `open-items-todo.md` item #5.
 
-## Status: COMPLETE (v0.31.1–v0.31.5)
+## Status: COMPLETE (v0.31.1–v0.31.5; phase orchestration finalized in v0.56.1)
 
 All four extraction phases plus the `#decideAndMove` split shipped. `ant.js`
 1820 → 441 lines; behavior split across `steering.js` (571), `decisions.js`
@@ -19,13 +19,20 @@ The `#decideAndMove` split (v0.31.5) turned a ~390-line dispatcher into a
 guard conditions and the two non-terminal (fall-through) blocks stayed inline,
 so the per-tick `rng.*` order is byte-identical.
 
+The remaining `Ant.update` orchestration split shipped in v0.56.1. It now
+invokes explicit `#sensePhase` → `#choosePhase` → `#applyPhase` methods while
+keeping the original hazard, local-action, movement, fallback, and vitals order
+unchanged. A fixed-seed 360-tick replay baseline (`1910926194`) was captured
+immediately before the extraction and is asserted by the suite (359 tests
+green at landing).
+
 ## Constraints (read before touching anything)
 
 1. **Determinism is a hard contract.** Per `docs/core-simulation-architecture.md`,
    the per-tick sequence of `rng.*` calls must stay byte-identical. The replay-hash
    regression test (in the suite) is the oracle: if RNG ordering drifts, it fails.
 2. **No behavior change.** This is a pure structural refactor. Every phase must
-   leave all 294 tests green, including the replay hash.
+   leave all tests green, including the fixed replay baseline.
 3. **No new dependencies.** `node:test` + `node:assert/strict` only; no bundler.
 4. Commit + version-bump (PATCH) per phase per the project rules; push to local branch.
 
@@ -34,7 +41,7 @@ so the per-tick `rng.*` order is byte-identical.
 Extracted behavior becomes pure functions taking `ant` as the first argument,
 grouped into modules under `src/sim/ant/`. Bodies move **verbatim** with `this`
 rewritten to `ant`. This works cleanly here because the dependency flow is
-one-directional: the methods staying in `Ant` (`update`, `#sense`,
+one-directional: the methods staying in `Ant` (`update`, `#senseLocalContext`,
 `#decideAndMove`, …) are the *callers*; the extracted clusters are *callees* that
 read/write the ant's (all-public) instance fields and call each other, never
 back into the class's remaining private methods.
@@ -54,7 +61,7 @@ didMove = steering.moveByPheromone(this, world, rng, config, 'food', entrance, c
 
 | File | Cluster | ~Lines |
 |---|---|---|
-| `src/sim/ant.js` | `Ant` class: constructor, `update`, `#sense`, `#applyPreMoveDecisions`, `#decideAndMove`, `#resolveHazard`, `#applyFallbackMovement`, static color getters | ~500 |
+| `src/sim/ant.js` | `Ant` class: constructor, phased `update`, `#senseLocalContext`, `#applyPreMoveDecisions`, `#decideAndMove`, `#resolveHazard`, `#applyFallbackMovement`, static color getters | ~500 |
 | `src/sim/ant/vitals.js` | vitals + feeding | ~250 |
 | `src/sim/ant/navigation.js` | entrance/nest geometry | ~120 |
 | `src/sim/ant/roles.js` | per-role behaviors | ~250 |
@@ -121,7 +128,7 @@ all extracted by now, so they import cleanly.
 Run after **every** phase, before committing:
 
 ```
-node --test test/*.mjs        # all 294 must pass, replay-hash included
+node --test test/*.mjs        # all tests must pass, replay baseline included
 ```
 
 - [ ] All tests green (count unchanged or higher).

@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.56.0** on 2026-07-12. The
+Status checked against landed `master` at **v0.56.1** on 2026-07-12. The
 uncommitted worktree changes were excluded from this reconciliation.
 
 ## Completed
@@ -39,6 +39,9 @@ uncommitted worktree changes were excluded from this reconciliation.
 19. ✅ Added named, sequential save migrations through schema v3 (v0.55.0–v0.56.0).
 20. ✅ Balanced the canonical food ledger with signed non-pellet adjustments,
     preserving physical nest-marker placement and determinism (v0.56.0).
+21. ✅ Split `Ant.update` into explicit sense → choose → apply phases without
+    changing RNG ordering, protected by a captured fixed-seed replay baseline
+    (v0.56.1).
 
 ## Active work
 
