@@ -57,6 +57,20 @@ function runOne(seed, overrides) {
   // periodic world scan keeps long headless sweeps focused on the simulation
   // under test rather than on UI-history collection.
   sim.stats.record = () => {};
+  let depositedNutrition = 0;
+  const depositPellet = colony.depositPellet.bind(colony);
+  colony.depositPellet = (nutrition, x, y, entrance = null) => {
+    const deposited = depositPellet(nutrition, x, y, entrance);
+    depositedNutrition += deposited;
+    return deposited;
+  };
+  let consumedNutrition = 0;
+  const consumeFromStore = colony.consumeFromStore.bind(colony);
+  colony.consumeFromStore = (amount) => {
+    const consumed = consumeFromStore(amount);
+    consumedNutrition += consumed;
+    return consumed;
+  };
   let peakAnts = colony.ants.length;
   let peakTick = 0;
 
@@ -73,6 +87,9 @@ function runOne(seed, overrides) {
     peakAnts,
     peakTick,
     queenAlive: colony.queen.alive,
+    depositedNutrition,
+    consumedNutrition,
+    deathsByCause: { ...colony.deathsByCause },
   };
 }
 
@@ -98,8 +115,15 @@ for (const scenario of selectedScenarios) {
   const peakTicks = rows.map((row) => row.peakTick);
   const queensAlive = rows.filter((row) => row.queenAlive).length;
   const targetHits = rows.filter((row) => row.finalAnts >= TARGET_FINAL_POPULATION).length;
+  const deposited = mean(rows.map((row) => row.depositedNutrition));
+  const consumed = mean(rows.map((row) => row.consumedNutrition));
+  const deaths = ['starvation', 'oldAge', 'hazard', 'other'].map((cause) => mean(
+    rows.map((row) => row.deathsByCause[cause]),
+  ));
 
   console.log(`${format(scenario.label, 14)} ${format(mean(finals).toFixed(1), 10)} ${format(Math.min(...finals), 6)} `
     + `${format(mean(peaks).toFixed(1), 9)} ${format(Math.round(mean(peakTicks)), 10)} `
     + `${format(`${queensAlive}/${SEED_COUNT}`, 7)} ${format(`${targetHits}/${SEED_COUNT}`, 8)}`);
+  console.log(`  economy/seed: deposited ${deposited.toFixed(1)}  consumed ${consumed.toFixed(1)}  net ${(deposited - consumed).toFixed(1)}`);
+  console.log(`  deaths/seed: starvation ${deaths[0].toFixed(1)}  oldAge ${deaths[1].toFixed(1)}  hazard ${deaths[2].toFixed(1)}  other ${deaths[3].toFixed(1)}`);
 }
