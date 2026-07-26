@@ -602,6 +602,7 @@ function loop(now) {
         queenHealth: simCore.colony.queen.health,
         queenAlive: simCore.colony.queen.alive,
         selectedAntHealth: selectedAnt ? selectedAnt.health : null,
+        blackColonyHealth: antHealthStats.avg,
         antHealthStats,
         simMs,
         digStatus: state.debug.digStatus,

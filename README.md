@@ -4,7 +4,7 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 
 > ⚡ **No build step required** — just serve static files and play.
 
-Current landed version: **v0.56.10**. The simulation includes deterministic
+Current landed version: **v0.56.11**. The simulation includes deterministic
 save/load with explicit migrations, biological crowding controls, nest-space
 carrying capacity, cached surface terrain rendering, and an explicit
 replay-guarded `Ant.update` sense → choose → apply pipeline. Food-respawn drops
@@ -15,6 +15,9 @@ after loading, expose explicit overlay state, render every parameter group, and
 support keyboard navigation for allocation controls.
 Diggers now receive dirt cargo only when a tile is actually excavated, keeping
 surface mound growth consistent with removed soil.
+The left-side health meters now show the black colony's average ant health and
+the selected ant's health; the red-colony meter remains unavailable until a
+second colony exists.
 
 ---
 

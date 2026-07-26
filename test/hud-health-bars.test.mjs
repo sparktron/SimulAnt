@@ -8,7 +8,17 @@ function installFakeDocument() {
   global.document = {
     getElementById(id) {
       if (!elements.has(id)) {
-        elements.set(id, { textContent: '', style: { height: '' } });
+        const attributes = new Map();
+        elements.set(id, {
+          textContent: '',
+          style: { height: '' },
+          getAttribute(name) {
+            return attributes.get(name) ?? null;
+          },
+          setAttribute(name, value) {
+            attributes.set(name, String(value));
+          },
+        });
       }
       return elements.get(id);
     },
@@ -17,7 +27,7 @@ function installFakeDocument() {
   return elements;
 }
 
-test('HUD health bars bind to selected health and aggregate health stats', () => {
+test('HUD health bars show selected-ant and black-colony health while red is unavailable', () => {
   const elements = installFakeDocument();
 
   updateHud({
@@ -41,13 +51,18 @@ test('HUD health bars bind to selected health and aggregate health stats', () =>
     followingFood: 0,
     followingHome: 0,
     selectedAntHealth: 42,
+    blackColonyHealth: 55,
     antHealthStats: { min: 20, avg: 55, max: 90 },
   });
 
   assert.equal(elements.get('healthYellow').style.height, '42%');
   assert.equal(elements.get('healthFocusLabel').textContent, 'SEL');
-  assert.equal(elements.get('healthBlack').style.height, '20%');
-  assert.equal(elements.get('healthRed').style.height, '90%');
+  assert.equal(elements.get('healthBlack').style.height, '55%');
+  assert.equal(elements.get('healthRed').style.height, '0%');
+  assert.equal(elements.get('healthYellow').getAttribute('aria-valuetext'), '42.0% health');
+  assert.equal(elements.get('healthBlack').getAttribute('aria-valuetext'), '55.0% average health');
+  assert.equal(elements.get('healthRed').getAttribute('aria-valuetext'), 'Red colony not available');
+  assert.equal(elements.get('healthRed').getAttribute('aria-disabled'), 'true');
   assert.equal(elements.get('hudHealthStats').textContent, 'MIN:20.0 AVG:55.0 MAX:90.0');
   assert.equal(elements.get('hudBreeders').textContent, '1');
   assert.equal(elements.get('hudNurses').textContent, '2');
@@ -57,7 +72,7 @@ test('HUD health bars bind to selected health and aggregate health stats', () =>
   assert.equal(elements.get('hudQueenHealth').textContent, '88.5');
 });
 
-test('HUD health bars fall back to aggregate average when no selected ant', () => {
+test('selected-ant health meter stays empty when no ant is selected', () => {
   const elements = installFakeDocument();
 
   updateHud({
@@ -81,11 +96,15 @@ test('HUD health bars fall back to aggregate average when no selected ant', () =
     followingFood: 0,
     followingHome: 0,
     selectedAntHealth: null,
+    blackColonyHealth: 35,
     antHealthStats: { min: 10, avg: 35, max: 70 },
   });
 
-  assert.equal(elements.get('healthYellow').style.height, '35%');
-  assert.equal(elements.get('healthFocusLabel').textContent, 'AVG');
+  assert.equal(elements.get('healthYellow').style.height, '0%');
+  assert.equal(elements.get('healthFocusLabel').textContent, 'SEL');
+  assert.equal(elements.get('healthBlack').style.height, '35%');
+  assert.equal(elements.get('healthRed').style.height, '0%');
+  assert.equal(elements.get('healthYellow').getAttribute('aria-valuetext'), 'No ant selected');
   assert.equal(elements.get('hudBreeders').textContent, '0');
   assert.equal(elements.get('hudNurses').textContent, '1');
   assert.equal(elements.get('hudForagers').textContent, '2');
@@ -120,12 +139,13 @@ test('HUD health stats tolerate partial/malformed aggregate payloads', () => {
       followingFood: 0,
       followingHome: 0,
       selectedAntHealth: null,
+      blackColonyHealth: 25,
       antHealthStats: { avg: 25 },
     });
   });
 
-  assert.equal(elements.get('healthYellow').style.height, '25%');
-  assert.equal(elements.get('healthBlack').style.height, '0%');
+  assert.equal(elements.get('healthYellow').style.height, '0%');
+  assert.equal(elements.get('healthBlack').style.height, '25%');
   assert.equal(elements.get('healthRed').style.height, '0%');
 });
 

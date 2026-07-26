@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.56.10** on 2026-07-26. The
+Status checked against landed `master` at **v0.56.11** on 2026-07-26. The
 uncommitted worktree changes were excluded from this reconciliation.
 
 ## Completed
@@ -58,6 +58,10 @@ uncommitted worktree changes were excluded from this reconciliation.
 26. ✅ Stopped dig fronts from creating phantom dirt cargo while traversing
     already-carved tunnels; dirt hauling now requires real soil excavation
     (v0.56.10).
+27. ✅ Restored the health-meter color contract: black shows the existing
+    colony's average ant health, yellow shows only the selected ant, and red
+    remains explicitly unavailable until a second colony is implemented
+    (v0.56.11).
 
 ## Active work
 

@@ -43,11 +43,25 @@ export function updateHud(stats) {
     `MIN:${formatNumber(healthStats.min)} AVG:${formatNumber(healthStats.avg)} MAX:${formatNumber(healthStats.max)}`,
   );
 
-  const focusHealth = Number.isFinite(stats.selectedAntHealth) ? stats.selectedAntHealth : healthStats.avg;
-  setText('healthFocusLabel', Number.isFinite(stats.selectedAntHealth) ? 'SEL' : 'AVG');
-  setBar('healthYellow', clampPercent(focusHealth));
-  setBar('healthBlack', clampPercent(healthStats.min));
-  setBar('healthRed', clampPercent(healthStats.max));
+  const hasSelectedAnt = Number.isFinite(stats.selectedAntHealth);
+  const selectedAntHealth = hasSelectedAnt ? clampPercent(stats.selectedAntHealth) : 0;
+  const blackColonyHealth = Number.isFinite(stats.blackColonyHealth)
+    ? clampPercent(stats.blackColonyHealth)
+    : 0;
+
+  setText('healthFocusLabel', 'SEL');
+  setBar(
+    'healthYellow',
+    selectedAntHealth,
+    hasSelectedAnt ? `${formatNumber(selectedAntHealth)}% health` : 'No ant selected',
+  );
+  setBar('healthBlack', blackColonyHealth, `${formatNumber(blackColonyHealth)}% average health`);
+
+  // There is no red colony in the simulation model yet. Keep its meter
+  // explicitly unavailable instead of presenting unrelated black-colony data.
+  // When a second colony is introduced, pass a separate redColonyHealth value
+  // into updateHud rather than folding its ants into blackColonyHealth.
+  setUnavailableBar('healthRed', 'Red colony not available');
 
   setText('hudDeaths', `${asNonNegativeInt(stats.deaths)}`);
   const byCause = stats.deathsByCause || {};
@@ -97,12 +111,21 @@ function setText(id, value) {
   if (el) el.textContent = value;
 }
 
-function setBar(id, valuePercent) {
+function setBar(id, valuePercent, valueText) {
   const el = document.getElementById(id);
   if (el) {
     el.style.height = `${valuePercent}%`;
     if (typeof el.setAttribute === 'function') {
       el.setAttribute('aria-valuenow', String(Math.round(valuePercent)));
+      if (valueText) el.setAttribute('aria-valuetext', valueText);
     }
+  }
+}
+
+function setUnavailableBar(id, valueText) {
+  setBar(id, 0, valueText);
+  const el = document.getElementById(id);
+  if (el && typeof el.setAttribute === 'function') {
+    el.setAttribute('aria-disabled', 'true');
   }
 }
