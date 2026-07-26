@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.56.9** on 2026-07-12. The
+Status checked against landed `master` at **v0.56.10** on 2026-07-26. The
 uncommitted worktree changes were excluded from this reconciliation.
 
 ## Completed
@@ -55,6 +55,9 @@ uncommitted worktree changes were excluded from this reconciliation.
     controls, Food Economy parameters render, preset load/delete actions work,
     toggle buttons report state, and health/allocation visualizations are
     labeled and keyboard-accessible (v0.56.9).
+26. ✅ Stopped dig fronts from creating phantom dirt cargo while traversing
+    already-carved tunnels; dirt hauling now requires real soil excavation
+    (v0.56.10).
 
 ## Active work
 

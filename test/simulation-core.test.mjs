@@ -587,13 +587,15 @@ test('deterministic replay hash remains stable for fixed seed + ticks', () => {
 test('ant sense choose apply phases preserve the captured replay baseline', () => {
   // Captured immediately before extracting Ant.update into explicit phases.
   // Update this only alongside an intentional simulation behavior change.
+  // Re-captured for v0.56.10: diggers now receive dirt cargo only when soil
+  // was actually excavated (phantom-dirt fix), which shifts dig hauling.
   const config = sanitizeTickConfig(getDefaultConfig());
   const sim = new SimulationCore('ant-phase-baseline');
 
   for (let i = 0; i < 360; i += 1) sim.update(config);
 
   const replayHash = hashString(JSON.stringify(sim.serialize({})));
-  assert.equal(replayHash, 1910926194);
+  assert.equal(replayHash, 1825209661);
 });
 
 // Survival regression: with the PRODUCTION defaults, the colony used to peak

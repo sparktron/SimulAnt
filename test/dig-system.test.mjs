@@ -118,6 +118,36 @@ test('dig system excavates soil into tunnels', () => {
   assert.ok(tunnelsAfter > tunnelsBefore, 'Digging should create new tunnels');
 });
 
+test('digger receives no dirt when a front only traverses existing tunnel', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('dig-existing-tunnel-no-dirt');
+  const colony = new Colony(world, rng, 0);
+  const dig = new DigSystem(world, colony, rng);
+  dig.autoDig = true;
+
+  const x = world.nestX;
+  const y = world.nestY + 10;
+  const front = { x, y, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 };
+  dig.fronts = [front];
+
+  for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1]]) {
+    world.setTerrain(world.index(x + dx, y + dy), TERRAIN.TUNNEL);
+  }
+
+  const worker = new Ant(x, y, rng, 'worker');
+  worker.workFocus = 'dig';
+  worker.health = worker.healthMax;
+  worker.hunger = worker.hungerMax;
+  colony.ants.push(worker);
+
+  const excavatedBefore = colony.excavatedTiles;
+  dig.update(createTestConfig());
+
+  assert.notDeepEqual({ x: front.x, y: front.y }, { x, y }, 'front should traverse the existing tunnel');
+  assert.equal(colony.excavatedTiles, excavatedBefore, 'tunnel traversal should not count as excavation');
+  assert.equal(worker.carrying, null, 'worker should not receive phantom dirt without excavation');
+});
+
 test('dig system creates chambers', () => {
   const world = new World(64, 64);
   const rng = new SeededRng('dig-chamber');

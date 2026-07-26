@@ -96,15 +96,18 @@ export class DigSystem {
       const work = this.autoDig ? 1.4 : 0.7 + this.rng.range(0, 0.5);
       front.progress += work;
 
-      const beforeAdvanceTick = front.lastAdvanceTick;
+      let didExcavate = false;
       let safetySteps = 0;
       while (front.progress >= 1 && safetySteps < 8) {
         front.progress -= 1;
-        this.#advanceFront(front, config, false);
+        // Dirt only exists when soil was actually removed. The old check
+        // (lastAdvanceTick delta) also fired when the front merely walked
+        // through existing tunnel, minting phantom dirt that inflated the
+        // surface mounds without any matching excavation.
+        didExcavate = this.#advanceFront(front, config, false) || didExcavate;
         safetySteps += 1;
       }
 
-      const didExcavate = front.lastAdvanceTick > beforeAdvanceTick;
       if (didExcavate && !digger.carrying?.type) {
         digger.carrying = { type: 'dirt', amount: 1 };
       }
@@ -247,23 +250,27 @@ export class DigSystem {
     if (this.fronts.length === 0) this.#seedInitialFronts();
   }
 
+  // Returns true when the advance removed soil (tunnel carve or chamber
+  // creation) — i.e. there is real dirt for the digger to haul. Advancing
+  // through existing tunnel/chamber returns false.
   #advanceFront(front, config, forcedChamber) {
     const next = this.#pickNextTile(front);
-    if (!next) return;
+    if (!next) return false;
 
     if (forcedChamber || this.#shouldCreateChamber(front)) {
       const created = this.#createChamber(front, config);
-      if (created) return;
+      if (created) return true;
     }
 
+    let carvedSoil = false;
     const terrain = this.world.terrain[this.world.index(next.x, next.y)];
     if (terrain === TERRAIN.SOIL) {
-      this.#carveTunnel(next.x, next.y, config, front);
+      carvedSoil = this.#carveTunnel(next.x, next.y, config, front);
       if (this.rng.chance(0.12)) {
-        this.#carveTunnel(next.x + CARDINAL_DIRS[front.dir][1], next.y + CARDINAL_DIRS[front.dir][0], config, front, false);
+        carvedSoil = this.#carveTunnel(next.x + CARDINAL_DIRS[front.dir][1], next.y + CARDINAL_DIRS[front.dir][0], config, front, false) || carvedSoil;
       }
     } else if (terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER) {
-      return;
+      return false;
     }
 
     front.x = next.x;
@@ -272,6 +279,7 @@ export class DigSystem {
     front.age += 1;
     front.stepsSinceChamber += 1;
     front.lastAdvanceTick += 1;
+    return carvedSoil;
   }
 
   #pickNextTile(front) {
@@ -360,21 +368,25 @@ export class DigSystem {
     return true;
   }
 
+  // Returns true when a SOIL tile was actually converted to tunnel.
   #carveTunnel(x, y, config, front, countExcavation = true) {
-    if (!this.world.inBounds(x, y) || y <= this.world.nestY + 1) return;
+    if (!this.world.inBounds(x, y) || y <= this.world.nestY + 1) return false;
     const idx = this.world.index(x, y);
     const terrain = this.world.terrain[idx];
-    if (terrain === TERRAIN.WALL || terrain === TERRAIN.WATER || terrain === TERRAIN.HAZARD) return;
+    if (terrain === TERRAIN.WALL || terrain === TERRAIN.WATER || terrain === TERRAIN.HAZARD) return false;
 
+    let carved = false;
     if (terrain === TERRAIN.SOIL) {
       this.world.setTerrain(idx, TERRAIN.TUNNEL);
       if (countExcavation) this.colony.recordExcavation(1, x, y);
       this.world.depositToHome(idx, config.digHomeBoost);
+      carved = true;
     }
 
     if (front) {
       front.lastAdvanceTick += 1;
     }
+    return carved;
   }
 
   #spawnBranchFront() {
