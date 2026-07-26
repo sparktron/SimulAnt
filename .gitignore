@@ -3,3 +3,6 @@ exports/*.zip
 *.zip
 .claude/*
 .venv/*
+
+# Claude Code runtime lock — machine-local, not shared config
+.claude/scheduled_tasks.lock
