@@ -45,7 +45,7 @@ export class SurfaceRenderer {
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.world = world;
 
-    this.cameraX = world.nestX;
+    this.cameraX = world.width * 0.5;
     this.cameraY = world.nestY;
     this.zoom = 3;
 
@@ -100,8 +100,21 @@ export class SurfaceRenderer {
 
     this.#drawTerrain(ctx, overlays);
     this.#drawFoodPellets(ctx, foodPellets);
-    this.#drawEntranceMounds(ctx, nestEntrances);
-    this.#drawAnts(ctx, colony, nestEntrances, options.selectedAntId, options.showDebugStats, overlays);
+    const allEntrances = options.rivalNestEntrances
+      ? [...nestEntrances, ...options.rivalNestEntrances]
+      : nestEntrances;
+    this.#drawEntranceMounds(ctx, allEntrances);
+    this.#drawAnts(ctx, colony, allEntrances, options.selectedAntId, options.showDebugStats, overlays);
+    if (options.rivalColony) {
+      this.#drawAnts(
+        ctx,
+        options.rivalColony,
+        allEntrances,
+        options.selectedAntId,
+        options.showDebugStats,
+        overlays,
+      );
+    }
     if (options.showDebugStats && options.cursor) this.#drawCursorDebug(ctx, options.cursor);
     if (options.showEntranceInfo) this.#drawEntranceDebug(ctx, nestEntrances);
 
@@ -241,7 +254,7 @@ export class SurfaceRenderer {
         ant._cachedJobState = ant.state;
         ant._cachedJobWorkFocus = ant.workFocus;
       }
-      ctx.fillStyle = overlays.showAntJobs ? ant.jobColor : ant.baseColor;
+      ctx.fillStyle = overlays.showAntJobs && colony.id !== 'red' ? ant.jobColor : ant.baseColor;
       ctx.fillRect(ant.x, ant.y, 1, 1);
 
       const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');
@@ -266,7 +279,8 @@ export class SurfaceRenderer {
     if (showDebugStats) {
       ctx.fillStyle = '#e8f6ff';
       ctx.font = '3px monospace';
-      ctx.fillText(`FoodStore:${Math.round(colony.foodStored)}`, world.nestX + 3, Math.max(4, world.nestY - 4));
+      const homeX = Number.isFinite(colony.homeX) ? colony.homeX : world.nestX;
+      ctx.fillText(`FoodStore:${Math.round(colony.foodStored)}`, homeX + 3, Math.max(4, world.nestY - 4));
     }
   }
 

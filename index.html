@@ -8,7 +8,7 @@
   </head>
   <body>
     <div class="screen">
-      <header class="menu-bar">SimAnt - Two View Colony</header>
+      <header class="menu-bar">SimAnt - Rival Colonies</header>
 
       <div class="frame">
         <aside class="left-palette">
@@ -32,7 +32,7 @@
             <div class="health-bars">
               <div class="health-meter" title="Selected ant health"><div class="bar-wrap"><div id="healthYellow" class="bar yellow" role="progressbar" aria-label="Selected ant health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="No ant selected"></div></div><span id="healthFocusLabel">SEL</span></div>
               <div class="health-meter" title="Black colony average ant health"><div class="bar-wrap"><div id="healthBlack" class="bar black" role="progressbar" aria-label="Black colony average ant health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div><span>BLK</span></div>
-              <div class="health-meter" title="Red colony health (not available yet)"><div class="bar-wrap"><div id="healthRed" class="bar red" role="progressbar" aria-label="Red colony health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Red colony not available" aria-disabled="true"></div></div><span>RED</span></div>
+              <div class="health-meter" title="Red colony average ant health"><div class="bar-wrap"><div id="healthRed" class="bar red" role="progressbar" aria-label="Red colony average ant health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div><span>RED</span></div>
             </div>
           </div>
 
@@ -85,7 +85,8 @@
             <canvas id="minimapCanvas" class="minimap" width="256" height="256"></canvas>
             <div class="stat-lines">
               <p>TICK: <span id="hudTick">0</span></p>
-              <p>ANTS: <span id="hudAnts">0</span> <span id="hudAntLocation" style="font-size:11px; opacity:0.7"></span></p>
+              <p>BLACK ANTS: <span id="hudAnts">0</span> <span id="hudAntLocation" style="font-size:11px; opacity:0.7"></span></p>
+              <p>RED ANTS: <span id="hudRedAnts">0</span></p>
               <p>FOOD: <span id="hudFood">0</span></p>
               <p>BOOTSTRAP: <span id="hudBootstrapFood">100%</span></p>
               <p>WORKERS: <span id="hudWorkers">0</span></p>
@@ -103,7 +104,7 @@
               <p>FOLLOW: <span id="hudFollow">F:0 H:0</span></p>
               <p>HEALTH: <span id="hudHealthStats">MIN:0.0 AVG:0.0 MAX:0.0</span></p>
               <p>DEATHS: <span id="hudDeaths">0</span></p>
-              <p>BY CAUSE: <span id="hudDeathsByCause">S:0 A:0 H:0 O:0</span></p>
+              <p>BY CAUSE: <span id="hudDeathsByCause">S:0 A:0 H:0 C:0 O:0</span></p>
             </div>
           </div>
 

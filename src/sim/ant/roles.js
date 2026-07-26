@@ -148,8 +148,8 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
     const idSeed = parseInt(ant.id.replace(/\D/g, ''), 10) || 0;
     const offsetX = (idSeed % 7) - 3;            // -3 to +3
     const offsetY = (Math.floor(idSeed / 7) % 5) - 2;  // -2 to +2
-    const broodX = Math.max(0, Math.min(world.width - 1, world.nestX + 4 + offsetX));
-    const broodY = Math.max(world.nestY + 2, Math.min(world.height - 1, world.nestY + 5 + offsetY));
+    const broodX = Math.max(0, Math.min(world.width - 1, colony.homeX + 4 + offsetX));
+    const broodY = Math.max(world.nestY + 2, Math.min(world.height - 1, colony.homeY + 5 + offsetY));
     const distToBrood = Math.hypot(ant.x - broodX, ant.y - broodY);
     if (distToBrood > 3) {
       ant.state = 'NURSE_TEND_BROOD';

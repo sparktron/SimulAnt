@@ -12,13 +12,19 @@ export class TickScheduler {
   }
 
   runTick(context) {
-    const { tick, config, foodPellets, nestEntrances } = context;
+    const {
+      tick,
+      config,
+      foodPellets,
+      nestEntrances,
+      rivalNestEntrances,
+    } = context;
     if (!Number.isInteger(tick) || tick <= 0) {
       throw new Error(`TickScheduler expected positive integer tick, received: ${tick}`);
     }
 
     this.macroEngine.update({ tick, config });
-    this.microEngine.setExternalState({ foodPellets, nestEntrances });
+    this.microEngine.setExternalState({ foodPellets, nestEntrances, rivalNestEntrances });
     this.microEngine.update({ tick, config });
   }
 }

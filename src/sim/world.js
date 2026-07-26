@@ -269,7 +269,13 @@ export class World {
     this.nestY = Math.max(0, Math.min(this.height - 1, y));
     this.entranceY = this.nestY;
     this.recomputeNestInfluence();
-    this.#carveStarterNest();
+    this.#carveStarterNest(this.nestX, this.nestY);
+  }
+
+  carveStarterNestAt(x, y = this.nestY) {
+    const nestX = Math.max(0, Math.min(this.width - 1, Math.round(x)));
+    const nestY = Math.max(0, Math.min(this.height - 1, Math.round(y)));
+    this.#carveStarterNest(nestX, nestY);
   }
 
   recomputeNestInfluence() {
@@ -301,31 +307,31 @@ export class World {
     }
   }
 
-  #carveStarterNest() {
+  #carveStarterNest(nestX = this.nestX, nestY = this.nestY) {
     // Larger starter chamber so brood/queen/nurses have room to spread out.
     // Carve strictly below the surface/underground boundary (y > nestY) so
     // row nestY remains surface; otherwise chamber ants at y = nestY would
     // leak into the surface view's bottom edge.
-    this.paintCircle(this.nestX, this.nestY + 4, 6, (idx, _x, y) => {
-      if (y > this.nestY) this.terrain[idx] = TERRAIN.CHAMBER;
+    this.paintCircle(nestX, nestY + 4, 6, (idx, _x, y) => {
+      if (y > nestY) this.terrain[idx] = TERRAIN.CHAMBER;
     });
 
     // Widen the entrance shaft to 3 tiles so multiple ants can flow in parallel.
     // The shaft now starts at entranceY (in the surface yard) and extends down
     // through the yard ground into the soil chamber, giving the entrance a
     // visible mound surrounded by usable surface in all directions.
-    const shaftTop = Math.max(0, Math.min(this.nestY, this.entranceY));
-    const shaftBottom = this.nestY + 14;
+    const shaftTop = nestY;
+    const shaftBottom = nestY + 14;
     for (let y = shaftTop; y <= shaftBottom; y += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
-        const tx = this.nestX + dx;
+        const tx = nestX + dx;
         if (!this.inBounds(tx, y)) continue;
         this.terrain[this.index(tx, y)] = TERRAIN.TUNNEL;
       }
       // Extra flaring near the surface mouth for smoother entry/exit
       if (y <= shaftTop + 2) {
         for (const dx of [-2, 2]) {
-          const tx = this.nestX + dx;
+          const tx = nestX + dx;
           if (this.inBounds(tx, y)) this.terrain[this.index(tx, y)] = TERRAIN.TUNNEL;
         }
       }

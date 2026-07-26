@@ -150,6 +150,9 @@ const state = {
     healthWorkMoveDrainRate: 0.08,
     healthWorkCarryDrainRate: 0.01,
     healthWorkFightDrainRate: 0.6,
+    combatEngageChance: 0.25,
+    combatWorkerDamage: 8,
+    combatSoldierDamage: 16,
     healthEatRecoveryRate: 0.45,
     workerEmergencyEatNutrition: 35,
     carryingHungerDrainRate: 0.5,
@@ -560,11 +563,14 @@ function loop(now) {
           showDebugStats: state.debug.showStats,
           showEntranceInfo: state.debug.showEntranceInfo,
           cursor: state.cursor.surface,
+          rivalColony: simCore.rivalColony,
+          rivalNestEntrances: simCore.rivalNestEntrances,
         });
       } else {
         nestRenderer.draw(simCore.colony, state.overlays, {
           selectedAntId: state.selectedAntId,
           showDebugStats: state.debug.showStats,
+          rivalColony: simCore.rivalColony,
         });
       }
       captureLastGoodRenderState(activeView);
@@ -575,20 +581,26 @@ function loop(now) {
     // Minimap reflects whichever view is active via that renderer's camera.
     try {
       const activeCam = activeView === VIEW.SURFACE ? surfaceRenderer : nestRenderer;
-      miniMap.draw(simCore.world, simCore.colony, activeCam, canvas);
+      miniMap.draw(simCore.world, simCore.colony, activeCam, canvas, simCore.rivalColony);
     } catch (miniMapError) {
       if (DEBUG_UI) console.debug('[SimAnt UI] Minimap draw failed:', miniMapError);
     }
 
     const selectedAnt = simCore.findAntById(state.selectedAntId);
     const antHealthStats = getAntHealthStats(simCore.colony.ants);
+    const redAntHealthStats = getAntHealthStats(simCore.rivalColony.ants);
     const hudCounts = getHudAntCounts(simCore.colony.ants, simCore.world.nestY);
+    const deathsByCause = mergeDeathCauses(
+      simCore.colony.deathsByCause,
+      simCore.rivalColony.deathsByCause,
+    );
     try {
       updateHud({
         viewMode: activeView,
         fps,
         tick: simCore.tick,
         ants: simCore.colony.ants.length,
+        redAnts: simCore.rivalColony.ants.length,
         workers: hudCounts.workers,
         soldiers: hudCounts.soldiers,
         breeders: hudCounts.breeders,
@@ -604,6 +616,7 @@ function loop(now) {
         selectedAntHealth: selectedAnt ? selectedAnt.health : null,
         blackColonyHealth: antHealthStats.avg,
         antHealthStats,
+        redColonyHealth: redAntHealthStats.avg,
         simMs,
         digStatus: state.debug.digStatus,
         pherStats: simCore.world.getPheromoneStats(),
@@ -611,8 +624,8 @@ function loop(now) {
         antsUnderground: hudCounts.underground,
         followingFood: hudCounts.followingFood,
         followingHome: hudCounts.followingHome,
-        deaths: simCore.colony.deaths,
-        deathsByCause: simCore.colony.deathsByCause,
+        deaths: simCore.colony.deaths + simCore.rivalColony.deaths,
+        deathsByCause,
         virtualFoodRemaining: simCore.colony._virtualFoodStored,
         virtualFoodInitial: simCore.colony._virtualFoodInitial,
       });
@@ -723,6 +736,22 @@ function getAntHealthStats(ants) {
     avg: total / ants.length,
     max,
   };
+}
+
+function mergeDeathCauses(...causes) {
+  const total = {
+    starvation: 0,
+    oldAge: 0,
+    hazard: 0,
+    combat: 0,
+    other: 0,
+  };
+  for (const cause of causes) {
+    for (const key of Object.keys(total)) {
+      total[key] += Math.max(0, Math.floor(Number(cause?.[key]) || 0));
+    }
+  }
+  return total;
 }
 
 function maybeLogSteeringDebug(selectedAnt) {

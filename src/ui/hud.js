@@ -2,6 +2,7 @@ export function updateHud(stats) {
   setText('modeIndicator', stats.viewMode);
   setText('hudTick', String(stats.tick));
   setText('hudAnts', `${stats.ants}`);
+  setText('hudRedAnts', `${asNonNegativeInt(stats.redAnts)}`);
   const surface = asNonNegativeInt(stats.antsSurface);
   const underground = asNonNegativeInt(stats.antsUnderground);
   setText('hudAntLocation', `(${surface}↑ ${underground}↓)`);
@@ -57,11 +58,14 @@ export function updateHud(stats) {
   );
   setBar('healthBlack', blackColonyHealth, `${formatNumber(blackColonyHealth)}% average health`);
 
-  // There is no red colony in the simulation model yet. Keep its meter
-  // explicitly unavailable instead of presenting unrelated black-colony data.
-  // When a second colony is introduced, pass a separate redColonyHealth value
-  // into updateHud rather than folding its ants into blackColonyHealth.
-  setUnavailableBar('healthRed', 'Red colony not available');
+  const redColonyHealth = Number.isFinite(stats.redColonyHealth)
+    ? clampPercent(stats.redColonyHealth)
+    : 0;
+  setBar('healthRed', redColonyHealth, `${formatNumber(redColonyHealth)}% average health`);
+  const redBar = document.getElementById('healthRed');
+  if (redBar && typeof redBar.removeAttribute === 'function') {
+    redBar.removeAttribute('aria-disabled');
+  }
 
   setText('hudDeaths', `${asNonNegativeInt(stats.deaths)}`);
   const byCause = stats.deathsByCause || {};
@@ -70,6 +74,7 @@ export function updateHud(stats) {
     `S:${asNonNegativeInt(byCause.starvation)} `
       + `A:${asNonNegativeInt(byCause.oldAge)} `
       + `H:${asNonNegativeInt(byCause.hazard)} `
+      + `C:${asNonNegativeInt(byCause.combat)} `
       + `O:${asNonNegativeInt(byCause.other)}`,
   );
 }
@@ -119,13 +124,5 @@ function setBar(id, valuePercent, valueText) {
       el.setAttribute('aria-valuenow', String(Math.round(valuePercent)));
       if (valueText) el.setAttribute('aria-valuetext', valueText);
     }
-  }
-}
-
-function setUnavailableBar(id, valueText) {
-  setBar(id, 0, valueText);
-  const el = document.getElementById(id);
-  if (el && typeof el.setAttribute === 'function') {
-    el.setAttribute('aria-disabled', 'true');
   }
 }

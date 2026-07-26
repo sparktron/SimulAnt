@@ -96,10 +96,33 @@ test('SurfaceRenderer only draws surface ants and pellets', () => {
     };
     world.terrain[world.index(6, 6)] = TERRAIN.TUNNEL;
 
-    renderer.draw(colony, { showToFood: false, showScent: false, showToHome: false, showDanger: false }, [{ x: 8, y: 5, id: 'e0', soilOnSurface: 0 }], [
-      { x: 3, y: 5 },
-      { x: 3, y: 10 },
-    ]);
+    renderer.draw(
+      colony,
+      { showToFood: false, showScent: false, showToHome: false, showDanger: false },
+      [{ x: 8, y: 5, id: 'e0', soilOnSurface: 0 }],
+      [
+        { x: 3, y: 5 },
+        { x: 3, y: 10 },
+      ],
+      {
+        rivalColony: {
+          id: 'red',
+          ants: [
+            {
+              id: 'red-surface-ant',
+              x: 12,
+              y: 4,
+              baseColor: '#d93828',
+              carryingType: 'none',
+              hunger: 80,
+              health: 90,
+            },
+          ],
+          foodStored: 0,
+        },
+        rivalNestEntrances: [{ x: 12, y: 5, id: 'red-entrance', soilOnSurface: 0 }],
+      },
+    );
 
     const unitRects = mainCtx.fillRectCalls.filter((call) => call.w === 1 && call.h === 1);
 
@@ -109,6 +132,10 @@ test('SurfaceRenderer only draws surface ants and pellets', () => {
     assert.ok(!unitRects.some((call) => call.x === 10 && call.y === 6), 'ants below entrance mouth should not render in surface view');
     assert.ok(unitRects.some((call) => call.x === 3 && call.y === 5), 'surface pellet should render');
     assert.ok(!unitRects.some((call) => call.x === 3 && call.y === 10), 'underground pellet should not render in surface view');
+    assert.ok(
+      unitRects.some((call) => call.x === 12 && call.y === 4 && call.fillStyle === '#d93828'),
+      'rival ant should render in red',
+    );
   } finally {
     globalThis.document = oldDocument;
   }

@@ -13,6 +13,7 @@
 - `TickScheduler`: deterministic orchestration only.
 - `MacroEngine`: strategic territory layer boundary (currently stable/no-op state transitions).
 - `MicroPatchEngine`: deterministic local rules for ants, digging, and pheromone fields.
+- `CombatSystem`: deterministic same-tile rival engagement and duel resolution.
 - `SimulationTypes`: typed patch-state snapshot + config sanitization.
 
 ## Deterministic tick contract
@@ -22,14 +23,24 @@ All ticks are processed in this strict order:
 1. **Macro phase** (`MacroEngine.update`)  
    - Strategic state only. No randomness outside supplied seeded RNG systems.
 2. **Micro phase** (`MicroPatchEngine.update`)  
-   1. Colony update (`colony.update`): ant local sensing, movement decisions, pickup/deposit, hunger/health, hazard checks.  
-   2. Dig update (`digSystem.update`): deterministic front iteration with seeded randomness and bounded safety loops.  
-   3. Pheromone update (`world.updatePheromones`): evaporation every tick, diffusion on `tick % diffIntervalTicks === 0`.
+   1. Black colony update (`colony.update`): local sensing, movement, resource
+      interactions, vitals, and hazards.
+   2. Red colony update (`rivalColony.update`) using the same local rules and
+      shared surface food field.
+   3. Combat resolution (`combatSystem.resolve`): opposing ants sharing a tile
+      roll once to engage, then alternate role-weighted attacks until one dies.
+   4. Dig update (`digSystem.update`): deterministic front iteration with seeded randomness and bounded safety loops.
+   5. Pheromone update (`world.updatePheromones`): evaporation every tick, diffusion on `tick % diffIntervalTicks === 0`.
 
 ### Conflict-resolution rules
 
 - **Movement arbitration**: ants are updated in stable array order; earlier ants claim opportunities first (e.g., pellets).
 - **Food pickup conflict**: first ant to mark a pellet (`takenByAntId`) owns it; pellet is removed once claimed.
+- **Rival collision conflict**: opposing pairs are visited in stable colony and
+  ant-array order. Each ant can enter at most one battle per tick.
+- **Combat**: engagement uses `combatEngageChance` (25% by default). Attacks
+  alternate from a seeded initiative roll until one participant reaches zero
+  health; sanitized soldier damage is always greater than worker damage.
 - **Hazard effects**: hazard kill checks are local to ant tile and resolved during ant update.
 - **Pheromone decay/spread**: decay then optional diffusion, both clamped to `pheromoneMaxClamp`.
 - **Dig conflicts**: front progress is bounded and sanitized; invalid saved values are clamped before update.

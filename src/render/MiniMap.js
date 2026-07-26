@@ -44,7 +44,7 @@ export class MiniMap {
    * @param {{cameraX:number, cameraY:number, zoom:number}} cam - active renderer
    * @param {HTMLCanvasElement} mainCanvas - the main sim canvas (for client size)
    */
-  draw(world, colony, cam, mainCanvas) {
+  draw(world, colony, cam, mainCanvas, rivalColony = null) {
     if (!world) return;
     const W = world.width;
     const H = world.height;
@@ -89,6 +89,14 @@ export class MiniMap {
       const a = ants[k];
       if (a.x >= 0 && a.x < W && a.y >= 0 && a.y < H) {
         ctx.fillRect(a.x, a.y, 1, 1);
+      }
+    }
+    const rivalAnts = rivalColony?.ants || [];
+    ctx.fillStyle = '#ff3b30';
+    for (let k = 0; k < rivalAnts.length; k += 1) {
+      const ant = rivalAnts[k];
+      if (ant.x >= 0 && ant.x < W && ant.y >= 0 && ant.y < H) {
+        ctx.fillRect(ant.x, ant.y, 1, 1);
       }
     }
 

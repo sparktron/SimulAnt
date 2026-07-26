@@ -39,9 +39,14 @@ function stepCrowding(value, overCapacity) {
 }
 
 export class Colony {
-  constructor(world, rng, initialAnts = 300) {
+  constructor(world, rng, initialAnts = 300, options = {}) {
     this.world = world;
     this.rng = rng;
+    this.id = options.id || 'black';
+    this.homeX = Number.isFinite(options.homeX) ? Math.round(options.homeX) : world.nestX;
+    this.homeY = Number.isFinite(options.homeY) ? Math.round(options.homeY) : world.nestY;
+    this.workerColor = options.workerColor || null;
+    this.soldierColor = options.soldierColor || null;
     this.ants = [];
     this.foodStored = 0;
     // Target scales with colony size so foragers keep working as ants grow.
@@ -68,7 +73,13 @@ export class Colony {
     // Cause-of-death breakdown so we can tell whether the colony is dying
     // from starvation (balance issue), old age (lifespan vs. birth rate),
     // hazards (terrain), or something else. Useful when tuning.
-    this.deathsByCause = { starvation: 0, oldAge: 0, hazard: 0, other: 0 };
+    this.deathsByCause = {
+      starvation: 0,
+      oldAge: 0,
+      hazard: 0,
+      combat: 0,
+      other: 0,
+    };
     // Queen succession telemetry. _queenDeathCounter holds the _updateCounter
     // value at which the queen died (null while she is alive), used to time the
     // succession delay; it is reset on a successful promotion.
@@ -85,8 +96,8 @@ export class Colony {
       hungerMax: 100,
       health: 100,
       healthMax: 100,
-      x: world.nestX,
-      y: Math.min(world.height - 1, world.nestY + 6),
+      x: this.homeX,
+      y: Math.min(world.height - 1, this.homeY + 6),
       moveProgress: 0,
       broodGestationProgress: 0,
       foodCourierAntId: null,
@@ -142,19 +153,19 @@ export class Colony {
     this._virtualFoodStored = bootstrapFood;  // consumed before physical pellets so deposits accumulate visibly
     this._virtualFoodInitial = bootstrapFood; // baseline for HUD "bootstrap remaining" indicator
 
-    this.syncQueenPositionToNest(world.nestX, world.nestY);
+    this.syncQueenPositionToNest(this.homeX, this.homeY);
   }
 
   #spawnNearNest(role) {
     // Spawn in the tunnel/chamber, not in surrounding soil
-    let spawnX = this.world.nestX;
-    let spawnY = this.world.nestY + (this.rng.int(6) + 2);  // 2-8 tiles below nest center
+    let spawnX = this.homeX;
+    let spawnY = this.homeY + (this.rng.int(6) + 2);  // 2-8 tiles below nest center
 
     // Try to find a passable location near the nest with wider search
     let found = false;
     for (let attempt = 0; attempt < 12; attempt += 1) {
-      const tryX = this.world.nestX + this.rng.int(5) - 2;  // -2 to +2
-      const tryY = this.world.nestY + this.rng.int(6) + 2;  // +2 to +7
+      const tryX = this.homeX + this.rng.int(5) - 2;  // -2 to +2
+      const tryY = this.homeY + this.rng.int(6) + 2;  // +2 to +7
       if (this.world.isPassable(tryX, tryY)) {
         spawnX = tryX;
         spawnY = tryY;
@@ -167,9 +178,9 @@ export class Colony {
     if (!found) {
       for (let dy = 2; dy <= 8; dy += 1) {
         for (let dx = -2; dx <= 2; dx += 1) {
-          if (this.world.isPassable(this.world.nestX + dx, this.world.nestY + dy)) {
-            spawnX = this.world.nestX + dx;
-            spawnY = this.world.nestY + dy;
+          if (this.world.isPassable(this.homeX + dx, this.homeY + dy)) {
+            spawnX = this.homeX + dx;
+            spawnY = this.homeY + dy;
             found = true;
             break;
           }
@@ -188,8 +199,17 @@ export class Colony {
     if (role === 'worker') {
       ant.workFocus = this.chooseWorkFocus();
     }
+    ant.colonyId = this.id;
+    ant.originalBaseColor = this.getAntBaseColor(role);
+    ant.baseColor = ant.originalBaseColor;
 
     return ant;
+  }
+
+  getAntBaseColor(role) {
+    if (role === 'soldier' && this.soldierColor) return this.soldierColor;
+    if (role !== 'soldier' && this.workerColor) return this.workerColor;
+    return Ant.getDefaultBaseColor(role);
   }
 
   /**
@@ -224,16 +244,7 @@ export class Colony {
 
     this.#runTrophallaxis(config);
 
-    let write = 0;
-    this._aliveWorkerCount = 0;
-    for (let read = 0; read < this.ants.length; read += 1) {
-      if (this.ants[read].alive) {
-        this.ants[write] = this.ants[read];
-        if (this.ants[write].role === 'worker') this._aliveWorkerCount += 1;
-        write += 1;
-      }
-    }
-    this.ants.length = write;
+    this.removeDeadAnts();
 
     if (this.queen.alive) {
       this.#updateQueenPosition(config);
@@ -248,6 +259,19 @@ export class Colony {
     // }
 
     this.rebalanceWorkerFocuses();
+  }
+
+  removeDeadAnts() {
+    let write = 0;
+    this._aliveWorkerCount = 0;
+    for (let read = 0; read < this.ants.length; read += 1) {
+      if (!this.ants[read].alive) continue;
+      this.ants[write] = this.ants[read];
+      if (this.ants[write].role === 'worker') this._aliveWorkerCount += 1;
+      write += 1;
+    }
+    this.ants.length = write;
+    this.rebuildAntGridFromAnts();
   }
 
 
@@ -910,7 +934,9 @@ export class Colony {
   #findQueenSafeTile() {
     const SEARCH_RADIUS = 30;
     const lowerHalfStartY = this.#getLowerHalfStartY(SEARCH_RADIUS);
-    const { nestX, nestY, width, height } = this.world;
+    const { width, height } = this.world;
+    const nestX = this.homeX;
+    const nestY = this.homeY;
     const minX = Math.max(0, nestX - SEARCH_RADIUS);
     const maxX = Math.min(width - 1, nestX + SEARCH_RADIUS);
     const maxY = Math.min(height - 1, nestY + SEARCH_RADIUS);
@@ -940,7 +966,9 @@ export class Colony {
   }
 
   #getLowerHalfStartY(searchRadius) {
-    const { nestX, nestY, width, height } = this.world;
+    const { width, height } = this.world;
+    const nestX = this.homeX;
+    const nestY = this.homeY;
     const minX = Math.max(0, nestX - searchRadius);
     const maxX = Math.min(width - 1, nestX + searchRadius);
     const maxScanY = Math.min(height - 1, nestY + searchRadius);
@@ -1028,10 +1056,10 @@ export class Colony {
 
   getNestFoodDropPoint(entrance = null) {
     return this.findNestFoodDropPoint(entrance) || {
-      x: Math.max(0, Math.min(this.world.width - 1, Math.round(entrance ? entrance.x : this.world.nestX))),
+      x: Math.max(0, Math.min(this.world.width - 1, Math.round(entrance ? entrance.x : this.homeX))),
       y: Math.max(
-        this.world.nestY + 1,
-        Math.min(this.world.height - 1, Math.round(entrance ? entrance.y + 3 : this.world.nestY + 3)),
+        this.homeY + 1,
+        Math.min(this.world.height - 1, Math.round(entrance ? entrance.y + 3 : this.homeY + 3)),
       ),
     };
   }
@@ -1059,7 +1087,7 @@ export class Colony {
   }
 
   findNestFoodDropPoint(entrance = null, preferredX = null, preferredY = null) {
-    const storageCenterX = entrance ? entrance.x : this.world.nestX;
+    const storageCenterX = entrance ? entrance.x : this.homeX;
     const deepestStorageY = this.#findDeepNestStorageY(storageCenterX);
     const storageCenterY = Math.max(this.world.nestY + 3, deepestStorageY - 2);
 
@@ -1144,7 +1172,7 @@ export class Colony {
     }
 
     if (DEBUG_NEST_FOOD_LOGS) {
-      console.log(`[SimAnt][ant] ${ant.id} deposited food at nest entrance (${entrance?.x ?? this.world.nestX}, ${entrance?.y ?? this.world.nestY})`);
+      console.log(`[SimAnt][ant] ${ant.id} deposited food at nest entrance (${entrance?.x ?? this.homeX}, ${entrance?.y ?? this.homeY})`);
     }
     return true;
   }
@@ -1203,7 +1231,7 @@ export class Colony {
     }
   }
 
-  syncQueenPositionToNest(nestX = this.world.nestX, nestY = this.world.nestY) {
+  syncQueenPositionToNest(nestX = this.homeX, nestY = this.homeY) {
     const safeTile = this.#findQueenSafeTile();
     this.queen.x = Math.max(0, Math.min(this.world.width - 1, Math.round(safeTile?.x ?? nestX)));
     this.queen.y = Math.max(
@@ -1326,6 +1354,11 @@ export class Colony {
 
   serialize() {
     return {
+      id: this.id,
+      homeX: this.homeX,
+      homeY: this.homeY,
+      workerColor: this.workerColor,
+      soldierColor: this.soldierColor,
       foodStored: this.foodStored,
       virtualFoodStored: this._virtualFoodStored,
       virtualFoodInitial: this._virtualFoodInitial,
@@ -1350,6 +1383,7 @@ export class Colony {
       casteAllocation: this.casteAllocation,
       ants: this.ants.map((ant) => ({
         id: ant.id,
+        colonyId: ant.colonyId,
         x: ant.x,
         y: ant.y,
         dir: ant.dir,
@@ -1387,7 +1421,13 @@ export class Colony {
   }
 
   static fromSerialized(world, rng, data) {
-    const colony = new Colony(world, rng, 0);
+    const colony = new Colony(world, rng, 0, {
+      id: data.id,
+      homeX: data.homeX,
+      homeY: data.homeY,
+      workerColor: data.workerColor,
+      soldierColor: data.soldierColor,
+    });
     colony.foodStored = data.foodStored;
     colony._virtualFoodStored = Number.isFinite(data.virtualFoodStored) ? data.virtualFoodStored : 0;
     colony._virtualFoodInitial = Number.isFinite(data.virtualFoodInitial)
@@ -1399,13 +1439,14 @@ export class Colony {
       colony.deathsByCause.starvation = data.deathsByCause.starvation || 0;
       colony.deathsByCause.oldAge = data.deathsByCause.oldAge || 0;
       colony.deathsByCause.hazard = data.deathsByCause.hazard || 0;
+      colony.deathsByCause.combat = data.deathsByCause.combat || 0;
       colony.deathsByCause.other = data.deathsByCause.other || 0;
     }
     colony.queenDeaths = data.queenDeaths || 0;
     colony.queenSuccessions = data.queenSuccessions || 0;
     colony.queen = { ...colony.queen, ...(data.queen || {}) };
     if (!Number.isFinite(colony.queen.x) || !Number.isFinite(colony.queen.y)) {
-      colony.syncQueenPositionToNest(world.nestX, world.nestY);
+      colony.syncQueenPositionToNest(colony.homeX, colony.homeY);
     }
     if (!Number.isFinite(colony.queen.moveProgress)) colony.queen.moveProgress = 0;
     if (!Number.isFinite(colony.queen.broodGestationProgress)) colony.queen.broodGestationProgress = 0;
@@ -1440,6 +1481,7 @@ export class Colony {
     colony.ants = (Array.isArray(data.ants) ? data.ants : []).map((a) => {
       const ant = new Ant(a.x, a.y, rng, a.role || 'worker');
       ant.id = a.id || ant.id;
+      ant.colonyId = a.colonyId || colony.id;
       // The constructor derived this from its own throwaway random id; the
       // restored id must drive it or a reloaded run diverges from an
       // uninterrupted one (each ant returns to the nest on a different tick).
@@ -1449,7 +1491,7 @@ export class Colony {
       ant.health = a.health ?? ant.health;
       ant.carrying = a.carrying;
       ant.carryingType = a.carryingType || (a.carrying?.type === 'food' ? 'food' : 'none');
-      const defaultBaseColor = Ant.getDefaultBaseColor(ant.role);
+      const defaultBaseColor = colony.getAntBaseColor(ant.role);
       const soldierBaseColor = Ant.getLegacySoldierBaseColor();
       const serializedBaseColor = typeof a.baseColor === 'string' ? a.baseColor : null;
       const serializedOriginalBaseColor = typeof a.originalBaseColor === 'string' ? a.originalBaseColor : null;
@@ -1458,10 +1500,10 @@ export class Colony {
       ant.baseColor = serializedBaseColor || ant.originalBaseColor;
 
       // Migration guard: older saves could persist legacy soldier-red despite canonical colony color.
-      if (ant.originalBaseColor === soldierBaseColor) {
+      if (colony.id === 'black' && ant.originalBaseColor === soldierBaseColor) {
         ant.originalBaseColor = defaultBaseColor;
       }
-      if (ant.baseColor === soldierBaseColor) {
+      if (colony.id === 'black' && ant.baseColor === soldierBaseColor) {
         ant.baseColor = ant.originalBaseColor;
       }
 

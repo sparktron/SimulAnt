@@ -1,7 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.56.11** on 2026-07-26. The
-uncommitted worktree changes were excluded from this reconciliation.
+Status checked against landed `master` at **v0.57.0** on 2026-07-26.
 
 ## Completed
 
@@ -62,6 +61,10 @@ uncommitted worktree changes were excluded from this reconciliation.
     colony's average ant health, yellow shows only the selected ant, and red
     remains explicitly unavailable until a second colony is implemented
     (v0.56.11).
+28. ✅ Added a competing red colony with its own opposite-side nest, shared-food
+    competition, deterministic 25% collision engagement, fight-to-the-death
+    resolution, stronger soldier damage, red rendering/HUD state, and
+    save-schema v4 persistence (v0.57.0).
 
 ## Active work
 

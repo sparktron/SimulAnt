@@ -54,8 +54,14 @@ test('SimulationCore initializes with default seed', () => {
   assert.equal(sim.tick, 0);
   assert.ok(sim.world);
   assert.ok(sim.colony);
+  assert.ok(sim.rivalColony);
   assert.ok(sim.digSystem);
   assert.equal(sim.nestEntrances.length, 1);
+  assert.equal(sim.rivalNestEntrances.length, 1);
+  assert.ok(sim.colony.homeX < sim.world.width / 2);
+  assert.ok(sim.rivalColony.homeX > sim.world.width / 2);
+  assert.equal(sim.rivalColony.ants.every((ant) => ant.colonyId === 'red'), true);
+  assert.equal(sim.rivalColony.ants.every((ant) => ant.baseColor.startsWith('#')), true);
   assert.ok(sim.foodPellets.length > 0, 'Should have initial food clusters');
 });
 
@@ -280,6 +286,20 @@ test('serialize and loadFromSerialized round-trip preserves state', () => {
   assert.equal(sim2.foodPellets.length, sim.foodPellets.length);
 });
 
+test('save/load preserves the rival colony and combat telemetry', () => {
+  const sim = new SimulationCore('rival-save');
+  sim.combatSystem.battles = 7;
+  const redAntId = sim.rivalColony.ants[0].id;
+
+  const restored = new SimulationCore('other');
+  restored.loadFromSerialized(sim.serialize({}));
+
+  assert.equal(restored.rivalColony.homeX, sim.rivalColony.homeX);
+  assert.equal(restored.rivalColony.ants.length, sim.rivalColony.ants.length);
+  assert.equal(restored.findAntById(redAntId)?.colonyId, 'red');
+  assert.equal(restored.combatSystem.battles, 7);
+});
+
 test('food accounting invariant holds across many ticks (foodStored == all ledger parts)', () => {
   const config = createConfig();
   const sim = new SimulationCore('food-conservation');
@@ -368,7 +388,7 @@ test('loadFromSerialized migrates v2 food-ledger drift into the v3 adjustment', 
   const restored = new SimulationCore('other');
   restored.loadFromSerialized(v2Save);
 
-  assert.equal(restored.migratedSchemaVersion, 3);
+  assert.equal(restored.migratedSchemaVersion, SAVE_SCHEMA_VERSION);
   assert.equal(restored.colony._foodLedgerAdjustment, -2);
   assert.equal(
     restored.colony.foodStored,
@@ -587,15 +607,15 @@ test('deterministic replay hash remains stable for fixed seed + ticks', () => {
 test('ant sense choose apply phases preserve the captured replay baseline', () => {
   // Captured immediately before extracting Ant.update into explicit phases.
   // Update this only alongside an intentional simulation behavior change.
-  // Re-captured for v0.56.10: diggers now receive dirt cargo only when soil
-  // was actually excavated (phantom-dirt fix), which shifts dig hauling.
+  // Re-captured for v0.57.0: the second colony, contested food layout, and
+  // deterministic collision combat intentionally change the replay.
   const config = sanitizeTickConfig(getDefaultConfig());
   const sim = new SimulationCore('ant-phase-baseline');
 
   for (let i = 0; i < 360; i += 1) sim.update(config);
 
   const replayHash = hashString(JSON.stringify(sim.serialize({})));
-  assert.equal(replayHash, 1825209661);
+  assert.equal(replayHash, 2279483303);
 });
 
 // Survival regression: with the PRODUCTION defaults, the colony used to peak

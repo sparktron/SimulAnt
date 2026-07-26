@@ -30,14 +30,19 @@ import { MicroPatchEngine } from './core/MicroPatchEngine.js';
 import { TickScheduler } from './core/TickScheduler.js';
 import { ColonyStats } from './ColonyStats.js';
 import { FoodEconomySystem } from './systems/FoodEconomySystem.js';
+import { CombatSystem } from './systems/CombatSystem.js';
 
 const SURFACE_DEPOSIT_RATIO = 0.7;
+const BLACK_NEST_X_FRACTION = 0.25;
+const RED_NEST_X_FRACTION = 0.75;
+const RIVAL_WORKER_COLOR = '#d93828';
+const RIVAL_SOLDIER_COLOR = '#ff6654';
 
 // Save-format schema version. Bump when serialize()'s shape changes in a way
 // that needs migration on load. Saves written before versioning existed have no
 // schemaVersion field and are treated as version 0 (legacy). Every supported
 // historical version has a named step in SAVE_MIGRATIONS below.
-export const SAVE_SCHEMA_VERSION = 3;
+export const SAVE_SCHEMA_VERSION = 4;
 
 export class SimulationCore {
   /**
@@ -68,6 +73,9 @@ export class SimulationCore {
     // runs) and peakPopulation carries over.
     this.stats = new ColonyStats();
     this.world = new World(256, 256);
+    const blackNestX = Math.floor(this.world.width * BLACK_NEST_X_FRACTION);
+    const redNestX = Math.floor(this.world.width * RED_NEST_X_FRACTION);
+    this.world.setNest(blackNestX, this.world.nestY);
 
     const wallCount = 6 + Math.floor(this.rng.next() * 5);
     const margin = 10;
@@ -80,7 +88,10 @@ export class SimulationCore {
         attempts++;
       } while (
         attempts < 20 &&
-        Math.hypot(wx - this.world.nestX, wy - this.world.nestY) < nestClearRadius
+        (
+          Math.hypot(wx - blackNestX, wy - this.world.nestY) < nestClearRadius
+          || Math.hypot(wx - redNestX, wy - this.world.nestY) < nestClearRadius
+        )
       );
       const r = 2 + Math.floor(this.rng.next() * 3);
       this.world.paintCircle(wx, wy, r, (idx) => {
@@ -89,13 +100,28 @@ export class SimulationCore {
     }
 
     this.world.setNest(this.world.nestX, this.world.nestY);
-    this.colony = new Colony(this.world, this.rng, 40);
-    this.colony.syncQueenPositionToNest(this.world.nestX, this.world.nestY);
+    this.world.carveStarterNestAt(redNestX, this.world.nestY);
+    this.colony = new Colony(this.world, this.rng, 40, {
+      id: 'black',
+      homeX: blackNestX,
+      homeY: this.world.nestY,
+    });
+    this.rivalColony = new Colony(this.world, this.rng, 40, {
+      id: 'red',
+      homeX: redNestX,
+      homeY: this.world.nestY,
+      workerColor: RIVAL_WORKER_COLOR,
+      soldierColor: RIVAL_SOLDIER_COLOR,
+    });
+    this.rivalColony.setWorkAllocation({ forage: 95, dig: 0, nurse: 5 });
+    this.colony.syncQueenPositionToNest(blackNestX, this.world.nestY);
+    this.rivalColony.syncQueenPositionToNest(redNestX, this.world.nestY);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
     this.#rebuildDigSystem();
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.reset();
+    this.combatSystem = new CombatSystem(this.rng);
     // Two concentrated boot clusters (radius 8, 195 pellets each = 390 total).
     const BOOT_PELLETS = 195;
     const BOOT_RADIUS = 8;
@@ -119,10 +145,21 @@ export class SimulationCore {
         radius: 2,
       },
     ];
+    this.rivalNestEntrances = [
+      {
+        id: 'entrance-red',
+        x: redNestX,
+        y: this.world.entranceY,
+        excavatedSoilTotal: 0,
+        soilOnSurface: 0,
+        radius: 2,
+      },
+    ];
     this.foodPellets = [];
     this.nextPelletId = 1;
-    this.spawnFoodCluster(this.world.nestX, Math.floor(this.world.nestY / 2), BOOT_RADIUS, BOOT_PELLETS);
-    this.spawnFoodCluster(this.world.nestX - 70, this.world.nestY - 25, BOOT_RADIUS, BOOT_PELLETS);
+    const contestedFoodX = Math.floor(this.world.width / 2);
+    this.spawnFoodCluster(contestedFoodX, Math.floor(this.world.nestY / 2), BOOT_RADIUS, BOOT_PELLETS);
+    this.spawnFoodCluster(contestedFoodX, this.world.nestY - 25, BOOT_RADIUS, BOOT_PELLETS);
     this.tick = 0;
   }
 
@@ -139,6 +176,7 @@ export class SimulationCore {
       config,
       foodPellets: this.foodPellets,
       nestEntrances: this.nestEntrances,
+      rivalNestEntrances: this.rivalNestEntrances,
     });
 
     this.foodEconomySystem.update({
@@ -181,17 +219,21 @@ export class SimulationCore {
   }
 
   findAntById(antId) {
-    return this.colony.ants.find((ant) => ant.id === antId) || null;
+    return this.colony.ants.find((ant) => ant.id === antId)
+      || this.rivalColony.ants.find((ant) => ant.id === antId)
+      || null;
   }
 
   findAntNear(x, y, maxDistance = 2) {
     let nearest = null;
     let bestDistance = maxDistance;
-    for (const ant of this.colony.ants) {
-      const d = Math.hypot(ant.x - x, ant.y - y);
-      if (d <= bestDistance) {
-        bestDistance = d;
-        nearest = ant;
+    for (const colony of [this.colony, this.rivalColony]) {
+      for (const ant of colony.ants) {
+        const d = Math.hypot(ant.x - x, ant.y - y);
+        if (d <= bestDistance) {
+          bestDistance = d;
+          nearest = ant;
+        }
       }
     }
     return nearest;
@@ -341,6 +383,8 @@ export class SimulationCore {
         break;
       case 'nest':
         this.world.setNest(worldX, worldY);
+        this.colony.homeX = worldX;
+        this.colony.homeY = worldY;
         if (this.nestEntrances.length === 0) {
           this.nestEntrances.push({
             id: 'entrance-main',
@@ -367,6 +411,7 @@ export class SimulationCore {
 
   clearWorld() {
     this.world.initializeTerrain();
+    this.world.carveStarterNestAt(this.rivalColony.homeX, this.rivalColony.homeY);
     this.#rebuildDigSystem();
     this.#syncMacroHomeTerritory();
     this.#rebuildTickPipeline();
@@ -390,13 +435,16 @@ export class SimulationCore {
       rng: this.rng.snapshot(),
       world: this.world.serialize(),
       colony: this.colony.serialize(),
+      rivalColony: this.rivalColony.serialize(),
       tick: this.tick,
       nestEntrances: this.nestEntrances,
+      rivalNestEntrances: this.rivalNestEntrances,
       foodPellets: this.foodPellets,
       nextPelletId: this.nextPelletId,
       digSystem: this.digSystem.serialize(),
       macro: this.macroEngine.serialize(),
       stats: this.stats.serialize(),
+      combat: this.combatSystem.serialize(),
       bootFoodTotal: this.bootFoodTotal,
       state,
     };
@@ -437,12 +485,28 @@ export class SimulationCore {
     this.rng = new SeededRng(this.seed);
     this.world = World.fromSerialized(data.world);
     this.colony = Colony.fromSerialized(this.world, this.rng, data.colony);
+    const redNestX = Math.floor(this.world.width * RED_NEST_X_FRACTION);
+    if (isRecord(data.rivalColony)) {
+      this.rivalColony = Colony.fromSerialized(this.world, this.rng, data.rivalColony);
+    } else {
+      this.world.carveStarterNestAt(redNestX, this.world.nestY);
+      this.rivalColony = new Colony(this.world, this.rng, 40, {
+        id: 'red',
+        homeX: redNestX,
+        homeY: this.world.nestY,
+        workerColor: RIVAL_WORKER_COLOR,
+        soldierColor: RIVAL_SOLDIER_COLOR,
+      });
+      this.rivalColony.setWorkAllocation({ forage: 95, dig: 0, nurse: 5 });
+    }
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
     this.#rebuildDigSystem();
     this.digSystem.loadFromSerialized(data.digSystem);
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.loadFromSerialized(data.macro);
+    this.combatSystem = new CombatSystem(this.rng);
+    this.combatSystem.loadFromSerialized(data.combat);
     this.bootFoodTotal = data.bootFoodTotal || 390;
     this.foodEconomySystem = new FoodEconomySystem({
       world: this.world,
@@ -495,6 +559,31 @@ export class SimulationCore {
         },
       ];
     }
+
+    const restoredRivalEntrances = Array.isArray(data.rivalNestEntrances)
+      ? data.rivalNestEntrances
+        .filter((entry) => entry && this.world.inBounds(entry.x, entry.y))
+        .map((entry, index) => ({
+          id: entry.id || `entrance-red-${index}`,
+          x: entry.x,
+          y: entry.y,
+          excavatedSoilTotal: entry.excavatedSoilTotal || 0,
+          soilOnSurface: entry.soilOnSurface || 0,
+          radius: entry.radius || 2,
+        }))
+      : [];
+    this.rivalNestEntrances = restoredRivalEntrances.length > 0
+      ? restoredRivalEntrances
+      : [
+        {
+          id: 'entrance-red',
+          x: this.rivalColony.homeX,
+          y: this.rivalColony.homeY,
+          excavatedSoilTotal: 0,
+          soilOnSurface: 0,
+          radius: 2,
+        },
+      ];
 
     // Restore the RNG cursor LAST: reconstructing the colony/ants above draws
     // from this.rng (Ant ctor consumes several draws each), so restoring any
@@ -550,6 +639,15 @@ export class SimulationCore {
       && ant.y >= 0 && ant.y < expectedHeight)) {
       throw new TypeError('[SimAnt] Saved colony has an invalid ant list.');
     }
+    if (data.rivalColony !== undefined
+      && (!isRecord(data.rivalColony)
+        || !Array.isArray(data.rivalColony.ants)
+        || !data.rivalColony.ants.every((ant) => isRecord(ant)
+          && Number.isInteger(ant.x) && Number.isInteger(ant.y)
+          && ant.x >= 0 && ant.x < expectedWidth
+          && ant.y >= 0 && ant.y < expectedHeight))) {
+      throw new TypeError('[SimAnt] Saved rival colony has an invalid ant list.');
+    }
   }
 
   // Single source of truth for dig-system construction + wiring. Every rebuild
@@ -563,7 +661,13 @@ export class SimulationCore {
   }
 
   #rebuildTickPipeline() {
-    this.microEngine = new MicroPatchEngine(this.world, this.colony, this.digSystem);
+    this.microEngine = new MicroPatchEngine(
+      this.world,
+      this.colony,
+      this.digSystem,
+      this.rivalColony,
+      this.combatSystem,
+    );
     this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
   }
 }
@@ -580,6 +684,7 @@ const SAVE_MIGRATIONS = {
   0: migrateV0ToV1,
   1: migrateV1ToV2,
   2: migrateV2ToV3,
+  3: migrateV3ToV4,
 };
 
 function migrateSaveData(data, version) {
@@ -622,4 +727,8 @@ function migrateV2ToV3(data) {
   const virtualFoodStored = Number.isFinite(colony.virtualFoodStored) ? colony.virtualFoodStored : 0;
   colony.foodLedgerAdjustment = foodStored - virtualFoodStored - pelletTotal;
   return { ...data, schemaVersion: 3, colony };
+}
+
+function migrateV3ToV4(data) {
+  return isRecord(data) ? { ...data, schemaVersion: 4 } : data;
 }

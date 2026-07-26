@@ -10,7 +10,7 @@ import { getPatchCellState, sanitizeTickConfig } from './SimulationTypes.js';
     - Validates config before each phase
 
     Phase order (FIXED, DO NOT REORDER):
-    1. Colony.update: all ants sense & act, queen reproduces, brood gestates
+    1. Colony updates + local combat: both colonies act, then collisions resolve
     2. DigSystem.update: tunneling fronts advance, dirt carriers assigned
     3. World.updatePheromones: evaporation + diffusion of all three fields
 
@@ -22,15 +22,21 @@ import { getPatchCellState, sanitizeTickConfig } from './SimulationTypes.js';
     Changing phase order will break emergent behavior (even if the code still runs).
 */
 export class MicroPatchEngine {
-  constructor(world, colony, digSystem) {
+  constructor(world, colony, digSystem, rivalColony = null, combatSystem = null) {
     this.world = world;
     this.colony = colony;
     this.digSystem = digSystem;
+    this.rivalColony = rivalColony;
+    this.combatSystem = combatSystem;
   }
 
-  setExternalState({ foodPellets, nestEntrances }) {
+  setExternalState({ foodPellets, nestEntrances, rivalNestEntrances = [] }) {
     this.colony.setSurfaceFoodPellets(foodPellets);
     this.colony.setNestEntrances(nestEntrances);
+    if (this.rivalColony) {
+      this.rivalColony.setSurfaceFoodPellets(foodPellets);
+      this.rivalColony.setNestEntrances(rivalNestEntrances);
+    }
   }
 
   update({ tick, config }) {
@@ -38,6 +44,10 @@ export class MicroPatchEngine {
 
     // Phase 1: per-ant sensing/decisions + local interactions.
     this.colony.update(safeConfig);
+    if (this.rivalColony) this.rivalColony.update(safeConfig);
+    if (this.rivalColony && this.combatSystem) {
+      this.combatSystem.resolve(this.colony, this.rivalColony, safeConfig);
+    }
 
     // Phase 2: underground excavation front progression.
     this.digSystem.update(safeConfig);

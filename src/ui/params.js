@@ -200,6 +200,33 @@ export const parameterDefinitions = {
     step: 5,
     advanced: false,
   },
+  combatEngageChance: {
+    label: 'Combat Engagement Chance',
+    description: 'Chance that opposing ants fight when they occupy the same tile.',
+    group: 'Health',
+    min: 0,
+    max: 1,
+    step: 0.05,
+    advanced: true,
+  },
+  combatWorkerDamage: {
+    label: 'Worker Combat Damage',
+    description: 'Damage a worker deals per combat strike.',
+    group: 'Health',
+    min: 1,
+    max: 49,
+    step: 1,
+    advanced: true,
+  },
+  combatSoldierDamage: {
+    label: 'Soldier Combat Damage',
+    description: 'Damage a soldier deals per combat strike.',
+    group: 'Health',
+    min: 1,
+    max: 50,
+    step: 1,
+    advanced: true,
+  },
 
   // =====================
   // NEST BEHAVIOR (Core)
@@ -630,6 +657,9 @@ export function getDefaultConfig() {
     healthWorkMoveDrainRate: 0.08,
     healthWorkCarryDrainRate: 0.01,
     healthWorkFightDrainRate: 0.6,
+    combatEngageChance: 0.25,
+    combatWorkerDamage: 8,
+    combatSoldierDamage: 16,
     healthEatRecoveryRate: 0.45,
     workerEmergencyEatNutrition: 35,
     carryingHungerDrainRate: 0.5,

@@ -24,7 +24,7 @@ export class NestRenderer {
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.world = world;
 
-    this.cameraX = world.nestX;
+    this.cameraX = world.width * 0.5;
     this.cameraY = world.nestY + 28;
     this.zoom = 3;
 
@@ -80,6 +80,17 @@ export class NestRenderer {
     this.#drawNestFood(ctx, colony);
     this.#drawEggs(ctx, colony);
     this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats, overlays);
+    if (options.rivalColony) {
+      this.#drawNestFood(ctx, options.rivalColony);
+      this.#drawEggs(ctx, options.rivalColony);
+      this.#drawAnts(
+        ctx,
+        options.rivalColony,
+        options.selectedAntId,
+        options.showDebugStats,
+        overlays,
+      );
+    }
 
     ctx.restore();
   }
@@ -200,8 +211,10 @@ export class NestRenderer {
     const larvae = colony.larvae || [];
     if (!colony.queen.alive || larvae.length === 0) return;
 
-    const broodX = Math.max(0, Math.min(this.world.width - 1, this.world.nestX + 4));
-    const broodY = Math.max(this.world.nestY + 2, Math.min(this.world.height - 1, this.world.nestY + 8));
+    const homeX = Number.isFinite(colony.homeX) ? colony.homeX : this.world.nestX;
+    const homeY = Number.isFinite(colony.homeY) ? colony.homeY : this.world.nestY;
+    const broodX = Math.max(0, Math.min(this.world.width - 1, homeX + 4));
+    const broodY = Math.max(this.world.nestY + 2, Math.min(this.world.height - 1, homeY + 8));
 
     // Nurses keep larvae in a compact, even brood patch rather than tracing queen movement.
     const cols = Math.max(1, Math.ceil(Math.sqrt(larvae.length)));
@@ -280,7 +293,9 @@ export class NestRenderer {
       if (ant.y <= world.nestY && !antInCarvedNest) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       const drawY = ant.y;
-      ctx.fillStyle = overlays.showAntJobs ? Ant.getJobColor(ant.state, ant.workFocus, ant.role) : ant.baseColor;
+      ctx.fillStyle = overlays.showAntJobs && colony.id !== 'red'
+        ? Ant.getJobColor(ant.state, ant.workFocus, ant.role)
+        : ant.baseColor;
       ctx.fillRect(ant.x, drawY, 1, 1);
 
       const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');
@@ -305,26 +320,27 @@ export class NestRenderer {
 
     // Always draw the queen when alive - distinctive purple with gold center
     if (colony.queen.alive) {
-      const queenX = Number.isFinite(colony.queen.x) ? colony.queen.x : world.nestX;
+      const queenX = Number.isFinite(colony.queen.x) ? colony.queen.x : (colony.homeX ?? world.nestX);
       const queenY = Number.isFinite(colony.queen.y) ? colony.queen.y : world.nestY + 6;
 
-      ctx.fillStyle = '#7b3fc9';
+      ctx.fillStyle = colony.id === 'red' ? '#b71c1c' : '#7b3fc9';
       ctx.beginPath();
       ctx.arc(queenX + 0.5, queenY + 0.5, 1.8, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = '#d1aa38';
+      ctx.fillStyle = colony.id === 'red' ? '#ffb3a7' : '#d1aa38';
       ctx.beginPath();
       ctx.arc(queenX + 0.5, queenY + 0.5, 0.85, 0, Math.PI * 2);
       ctx.fill();
     }
 
     if (showDebugStats) {
+      const homeX = Number.isFinite(colony.homeX) ? colony.homeX : world.nestX;
       ctx.fillStyle = '#e8f6ff';
       ctx.font = '3px monospace';
-      ctx.fillText(`FoodStore:${Math.round(colony.foodStored)}`, world.nestX + 4, world.nestY + 8);
-      ctx.fillText(`Queen H:${Math.round(colony.queen.hunger)} HP:${Math.round(colony.queen.health)}`, world.nestX + 4, world.nestY + 11);
-      ctx.fillText(`NestPellets:${colony.nestFoodPellets?.length || 0}`, world.nestX + 4, world.nestY + 14);
+      ctx.fillText(`FoodStore:${Math.round(colony.foodStored)}`, homeX + 4, world.nestY + 8);
+      ctx.fillText(`Queen H:${Math.round(colony.queen.hunger)} HP:${Math.round(colony.queen.health)}`, homeX + 4, world.nestY + 11);
+      ctx.fillText(`NestPellets:${colony.nestFoodPellets?.length || 0}`, homeX + 4, world.nestY + 14);
     }
   }
 

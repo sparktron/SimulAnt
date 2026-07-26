@@ -69,6 +69,12 @@ function clampFiniteRangeNumber(value, fallback, min, max) {
  * Invalid values are clamped or replaced so simulation steps never run with undefined behavior.
  */
 export function sanitizeTickConfig(config = {}) {
+  const combatWorkerDamage = clampFiniteRangeNumber(config.combatWorkerDamage, 8, 1, 49);
+  const combatSoldierDamage = Math.max(
+    combatWorkerDamage + 1,
+    clampFiniteRangeNumber(config.combatSoldierDamage, 16, 2, 50),
+  );
+
   return {
     ...config,
     tickSeconds: clampNonNegativeNumber(config.tickSeconds, 1 / 30),
@@ -161,6 +167,9 @@ export function sanitizeTickConfig(config = {}) {
     healthWorkMoveDrainRate: clampNonNegativeNumber(config.healthWorkMoveDrainRate, 0),
     healthWorkCarryDrainRate: clampNonNegativeNumber(config.healthWorkCarryDrainRate, 0),
     healthWorkFightDrainRate: clampNonNegativeNumber(config.healthWorkFightDrainRate, 0),
+    combatEngageChance: clamp01(config.combatEngageChance, 0.25),
+    combatWorkerDamage,
+    combatSoldierDamage,
     healthEatRecoveryRate: clampNonNegativeNumber(config.healthEatRecoveryRate, 0),
     workerEmergencyEatNutrition: clampNonNegativeNumber(config.workerEmergencyEatNutrition, 0),
     carryingHungerDrainRate: clampNonNegativeNumber(config.carryingHungerDrainRate, 0),

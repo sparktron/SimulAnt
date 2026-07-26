@@ -18,6 +18,9 @@ function installFakeDocument() {
           setAttribute(name, value) {
             attributes.set(name, String(value));
           },
+          removeAttribute(name) {
+            attributes.delete(name);
+          },
         });
       }
       return elements.get(id);
@@ -27,13 +30,14 @@ function installFakeDocument() {
   return elements;
 }
 
-test('HUD health bars show selected-ant and black-colony health while red is unavailable', () => {
+test('HUD health bars show selected-ant and both colony averages', () => {
   const elements = installFakeDocument();
 
   updateHud({
     viewMode: 'SURFACE',
     tick: 1,
     ants: 10,
+    redAnts: 9,
     workers: 7,
     soldiers: 3,
     breeders: 1,
@@ -52,17 +56,19 @@ test('HUD health bars show selected-ant and black-colony health while red is una
     followingHome: 0,
     selectedAntHealth: 42,
     blackColonyHealth: 55,
+    redColonyHealth: 72,
     antHealthStats: { min: 20, avg: 55, max: 90 },
   });
 
   assert.equal(elements.get('healthYellow').style.height, '42%');
   assert.equal(elements.get('healthFocusLabel').textContent, 'SEL');
   assert.equal(elements.get('healthBlack').style.height, '55%');
-  assert.equal(elements.get('healthRed').style.height, '0%');
+  assert.equal(elements.get('healthRed').style.height, '72%');
   assert.equal(elements.get('healthYellow').getAttribute('aria-valuetext'), '42.0% health');
   assert.equal(elements.get('healthBlack').getAttribute('aria-valuetext'), '55.0% average health');
-  assert.equal(elements.get('healthRed').getAttribute('aria-valuetext'), 'Red colony not available');
-  assert.equal(elements.get('healthRed').getAttribute('aria-disabled'), 'true');
+  assert.equal(elements.get('healthRed').getAttribute('aria-valuetext'), '72.0% average health');
+  assert.equal(elements.get('healthRed').getAttribute('aria-disabled'), null);
+  assert.equal(elements.get('hudRedAnts').textContent, '9');
   assert.equal(elements.get('hudHealthStats').textContent, 'MIN:20.0 AVG:55.0 MAX:90.0');
   assert.equal(elements.get('hudBreeders').textContent, '1');
   assert.equal(elements.get('hudNurses').textContent, '2');
@@ -97,13 +103,14 @@ test('selected-ant health meter stays empty when no ant is selected', () => {
     followingHome: 0,
     selectedAntHealth: null,
     blackColonyHealth: 35,
+    redColonyHealth: 64,
     antHealthStats: { min: 10, avg: 35, max: 70 },
   });
 
   assert.equal(elements.get('healthYellow').style.height, '0%');
   assert.equal(elements.get('healthFocusLabel').textContent, 'SEL');
   assert.equal(elements.get('healthBlack').style.height, '35%');
-  assert.equal(elements.get('healthRed').style.height, '0%');
+  assert.equal(elements.get('healthRed').style.height, '64%');
   assert.equal(elements.get('healthYellow').getAttribute('aria-valuetext'), 'No ant selected');
   assert.equal(elements.get('hudBreeders').textContent, '0');
   assert.equal(elements.get('hudNurses').textContent, '1');
