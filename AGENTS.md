@@ -21,6 +21,23 @@ node --test --test-name-pattern="forage" test/*.mjs
 
 Open at http://localhost:8000 after starting the server.
 
+## Key Entry Points
+
+| Purpose | File |
+|---|---|
+| Simulation config (60+ params) | `src/main.js` lines 38–108 |
+| Ant state machine | `src/sim/ant.js` |
+| Tick orchestration | `src/sim/core/TickScheduler.js` |
+| World terrain + pheromones | `src/sim/world.js` |
+| Pheromone foraging strategy + experiment log | `docs/pheromone-strategy.md` |
+| Core simulation architecture (deterministic tick contract) | `docs/core-simulation-architecture.md` |
+| Surface rendering | `src/render/SurfaceRenderer.js` |
+| Nest rendering | `src/render/NestRenderer.js` |
+
+Read `docs/core-simulation-architecture.md` before editing `TickScheduler`,
+`MacroEngine`, or `MicroPatchEngine` — it documents the deterministic tick
+contract in detail.
+
 ## Non-Obvious Patterns
 
 **No package.json, no npm.** Never run `npm install`, `npm test`, or any npm command. Tests use Node's built-in `node:test` runner directly.
