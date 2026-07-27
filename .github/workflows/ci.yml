@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          # No cache: this project has no package.json and no dependencies.
+
+      # AGENTS.md: no package.json, no npm. Tests run on node:test directly.
+      - name: Run test suite
+        run: node --test test/*.mjs
+
+  contracts:
+    name: Project contracts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Determinism is a hard contract: all randomness must go through
+      # SeededRng (src/sim/rng.js). See AGENTS.md "Non-Obvious Patterns".
+      - name: Determinism guard
+        run: node scripts/check-determinism.mjs
+
+      # AGENTS.md requires a semver bump in VERSION on every code change.
+      # This checks the format only — enforcing an actual bump would fail
+      # doc-only and test-only changes, which the project exempts.
+      - name: VERSION is valid semver
+        run: |
+          version=$(tr -d '[:space:]' < VERSION)
+          echo "VERSION = $version"
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error file=VERSION::VERSION must be MAJOR.MINOR.PATCH, got '$version'"
+            exit 1
+          fi
+
+      # The project deliberately has no package manager. A stray package.json
+      # or lockfile means someone ran npm against AGENTS.md's explicit rule.
+      - name: No package manager files
+        run: |
+          found=$(git ls-files 'package.json' 'package-lock.json' 'yarn.lock' 'pnpm-lock.yaml')
+          if [ -n "$found" ]; then
+            echo "::error::This project has no package manager. Remove: $found"
+            exit 1
+          fi
+          echo "No package manager files — as intended."
