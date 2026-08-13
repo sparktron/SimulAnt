@@ -14,7 +14,9 @@ import { SeededRng } from '../src/sim/rng.js';
 // HISTORY: v0.43.3 was surface-count-ONLY, which let distant uncollected pellets keep
 // the surface count high and silence respawn while the colony starved (the RCA cause
 // #2). v0.50.0 revives the reserve params (foodReservePerAnt / foodMinReserve /
-// foodRespawnCooldownTicks) as the hunger trigger + rate limit. See
+// foodRespawnCooldownTicks) as the hunger trigger + rate limit. Since v0.57.4,
+// production supplies both colonies and centers each drop on the colony with the
+// greatest normalized reserve shortfall. See
 // docs/starvation-collapse-rca-2026-06-02.md.
 function makeWorld() {
   return { width: 256, height: 256, nestX: 128, nestY: 128 };
@@ -42,6 +44,35 @@ function makeSystem(opts = {}) {
     foodDropDistanceRange: opts.foodDropDistanceRange ?? 30,
   });
   return { sys, calls, colony };
+}
+
+function makeGlobalSystem(opts = {}) {
+  const calls = [];
+  const black = {
+    id: 'black',
+    homeX: 64,
+    homeY: 128,
+    ants: new Array(opts.blackAnts ?? 100).fill({}),
+    foodStored: opts.blackFood ?? 1_000_000,
+  };
+  const red = {
+    id: 'red',
+    homeX: 192,
+    homeY: 128,
+    ants: new Array(opts.redAnts ?? 100).fill({}),
+    foodStored: opts.redFood ?? 1_000_000,
+  };
+  const sys = new FoodEconomySystem({
+    world: makeWorld(),
+    colonies: [black, red],
+    rng: new SeededRng(opts.seed ?? 'global-food-econ'),
+    spawnFoodCluster: (x, y, r, count) => calls.push({ x, y, r, count }),
+    bootFoodTotal: 390,
+    minSurfacePellets: 200,
+    foodReservePerAnt: 12,
+    foodMinReserve: 150,
+  });
+  return { sys, calls, black, red };
 }
 
 // Build N free pellets (+ optionally some already-claimed ones the floor ignores).
@@ -141,6 +172,45 @@ test('HUNGER trigger fires even when the surface is full (the RCA bug fix)', () 
   });
   sys.update({ foodPellets: pellets(500) });
   assert.equal(calls.length, 1, 'hungry larder fires the net despite a full surface');
+});
+
+test('global hunger trigger monitors the rival colony and drops near its home', () => {
+  const { sys, calls, red } = makeGlobalSystem({ blackFood: 10_000, redFood: 0 });
+
+  sys.update({ foodPellets: pellets(500) });
+
+  assert.equal(calls.length, 1, 'red hunger should trigger relief even while black is well stocked');
+  const redDistance = Math.hypot(calls[0].x - red.homeX, calls[0].y - red.homeY);
+  const blackDistance = Math.hypot(calls[0].x - 64, calls[0].y - 128);
+  assert.ok(redDistance >= 25 && redDistance <= 65, `drop should use red's 30–60 tile band, got ${redDistance}`);
+  assert.ok(redDistance < blackDistance, 'relief drop should be closer to red than black');
+});
+
+test('global hunger trigger selects the greatest normalized reserve shortfall', () => {
+  // Both colonies have a 1200 floor. Black is 25% short; red is 75% short.
+  const { sys, calls, red } = makeGlobalSystem({ blackFood: 900, redFood: 300 });
+
+  sys.update({ foodPellets: pellets(500) });
+
+  assert.equal(calls.length, 1);
+  const redDistance = Math.hypot(calls[0].x - red.homeX, calls[0].y - red.homeY);
+  assert.ok(redDistance >= 25 && redDistance <= 65, 'the needier red colony should receive the drop');
+});
+
+test('surface-only replenishment uses seeded tie-breaking instead of black array order', () => {
+  let blackDrops = 0;
+  let redDrops = 0;
+  for (let i = 0; i < 20; i += 1) {
+    const { sys, calls } = makeGlobalSystem({ seed: `surface-tie-${i}` });
+    sys.update({ foodPellets: pellets(0) });
+    const blackDistance = Math.hypot(calls[0].x - 64, calls[0].y - 128);
+    const redDistance = Math.hypot(calls[0].x - 192, calls[0].y - 128);
+    if (blackDistance < redDistance) blackDrops += 1;
+    else redDrops += 1;
+  }
+
+  assert.ok(blackDrops > 0, 'equal-need surface drops should sometimes select black');
+  assert.ok(redDrops > 0, 'equal-need surface drops should sometimes select red');
 });
 
 test('a well-stocked larder AND full surface → no drop', () => {

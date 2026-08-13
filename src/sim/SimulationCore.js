@@ -128,7 +128,7 @@ export class SimulationCore {
     this.bootFoodTotal = BOOT_PELLETS * 2;
     this.foodEconomySystem = new FoodEconomySystem({
       world: this.world,
-      colony: this.colony,
+      colonies: [this.colony, this.rivalColony],
       rng: this.rng,
       spawnFoodCluster: (...args) => this.spawnFoodCluster(...args),
       bootFoodTotal: this.bootFoodTotal,
@@ -510,7 +510,7 @@ export class SimulationCore {
     this.bootFoodTotal = data.bootFoodTotal || 390;
     this.foodEconomySystem = new FoodEconomySystem({
       world: this.world,
-      colony: this.colony,
+      colonies: [this.colony, this.rivalColony],
       rng: this.rng,
       spawnFoodCluster: (...args) => this.spawnFoodCluster(...args),
       bootFoodTotal: this.bootFoodTotal,

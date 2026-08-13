@@ -145,8 +145,8 @@ export function sanitizeTickConfig(config = {}) {
     queenSuccessionFoodCost: clampNonNegativeNumber(config.queenSuccessionFoodCost, 60),
     queenSuccessionMinHealthFraction: clamp01(config.queenSuccessionMinHealthFraction, 0.5),
     // Food respawn (FoodEconomySystem, v0.50.0 dual-trigger): drop fresh food when
-    // EITHER free surface pellets fall below minSurfacePellets OR the larder
-    // (foodStored) falls below max(foodMinReserve, ants*foodReservePerAnt). A
+    // EITHER free surface pellets fall below minSurfacePellets OR any colony's
+    // larder falls below max(foodMinReserve, ants*foodReservePerAnt). A
     // cooldown bounds the rate (hunger trigger isn't self-limiting). Fixes the
     // RCA cause #2 — see docs/starvation-collapse-rca-2026-06-02.md.
     minSurfacePellets: clampPositiveInt(config.minSurfacePellets, 200, 0),

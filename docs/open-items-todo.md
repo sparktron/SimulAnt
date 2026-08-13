@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.3** on 2026-08-13.
+Status checked against landed `master` at **v0.57.4** on 2026-08-13.
 
 ## Completed
 
@@ -74,6 +74,9 @@ Status checked against landed `master` at **v0.57.3** on 2026-08-13.
 31. ✅ Replaced ambiguous ant movement booleans with explicit action results,
     suppressed fallback after completed local work, and moved hazard resolution
     after the final movement including fallback (v0.57.3).
+32. ✅ Made food respawning global across both colonies, selected the greatest
+    normalized reserve shortfall with seeded tie-breaking, and centered relief
+    drops on the selected colony's home (v0.57.4).
 
 ## Active work
 

@@ -31,6 +31,10 @@ All ticks are processed in this strict order:
       roll once to engage, then alternate role-weighted attacks until one dies.
    4. Dig update (`digSystem.update`): deterministic front iteration with seeded randomness and bounded safety loops.
    5. Pheromone update (`world.updatePheromones`): evaporation every tick, diffusion on `tick % diffIntervalTicks === 0`.
+3. **Global food-economy phase** (`FoodEconomySystem.update`)
+   - Monitors surface supply plus both colonies' population-scaled reserves.
+   - Selects the greatest normalized reserve shortfall and places the seeded
+     random drop in the configured distance band around that colony's home.
 
 ### Conflict-resolution rules
 
