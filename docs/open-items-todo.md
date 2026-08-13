@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.0** on 2026-07-26.
+Status checked against landed `master` at **v0.57.1** on 2026-08-13.
 
 ## Completed
 
@@ -65,6 +65,9 @@ Status checked against landed `master` at **v0.57.0** on 2026-07-26.
     competition, deterministic 25% collision engagement, fight-to-the-death
     resolution, stronger soldier damage, red rendering/HUD state, and
     save-schema v4 persistence (v0.57.0).
+29. ✅ Preserved worker food and dirt cargo when a queen-courier assignment
+    arrives mid-delivery, preventing cargo replacement and nutrition loss
+    (v0.57.1).
 
 ## Active work
 

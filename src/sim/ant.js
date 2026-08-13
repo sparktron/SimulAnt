@@ -324,17 +324,18 @@ export class Ant {
 
     if (this.role !== 'worker') return false;
 
-    if (roles.isQueenFoodCourier(this, colony)) {
-      return roles.runQueenCourierBehavior(this, world, colony, rng, config, context);
-    }
-
-    // Carrying checks must come before exit-nest: ants with cargo handle it first.
+    // Existing cargo takes priority over newly assigned work. In particular, a
+    // queen-courier assignment must not replace food or dirt already in transit.
     if (this.carrying?.type === 'dirt') {
       return decisions.haulDirt(this, world, colony, rng, config, context);
     }
 
     if (this.carrying?.type === 'food') {
       return decisions.carryFood(this, world, colony, rng, config, context);
+    }
+
+    if (roles.isQueenFoodCourier(this, colony)) {
+      return roles.runQueenCourierBehavior(this, world, colony, rng, config, context);
     }
 
     // Foragers exit the nest when not carrying anything.

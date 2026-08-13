@@ -493,6 +493,26 @@ test('assigned queen courier feeds queen from nest store', () => {
   assert.ok(sim.colony.foodStored < 100);
 });
 
+test('queen courier assignment preserves food already in transit', () => {
+  const sim = new SimulationCore('queen-courier-cargo-seed');
+  const config = createConfig();
+
+  const ant = sim.colony.ants[0];
+  sim.colony.ants = [ant];
+  ant.x = sim.world.nestX;
+  ant.y = sim.world.nestY + 8;
+  ant.carrying = { type: 'food', pelletId: 'surface-food', pelletNutrition: 12 };
+  ant.carryingType = 'food';
+  sim.colony.queen.foodCourierAntId = ant.id;
+  sim.colony.foodStored = 100;
+
+  ant.update(sim.world, sim.colony, sim.rng, config);
+
+  assert.equal(ant.carrying?.type, 'food', 'courier assignment must not replace surface cargo');
+  assert.equal(ant.carrying?.pelletNutrition, 12, 'surface nutrition must remain intact in transit');
+  assert.equal(sim.colony.foodStored, 100, 'courier assignment must not withdraw a ration while cargo is occupied');
+});
+
 test('brood consumes stored food while gestating', () => {
   const sim = new SimulationCore('brood-food-drain-seed');
   const config = createConfig();
