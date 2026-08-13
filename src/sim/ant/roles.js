@@ -7,21 +7,21 @@
   These sit at the top of the dependency chain, calling steering + navigation
   primitives; nothing calls back into them except the dispatcher.
 
-  Pure relocation: every rng.* call stays in its original order, verified by
-  the replay-hash test.
+  Every behavior returns an explicit { moved, allowFallback } action result so
+  completed local work cannot be mistaken for a failed movement attempt.
 */
 
 import * as steering from './steering.js';
 import * as navigation from './navigation.js';
+import { movementAction, STAY_ACTION } from './action-result.js';
 
 export function isQueenFoodCourier(ant, colony) {
   return colony.isQueenFoodCourier(ant.id);
 }
 
 export function runQueenCourierBehavior(ant, world, colony, rng, config, context) {
-  let didMove = false;
   const queen = colony.queen;
-  if (!queen?.alive) return didMove;
+  if (!queen?.alive) return STAY_ACTION;
 
   if (ant.carrying?.type === 'queen-food') {
     const distanceToQueen = Math.hypot(ant.x - queen.x, ant.y - queen.y);
@@ -30,11 +30,11 @@ export function runQueenCourierBehavior(ant, world, colony, rng, config, context
       ant.carrying = null;
       ant.carryingType = 'none';
       ant.state = 'FEED_QUEEN';
-      return didMove;
+      return STAY_ACTION;
     }
 
     ant.state = 'DELIVER_QUEEN_FOOD';
-    return steering.moveToward(ant, world, queen.x, queen.y, rng);
+    return movementAction(steering.moveToward(ant, world, queen.x, queen.y, rng));
   }
 
   if (context.inNest) {
@@ -47,25 +47,31 @@ export function runQueenCourierBehavior(ant, world, colony, rng, config, context
       };
       ant.carryingType = 'food';
       ant.state = 'PICKUP_QUEEN_FOOD';
-      return didMove;
+      return STAY_ACTION;
     }
 
     ant.state = 'SEEK_QUEEN_FOOD';
     const visiblePellet = colony.findVisiblePellet(ant.x, ant.y, config.foodVisionRadius);
-    if (visiblePellet) return steering.moveToward(ant, world, visiblePellet.x, visiblePellet.y, rng);
-    return steering.moveByPheromone(ant, world, rng, config, 'food', context.entrance, colony);
+    if (visiblePellet) {
+      return movementAction(steering.moveToward(ant, world, visiblePellet.x, visiblePellet.y, rng));
+    }
+    return movementAction(
+      steering.moveByPheromone(ant, world, rng, config, 'food', context.entrance, colony),
+    );
   }
 
   ant.state = 'RETURN_NEST_FOR_QUEEN_FOOD';
   if (context.entrance) {
-    return steering.moveThroughEntranceShaft(ant, 
+    return movementAction(steering.moveThroughEntranceShaft(ant,
       world,
       context.entrance,
       navigation.getNestEntryTargetY(ant,world, context.entrance),
       rng,
-    );
+    ));
   }
-  return steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance, colony);
+  return movementAction(
+    steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance, colony),
+  );
 }
 
 /**
@@ -84,12 +90,12 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
   // Enter the nest if outside
   if (!context.inNest && context.entrance) {
     ant.state = 'NURSE_ENTER_NEST';
-    return steering.moveThroughEntranceShaft(ant, 
+    return movementAction(steering.moveThroughEntranceShaft(ant,
       world,
       context.entrance,
       navigation.getNestEntryTargetY(ant,world, context.entrance),
       rng,
-    );
+    ));
   }
 
   // If carrying queen-food, deliver it
@@ -102,10 +108,10 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
         ant.carrying = null;
         ant.carryingType = 'none';
         ant.state = 'NURSE_FEED_QUEEN';
-        return false;
+        return STAY_ACTION;
       }
       ant.state = 'NURSE_DELIVER_QUEEN_FOOD';
-      return steering.moveToward(ant, world, queen.x, queen.y, rng);
+      return movementAction(steering.moveToward(ant, world, queen.x, queen.y, rng));
     }
     // Queen dead — drop the food
     ant.carrying = null;
@@ -132,7 +138,7 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
       };
       ant.carryingType = 'food';
       ant.state = 'NURSE_PICKUP_QUEEN_FOOD';
-      return false;
+      return STAY_ACTION;
     }
   }
 
@@ -153,14 +159,14 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
     const distToBrood = Math.hypot(ant.x - broodX, ant.y - broodY);
     if (distToBrood > 3) {
       ant.state = 'NURSE_TEND_BROOD';
-      return steering.moveToward(ant, world, broodX, broodY, rng);
+      return movementAction(steering.moveToward(ant, world, broodX, broodY, rng));
     }
   }
 
   // Default: wander nest exploring.
   // Phase 3: nurse idle wander uses the correlated random walk too.
   steering.updateWanderHeading(ant, rng, world, config);
-  return steering.moveByPheromone(ant, world, rng, config, 'food', context.entrance);
+  return movementAction(steering.moveByPheromone(ant, world, rng, config, 'food', context.entrance));
 }
 
 /**
@@ -178,12 +184,12 @@ export function runDiggerBehavior(ant, world, colony, rng, config, context) {
   // Enter the nest if outside
   if (!context.inNest && context.entrance) {
     ant.state = 'DIG_ENTER_NEST';
-    return steering.moveThroughEntranceShaft(ant, 
+    return movementAction(steering.moveThroughEntranceShaft(ant,
       world,
       context.entrance,
       navigation.getNestEntryTargetY(ant,world, context.entrance),
       rng,
-    );
+    ));
   }
 
   // Deposit home pheromone to help navigation
@@ -198,7 +204,7 @@ export function runDiggerBehavior(ant, world, colony, rng, config, context) {
     const distToFront = Math.hypot(ant.x - digTarget.x, ant.y - digTarget.y);
     if (distToFront > 2) {
       ant.state = 'DIG_MOVE_TO_FRONT';
-      return steering.moveToward(ant, world, digTarget.x, digTarget.y, rng);
+      return movementAction(steering.moveToward(ant, world, digTarget.x, digTarget.y, rng));
     }
     // At the front — wander nearby so DigSystem can assign us
     ant.state = 'DIG_AT_FRONT';
@@ -207,5 +213,5 @@ export function runDiggerBehavior(ant, world, colony, rng, config, context) {
   // Wander near current position in tunnels.
   // Phase 3: digger at-front wander uses the correlated random walk too.
   steering.updateWanderHeading(ant, rng, world, config);
-  return steering.moveByPheromone(ant, world, rng, config, 'food', context.entrance);
+  return movementAction(steering.moveByPheromone(ant, world, rng, config, 'food', context.entrance));
 }

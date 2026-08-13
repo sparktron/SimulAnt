@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.2** on 2026-08-13.
+Status checked against landed `master` at **v0.57.3** on 2026-08-13.
 
 ## Completed
 
@@ -71,6 +71,9 @@ Status checked against landed `master` at **v0.57.2** on 2026-08-13.
 30. ✅ Centralized queen-food reservations, counted in-flight nurse carriers
     against the delivery limit, and capped reserved nutrition to the queen's
     remaining recovery deficit (v0.57.2).
+31. ✅ Replaced ambiguous ant movement booleans with explicit action results,
+    suppressed fallback after completed local work, and moved hazard resolution
+    after the final movement including fallback (v0.57.3).
 
 ## Active work
 

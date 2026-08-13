@@ -98,9 +98,13 @@ test('ant moves on passable terrain during update', () => {
 
   // Place ant on surface (passable)
   const ant = new Ant(world.nestX, world.nestY - 5, rng, 'worker');
+  ant.workFocus = 'forage';
+  ant.health = ant.healthMax;
+  ant.hunger = 80;
   colony.ants.push(ant);
   colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
   colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 0;
 
   const startX = ant.x;
   const startY = ant.y;
@@ -222,6 +226,84 @@ test('worker return-to-nest fallback uses per-ant miss-threshold jitter to avoid
   assert.equal(ant.state, 'RETURN_NEST_TO_EAT');
 });
 
+test('nest departure delay is intentional inactivity and does not trigger fallback movement', () => {
+  const rng = new SeededRng('departure-delay-action-seed');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+
+  const ant = new Ant(world.nestX, world.nestY + 4, rng, 'worker');
+  ant.workFocus = 'forage';
+  ant.health = ant.healthMax;
+  ant.hunger = ant.hungerMax;
+  ant._nestDepartureDelay = 3;
+  colony.ants.push(ant);
+  const start = { x: ant.x, y: ant.y };
+
+  ant.update(world, colony, rng, config);
+
+  assert.deepEqual({ x: ant.x, y: ant.y }, start);
+  assert.equal(ant._nestDepartureDelay, 2);
+  assert.equal(ant.state, 'EXIT_NEST');
+});
+
+test('on-tile food pickup completes without fallback movement', () => {
+  const rng = new SeededRng('pickup-action-seed');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  const start = { x: world.nestX + 10, y: world.nestY - 5 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([{
+    id: 'pickup-action-food',
+    x: start.x,
+    y: start.y,
+    nutrition: 12,
+    takenByAntId: null,
+  }]);
+  colony.foodStored = 0;
+
+  const ant = new Ant(start.x, start.y, rng, 'worker');
+  ant.workFocus = 'forage';
+  ant.health = ant.healthMax;
+  ant.hunger = 80;
+  colony.ants.push(ant);
+
+  ant.update(world, colony, rng, config);
+
+  assert.deepEqual({ x: ant.x, y: ant.y }, start);
+  assert.equal(ant.state, 'PICKUP');
+  assert.equal(ant.carrying?.pelletNutrition, 12);
+});
+
+test('feeding the queen completes without fallback movement', () => {
+  const rng = new SeededRng('queen-feed-action-seed');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+  colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
+  colony.setSurfaceFoodPellets([]);
+  colony.queen.hunger = 0;
+
+  const ant = new Ant(colony.queen.x, colony.queen.y, rng, 'worker');
+  ant.carrying = { type: 'queen-food', pelletId: null, pelletNutrition: 6 };
+  ant.carryingType = 'food';
+  colony.queen.foodCourierAntId = ant.id;
+  colony.ants.push(ant);
+  const start = { x: ant.x, y: ant.y };
+
+  ant.update(world, colony, rng, config);
+
+  assert.deepEqual({ x: ant.x, y: ant.y }, start);
+  assert.equal(ant.state, 'FEED_QUEEN');
+  assert.equal(ant.carrying, null);
+  assert.equal(colony.queen.hunger, 6);
+});
+
 // --- Hazard Interaction ---
 
 test('ant can step onto hazard terrain and may die', () => {
@@ -300,6 +382,10 @@ test('ant dies immediately after stepping onto a hazard tile', () => {
 
   const ant = new Ant(startX, startY, rng, 'worker');
   ant.dir = 0; // bias east toward the only passable neighbor
+  ant.workFocus = 'forage';
+  ant.health = ant.healthMax;
+  ant.hunger = 80;
+  colony.foodStored = 0;
   colony.ants.push(ant);
 
   ant.update(world, colony, rng, config);
@@ -337,6 +423,32 @@ test('ant deposits food when near entrance regardless of y position', () => {
   assert.ok(result, 'Colony should accept food deposit at valid drop point');
   assert.equal(ant.carrying, null, 'Ant should have cleared carrying after deposit');
   assert.ok(colony.foodStored >= 10, 'Colony should have received the food');
+});
+
+test('nest food deposit completes without fallback movement', () => {
+  const rng = new SeededRng('deposit-action-seed');
+  const world = createTestWorld();
+  const config = createTestConfig();
+  const colony = createTestColony(world, rng, 0);
+  const entrance = { id: 'e', x: world.nestX, y: world.nestY, radius: 2 };
+  colony.setNestEntrances([entrance]);
+  colony.setSurfaceFoodPellets([]);
+  colony.foodStored = 0;
+
+  const ant = new Ant(world.nestX, world.nestY + 6, rng, 'worker');
+  ant.carrying = { type: 'food', pelletId: 'deposit-action-food', pelletNutrition: 10 };
+  ant.carryingType = 'food';
+  ant.health = ant.healthMax;
+  ant.hunger = 80;
+  colony.ants.push(ant);
+  const start = { x: ant.x, y: ant.y };
+
+  ant.update(world, colony, rng, config);
+
+  assert.deepEqual({ x: ant.x, y: ant.y }, start);
+  assert.equal(ant.carrying, null);
+  assert.equal(ant.state, 'EXIT_NEST');
+  assert.equal(colony.foodStored, 10);
 });
 
 // Regression: carriers must NOT lay food pheromone right at the entrance,

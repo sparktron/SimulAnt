@@ -8,14 +8,14 @@
     default forage-search. #decideAndMove keeps the guard ladder and the two
     non-terminal (fall-through) blocks; everything terminal lives here.
 
-    Pure relocation of branch bodies — the dispatcher calls them at the exact
-    point their code previously ran, so the per-tick rng.* order is unchanged
-    (verified by the replay-hash test).
+    Every handler returns an explicit { moved, allowFallback } action result.
+    Completed local actions suppress fallback; failed movement attempts permit it.
 */
 
 import * as steering from './steering.js';
 import * as navigation from './navigation.js';
 import * as vitals from './vitals.js';
+import { movementAction, STAY_ACTION } from './action-result.js';
 
 export function soldierPatrol(ant, world, colony, rng, config, context) {
   let didMove = false;
@@ -41,7 +41,7 @@ export function soldierPatrol(ant, world, colony, rng, config, context) {
   if (didMove && ant.stepCounter % config.homeDepositIntervalTicks === 0 && config.enablePheromones !== false) {
     world.depositToHome(context.idx, config.depositHome * 0.5, config.pheromoneMaxClamp);
   }
-  return didMove;
+  return movementAction(didMove);
 }
 
 export function haulDirt(ant, world, colony, rng, config, context) {
@@ -56,7 +56,7 @@ export function haulDirt(ant, world, colony, rng, config, context) {
       colony.recordDirtDeposit(ant.carrying.amount ?? 1, context.entrance.x, context.entrance.y);
       ant.carrying = null;
       ant.carryingType = 'none';
-      return didMove;
+      return STAY_ACTION;
     }
 
     const targetY = context.inNest ? context.entrance.y - 1 : Math.min(ant.y, context.entrance.y - 1);
@@ -65,10 +65,10 @@ export function haulDirt(ant, world, colony, rng, config, context) {
     }
     if (!didMove) didMove = steering.moveThroughEntranceShaft(ant, world, context.entrance, context.entrance.y, rng);
     if (!didMove) didMove = steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance);
-    return didMove;
+    return movementAction(didMove);
   }
 
-  return steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance);
+  return movementAction(steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance));
 }
 
 export function carryFood(ant, world, colony, rng, config, context) {
@@ -79,7 +79,7 @@ export function carryFood(ant, world, colony, rng, config, context) {
     vitals.consumeCarriedFoodForHealth(ant, config);
     if (!ant.carrying?.type) {
       ant.state = 'EAT';
-      return didMove;
+      return STAY_ACTION;
     }
   }
 
@@ -88,7 +88,11 @@ export function carryFood(ant, world, colony, rng, config, context) {
     const dropPoint = colony.findNestFoodDropPoint(context.entrance, ant.x, ant.y);
     if (dropPoint) {
       if (ant.x === dropPoint.x && ant.y === dropPoint.y) {
-        colony.depositFoodFromAnt(ant, context.entrance, dropPoint);
+        const deposited = colony.depositFoodFromAnt(ant, context.entrance, dropPoint);
+        if (!deposited) {
+          ant.state = 'STORE_FOOD_IN_NEST';
+          return movementAction(false);
+        }
         // Immediately transition to EXIT_NEST so the ant doesn't get pulled
         // back by home pheromone fallback logic. Stagger nest departures:
         // small random delay so ants don't all rush the entrance on the same
@@ -97,13 +101,13 @@ export function carryFood(ant, world, colony, rng, config, context) {
         // the entrance.
         ant.state = 'EXIT_NEST';
         ant._nestDepartureDelay = 2 + rng.int(4);
-        return didMove;
+        return STAY_ACTION;
       }
 
       ant.state = 'STORE_FOOD_IN_NEST';
       didMove = steering.moveToward(ant, world, dropPoint.x, dropPoint.y, rng);
       if (!didMove) didMove = steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance);
-      return didMove;
+      return movementAction(didMove);
     }
 
     // No storage tile available (nest not excavated enough yet).
@@ -111,7 +115,7 @@ export function carryFood(ant, world, colony, rng, config, context) {
     ant.state = 'RETURN_HOME';
     if (context.entrance) {
       didMove = steering.moveThroughEntranceShaft(ant, world, context.entrance, context.entrance.y - 1, rng);
-      if (didMove) return didMove;
+      if (didMove) return movementAction(didMove);
     }
   }
 
@@ -173,7 +177,7 @@ export function carryFood(ant, world, colony, rng, config, context) {
       didMove = steering.moveThroughEntranceShaft(ant, world, context.entrance, context.entrance.y, rng);
     }
   }
-  return didMove;
+  return movementAction(didMove);
 }
 
 export function foragerExitNest(ant, world, colony, rng, config, context) {
@@ -186,12 +190,12 @@ export function foragerExitNest(ant, world, colony, rng, config, context) {
     && ant.hunger < ant.hungerMax * returnHungerThreshold;
   if (shouldContinueIntoNestForFood) {
     ant.state = 'RETURN_NEST_TO_EAT';
-    return steering.moveThroughEntranceShaft(ant, 
+    return movementAction(steering.moveThroughEntranceShaft(ant,
       world,
       context.entrance,
       navigation.getNestEntryTargetY(ant,world, context.entrance),
       rng,
-    );
+    ));
   }
 
   // Stagger departures: after eating, wait a random delay before leaving
@@ -199,7 +203,7 @@ export function foragerExitNest(ant, world, colony, rng, config, context) {
   ant.state = 'EXIT_NEST';
   if (ant._nestDepartureDelay > 0) {
     ant._nestDepartureDelay -= 1;
-    return false;
+    return STAY_ACTION;
   }
   const exitTargetY = context.entrance.y - 1;
   // Scatter exits along a wider band so foragers fan out instead of
@@ -209,12 +213,16 @@ export function foragerExitNest(ant, world, colony, rng, config, context) {
   const scatter = navigation.entranceColumnOffset(ant, radius);
   const scatteredX = context.entrance.x + scatter;
   if (world.isPassable(scatteredX, exitTargetY)) {
-    return steering.moveToward(ant, world, scatteredX, exitTargetY, rng);
+    return movementAction(steering.moveToward(ant, world, scatteredX, exitTargetY, rng));
   }
   if (world.isPassable(context.entrance.x, exitTargetY)) {
-    return steering.moveThroughEntranceShaft(ant, world, context.entrance, exitTargetY, rng);
+    return movementAction(
+      steering.moveThroughEntranceShaft(ant, world, context.entrance, exitTargetY, rng),
+    );
   }
-  return steering.moveThroughEntranceShaft(ant, world, context.entrance, context.entrance.y, rng);
+  return movementAction(
+    steering.moveThroughEntranceShaft(ant, world, context.entrance, context.entrance.y, rng),
+  );
 }
 
 /*
@@ -279,15 +287,14 @@ function eatOrClaimPelletAtTile(ant, world, colony, config, pellet) {
 }
 
 export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pellet) {
-  let didMove = false;
   ant.failedSurfaceFoodSearchTicks = 0;
   if (ant.x === pellet.x && ant.y === pellet.y) {
     eatOrClaimPelletAtTile(ant, world, colony, config, pellet);
-  } else {
-    ant.state = vitals.isLowHealth(ant) ? 'SEEK_FOOD_HEAL' : 'GO_TO_FOOD';
-    didMove = steering.moveToward(ant, world, pellet.x, pellet.y, rng);
+    return STAY_ACTION;
   }
-  return didMove;
+
+  ant.state = vitals.isLowHealth(ant) ? 'SEEK_FOOD_HEAL' : 'GO_TO_FOOD';
+  return movementAction(steering.moveToward(ant, world, pellet.x, pellet.y, rng));
 }
 
 // Defensive path: reachable only if a pellet underfoot is somehow missed by
@@ -295,7 +302,7 @@ export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pe
 export function pickUpPelletHere(ant, world, colony, rng, config, context, pellet) {
   ant.failedSurfaceFoodSearchTicks = 0;
   eatOrClaimPelletAtTile(ant, world, colony, config, pellet);
-  return false;
+  return STAY_ACTION;
 }
 
 // Two-pheromone recruitment (config.dualPheromone, default off): a fresh pickup
@@ -409,5 +416,5 @@ export function forageSearch(ant, world, colony, rng, config, context) {
     didMove = steering.moveToward(ant, world, ax, ay, rng);
   }
   if (!didMove) didMove = steering.moveByPheromone(ant, world, rng, config, 'food', context.entrance);
-  return didMove;
+  return movementAction(didMove);
 }

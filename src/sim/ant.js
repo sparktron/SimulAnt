@@ -23,6 +23,7 @@ import * as steering from './ant/steering.js';
 import * as roles from './ant/roles.js';
 import * as decisions from './ant/decisions.js';
 import { DIRS } from './ant/constants.js';
+import { movementAction, STAY_ACTION } from './ant/action-result.js';
 
 const DEBUG_ANT_FLOW_LOGS = false;
 
@@ -201,7 +202,7 @@ export class Ant {
     const decision = this.#choosePhase(world, colony, rng, config, context);
     if (decision.halted) return;
 
-    this.#applyPhase(world, colony, rng, config, context, decision.didMove);
+    this.#applyPhase(world, colony, rng, config, context, decision.action);
   }
 
   /**
@@ -227,25 +228,24 @@ export class Ant {
    */
   #choosePhase(world, colony, rng, config, context) {
     if (this.#resolveHazard(world, colony, rng, config, context.idx)) {
-      return { halted: true, didMove: false };
+      return { halted: true, action: STAY_ACTION };
     }
 
     this.#applyPreMoveDecisions(colony, rng, config, context);
 
     return {
       halted: false,
-      didMove: this.#decideAndMove(world, colony, rng, config, context),
+      action: this.#decideAndMove(world, colony, rng, config, context),
     };
   }
 
   /**
    * Finalizes a chosen action with post-movement safety checks and vitals.
    */
-  #applyPhase(world, colony, rng, config, context, didMove) {
+  #applyPhase(world, colony, rng, config, context, action) {
+    const moved = this.#applyFallbackMovement(world, colony, rng, config, context.entrance, action);
     const currentIdx = world.index(this.x, this.y);
     if (currentIdx !== context.idx && this.#resolveHazard(world, colony, rng, config, currentIdx)) return;
-
-    const moved = this.#applyFallbackMovement(world, colony, rng, config, context.entrance, didMove);
     // Re-derive in-nest status from the post-movement position so the
     // carry-hunger surcharge follows whether the ant is currently in transit,
     // not whether it started the tick underground.
@@ -315,14 +315,14 @@ export class Ant {
    * Chooses movement intent and executes one step when possible.
    *
    * Encodes worker foraging/return heuristics and pheromone-driven steering.
-   * Returns whether movement occurred this tick.
+   * Returns an explicit movement/fallback action result.
    */
   #decideAndMove(world, colony, rng, config, context) {
     if (this.role === 'soldier') {
       return decisions.soldierPatrol(this, world, colony, rng, config, context);
     }
 
-    if (this.role !== 'worker') return false;
+    if (this.role !== 'worker') return STAY_ACTION;
 
     // Existing cargo takes priority over newly assigned work. In particular, a
     // queen-courier assignment must not replace food or dirt already in transit.
@@ -346,15 +346,15 @@ export class Ant {
     if (vitals.isLowHealth(this) && !context.inNest) {
       this.state = 'RETURN_TO_NEST_HEAL';
       if (context.entrance) {
-        return steering.moveThroughEntranceShaft(
+        return movementAction(steering.moveThroughEntranceShaft(
           this,
           world,
           context.entrance,
           navigation.getNestEntryTargetY(this, world, context.entrance),
           rng,
-        );
+        ));
       }
-      return steering.moveByPheromone(this, world, rng, config, 'home', context.entrance);
+      return movementAction(steering.moveByPheromone(this, world, rng, config, 'home', context.entrance));
     }
 
     if (this.workFocus === 'nurse' && !vitals.needsForage(this, colony)) {
@@ -366,15 +366,17 @@ export class Ant {
     }
 
     if (!vitals.needsForage(this, colony)) {
-      return false;
+      return STAY_ACTION;
     }
 
     if (vitals.isCriticalHealth(this)) {
       this.state = 'RETURN_TO_NEST_HEAL';
       if (context.entrance) {
-        return steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng);
+        return movementAction(
+          steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng),
+        );
       }
-      return false;
+      return STAY_ACTION;
     }
 
     // Non-terminal: may exit the nest, or fall through to pellet search below.
@@ -382,13 +384,17 @@ export class Ant {
       const distanceToEntrance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
       if (distanceToEntrance > (context.entrance.radius ?? 1)) {
         this.state = 'EXIT_NEST';
-        return steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng);
+        return movementAction(
+          steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng),
+        );
       }
 
       this.state = 'EXIT_NEST';
       const exitTargetY = context.entrance.y - 1;
       if (world.isPassable(context.entrance.x, exitTargetY)) {
-        return steering.moveThroughEntranceShaft(this, world, context.entrance, exitTargetY, rng);
+        return movementAction(
+          steering.moveThroughEntranceShaft(this, world, context.entrance, exitTargetY, rng),
+        );
       }
     }
 
@@ -423,13 +429,13 @@ export class Ant {
 
       if (shouldReturnToNestForFood && context.entrance) {
         this.state = 'RETURN_NEST_TO_EAT';
-        return steering.moveThroughEntranceShaft(
+        return movementAction(steering.moveThroughEntranceShaft(
           this,
           world,
           context.entrance,
           navigation.getNestEntryTargetY(this, world, context.entrance),
           rng,
-        );
+        ));
       }
     }
 
@@ -452,13 +458,13 @@ export class Ant {
     return false;
   }
 
-  #applyFallbackMovement(world, colony, rng, config, entrance, didMove) {
-    if (!didMove && this.carrying?.type) {
+  #applyFallbackMovement(world, colony, rng, config, entrance, action) {
+    if (!action.moved && action.allowFallback && this.carrying?.type) {
       return steering.moveByPheromone(this, world, rng, config, 'home', entrance, colony);
     }
-    if (!didMove) {
+    if (!action.moved && action.allowFallback) {
       return steering.moveByPheromone(this, world, rng, config, 'food', entrance, colony);
     }
-    return didMove;
+    return action.moved;
   }
 }

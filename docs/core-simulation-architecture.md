@@ -41,7 +41,12 @@ All ticks are processed in this strict order:
 - **Combat**: engagement uses `combatEngageChance` (25% by default). Attacks
   alternate from a seeded initiative roll until one participant reaches zero
   health; sanitized soldier damage is always greater than worker damage.
-- **Hazard effects**: hazard kill checks are local to ant tile and resolved during ant update.
+- **Ant actions**: behavior branches return `{ moved, allowFallback }`. Completed
+  local work and intentional waiting suppress fallback movement; failed movement
+  attempts may request one pheromone-guided fallback step.
+- **Hazard effects**: hazard kill checks are local to the ant tile. The initial
+  tile is checked before decisions and a changed tile is checked after the final
+  movement, including fallback, so hazard entry resolves in the same tick.
 - **Pheromone decay/spread**: decay then optional diffusion, both clamped to `pheromoneMaxClamp`.
 - **Dig conflicts**: front progress is bounded and sanitized; invalid saved values are clamped before update.
 

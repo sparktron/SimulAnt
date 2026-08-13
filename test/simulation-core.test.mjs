@@ -609,13 +609,15 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   // Update this only alongside an intentional simulation behavior change.
   // Re-captured for v0.57.0: the second colony, contested food layout, and
   // deterministic collision combat intentionally change the replay.
+  // Re-captured for v0.57.3: completed local actions no longer trigger fallback
+  // movement or consume its steering RNG draws.
   const config = sanitizeTickConfig(getDefaultConfig());
   const sim = new SimulationCore('ant-phase-baseline');
 
   for (let i = 0; i < 360; i += 1) sim.update(config);
 
   const replayHash = hashString(JSON.stringify(sim.serialize({})));
-  assert.equal(replayHash, 2279483303);
+  assert.equal(replayHash, 1392506947);
 });
 
 // Survival regression: with the PRODUCTION defaults, the colony used to peak
