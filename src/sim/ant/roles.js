@@ -38,7 +38,7 @@ export function runQueenCourierBehavior(ant, world, colony, rng, config, context
   }
 
   if (context.inNest) {
-    const pickupNutrition = colony.pickupQueenFoodRation(config.queenCourierPickupNutrition ?? 6);
+    const pickupNutrition = colony.reserveQueenFoodRation(config.queenCourierPickupNutrition ?? 6, config);
     if (pickupNutrition > 0) {
       ant.carrying = {
         type: 'queen-food',
@@ -123,7 +123,7 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
       && colony.foodStored > 2
       && colony.countQueenFoodCouriers() < 2) {
     const pickupAmount = config.queenCourierPickupNutrition ?? 6;
-    const nutrition = colony.pickupQueenFoodRation(pickupAmount);
+    const nutrition = colony.reserveQueenFoodRation(pickupAmount, config);
     if (nutrition > 0) {
       ant.carrying = {
         type: 'queen-food',

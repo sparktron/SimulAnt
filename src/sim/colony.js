@@ -809,18 +809,61 @@ export class Colony {
   }
 
   countQueenFoodCouriers() {
-    // Count assigned courier slots that still have a living ant, not in-flight
-    // carriers — so the suppression check is stable across the whole delivery cycle.
-    let count = 0;
-    if (this.queen.foodCourierAntId != null
-        && this.ants.some((a) => a.id === this.queen.foodCourierAntId && a.alive)) count += 1;
-    if (this.queen.foodCourierAntId2 != null
-        && this.ants.some((a) => a.id === this.queen.foodCourierAntId2 && a.alive)) count += 1;
-    return count;
+    // Count unique living ants that are assigned or already carrying a ration.
+    // Nurses reserve sequentially during one colony tick, so including in-flight
+    // carriers prevents every nurse from passing the same slot-count guard.
+    const courierIds = new Set();
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive) continue;
+      if (ant.id === this.queen.foodCourierAntId
+          || ant.id === this.queen.foodCourierAntId2
+          || ant.carrying?.type === 'queen-food') {
+        courierIds.add(ant.id);
+      }
+    }
+    return courierIds.size;
   }
 
-  pickupQueenFoodRation(amount) {
-    const consumed = this.consumeFromStore(amount);
+  getQueenFoodInFlightNutrition() {
+    let nutrition = 0;
+    for (let i = 0; i < this.ants.length; i += 1) {
+      const ant = this.ants[i];
+      if (!ant.alive || ant.carrying?.type !== 'queen-food') continue;
+      nutrition += Math.max(0, Number.isFinite(ant.carrying.pelletNutrition)
+        ? ant.carrying.pelletNutrition
+        : 0);
+    }
+    return nutrition;
+  }
+
+  getQueenFoodNutritionDeficit(config) {
+    if (!this.queen?.alive) return 0;
+
+    // Reserve only enough nutrition to end the active food request. Nurse
+    // thresholds are included because they can initiate delivery independently
+    // of the dedicated courier signal.
+    const healthTargetFraction = Math.max(config.queenFoodRequestClearThreshold ?? 0.8, 0.6);
+    const hungerTargetFraction = Math.max(config.queenFoodRequestHungerThreshold ?? 0.2, 0.25);
+    const hungerDeficit = Math.max(
+      0,
+      this.queen.hungerMax * hungerTargetFraction - this.queen.hunger,
+    );
+    const recoveryPerNutrition = config.queenHealthRecoveryPerNutrition ?? 0;
+    const healthDeficit = recoveryPerNutrition > 0
+      ? Math.max(0, this.queen.healthMax * healthTargetFraction - this.queen.health)
+        / recoveryPerNutrition
+      : 0;
+    return Math.max(hungerDeficit, healthDeficit);
+  }
+
+  reserveQueenFoodRation(amount, config) {
+    const requested = Number.isFinite(amount) ? Math.max(0, amount) : 0;
+    const remainingDeficit = Math.max(
+      0,
+      this.getQueenFoodNutritionDeficit(config) - this.getQueenFoodInFlightNutrition(),
+    );
+    const consumed = this.consumeFromStore(Math.min(requested, remainingDeficit));
     return Math.max(0, consumed);
   }
 

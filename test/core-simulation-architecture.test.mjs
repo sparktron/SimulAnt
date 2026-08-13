@@ -513,6 +513,56 @@ test('queen courier assignment preserves food already in transit', () => {
   assert.equal(sim.colony.foodStored, 100, 'courier assignment must not withdraw a ration while cargo is occupied');
 });
 
+test('nurse queen-food reservations respect the two-delivery limit', () => {
+  const sim = new SimulationCore('nurse-queen-food-limit-seed');
+  const config = createConfig();
+  const nurses = sim.colony.ants.filter((ant) => ant.role === 'worker').slice(0, 4);
+  sim.colony.ants = nurses;
+  sim.colony.queen.health = 59;
+  sim.colony.queen.hunger = sim.colony.queen.hungerMax;
+  sim.colony.queen.foodCourierAntId = null;
+  sim.colony.queen.foodCourierAntId2 = null;
+  sim.colony.foodStored = 100;
+
+  for (const nurse of nurses) {
+    nurse.x = sim.world.nestX;
+    nurse.y = sim.world.nestY + 4;
+    nurse.workFocus = 'nurse';
+    nurse.health = nurse.healthMax;
+    nurse.hunger = nurse.hungerMax;
+    nurse.carrying = null;
+    nurse.carryingType = 'none';
+    nurse.update(sim.world, sim.colony, sim.rng, config);
+  }
+
+  const carriers = nurses.filter((ant) => ant.carrying?.type === 'queen-food');
+  assert.equal(carriers.length, 2, 'only two nurses may reserve queen food concurrently');
+  assert.equal(sim.colony.getQueenFoodInFlightNutrition(), 12);
+  assert.equal(sim.colony.foodStored, 88, 'only the two in-flight rations should leave storage');
+});
+
+test('queen-food reservation subtracts in-flight nutrition from the actual deficit', () => {
+  const sim = new SimulationCore('queen-food-deficit-cap-seed');
+  const config = createConfig();
+  const [carrier, courier] = sim.colony.ants.filter((ant) => ant.role === 'worker');
+  sim.colony.ants = [carrier, courier];
+  sim.colony.queen.health = 79.5;
+  sim.colony.queen.hunger = sim.colony.queen.hungerMax;
+  sim.colony.foodStored = 100;
+  carrier.carrying = { type: 'queen-food', pelletId: null, pelletNutrition: 1.5 };
+  carrier.carryingType = 'food';
+  courier.x = sim.world.nestX;
+  courier.y = sim.world.nestY + 4;
+  sim.colony.queen.foodCourierAntId = courier.id;
+
+  courier.update(sim.world, sim.colony, sim.rng, config);
+
+  assert.equal(courier.carrying?.type, 'queen-food');
+  assert.equal(courier.carrying?.pelletNutrition, 0.5, 'new ration should fill only the unreserved deficit');
+  assert.equal(sim.colony.getQueenFoodInFlightNutrition(), 2);
+  assert.equal(sim.colony.foodStored, 99.5);
+});
+
 test('brood consumes stored food while gestating', () => {
   const sim = new SimulationCore('brood-food-drain-seed');
   const config = createConfig();

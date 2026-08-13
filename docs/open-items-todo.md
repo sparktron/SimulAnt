@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.1** on 2026-08-13.
+Status checked against landed `master` at **v0.57.2** on 2026-08-13.
 
 ## Completed
 
@@ -68,6 +68,9 @@ Status checked against landed `master` at **v0.57.1** on 2026-08-13.
 29. ✅ Preserved worker food and dirt cargo when a queen-courier assignment
     arrives mid-delivery, preventing cargo replacement and nutrition loss
     (v0.57.1).
+30. ✅ Centralized queen-food reservations, counted in-flight nurse carriers
+    against the delivery limit, and capped reserved nutrition to the queen's
+    remaining recovery deficit (v0.57.2).
 
 ## Active work
 
