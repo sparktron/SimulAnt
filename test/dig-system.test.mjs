@@ -146,6 +146,93 @@ test('digger receives no dirt when a front only traverses existing tunnel', () =
   assert.notDeepEqual({ x: front.x, y: front.y }, { x, y }, 'front should traverse the existing tunnel');
   assert.equal(colony.excavatedTiles, excavatedBefore, 'tunnel traversal should not count as excavation');
   assert.equal(worker.carrying, null, 'worker should not receive phantom dirt without excavation');
+  assert.equal(worker.carryingType, 'none', 'worker should not display phantom dirt without cargo');
+});
+
+test('multi-entrance chamber cargo matches the full excavated volume', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('dig-chamber-volume');
+  const colony = new Colony(world, rng, 0);
+  const dig = new DigSystem(world, colony, rng);
+  dig.autoDig = true;
+  colony.setNestEntrances([{ x: 10, y: world.nestY }, { x: 54, y: world.nestY }]);
+
+  const x = world.nestX;
+  const y = world.nestY + 10;
+  dig.fronts = [{ x, y, dir: 1, progress: 0, age: 0, stepsSinceChamber: 29, lastAdvanceTick: 0 }];
+
+  const worker = new Ant(x, y, rng, 'worker');
+  worker.workFocus = 'dig';
+  worker.health = worker.healthMax;
+  worker.hunger = worker.hungerMax;
+  colony.ants.push(worker);
+
+  rng.int = () => 0;
+  rng.chance = () => true;
+  const excavatedBefore = colony.excavatedTiles;
+  dig.update(createTestConfig());
+  const excavatedVolume = colony.excavatedTiles - excavatedBefore;
+
+  assert.ok(excavatedVolume > 1, 'chamber should excavate multiple soil tiles');
+  assert.deepEqual(worker.carrying, { type: 'dirt', amount: excavatedVolume });
+  assert.equal(worker.carryingType, 'dirt');
+});
+
+test('single-entrance excavation produces exact cargo alongside direct mound credit', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('dig-single-entrance-volume');
+  const colony = new Colony(world, rng, 0);
+  const dig = new DigSystem(world, colony, rng);
+  dig.autoDig = true;
+  const entrance = { x: world.nestX, y: world.nestY, soilOnSurface: 0 };
+  colony.setNestEntrances([entrance]);
+  colony.onExcavate = (volume) => {
+    entrance.soilOnSurface += volume * 0.7;
+  };
+  const x = world.nestX + 15;
+  const y = world.nestY + 10;
+  dig.fronts = [{ x, y, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 }];
+
+  const worker = new Ant(x, y, rng, 'worker');
+  worker.workFocus = 'dig';
+  worker.health = worker.healthMax;
+  worker.hunger = worker.hungerMax;
+  colony.ants.push(worker);
+
+  rng.int = () => 0;
+  rng.chance = () => false;
+  dig.update(createTestConfig());
+
+  assert.equal(colony.excavatedTiles, 1);
+  assert.equal(entrance.soilOnSurface, 0.7, 'excavation callback should provide the only mound credit');
+  assert.deepEqual(worker.carrying, { type: 'dirt', amount: 1 });
+  assert.equal(worker.carryingType, 'dirt');
+});
+
+test('tunnel widening records and hauls every excavated tile', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('dig-widen-volume');
+  const colony = new Colony(world, rng, 0);
+  const dig = new DigSystem(world, colony, rng);
+  dig.autoDig = true;
+  colony.setNestEntrances([{ x: 10, y: world.nestY }, { x: 54, y: world.nestY }]);
+
+  const x = world.nestX + 15;
+  const y = world.nestY + 10;
+  dig.fronts = [{ x, y, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 }];
+
+  const worker = new Ant(x, y, rng, 'worker');
+  worker.workFocus = 'dig';
+  worker.health = worker.healthMax;
+  worker.hunger = worker.hungerMax;
+  colony.ants.push(worker);
+
+  rng.int = () => 0;
+  rng.chance = () => true;
+  dig.update(createTestConfig());
+
+  assert.equal(colony.excavatedTiles, 2, 'forward and widened tunnel tiles should both count');
+  assert.deepEqual(worker.carrying, { type: 'dirt', amount: 2 });
 });
 
 test('dig front reverses when every forward direction is blocked', () => {

@@ -238,7 +238,7 @@ test('Auto-dig does not excavate when no worker is near any dig front', () => {
 
 
 
-test('Dirt-carrying ant deposits at surface near entrance', () => {
+test('Single-entrance dirt deposit does not duplicate direct excavation credit', () => {
   const sim = new SimulationCore('seed-dirt-surface-deposit');
   const ant = sim.colony.ants[0];
   const entrance = sim.nestEntrances[0];
@@ -283,10 +283,10 @@ test('Dirt-carrying ant deposits at surface near entrance', () => {
   ant.update(sim.world, sim.colony, sim.rng, cfg);
 
   assert.equal(ant.carrying, null, 'Ant should have deposited dirt');
-  assert.ok(sim.nestEntrances[0].soilOnSurface > beforeSoil, 'Soil on surface should increase');
+  assert.equal(sim.nestEntrances[0].soilOnSurface, beforeSoil, 'Deposit should not add a second mound credit');
 });
 
-test('Auto-dig workers carry dirt and increase surface soil via entrance deposit', () => {
+test('Single-entrance auto-dig workers haul dirt while excavation credits surface soil once', () => {
   const sim = new SimulationCore('seed-auto-dig-haul');
   const cfg = {
     antCap: 300,

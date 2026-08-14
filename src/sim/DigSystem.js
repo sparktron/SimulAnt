@@ -96,7 +96,7 @@ export class DigSystem {
       const work = this.autoDig ? 1.4 : 0.7 + this.rng.range(0, 0.5);
       front.progress += work;
 
-      let didExcavate = false;
+      let excavatedVolume = 0;
       let safetySteps = 0;
       while (front.progress >= 1 && safetySteps < 8) {
         front.progress -= 1;
@@ -104,12 +104,12 @@ export class DigSystem {
         // (lastAdvanceTick delta) also fired when the front merely walked
         // through existing tunnel, minting phantom dirt that inflated the
         // surface mounds without any matching excavation.
-        didExcavate = this.#advanceFront(front, config, false) || didExcavate;
+        excavatedVolume += this.#advanceFront(front, config, false);
         safetySteps += 1;
       }
 
-      if (didExcavate && !digger.carrying?.type) {
-        digger.carrying = { type: 'dirt', amount: 1 };
+      if (excavatedVolume > 0 && !digger.carrying?.type) {
+        digger.carrying = { type: 'dirt', amount: excavatedVolume };
       }
 
       if (!Number.isFinite(front.progress) || front.progress < 0 || safetySteps >= 8) {
@@ -122,7 +122,7 @@ export class DigSystem {
     }
 
     this.fronts.sort((a, b) => b.lastAdvanceTick - a.lastAdvanceTick);
-    this.#updateDirtCarriers(activeDiggerIds);
+    this.#updateDirtCarriers();
     this.#updateUpwardShafts(config);
 
     // Expose active front positions so dig-focus workers can navigate toward them
@@ -130,7 +130,7 @@ export class DigSystem {
   }
 
 
-  #updateDirtCarriers(activeDiggerIds) {
+  #updateDirtCarriers() {
     const ants = this.colony.ants;
     for (let i = 0; i < ants.length; i += 1) {
       const ant = ants[i];
@@ -142,13 +142,6 @@ export class DigSystem {
       } else {
         ant.carryingType = 'none';
       }
-    }
-
-    for (let i = 0; i < ants.length; i += 1) {
-      const ant = ants[i];
-      if (!ant.alive || ant.role !== 'worker') continue;
-      if (ant.carryingType !== 'none') continue;
-      if (activeDiggerIds.has(ant.id)) ant.carryingType = 'dirt';
     }
   }
 
@@ -196,7 +189,7 @@ export class DigSystem {
   forceChamberAtActiveFront(config) {
     const front = this.fronts[0];
     if (!front) return false;
-    return this.#createChamber(front, config);
+    return this.#createChamber(front, config) > 0;
   }
 
   serialize() {
@@ -250,27 +243,31 @@ export class DigSystem {
     if (this.fronts.length === 0) this.#seedInitialFronts();
   }
 
-  // Returns true when the advance removed soil (tunnel carve or chamber
-  // creation) — i.e. there is real dirt for the digger to haul. Advancing
-  // through existing tunnel/chamber returns false.
+  // Returns the number of soil tiles removed by the advance. Advancing through
+  // existing tunnel/chamber returns zero.
   #advanceFront(front, config, forcedChamber) {
     const next = this.#pickNextTile(front);
-    if (!next) return false;
+    if (!next) return 0;
 
     if (forcedChamber || this.#shouldCreateChamber(front)) {
-      const created = this.#createChamber(front, config);
-      if (created) return true;
+      const excavatedVolume = this.#createChamber(front, config);
+      if (excavatedVolume > 0) return excavatedVolume;
     }
 
-    let carvedSoil = false;
+    let excavatedVolume = 0;
     const terrain = this.world.terrain[this.world.index(next.x, next.y)];
     if (terrain === TERRAIN.SOIL) {
-      carvedSoil = this.#carveTunnel(next.x, next.y, config, front);
+      excavatedVolume += this.#carveTunnel(next.x, next.y, config, front);
       if (this.rng.chance(0.12)) {
-        carvedSoil = this.#carveTunnel(next.x + CARDINAL_DIRS[front.dir][1], next.y + CARDINAL_DIRS[front.dir][0], config, front, false) || carvedSoil;
+        excavatedVolume += this.#carveTunnel(
+          next.x + CARDINAL_DIRS[front.dir][1],
+          next.y + CARDINAL_DIRS[front.dir][0],
+          config,
+          front,
+        );
       }
     } else if (terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER) {
-      return false;
+      return 0;
     }
 
     front.x = next.x;
@@ -279,7 +276,7 @@ export class DigSystem {
     front.age += 1;
     front.stepsSinceChamber += 1;
     front.lastAdvanceTick += 1;
-    return carvedSoil;
+    return excavatedVolume;
   }
 
   #pickNextTile(front) {
@@ -349,7 +346,7 @@ export class DigSystem {
       }
     }
 
-    if (carved === 0) return false;
+    if (carved === 0) return 0;
 
     front.stepsSinceChamber = 0;
     const branchDirs = CARDINAL_DIRS.map((_, dir) => dir);
@@ -380,22 +377,22 @@ export class DigSystem {
       this.#spawnUpwardShaft(front.x, front.y, config);
     }
 
-    return true;
+    return carved;
   }
 
-  // Returns true when a SOIL tile was actually converted to tunnel.
-  #carveTunnel(x, y, config, front, countExcavation = true) {
-    if (!this.world.inBounds(x, y) || y <= this.world.nestY + 1) return false;
+  // Returns one when a SOIL tile was converted to tunnel, otherwise zero.
+  #carveTunnel(x, y, config, front) {
+    if (!this.world.inBounds(x, y) || y <= this.world.nestY + 1) return 0;
     const idx = this.world.index(x, y);
     const terrain = this.world.terrain[idx];
-    if (terrain === TERRAIN.WALL || terrain === TERRAIN.WATER || terrain === TERRAIN.HAZARD) return false;
+    if (terrain === TERRAIN.WALL || terrain === TERRAIN.WATER || terrain === TERRAIN.HAZARD) return 0;
 
-    let carved = false;
+    let carved = 0;
     if (terrain === TERRAIN.SOIL) {
       this.world.setTerrain(idx, TERRAIN.TUNNEL);
-      if (countExcavation) this.colony.recordExcavation(1, x, y);
+      this.colony.recordExcavation(1, x, y);
       this.world.depositToHome(idx, config.digHomeBoost);
-      carved = true;
+      carved = 1;
     }
 
     if (front) {

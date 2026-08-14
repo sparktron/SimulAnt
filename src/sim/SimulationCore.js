@@ -260,6 +260,9 @@ export class SimulationCore {
   }
 
   onDepositDirt(volume, worldX, _depthY) {
+    // Single-entrance excavation already receives direct mound credit in
+    // onExcavate. Multi-entrance nests defer that credit until dirt is hauled.
+    if (this.nestEntrances.length <= 1) return;
     const entrance = this.#nearestEntrance(worldX);
     if (!entrance) return;
     entrance.soilOnSurface += volume * SURFACE_DEPOSIT_RATIO;

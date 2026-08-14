@@ -592,8 +592,11 @@ test('onExcavate updates entrance soil totals', () => {
   const soilBefore = entrance.soilOnSurface;
 
   sim.onExcavate(5, sim.world.nestX, sim.world.nestY + 10);
+  const soilAfterExcavation = entrance.soilOnSurface;
+  sim.onDepositDirt(5, sim.world.nestX, sim.world.nestY);
 
-  assert.ok(entrance.soilOnSurface > soilBefore, 'Soil should accumulate on surface');
+  assert.ok(soilAfterExcavation > soilBefore, 'Soil should accumulate on surface');
+  assert.equal(entrance.soilOnSurface, soilAfterExcavation, 'single-entrance deposit must not double-count soil');
   assert.ok(entrance.excavatedSoilTotal > 0);
 });
 
@@ -671,13 +674,15 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   // recruitment budgets in the serialized ant substate.
   // Re-captured for v0.57.9: chamber branches now use distinct shuffled
   // directions and begin on carved chamber-edge tiles.
+  // Re-captured for v0.57.11: widening excavation is fully counted and dirt
+  // cargo preserves the exact removed-soil volume.
   const config = sanitizeTickConfig(getDefaultConfig());
   const sim = new SimulationCore('ant-phase-baseline');
 
   for (let i = 0; i < 360; i += 1) sim.update(config);
 
   const replayHash = hashString(JSON.stringify(sim.serialize({})));
-  assert.equal(replayHash, 3085701331);
+  assert.equal(replayHash, 309898872);
 });
 
 // Survival regression: with the PRODUCTION defaults, the black colony used to peak

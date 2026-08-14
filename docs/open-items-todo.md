@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.10** on 2026-08-14.
+Status checked against landed `master` at **v0.57.11** on 2026-08-14.
 
 ## Completed
 
@@ -93,6 +93,9 @@ Status checked against landed `master` at **v0.57.10** on 2026-08-14.
     tiles so generated branches remain connected to the nest (v0.57.9).
 39. ✅ Validated fallback terrain so dig fronts can take their open reverse
     path instead of stalling against a blocked tile (v0.57.10).
+40. ✅ Preserved exact excavation volume through chamber and widening carves,
+    matched dirt cargo to that volume, avoided duplicate legacy
+    single-entrance mound credit, and removed phantom dirt markers (v0.57.11).
 
 ## Active work
 
