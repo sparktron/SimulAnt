@@ -4,6 +4,7 @@ import { Ant } from '../src/sim/ant.js';
 import { World, TERRAIN } from '../src/sim/world.js';
 import { Colony } from '../src/sim/colony.js';
 import { SeededRng } from '../src/sim/rng.js';
+import { tryEatFromNest } from '../src/sim/ant/vitals.js';
 
 function createTestWorld(width = 64, height = 64) {
   return new World(width, height);
@@ -713,6 +714,27 @@ test('worker nest feeding only consumes hunger deficit from store', () => {
 
   assert.equal(colony.foodStored, 95, 'Only 5 nutrition should be consumed to fill hunger to max');
   assert.ok(ant.hunger > 99.8 && ant.hunger <= 100, 'Ant hunger should be effectively full after bounded intake');
+});
+
+test('starving worker receives recovery bonus from its emergency nest meal', () => {
+  const rng = new SeededRng('starvation-recovery-meal');
+  const world = createTestWorld();
+  const colony = createTestColony(world, rng, 0);
+  const config = {
+    ...createTestConfig(),
+    workerEmergencyEatNutrition: 35,
+    healthEatRecoveryRate: 0.45,
+    starvationRecoveryHealth: 5,
+  };
+  const ant = new Ant(world.nestX, world.nestY + 3, rng, 'worker');
+  ant.hunger = 5;
+  ant.health = 30;
+
+  const ate = tryEatFromNest(ant, colony, true, config);
+
+  assert.equal(ate, true);
+  assert.equal(ant.hunger, 40);
+  assert.equal(ant.health, 30 + 35 * 0.45 + 5);
 });
 
 test('full-hunger worker with moderate health does not eat (relies on passive regen)', () => {

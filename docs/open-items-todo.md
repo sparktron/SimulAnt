@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.6** on 2026-08-14.
+Status checked against landed `master` at **v0.57.7** on 2026-08-14.
 
 ## Completed
 
@@ -82,6 +82,8 @@ Status checked against landed `master` at **v0.57.6** on 2026-08-14.
     the caste has a viable lifecycle (v0.57.5).
 34. ✅ Persisted each carrier's adaptive recruitment budget so mid-return
     save/load cycles continue food-trail deposition without divergence (v0.57.6).
+35. ✅ Captured starvation before emergency nest feeding so the meal applies
+    its configured starvation recovery bonus (v0.57.7).
 
 ## Active work
 

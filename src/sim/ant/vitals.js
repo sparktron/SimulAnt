@@ -157,6 +157,7 @@ export function tryEatFromNest(ant, colony, inNest, config) {
   // is the correct lever.  Critical-health ants still get priority.
   const hungry = ant.hunger < ant.hungerMax * 0.35;
   if (!hungry && !critical) return false;
+  const wasStarving = ant.hunger < ant.hungerMax * 0.1;
 
   const requested = critical
     ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition)
@@ -176,8 +177,7 @@ export function tryEatFromNest(ant, colony, inNest, config) {
   const healthGain = consumed * (config.healthEatRecoveryRate ?? 0);
   // Recovery bonus only applies when the ant is actually starving, not when
   // health is low for other reasons (old age, combat damage, etc.).
-  const isStarving = ant.hunger < ant.hungerMax * 0.1;
-  ant.health = Math.min(ant.healthMax, ant.health + healthGain + (critical && isStarving ? config.starvationRecoveryHealth : 0));
+  ant.health = Math.min(ant.healthMax, ant.health + healthGain + (critical && wasStarving ? config.starvationRecoveryHealth : 0));
   return true;
 }
 
