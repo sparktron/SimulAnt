@@ -669,13 +669,15 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   // breeder share between the active worker and soldier castes.
   // Re-captured for v0.57.6: returning carriers persist their adaptive
   // recruitment budgets in the serialized ant substate.
+  // Re-captured for v0.57.9: chamber branches now use distinct shuffled
+  // directions and begin on carved chamber-edge tiles.
   const config = sanitizeTickConfig(getDefaultConfig());
   const sim = new SimulationCore('ant-phase-baseline');
 
   for (let i = 0; i < 360; i += 1) sim.update(config);
 
   const replayHash = hashString(JSON.stringify(sim.serialize({})));
-  assert.equal(replayHash, 3851715863);
+  assert.equal(replayHash, 3085701331);
 });
 
 // Survival regression: with the PRODUCTION defaults, the black colony used to peak

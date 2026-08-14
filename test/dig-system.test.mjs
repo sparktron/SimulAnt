@@ -189,6 +189,39 @@ test('forceChamberAtActiveFront creates a chamber', () => {
   assert.equal(typeof result, 'boolean');
 });
 
+test('chamber branches start on distinct carved edge tiles', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('force-chamber-connected-branches');
+  const colony = new Colony(world, rng, 0);
+  const dig = new DigSystem(world, colony, rng);
+  const config = createTestConfig();
+  const x = world.nestX + 15;
+  const y = world.nestY + 10;
+
+  dig.fronts = [
+    { x, y, dir: 0, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 },
+  ];
+
+  rng.int = () => 0;
+  const created = dig.forceChamberAtActiveFront(config);
+  const branches = dig.fronts.slice(1);
+
+  assert.equal(created, true);
+  assert.equal(branches.length, 2, 'chamber should create two branch fronts');
+  assert.equal(
+    new Set(branches.map((front) => `${front.x},${front.y}`)).size,
+    branches.length,
+    'branch fronts should not occupy the same tile',
+  );
+  for (const branch of branches) {
+    const terrain = world.terrain[world.index(branch.x, branch.y)];
+    assert.ok(
+      terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER,
+      `branch front should start on carved terrain at (${branch.x}, ${branch.y})`,
+    );
+  }
+});
+
 // --- Serialization ---
 
 test('dig system serializes and loads correctly', () => {

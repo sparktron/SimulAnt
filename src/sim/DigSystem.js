@@ -348,13 +348,24 @@ export class DigSystem {
     if (carved === 0) return false;
 
     front.stepsSinceChamber = 0;
-    for (let i = 0; i < 2; i += 1) {
+    const branchDirs = CARDINAL_DIRS.map((_, dir) => dir);
+    for (let i = branchDirs.length - 1; i > 0; i -= 1) {
+      const j = this.rng.int(i + 1);
+      [branchDirs[i], branchDirs[j]] = [branchDirs[j], branchDirs[i]];
+    }
+
+    let branchesCreated = 0;
+    for (let i = 0; i < branchDirs.length && branchesCreated < 2; i += 1) {
       if (this.fronts.length >= this.maxFronts) break;
-      const dir = this.rng.int(CARDINAL_DIRS.length);
-      const bx = front.x + CARDINAL_DIRS[dir][0] * (rx + 1);
-      const by = front.y + CARDINAL_DIRS[dir][1] * (ry + 1);
+      const dir = branchDirs[i];
+      const bx = front.x + CARDINAL_DIRS[dir][0] * rx;
+      const by = front.y + CARDINAL_DIRS[dir][1] * ry;
       if (!this.world.inBounds(bx, by) || by <= this.world.nestY + 1) continue;
+      const terrain = this.world.terrain[this.world.index(bx, by)];
+      if (terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER) continue;
+      if (this.fronts.some((candidate) => candidate.x === bx && candidate.y === by)) continue;
       this.fronts.push({ x: bx, y: by, dir, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 });
+      branchesCreated += 1;
     }
 
     // Deep chambers may trigger an upward shaft to create a new entrance.
