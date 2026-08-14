@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.7** on 2026-08-14.
+Status checked against landed `master` at **v0.57.8** on 2026-08-14.
 
 ## Completed
 
@@ -84,6 +84,8 @@ Status checked against landed `master` at **v0.57.7** on 2026-08-14.
     save/load cycles continue food-trail deposition without divergence (v0.57.6).
 35. ✅ Captured starvation before emergency nest feeding so the meal applies
     its configured starvation recovery bonus (v0.57.7).
+36. ✅ Excluded already-selected workers from queen courier searches so critical
+    health events fill both courier slots with distinct ants (v0.57.8).
 
 ## Active work
 

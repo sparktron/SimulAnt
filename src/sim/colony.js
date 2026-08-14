@@ -754,6 +754,9 @@ export class Colony {
 
     const assigned1 = this.ants.find((ant) => ant.id === this.queen.foodCourierAntId && ant.alive);
     const assigned2 = this.ants.find((ant) => ant.id === this.queen.foodCourierAntId2 && ant.alive);
+    const assignedCourierIds = new Set();
+    if (assigned1) assignedCourierIds.add(assigned1.id);
+    if (assigned2) assignedCourierIds.add(assigned2.id);
 
     // Clear assignments once the queen is both healthy and well-fed.
     if (this.queen.health >= clearThreshold && this.queen.hunger >= hungerWarningThreshold) {
@@ -767,29 +770,27 @@ export class Colony {
 
     // Primary slot: assign if empty and queen needs help.
     if (!assigned1 && needsCourier) {
-      const nearest = this.findNearestWorkerTo(this.queen.x, this.queen.y);
+      const nearest = this.findNearestWorkerTo(this.queen.x, this.queen.y, assignedCourierIds);
       this.queen.foodCourierAntId = nearest?.id || null;
+      if (nearest) assignedCourierIds.add(nearest.id);
     }
 
     // Secondary slot: escalate to a second courier when health is critical.
     const criticallyIll = this.queen.health < criticalHealthThreshold;
     if (criticallyIll && !assigned2) {
-      const nearest = this.findNearestWorkerTo(this.queen.x, this.queen.y);
-      // Avoid assigning the same ant twice.
-      if (nearest && nearest.id !== this.queen.foodCourierAntId) {
-        this.queen.foodCourierAntId2 = nearest.id;
-      }
+      const nearest = this.findNearestWorkerTo(this.queen.x, this.queen.y, assignedCourierIds);
+      this.queen.foodCourierAntId2 = nearest?.id || null;
     } else if (!criticallyIll) {
       this.queen.foodCourierAntId2 = null;
     }
   }
 
-  findNearestWorkerTo(x, y) {
+  findNearestWorkerTo(x, y, excludedAntIds = new Set()) {
     let nearest = null;
     let best = Number.POSITIVE_INFINITY;
     for (let i = 0; i < this.ants.length; i += 1) {
       const ant = this.ants[i];
-      if (!ant.alive || ant.role !== 'worker') continue;
+      if (!ant.alive || ant.role !== 'worker' || excludedAntIds.has(ant.id)) continue;
       const d = Math.hypot(ant.x - x, ant.y - y);
       if (d < best) {
         best = d;

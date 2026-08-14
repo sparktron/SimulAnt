@@ -4,7 +4,7 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 
 > ⚡ **No build step required** — just serve static files and play.
 
-Current landed version: **v0.57.7**. The simulation includes deterministic
+Current landed version: **v0.57.8**. The simulation includes deterministic
 save/load with explicit migrations, biological crowding controls, nest-space
 carrying capacity, cached surface terrain rendering, and an explicit
 replay-guarded `Ant.update` sense → choose → apply pipeline. Food-respawn drops
@@ -29,6 +29,8 @@ Mid-return saves preserve each carrier's adaptive recruitment budget, so food
 trail deposition continues at the same strength after loading.
 Emergency nest meals now preserve the ant's pre-meal starvation state, ensuring
 the configured starvation health bonus is applied when the meal rescues it.
+Critical queen-health requests assign two distinct nearest workers, allowing the
+secondary courier slot to reinforce the primary delivery.
 Black and red colonies now begin from opposing sides of the map and compete for
 shared food. Opposing ants that collide have a 25% chance to fight to the death,
 with soldiers dealing twice the default damage of workers. Both colony health

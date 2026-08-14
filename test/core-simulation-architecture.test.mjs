@@ -471,6 +471,26 @@ test('queen signals nearest worker for food when below 50% health', () => {
   assert.equal(sim.colony.queen.foodCourierAntId, nearest.id);
 });
 
+test('critical queen assigns distinct primary and secondary couriers', () => {
+  const sim = new SimulationCore('queen-secondary-courier-seed');
+  const config = createConfig();
+  const workers = sim.colony.ants.filter((ant) => ant.role === 'worker').slice(0, 2);
+  sim.colony.ants = workers;
+  sim.colony.queen.health = 20;
+  sim.colony.queen.hunger = sim.colony.queen.hungerMax;
+  sim.colony.foodStored = 100;
+  workers[0].x = sim.colony.queen.x;
+  workers[0].y = sim.colony.queen.y;
+  workers[1].x = sim.colony.queen.x + 4;
+  workers[1].y = sim.colony.queen.y;
+
+  sim.update(config);
+
+  assert.equal(sim.colony.queen.foodCourierAntId, workers[0].id);
+  assert.equal(sim.colony.queen.foodCourierAntId2, workers[1].id);
+  assert.notEqual(sim.colony.queen.foodCourierAntId2, sim.colony.queen.foodCourierAntId);
+});
+
 test('assigned queen courier feeds queen from nest store', () => {
   const sim = new SimulationCore('queen-courier-feed-seed');
   const config = createConfig();
