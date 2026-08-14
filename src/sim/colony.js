@@ -1455,6 +1455,7 @@ export class Colony {
         hasInitiallyScattered: ant._hasInitiallyScattered,
         failedSurfaceFoodSearchTicks: ant.failedSurfaceFoodSearchTicks,
         lastNestEatTick: ant._lastNestEatTick,
+        ...(Number.isFinite(ant._recruitBudget) ? { recruitBudget: ant._recruitBudget } : {}),
       })),
     };
   }
@@ -1575,6 +1576,7 @@ export class Colony {
         ant.failedSurfaceFoodSearchTicks = a.failedSurfaceFoodSearchTicks;
       }
       ant._lastNestEatTick = Number.isFinite(a.lastNestEatTick) ? a.lastNestEatTick : -Infinity;
+      if (Number.isFinite(a.recruitBudget)) ant._recruitBudget = a.recruitBudget;
       return ant;
     });
     return colony;

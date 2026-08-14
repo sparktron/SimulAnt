@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.5** on 2026-08-14.
+Status checked against landed `master` at **v0.57.6** on 2026-08-14.
 
 ## Completed
 
@@ -80,6 +80,8 @@ Status checked against landed `master` at **v0.57.5** on 2026-08-14.
 33. ✅ Disabled breeder hatching, normalized breeder allocation into active
     worker/soldier targets, and migrated legacy saved breeders to workers until
     the caste has a viable lifecycle (v0.57.5).
+34. ✅ Persisted each carrier's adaptive recruitment budget so mid-return
+    save/load cycles continue food-trail deposition without divergence (v0.57.6).
 
 ## Active work
 

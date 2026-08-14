@@ -286,6 +286,46 @@ test('serialize and loadFromSerialized round-trip preserves state', () => {
   assert.equal(sim2.foodPellets.length, sim.foodPellets.length);
 });
 
+test('mid-return save/load preserves adaptive recruitment deposits', () => {
+  const config = {
+    ...createConfig(),
+    adaptiveTrail: true,
+    recruitDecayPerStep: 0.97,
+    enablePheromones: true,
+  };
+  const sim = new SimulationCore('mid-return-recruitment');
+  const entrance = sim.nestEntrances[0];
+  const carrier = sim.colony.ants.find((ant) => ant.role === 'worker');
+  carrier.x = entrance.x + 20;
+  carrier.y = entrance.y - 10;
+  carrier.state = 'RETURN_HOME';
+  carrier.carrying = { type: 'food', pelletId: 'mid-return-food', pelletNutrition: 5 };
+  carrier.carryingType = 'food';
+  carrier.hunger = carrier.hungerMax;
+  carrier.health = carrier.healthMax;
+  carrier._recruitBudget = 1.6;
+  sim.world.terrain[sim.world.index(carrier.x, carrier.y)] = TERRAIN.GROUND;
+  sim.colony.rebuildAntGridFromAnts();
+
+  const snapshot = JSON.parse(JSON.stringify(sim.serialize({})));
+  const restored = new SimulationCore('different-restore-seed');
+  restored.loadFromSerialized(snapshot);
+  const restoredCarrier = restored.findAntById(carrier.id);
+  const depositIdx = sim.world.index(carrier.x, carrier.y);
+  const beforeDeposit = sim.world.toFood[depositIdx];
+
+  assert.equal(restoredCarrier._recruitBudget, 1.6);
+
+  sim.update(config);
+  restored.update(config);
+
+  assert.equal(carrier._recruitBudget, 1.6 * 0.97);
+  assert.equal(restoredCarrier._recruitBudget, carrier._recruitBudget);
+  assert.ok(sim.world.toFood[depositIdx] > beforeDeposit);
+  assert.equal(restored.world.toFood[depositIdx], sim.world.toFood[depositIdx]);
+  assert.deepEqual(restored.serialize({}), sim.serialize({}));
+});
+
 test('save/load preserves the rival colony and combat telemetry', () => {
   const sim = new SimulationCore('rival-save');
   sim.combatSystem.battles = 7;
@@ -627,13 +667,15 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   // movement or consume its steering RNG draws.
   // Re-captured for v0.57.5: disabled breeder hatching reallocates the former
   // breeder share between the active worker and soldier castes.
+  // Re-captured for v0.57.6: returning carriers persist their adaptive
+  // recruitment budgets in the serialized ant substate.
   const config = sanitizeTickConfig(getDefaultConfig());
   const sim = new SimulationCore('ant-phase-baseline');
 
   for (let i = 0; i < 360; i += 1) sim.update(config);
 
   const replayHash = hashString(JSON.stringify(sim.serialize({})));
-  assert.equal(replayHash, 2362893722);
+  assert.equal(replayHash, 3851715863);
 });
 
 // Survival regression: with the PRODUCTION defaults, the colony used to peak
