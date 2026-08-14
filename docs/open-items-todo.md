@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.9** on 2026-08-14.
+Status checked against landed `master` at **v0.57.10** on 2026-08-14.
 
 ## Completed
 
@@ -91,6 +91,8 @@ Status checked against landed `master` at **v0.57.9** on 2026-08-14.
     survival of both black and red colonies (test/docs-only).
 38. ✅ Anchored chamber-created dig fronts to distinct carved chamber-edge
     tiles so generated branches remain connected to the nest (v0.57.9).
+39. ✅ Validated fallback terrain so dig fronts can take their open reverse
+    path instead of stalling against a blocked tile (v0.57.10).
 
 ## Active work
 

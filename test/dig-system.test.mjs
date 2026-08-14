@@ -148,6 +148,39 @@ test('digger receives no dirt when a front only traverses existing tunnel', () =
   assert.equal(worker.carrying, null, 'worker should not receive phantom dirt without excavation');
 });
 
+test('dig front reverses when every forward direction is blocked', () => {
+  const world = new World(64, 64);
+  const rng = new SeededRng('dig-reverse-only-path');
+  const colony = new Colony(world, rng, 0);
+  const dig = new DigSystem(world, colony, rng);
+  dig.autoDig = true;
+
+  const x = world.nestX + 15;
+  const y = world.nestY + 10;
+  const front = { x, y, dir: 0, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 };
+  dig.fronts = [front];
+  world.setTerrain(world.index(x, y), TERRAIN.TUNNEL);
+  world.setTerrain(world.index(x + 1, y), TERRAIN.WALL);
+  world.setTerrain(world.index(x, y - 1), TERRAIN.WALL);
+  world.setTerrain(world.index(x, y + 1), TERRAIN.WALL);
+
+  const worker = new Ant(x, y, rng, 'worker');
+  worker.workFocus = 'dig';
+  worker.health = worker.healthMax;
+  worker.hunger = worker.hungerMax;
+  colony.ants.push(worker);
+
+  dig.update(createTestConfig());
+
+  assert.deepEqual(
+    { x: front.x, y: front.y, dir: front.dir },
+    { x: x - 1, y, dir: 2 },
+    'front should take the open reverse path',
+  );
+  assert.equal(world.terrain[world.index(x - 1, y)], TERRAIN.TUNNEL);
+  assert.deepEqual(worker.carrying, { type: 'dirt', amount: 1 });
+});
+
 test('dig system creates chambers', () => {
   const world = new World(64, 64);
   const rng = new SeededRng('dig-chamber');

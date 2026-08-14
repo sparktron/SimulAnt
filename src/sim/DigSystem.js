@@ -305,6 +305,10 @@ export class DigSystem {
       const nx = front.x + CARDINAL_DIRS[d][0];
       const ny = front.y + CARDINAL_DIRS[d][1];
       if (!this.world.inBounds(nx, ny) || ny <= this.world.nestY + 1) continue;
+
+      const terrain = this.world.terrain[this.world.index(nx, ny)];
+      if (terrain === TERRAIN.WALL || terrain === TERRAIN.WATER || terrain === TERRAIN.HAZARD) continue;
+
       return { x: nx, y: ny, dir: d };
     }
 
