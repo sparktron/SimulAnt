@@ -168,6 +168,14 @@ button states so the controls match the restored simulation.
 
 ---
 
+## ✅ Testing
+
+Run the deterministic suite with `node --test test/*.mjs`. Regression coverage
+includes intentional no-move actions, capped queen-food reservations, mid-return
+carrier save/load continuation, and 6,000-tick survival checks for both colonies.
+
+---
+
 ## 🌍 Static Deployment
 Deploy directly to static hosting providers (no backend required):
 - [GitHub Pages](https://pages.github.com/)

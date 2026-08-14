@@ -678,13 +678,14 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   assert.equal(replayHash, 3851715863);
 });
 
-// Survival regression: with the PRODUCTION defaults, the colony used to peak
+// Survival regression: with the PRODUCTION defaults, the black colony used to peak
 // ~129 ants then starve to zero by ~tick 6000 (132 starvation deaths, ~215
 // pellets left uncollected). The throughput lift (foodVisionRadius), soldier-
-// caste cut, and demand-tracking food respawn (v0.33.0–v0.36.0) fixed it. This
-// test fails if any of those regress the colony back into collapse.
+// caste cut, and demand-tracking food respawn (v0.33.0–v0.36.0) fixed it.
+// Global need-aware respawning (v0.57.4) must sustain the rival colony too.
+// This test fails if either colony regresses into collapse.
 // See docs/starvation-collapse-rca-2026-06-02.md.
-test('colony survives long-run on production defaults (no starvation collapse)', () => {
+test('both colonies survive long-run on production defaults (no starvation collapse)', () => {
   // 6000 ticks is past the original collapse point (the unfixed colony reached
   // zero ants by ~tick 6000). Kept here rather than higher to bound test
   // runtime; bench/starvation-trace.mjs covers the longer horizon.
@@ -692,15 +693,21 @@ test('colony survives long-run on production defaults (no starvation collapse)',
   const sim = new SimulationCore('tick-profile');
   for (let i = 0; i < 6000; i += 1) sim.update(config);
 
-  const ants = sim.colony.ants.length;
-  const dc = sim.colony.deathsByCause;
-  assert.ok(
-    sim.colony.queen.alive,
-    `queen should survive to tick 6000 (deathsByCause=${JSON.stringify(dc)})`,
-  );
-  assert.ok(
-    ants > 50,
-    `colony should sustain a healthy population, not collapse — got ${ants} ants `
-    + `at tick 6000 (deathsByCause=${JSON.stringify(dc)})`,
-  );
+  const colonies = [
+    ['black', sim.colony],
+    ['red', sim.rivalColony],
+  ];
+  for (const [label, colony] of colonies) {
+    const ants = colony.ants.length;
+    const dc = colony.deathsByCause;
+    assert.ok(
+      colony.queen.alive,
+      `${label} queen should survive to tick 6000 (deathsByCause=${JSON.stringify(dc)})`,
+    );
+    assert.ok(
+      ants > 50,
+      `${label} colony should sustain a healthy population, not collapse — got ${ants} ants `
+      + `at tick 6000 (deathsByCause=${JSON.stringify(dc)})`,
+    );
+  }
 });

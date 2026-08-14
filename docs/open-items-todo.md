@@ -86,6 +86,9 @@ Status checked against landed `master` at **v0.57.8** on 2026-08-14.
     its configured starvation recovery bonus (v0.57.7).
 36. ✅ Excluded already-selected workers from queen courier searches so critical
     health events fill both courier slots with distinct ants (v0.57.8).
+37. ✅ Added explicit regression coverage for intentional no-move actions,
+    queen-food reservation limits, carrier save/load continuation, and long-run
+    survival of both black and red colonies (test/docs-only).
 
 ## Active work
 
