@@ -937,7 +937,7 @@ test('100% soldier caste allocation hatches soldier ants with non-worker color',
   assert.equal(hatched.every((ant) => ant.baseColor !== '#d93828'), true);
 });
 
-test('brood hatching follows caste allocation including breeders', () => {
+test('brood hatching redirects disabled breeder allocation to active castes', () => {
   const sim = new SimulationCore('caste-allocation-hatch-seed');
   const config = createConfig();
   config.broodGestationSeconds = 0.001;
@@ -955,9 +955,10 @@ test('brood hatching follows caste allocation including breeders', () => {
 
   assert.ok(sim.colony.ants.length >= 60);
   const total = sim.colony.ants.length;
-  assert.ok(Math.abs((workers / total) - 0.6) <= 0.1);
-  assert.ok(Math.abs((soldiers / total) - 0.25) <= 0.1);
-  assert.ok(Math.abs((breeders / total) - 0.15) <= 0.1);
+  assert.equal(breeders, 0, 'breeders must not hatch before their lifecycle is implemented');
+  assert.equal(sim.colony.casteAllocation.breeders, 0);
+  assert.ok(Math.abs((workers / total) - (60 / 85)) <= 0.1);
+  assert.ok(Math.abs((soldiers / total) - (25 / 85)) <= 0.1);
 });
 
 test('worker workFocus distribution is rebalanced to work allocation ratios', () => {

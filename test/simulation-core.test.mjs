@@ -300,6 +300,20 @@ test('save/load preserves the rival colony and combat telemetry', () => {
   assert.equal(restored.combatSystem.battles, 7);
 });
 
+test('load migrates legacy breeder ants and allocation to active worker caste', () => {
+  const sim = new SimulationCore('legacy-breeder-save');
+  const serialized = sim.serialize({});
+  serialized.colony.ants[0].role = 'breeder';
+  serialized.colony.casteAllocation = { workers: 85, soldiers: 10, breeders: 5 };
+
+  const restored = new SimulationCore('legacy-breeder-restore');
+  restored.loadFromSerialized(serialized);
+
+  assert.equal(restored.colony.ants[0].role, 'worker');
+  assert.equal(restored.colony.casteAllocation.breeders, 0);
+  assert.equal(restored.colony.ants.some((ant) => ant.role === 'breeder'), false);
+});
+
 test('food accounting invariant holds across many ticks (foodStored == all ledger parts)', () => {
   const config = createConfig();
   const sim = new SimulationCore('food-conservation');
@@ -611,13 +625,15 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   // deterministic collision combat intentionally change the replay.
   // Re-captured for v0.57.3: completed local actions no longer trigger fallback
   // movement or consume its steering RNG draws.
+  // Re-captured for v0.57.5: disabled breeder hatching reallocates the former
+  // breeder share between the active worker and soldier castes.
   const config = sanitizeTickConfig(getDefaultConfig());
   const sim = new SimulationCore('ant-phase-baseline');
 
   for (let i = 0; i < 360; i += 1) sim.update(config);
 
   const replayHash = hashString(JSON.stringify(sim.serialize({})));
-  assert.equal(replayHash, 1392506947);
+  assert.equal(replayHash, 2362893722);
 });
 
 // Survival regression: with the PRODUCTION defaults, the colony used to peak

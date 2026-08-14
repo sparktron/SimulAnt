@@ -139,8 +139,8 @@ export function needsForage(ant, colony) {
 
 export function tryEatFromNest(ant, colony, inNest, config) {
   if (!inNest) return false;
-  // Workers and soldiers eat from nest stores. Breeders do not — they exist
-  // for caste-balance bookkeeping and have no active behavior loop.
+  // Workers and soldiers eat from nest stores. Breeder production is disabled
+  // until that caste has an explicit fed, nest-resident behavior loop.
   // Excluding soldiers (the earlier policy) guaranteed they starved within
   // ~30 sec, draining colony births with no return.
   if (ant.role !== 'worker' && ant.role !== 'soldier') return false;

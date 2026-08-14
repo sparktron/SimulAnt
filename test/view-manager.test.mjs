@@ -212,7 +212,7 @@ test('Auto-dig does not excavate when no worker is near any dig front', () => {
     dangerDeposit: 0.6,
     hazardDeathChance: 0.02,
     digHomeBoost: 0.9,
-    queenEggTicks: 20,
+    queenEggTicks: 1000,
     queenEggFoodCost: 0.8,
     soldierSpawnChance: 0.2,
   };

@@ -47,7 +47,7 @@ export class ColonyStatusPanel {
     this.casteTriangle = new TriangleControl({
       container: casteContainer,
       title: 'CASTE ALLOCATION',
-      labels: ['Workers', 'Soldiers', 'Breeders'],
+      labels: ['Workers', 'Soldiers', 'Breeders (future)'],
       initialWeights: initialState.caste,
       onChange: ({ percentages }) => onCasteChange(percentages),
     });

@@ -305,7 +305,7 @@ const state = {
   },
   colonyStatus: {
     workAllocation: { forage: 55, dig: 20, nurse: 25 },
-    casteAllocation: { workers: 85, soldiers: 10, breeders: 5 },
+    casteAllocation: { workers: 90, soldiers: 10, breeders: 0 },
   },
 };
 
@@ -445,6 +445,12 @@ const colonyStatusPanel = new ColonyStatusPanel({
       breeders: percentages.c,
     };
     applyColonyStatusToConfig();
+    if (percentages.c > 0) {
+      colonyStatusPanel.sync({
+        work: state.colonyStatus.workAllocation,
+        caste: state.colonyStatus.casteAllocation,
+      });
+    }
   },
 });
 
@@ -1030,6 +1036,7 @@ function applyColonyStatusToConfig() {
   const workerSoldierTotal = Math.max(1, caste.workers + caste.soldiers);
   state.config.soldierSpawnChance = caste.soldiers / workerSoldierTotal;
   simCore.colony.setCasteAllocation(caste);
+  Object.assign(state.colonyStatus.casteAllocation, simCore.colony.casteAllocation);
 }
 
 /**

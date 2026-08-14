@@ -137,7 +137,7 @@ export function sanitizeTickConfig(config = {}) {
     queenFoodRequestHealthThreshold: clamp01(config.queenFoodRequestHealthThreshold, 0.5),
     queenFoodRequestClearThreshold: clamp01(config.queenFoodRequestClearThreshold, 0.8),
     queenCourierPickupNutrition: clampNonNegativeNumber(config.queenCourierPickupNutrition, 0),
-    // Queen succession: when the queen dies, after a delay a healthy worker/breeder
+    // Queen succession: when the queen dies, after a delay a healthy worker
     // can be promoted (consuming a royal-jelly food cost) so the colony recovers
     // instead of ending permanently. Set delay to 0 and cost to 0 for instant,
     // free succession; raise the min-health fraction to require fitter heirs.

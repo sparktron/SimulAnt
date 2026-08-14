@@ -69,7 +69,9 @@ export class Colony {
     // 25% allocation starved the colony once bootstrap food ran out
     // (docs/starvation-collapse-rca-2026-06-02.md). 10% keeps a defensive caste
     // for variety/future combat without sinking the food economy.
-    this.casteAllocation = { workers: 85, soldiers: 10, breeders: 5 };
+    // Breeder production is disabled until the caste has a fed, nest-resident
+    // lifecycle. Keep the field for save/UI compatibility, pinned at zero.
+    this.casteAllocation = { workers: 90, soldiers: 10, breeders: 0 };
     // Cause-of-death breakdown so we can tell whether the colony is dying
     // from starvation (balance issue), old age (lifespan vs. birth rate),
     // hazards (terrain), or something else. Useful when tuning.
@@ -290,12 +292,11 @@ export class Colony {
   setCasteAllocation(allocation = {}) {
     const workers = Number.isFinite(allocation.workers) ? allocation.workers : this.casteAllocation.workers;
     const soldiers = Number.isFinite(allocation.soldiers) ? allocation.soldiers : this.casteAllocation.soldiers;
-    const breeders = Number.isFinite(allocation.breeders) ? allocation.breeders : this.casteAllocation.breeders;
-    const total = Math.max(1, workers + soldiers + breeders);
+    const activeTotal = Math.max(0, workers) + Math.max(0, soldiers);
     this.casteAllocation = {
-      workers: Math.max(0, (workers / total) * 100),
-      soldiers: Math.max(0, (soldiers / total) * 100),
-      breeders: Math.max(0, (breeders / total) * 100),
+      workers: activeTotal > 0 ? (Math.max(0, workers) / activeTotal) * 100 : 100,
+      soldiers: activeTotal > 0 ? (Math.max(0, soldiers) / activeTotal) * 100 : 0,
+      breeders: 0,
     };
   }
 
@@ -332,7 +333,6 @@ export class Colony {
     const roleCounts = {
       worker: 0,
       soldier: 0,
-      breeder: 0,
     };
 
     for (let i = 0; i < this.ants.length; i += 1) {
@@ -340,9 +340,7 @@ export class Colony {
       if (!ant.alive) continue;
       if (ant.role === 'soldier') {
         roleCounts.soldier += 1;
-      } else if (ant.role === 'breeder') {
-        roleCounts.breeder += 1;
-      } else {
+      } else if (ant.role === 'worker') {
         roleCounts.worker += 1;
       }
     }
@@ -351,7 +349,6 @@ export class Colony {
       {
         worker: this.casteAllocation.workers,
         soldier: this.casteAllocation.soldiers,
-        breeder: this.casteAllocation.breeders,
       },
       roleCounts,
     );
@@ -711,12 +708,12 @@ export class Colony {
   /*
       Queen succession: a colony used to die permanently the moment the queen
       died (S7 in the health-system review). Now, after queenSuccessionDelayTicks,
-      a healthy worker or breeder (breeders preferred) can be promoted into the
-      royal role, consuming a queenSuccessionFoodCost "royal jelly" investment.
+      a healthy worker can be promoted into the royal role, consuming a
+      queenSuccessionFoodCost "royal jelly" investment.
       The promoted ant is removed from the population and the queen is reborn in
       the chamber with partially restored vitals. If no eligible heir or not
       enough food, succession waits and retries each tick. Deterministic: the
-      heir is the first eligible ant in array order (breeders before workers).
+      heir is the first eligible worker in array order.
   */
   #updateQueenSuccession(config) {
     if (this.queen.alive) return;
@@ -732,8 +729,7 @@ export class Colony {
     for (let i = 0; i < this.ants.length; i += 1) {
       const ant = this.ants[i];
       if (!ant.alive || ant.health < minHealth) continue;
-      if (ant.role === 'breeder') { heirIdx = i; break; } // prefer a breeder
-      if (heirIdx === -1 && ant.role === 'worker') heirIdx = i; // fall back to first worker
+      if (ant.role === 'worker') { heirIdx = i; break; }
     }
     if (heirIdx === -1) return; // no eligible heir; keep waiting
 
@@ -1522,7 +1518,11 @@ export class Colony {
     colony.setWorkAllocation(data.workAllocation || colony.workAllocation);
     colony.setCasteAllocation(data.casteAllocation || colony.casteAllocation);
     colony.ants = (Array.isArray(data.ants) ? data.ants : []).map((a) => {
-      const ant = new Ant(a.x, a.y, rng, a.role || 'worker');
+      // Breeders were previously hatchable despite having no feeding or role
+      // behavior. Migrate them to workers so old saves do not retain a caste
+      // that can only wander, drain vitals, and starve.
+      const restoredRole = a.role === 'breeder' ? 'worker' : (a.role || 'worker');
+      const ant = new Ant(a.x, a.y, rng, restoredRole);
       ant.id = a.id || ant.id;
       ant.colonyId = a.colonyId || colony.id;
       // The constructor derived this from its own throwaway random id; the

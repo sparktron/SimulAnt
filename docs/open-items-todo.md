@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.4** on 2026-08-13.
+Status checked against landed `master` at **v0.57.5** on 2026-08-14.
 
 ## Completed
 
@@ -77,11 +77,19 @@ Status checked against landed `master` at **v0.57.4** on 2026-08-13.
 32. ✅ Made food respawning global across both colonies, selected the greatest
     normalized reserve shortfall with seeded tie-breaking, and centered relief
     drops on the selected colony's home (v0.57.4).
+33. ✅ Disabled breeder hatching, normalized breeder allocation into active
+    worker/soldier targets, and migrated legacy saved breeders to workers until
+    the caste has a viable lifecycle (v0.57.5).
 
 ## Active work
 
 No general maintenance fixes are currently queued. The remaining planned work is
 the experiment-driven environmental foraging program below.
+
+## Future features
+
+- [ ] Implement a fed, nest-resident breeder lifecycle with an explicit role in
+  queen succession before re-enabling breeder allocation and hatching.
 
 ## Pheromone roadmap (next forward lever)
 
