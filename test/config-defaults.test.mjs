@@ -69,3 +69,9 @@ test('sanitizeTickConfig guards digHomeBoost so digging cannot inject NaN into p
   // A provided value must pass through unchanged (behavior-preserving for real configs).
   assert.equal(sanitizeTickConfig({ digHomeBoost: 0.9 }).digHomeBoost, 0.9);
 });
+
+test('oophagy delay has a one-tick minimum in the editor and tick sanitizer', () => {
+  assert.equal(parameterDefinitions.oophagyDelayTicks.min, 1);
+  assert.equal(sanitizeTickConfig({ oophagyDelayTicks: 0 }).oophagyDelayTicks, 1);
+  assert.equal(sanitizeTickConfig({ oophagyDelayTicks: 1 }).oophagyDelayTicks, 1);
+});

@@ -123,7 +123,7 @@ export function sanitizeTickConfig(config = {}) {
     queenEggFoodCost: clampNonNegativeNumber(config.queenEggFoodCost, 0),
     queenEggHealthCost: clampNonNegativeNumber(config.queenEggHealthCost, 0),
     queenLayingMinHealth: clamp01(config.queenLayingMinHealth, 0.2),
-    oophagyDelayTicks: Math.floor(clampFiniteRangeNumber(config.oophagyDelayTicks, 120, 0, 600)),
+    oophagyDelayTicks: Math.floor(clampFiniteRangeNumber(config.oophagyDelayTicks, 120, 1, 600)),
     oophagyRecycleNutrition: clampNonNegativeNumber(config.oophagyRecycleNutrition, 5),
     nestSpaceBaseCapacity: clampNonNegativeNumber(config.nestSpaceBaseCapacity, 300),
     nestSpaceTilesPerAnt: clampRangeNumber(config.nestSpaceTilesPerAnt, 40, 0.1, 200),

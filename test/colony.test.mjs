@@ -4,6 +4,7 @@ import { Colony } from '../src/sim/colony.js';
 import { World, TERRAIN } from '../src/sim/world.js';
 import { SeededRng } from '../src/sim/rng.js';
 import { Ant } from '../src/sim/ant.js';
+import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
 
 function createTestConfig() {
   return {
@@ -308,6 +309,26 @@ test('queen egg-laying rate is invariant to colony food-reserve level', () => {
   );
 });
 
+test('sanitized zero oophagy delay preserves well-fed stage-1 brood for the first tick', () => {
+  const world = new World(64, 64);
+  const colony = new Colony(world, new SeededRng('oophagy-minimum-delay'), 0);
+  const config = sanitizeTickConfig({
+    ...createTestConfig(),
+    broodFoodDrainRate: 10,
+    broodGestationSeconds: 1000,
+    oophagyDelayTicks: 0,
+    queenEggTicks: 100,
+  });
+  colony.queen.brood = 1;
+  colony.larvae = [{ stage: 1, progress: 0 }];
+
+  colony.update(config);
+
+  assert.equal(config.oophagyDelayTicks, 1);
+  assert.equal(colony.larvae.length, 1, 'well-fed brood must not be culled at zero malnourishment ticks');
+  assert.equal(colony.queen.brood, 1);
+});
+
 test('oophagy culls a severely underfed stage-1 larva and recycles its nutrition', () => {
   // Mirrors real ant/wasp/bee brood cannibalism: when nurses can't keep the
   // chamber fed (broodFeedRatio<0.3, a LOCAL per-tick delivery signal, not a
@@ -509,6 +530,62 @@ test('colony spawns ants when food and brood are available', () => {
   for (let i = 0; i < 50; i += 1) colony.update(config);
 
   assert.ok(colony.ants.length > 0, 'Ants should be spawned from brood');
+});
+
+test('brood keeps feeding and hatches an heir while the queen is dead', () => {
+  const world = new World(64, 64);
+  const colony = new Colony(world, new SeededRng('dead-queen-brood-hatch'), 0);
+  const config = createTestConfig();
+  config.broodFoodDrainRate = 3;
+  config.broodGestationSeconds = 0.001;
+  config.queenEggTicks = 1e6;
+  config.queenSuccessionDelayTicks = 0;
+  config.queenSuccessionFoodCost = 0;
+  colony.foodStored = 10;
+  colony.queen.brood = 1;
+  colony.larvae = [{ stage: 1, progress: 0 }];
+  colony.setNestEntrances([]);
+  colony.setSurfaceFoodPellets([]);
+  killQueen(colony);
+
+  const foodBefore = colony.foodStored;
+  const eggsBefore = colony.queen.eggsLaid;
+  for (let i = 0; i < 4; i += 1) colony.update(config);
+
+  assert.equal(colony.queen.alive, false, 'queen must stay dead until brood produces an heir');
+  assert.equal(colony.queen.eggsLaid, eggsBefore, 'a dead queen must not reproduce');
+  assert.ok(colony.foodStored < foodBefore, 'queenless brood should continue feeding');
+  assert.equal(colony.larvae.length, 0, 'queenless brood should complete gestation');
+  assert.equal(colony.births, 1, 'queenless brood should hatch normally');
+
+  colony.update(config);
+
+  assert.equal(colony.queen.alive, true, 'the hatched worker should be eligible for succession');
+  assert.equal(colony.queenSuccessions, 1);
+});
+
+test('brood keeps starving while the queen is dead', () => {
+  const world = new World(64, 64);
+  const colony = new Colony(world, new SeededRng('dead-queen-brood-starvation'), 0);
+  const config = createTestConfig();
+  config.broodFoodDrainRate = 10;
+  config.broodGestationSeconds = 1000;
+  config.broodStarvationTicks = 2;
+  config.oophagyDelayTicks = 600;
+  config.queenSuccessionDelayTicks = 1000;
+  colony.foodStored = 0;
+  colony.queen.brood = 1;
+  colony.larvae = [{ stage: 2, progress: 0 }];
+  colony.setNestEntrances([]);
+  colony.setSurfaceFoodPellets([]);
+  killQueen(colony);
+
+  colony.update(config);
+  assert.equal(colony.larvae[0].malnourishmentTicks, 1);
+
+  colony.update(config);
+  assert.equal(colony.larvae.length, 0, 'queenless brood should still die from sustained starvation');
+  assert.equal(colony.queen.brood, 0);
 });
 
 test('colony respects antCap limit', () => {

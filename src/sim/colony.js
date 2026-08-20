@@ -234,8 +234,9 @@ export class Colony {
     }
     this.#updateQueenFoodRequest(config);
     if (this.queen.alive) {
-      this.#updateQueenAndBrood(config);
+      this.#updateQueenReproduction(config);
     }
+    this.#updateBrood(config);
 
     this.#rebuildAntGrid();
     this.#rebuildNestFoodTiles();
@@ -446,24 +447,6 @@ export class Colony {
   }
 
   /*
-      Updates queen reproduction and brood development.
-
-      Queen lifecycle:
-      - Lays eggs every queenEggTicks if food is available (costs queenEggFoodCost)
-      - Each egg becomes a larva at stage 1
-      - Larvae progress through 4 stages (~2 seconds each, modified by food/crowding)
-      - Stage 5 hatches into a live ant (respects antCap)
-      - Starvation: if malnourished > 600 ticks, larva dies
-
-      Emergence mechanics:
-      - Food shortage → slow gestation → fewer hatches → colony shrinks gracefully
-      - Crowding (larvae > threshold) → 40% slowdown to gestation
-      - Nurse behavior (spreadLarvae) actively reduces crowding
-      - No central "birth quota" — reproduction is purely food-limited
-
-      This creates a stable population dynamic without explicit death rates.
-  */
-  /*
       Trophallaxis: well-fed ant feeds an adjacent hungry ant.
 
       Each tick, every sufficiently-hungry ant looks at the 8 neighboring tiles
@@ -533,9 +516,7 @@ export class Colony {
     }
   }
 
-  #updateQueenAndBrood(config) {
-    const dt = config.tickSeconds || BASE_TICK_SECONDS;
-
+  #updateQueenReproduction(config) {
     // Egg laying depends ONLY on the queen's own physiological condition, not
     // on any colony-wide food statistic — a real queen has no awareness of
     // total nest reserves; she just responds to how well-fed SHE personally
@@ -589,6 +570,21 @@ export class Colony {
         this.larvae.push({ stage: 1, progress: 0 });
       }
     }
+  }
+
+  /*
+      Updates existing brood independently of queen survival.
+
+      Brood lifecycle:
+      - Larvae consume food and progress through 4 stages
+      - Stage 5 hatches into a live ant (respects antCap)
+      - Starvation and oophagy continue after queen death
+
+      Keeping this phase independent lets surviving brood hatch into workers
+      that may recover a queenless colony through succession.
+  */
+  #updateBrood(config) {
+    const dt = config.tickSeconds || BASE_TICK_SECONDS;
 
     // Ensure larvae array matches brood count (for backwards compatibility with tests/saves)
     if (this.larvae.length < this.queen.brood) {

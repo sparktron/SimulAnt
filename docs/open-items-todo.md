@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.11** on 2026-08-14.
+Status checked against landed `master` at **v0.57.12** on 2026-08-20.
 
 ## Completed
 
@@ -96,6 +96,11 @@ Status checked against landed `master` at **v0.57.11** on 2026-08-14.
 40. ✅ Preserved exact excavation volume through chamber and widening carves,
     matched dirt cargo to that volume, avoided duplicate legacy
     single-entrance mound credit, and removed phantom dirt markers (v0.57.11).
+41. ✅ Enforced a one-tick minimum oophagy delay in the parameter editor and
+    tick sanitizer so healthy stage-1 brood cannot be culled at the zero-value
+    boundary, and separated queen reproduction from brood development so brood
+    continues feeding, gestating, hatching, and starving after queen death
+    (v0.57.12).
 
 ## Active work
 

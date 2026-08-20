@@ -405,7 +405,7 @@ export const parameterDefinitions = {
     label: 'Oophagy Delay',
     description: 'Ticks of sustained severe brood underfeeding before nurses cull stage-1 larvae to recycle nutrients. Lower = culls sooner.',
     group: 'Queen',
-    min: 0,
+    min: 1,
     max: 600,
     step: 10,
     advanced: true,
