@@ -578,6 +578,7 @@ export class Colony {
       Brood lifecycle:
       - Larvae consume food and progress through 4 stages
       - Stage 5 hatches into a live ant (respects antCap)
+      - Hatch-ready brood waits without feeding while antCap is full
       - Starvation and oophagy continue after queen death
 
       Keeping this phase independent lets surviving brood hatch into workers
@@ -597,7 +598,11 @@ export class Colony {
     if (this.larvae.length === 0) return;
 
     // Larvae consume food and progress through stages
-    const broodFoodRequest = this.larvae.length * (config.broodFoodDrainRate ?? 0) * dt;
+    const feedingLarvae = this.larvae.reduce(
+      (count, larva) => count + (larva.stage <= 4 ? 1 : 0),
+      0,
+    );
+    const broodFoodRequest = feedingLarvae * (config.broodFoodDrainRate ?? 0) * dt;
     const broodFoodConsumed = this.consumeFromStore(broodFoodRequest);
     const broodFeedRatio = broodFoodRequest > 0 ? broodFoodConsumed / broodFoodRequest : 1;
 
@@ -624,6 +629,14 @@ export class Colony {
     // Progress each larva through stages
     for (let i = this.larvae.length - 1; i >= 0; i -= 1) {
       const larva = this.larvae[i];
+
+      // A mature hatchling can be retained while antCap is full. It no longer
+      // feeds, starves, or develops; retry emergence every tick until capacity
+      // opens or it can immediately replace a dead queen.
+      if (larva.stage > 4) {
+        this.#tryHatchLarva(i, config);
+        continue;
+      }
 
       // Accumulate or reset malnourishment counter.
       if (severelyUnderfed) {
@@ -663,25 +676,32 @@ export class Colony {
         larva.progress -= stageSeconds;
         larva.stage += 1;
 
-        // Stage 5 means time to hatch; always remove the larva so it
-        // doesn't linger and consume food indefinitely when the cap is hit.
+        // Stage 5 means time to hatch. If antCap is full, retain this mature
+        // non-feeding hatchling and retry on later ticks.
         if (larva.stage > 4) {
-          this.larvae.splice(i, 1);
-          this.queen.brood -= 1;
-          if (!this.queen.alive) {
-            // A hatchling from the dead queen's own brood succeeds her
-            // immediately. Unlike promotion of an existing worker, this does
-            // not require nest capacity, a delay, or a royal-jelly payment.
-            this.births += 1;
-            this.#restoreQueenFromHeir();
-          } else if (this.ants.length < config.antCap) {
-            const role = this.selectHatchRole(config);
-            this.ants.push(this.#spawnNearNest(role));
-            this.births += 1;
-          }
+          this.#tryHatchLarva(i, config);
         }
       }
     }
+  }
+
+  #tryHatchLarva(index, config) {
+    if (this.queen.alive && this.ants.length >= config.antCap) return false;
+
+    this.larvae.splice(index, 1);
+    this.queen.brood -= 1;
+    this.births += 1;
+
+    if (!this.queen.alive) {
+      // A hatchling from the dead queen's own brood succeeds her immediately.
+      // Unlike promotion of an existing worker, this does not require nest
+      // capacity, a delay, or a royal-jelly payment.
+      this.#restoreQueenFromHeir();
+    } else {
+      const role = this.selectHatchRole(config);
+      this.ants.push(this.#spawnNearNest(role));
+    }
+    return true;
   }
 
   #updateQueenSurvival(config) {
@@ -1414,6 +1434,9 @@ export class Colony {
       deathsByCause: { ...this.deathsByCause },
       queenDeaths: this.queenDeaths,
       queenSuccessions: this.queenSuccessions,
+      ...(!this.queen.alive && this._queenDeathCounter != null
+        ? { queenSuccessionElapsedTicks: Math.max(0, this._updateCounter - this._queenDeathCounter) }
+        : {}),
       queen: this.queen,
       larvae: this.larvae,
       // Crowding accumulators are behavioral substate carried across ticks (see
@@ -1492,6 +1515,12 @@ export class Colony {
     colony.queenDeaths = data.queenDeaths || 0;
     colony.queenSuccessions = data.queenSuccessions || 0;
     colony.queen = { ...colony.queen, ...(data.queen || {}) };
+    const successionElapsedTicks = Number.isFinite(data.queenSuccessionElapsedTicks)
+      ? Math.max(0, Math.floor(data.queenSuccessionElapsedTicks))
+      : null;
+    colony._queenDeathCounter = !colony.queen.alive && successionElapsedTicks != null
+      ? -successionElapsedTicks
+      : null;
     if (!Number.isFinite(colony.queen.x) || !Number.isFinite(colony.queen.y)) {
       colony.syncQueenPositionToNest(colony.homeX, colony.homeY);
     }

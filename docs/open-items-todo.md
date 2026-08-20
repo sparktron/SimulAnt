@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.13** on 2026-08-20.
+Status checked against landed `master` at **v0.57.14** on 2026-08-20.
 
 ## Completed
 
@@ -104,6 +104,9 @@ Status checked against landed `master` at **v0.57.13** on 2026-08-20.
 42. ✅ Made the first hatchling immediately replace a dead queen without the
     normal worker-succession delay, food cost, eligibility scan, or ant-cap
     restriction (v0.57.13).
+43. ✅ Retained mature brood as non-feeding hatchlings while the ant cap is
+    full, and preserved elapsed queen-succession delay across save/load cycles
+    (v0.57.14).
 
 ## Active work
 

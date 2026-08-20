@@ -603,6 +603,41 @@ test('colony respects antCap limit', () => {
   assert.ok(colony.ants.length <= 10, 'Colony should not exceed antCap');
 });
 
+test('hatch-ready brood waits at antCap and emerges when capacity opens', () => {
+  const world = new World(64, 64);
+  const colony = new Colony(world, new SeededRng('brood-ant-cap-wait'), 0);
+  const config = createTestConfig();
+  config.antCap = 0;
+  config.broodFoodDrainRate = 10;
+  config.broodGestationSeconds = 0.001;
+  config.queenEggTicks = 1e6;
+  colony.foodStored = 100;
+  colony.queen.brood = 1;
+  colony.larvae = [{ stage: 4, progress: 0 }];
+  colony.setNestEntrances([]);
+  colony.setSurfaceFoodPellets([]);
+
+  colony.update(config);
+  const foodAtMaturity = colony.foodStored;
+
+  assert.equal(colony.larvae.length, 1, 'mature brood must not be discarded at antCap');
+  assert.equal(colony.larvae[0].stage, 5);
+  assert.equal(colony.queen.brood, 1);
+  assert.equal(colony.births, 0);
+
+  colony.update(config);
+  assert.equal(colony.foodStored, foodAtMaturity, 'hatch-ready brood should not keep consuming food');
+  assert.equal(colony.larvae.length, 1);
+
+  config.antCap = 1;
+  colony.update(config);
+
+  assert.equal(colony.larvae.length, 0);
+  assert.equal(colony.queen.brood, 0);
+  assert.equal(colony.ants.length, 1, 'waiting brood should emerge when capacity opens');
+  assert.equal(colony.births, 1);
+});
+
 // --- Dead Ant Removal ---
 
 // --- Cause-of-Death Telemetry ---
@@ -1122,6 +1157,27 @@ test('queen succession does not fire before the delay elapses', () => {
   for (let t = 0; t < 40; t += 1) colony.update(config);
   assert.equal(colony.queen.alive, false, 'no early promotion before the delay');
   assert.equal(colony.queenSuccessions, 0);
+});
+
+test('queen succession delay continues across serialization', () => {
+  const world = new World(96, 96);
+  world.setNest(48, 48);
+  const colony = new Colony(world, new SeededRng('succession-save'), 20);
+  const config = createTestConfig();
+  config.queenSuccessionDelayTicks = 50;
+  config.queenSuccessionFoodCost = 0;
+  killQueen(colony);
+
+  for (let t = 0; t < 20; t += 1) colony.update(config);
+  const snapshot = JSON.parse(JSON.stringify(colony.serialize()));
+  const restored = Colony.fromSerialized(world, new SeededRng('succession-save-restored'), snapshot);
+
+  for (let t = 0; t < 29; t += 1) restored.update(config);
+  assert.equal(restored.queen.alive, false, 'restored succession must retain the remaining delay');
+
+  restored.update(config);
+  assert.equal(restored.queen.alive, true, 'succession should fire after 50 total dead-queen ticks');
+  assert.equal(restored.queenSuccessions, 1);
 });
 
 test('queen succession waits when food is insufficient', () => {
