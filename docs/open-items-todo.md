@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.12** on 2026-08-20.
+Status checked against landed `master` at **v0.57.13** on 2026-08-20.
 
 ## Completed
 
@@ -101,6 +101,9 @@ Status checked against landed `master` at **v0.57.12** on 2026-08-20.
     boundary, and separated queen reproduction from brood development so brood
     continues feeding, gestating, hatching, and starving after queen death
     (v0.57.12).
+42. ✅ Made the first hatchling immediately replace a dead queen without the
+    normal worker-succession delay, food cost, eligibility scan, or ant-cap
+    restriction (v0.57.13).
 
 ## Active work
 

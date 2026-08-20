@@ -668,7 +668,13 @@ export class Colony {
         if (larva.stage > 4) {
           this.larvae.splice(i, 1);
           this.queen.brood -= 1;
-          if (this.ants.length < config.antCap) {
+          if (!this.queen.alive) {
+            // A hatchling from the dead queen's own brood succeeds her
+            // immediately. Unlike promotion of an existing worker, this does
+            // not require nest capacity, a delay, or a royal-jelly payment.
+            this.births += 1;
+            this.#restoreQueenFromHeir();
+          } else if (this.ants.length < config.antCap) {
             const role = this.selectHatchRole(config);
             this.ants.push(this.#spawnNearNest(role));
             this.births += 1;
@@ -732,6 +738,10 @@ export class Colony {
     // Consume the heir and the royal-jelly cost, then revive the queen.
     this.consumeFromStore(cost);
     this.ants.splice(heirIdx, 1);
+    this.#restoreQueenFromHeir();
+  }
+
+  #restoreQueenFromHeir() {
     this.queen.alive = true;
     this.queen.health = this.queen.healthMax * 0.7;
     this.queen.hunger = this.queen.hungerMax * 0.6;

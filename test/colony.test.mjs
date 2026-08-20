@@ -532,15 +532,16 @@ test('colony spawns ants when food and brood are available', () => {
   assert.ok(colony.ants.length > 0, 'Ants should be spawned from brood');
 });
 
-test('brood keeps feeding and hatches an heir while the queen is dead', () => {
+test('brood hatchling immediately replaces a dead queen', () => {
   const world = new World(64, 64);
   const colony = new Colony(world, new SeededRng('dead-queen-brood-hatch'), 0);
   const config = createTestConfig();
   config.broodFoodDrainRate = 3;
   config.broodGestationSeconds = 0.001;
   config.queenEggTicks = 1e6;
-  config.queenSuccessionDelayTicks = 0;
-  config.queenSuccessionFoodCost = 0;
+  config.queenSuccessionDelayTicks = 1000;
+  config.queenSuccessionFoodCost = 1000;
+  config.antCap = 0;
   colony.foodStored = 10;
   colony.queen.brood = 1;
   colony.larvae = [{ stage: 1, progress: 0 }];
@@ -552,15 +553,12 @@ test('brood keeps feeding and hatches an heir while the queen is dead', () => {
   const eggsBefore = colony.queen.eggsLaid;
   for (let i = 0; i < 4; i += 1) colony.update(config);
 
-  assert.equal(colony.queen.alive, false, 'queen must stay dead until brood produces an heir');
+  assert.equal(colony.queen.alive, true, 'the hatchling should replace the queen on its hatch tick');
   assert.equal(colony.queen.eggsLaid, eggsBefore, 'a dead queen must not reproduce');
   assert.ok(colony.foodStored < foodBefore, 'queenless brood should continue feeding');
   assert.equal(colony.larvae.length, 0, 'queenless brood should complete gestation');
-  assert.equal(colony.births, 1, 'queenless brood should hatch normally');
-
-  colony.update(config);
-
-  assert.equal(colony.queen.alive, true, 'the hatched worker should be eligible for succession');
+  assert.equal(colony.ants.length, 0, 'the hatchling should become queen rather than enter the worker population');
+  assert.equal(colony.births, 1, 'the royal hatchling should count as a birth');
   assert.equal(colony.queenSuccessions, 1);
 });
 
