@@ -58,9 +58,10 @@ html, body {
   width: 100%;
   border: 2px outset #ccc;
   background: #e4e4e4;
-  padding: 3px 2px;
+  min-height: 30px;
+  padding: 5px 3px;
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: bold;
   cursor: pointer;
   flex-shrink: 0;
@@ -77,7 +78,7 @@ html, body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
-  font-size: 10px;
+  font-size: 11px;
   flex-shrink: 0;
 }
 /* Higher specificity than `.left-palette label` so the tool radios stay
@@ -87,6 +88,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 3px;
+  min-height: 28px;
   cursor: pointer;
 }
 
@@ -102,7 +104,7 @@ html, body {
   padding: 3px;
   flex-shrink: 0;
 }
-.health-block h3 { margin: 0 0 3px; font-size: 11px; }
+.health-block h3 { margin: 0 0 3px; font-size: 12px; }
 
 .health-bars { display: flex; gap: 5px; }
 
@@ -110,12 +112,12 @@ html, body {
   display: grid;
   justify-items: center;
   gap: 1px;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: bold;
 }
 
 .bar-wrap {
-  width: 14px; height: 64px;
+  width: 18px; height: 72px;
   border: 1px solid #111;
   background: #efefef;
   display: flex;
@@ -129,11 +131,17 @@ html, body {
 .button-column { display: grid; gap: 3px; flex-shrink: 0; }
 
 .left-palette label {
-  font-size: 10px;
+  font-size: 12px;
   display: grid;
   gap: 1px;
 }
-input[type='text'],
+input[type='text'] {
+  width: 100%;
+  min-height: 30px;
+  padding: 3px;
+  font-family: inherit;
+  font-size: 12px;
+}
 input[type='range'] { width: 100%; }
 
 .playfield {
@@ -177,7 +185,7 @@ input[type='range'] { width: 100%; }
   border: 2px inset #aaa;
   padding: 3px;
   background: #e4e4e4;
-  font-size: 11px;
+  font-size: 12px;
 }
 .stat-lines p { margin: 2px 0; }
 #hudAnts { font-size: 16px; font-weight: bold; }
@@ -199,19 +207,25 @@ input[type='range'] { width: 100%; }
 
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .status-title { margin: 0; font-size: 18px; }
-.dialog-heading button { font-family: inherit; }
+.dialog-heading button,
+#helpPanel button {
+  min-height: 30px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
 .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.triangle-control h3 { margin: 0 0 4px; font-size: 11px; }
+.triangle-control h3 { margin: 0 0 4px; font-size: 12px; }
 .triangle-svg { width: 100%; max-width: 180px; touch-action: none; }
 .triangle-shape { fill: #ececec; stroke: #222; stroke-width: 2; }
 .triangle-marker { fill: #d41a1a; stroke: #111; stroke-width: 1; }
-.triangle-corner { margin: 2px 0; font-size: 10px; }
+.triangle-corner { margin: 2px 0; font-size: 12px; }
 
 kbd {
   border: 1px solid #333;
   padding: 1px 4px;
   background: #fff;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .hud-tabs {
@@ -226,9 +240,10 @@ kbd {
   flex: 1;
   border: 2px outset #ccc;
   background: #d0d0d0;
-  padding: 2px 4px;
+  min-height: 32px;
+  padding: 5px 4px;
   font-family: inherit;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: bold;
   cursor: pointer;
   text-align: center;
@@ -248,7 +263,7 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .preset-controls {
@@ -261,22 +276,24 @@ kbd {
 }
 
 .preset-controls label {
-  font-size: 9px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
 .preset-controls select {
   font-family: inherit;
-  font-size: 9px;
-  padding: 2px;
+  font-size: 12px;
+  min-height: 30px;
+  padding: 4px;
   flex: 1;
   min-width: 60px;
 }
 
 .preset-controls button {
-  padding: 2px 4px;
+  min-height: 30px;
+  padding: 4px 6px;
   font-family: inherit;
-  font-size: 9px;
+  font-size: 12px;
   border: 1px outset #999;
   background: #d0d0d0;
   cursor: pointer;
@@ -297,12 +314,14 @@ kbd {
 }
 
 .advanced-toggle input {
+  width: 18px;
+  height: 18px;
   cursor: pointer;
 }
 
 .advanced-toggle label {
   cursor: pointer;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .parameter-group {
@@ -315,14 +334,15 @@ kbd {
   background: #d0d0d0;
   border: 0;
   border-bottom: 1px solid #999;
-  padding: 2px 4px;
+  min-height: 32px;
+  padding: 5px 4px;
   cursor: pointer;
   user-select: none;
   display: flex;
   gap: 4px;
   align-items: center;
   font-weight: bold;
-  font-size: 9px;
+  font-size: 12px;
   font-family: inherit;
   text-align: left;
 }
@@ -338,24 +358,24 @@ kbd {
 }
 
 .group-content {
-  padding: 2px;
+  padding: 4px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   background: #f5f5f5;
 }
 
 .parameter-item {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 2px;
+  gap: 3px;
+  padding: 4px;
   border: 1px solid #ddd;
   background: #fff;
 }
 
 .param-label {
-  font-size: 8px;
+  font-size: 12px;
   font-weight: bold;
   color: #333;
 }
@@ -368,15 +388,16 @@ kbd {
 
 .param-slider {
   flex: 1;
-  height: 16px;
+  height: 28px;
   cursor: pointer;
 }
 
 .param-input {
-  width: 50px;
+  width: 60px;
+  min-height: 30px;
   font-family: inherit;
-  font-size: 9px;
-  padding: 2px;
+  font-size: 12px;
+  padding: 4px;
   border: 1px solid #999;
 }
 
@@ -391,12 +412,12 @@ kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: #4a90e2;
   color: white;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: bold;
   cursor: help;
   flex-shrink: 0;
@@ -415,10 +436,10 @@ kbd {
   color: #fff;
   padding: 6px 8px;
   border-radius: 3px;
-  font-size: 8px;
+  font-size: 12px;
   white-space: normal;
-  max-width: 140px;
-  width: 140px;
+  max-width: 200px;
+  width: 180px;
   z-index: 1000;
   margin-bottom: 5px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
@@ -520,4 +541,29 @@ kbd {
   height: 12px;
   border: 1px solid #666;
   flex-shrink: 0;
+}
+
+@media (pointer: coarse) {
+  .palette-btn,
+  .hud-tab-btn,
+  .preset-controls button,
+  .group-header,
+  .dialog-heading button,
+  #helpPanel button,
+  input[type='text'],
+  .preset-controls select,
+  .param-input {
+    min-height: 44px;
+  }
+
+  .left-palette .tool-grid label,
+  .advanced-toggle,
+  .param-slider {
+    min-height: 44px;
+  }
+
+  .param-help-icon {
+    width: 44px;
+    height: 44px;
+  }
 }

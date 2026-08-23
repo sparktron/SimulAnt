@@ -23,3 +23,10 @@ test('save and load feedback uses a visible polite live region', () => {
   assert.match(stylesheet, /\.persistence-status\b/);
   assert.match(stylesheet, /\.persistence-status:empty\s*{[^}]*display:\s*none/s);
 });
+
+test('core controls use readable text and touch-friendly target sizes', () => {
+  assert.match(stylesheet, /\.palette-btn\s*{[^}]*min-height:\s*30px[^}]*font-size:\s*12px/s);
+  assert.match(stylesheet, /\.param-label\s*{[^}]*font-size:\s*12px/s);
+  assert.match(stylesheet, /\.param-help-icon\s*{[^}]*width:\s*24px[^}]*height:\s*24px[^}]*font-size:\s*12px/s);
+  assert.match(stylesheet, /@media\s*\(pointer:\s*coarse\)\s*{[\s\S]*min-height:\s*44px/);
+});
