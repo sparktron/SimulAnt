@@ -4,7 +4,7 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 
 > ⚡ **No build step required** — just serve static files and play.
 
-Current landed version: **v0.57.14**. The simulation includes deterministic
+Current landed version: **v0.58.0**. The simulation includes deterministic
 save/load with explicit migrations, biological crowding controls, nest-space
 carrying capacity, cached surface terrain rendering, and an explicit
 replay-guarded `Ant.update` sense → choose → apply pipeline. Food-respawn drops
@@ -178,6 +178,8 @@ Malformed saves are rejected without replacing the active simulation; older
 supported saves migrate forward automatically.
 Loading also refreshes sliders, tool selection, parameter inputs, and overlay
 button states so the controls match the restored simulation.
+Save and load results are shown on-screen in an accessible live status region,
+including empty-slot, unavailable-storage, and invalid-save failures.
 
 ---
 

@@ -10,6 +10,7 @@ import { InputRouter } from './input/InputRouter.js';
 import { normalizeUnhandledRejectionReason, shouldReportFatalWindowError } from './ui/runtimeErrorGate.js';
 import { ColonyStatusPanel } from './ui/ColonyStatusPanel.js';
 import { ParameterEditor } from './ui/ParameterEditor.js';
+import { showPersistenceStatus } from './ui/PersistenceStatus.js';
 
 const STORAGE_KEY = 'simant-save-v2';
 const SIM_DT = 1 / 30;
@@ -310,6 +311,7 @@ const state = {
 };
 
 const canvas = mustById('simCanvas');
+const persistenceStatus = mustById('persistenceStatus');
 const simCore = new SimulationCore(state.seed);
 if (typeof window !== 'undefined') {
   window.__sim = {
@@ -907,6 +909,7 @@ function saveState() {
   try {
     payload = JSON.stringify(buildSaveData());
     localStorage.setItem(STORAGE_KEY, payload);
+    showPersistenceStatus(persistenceStatus, 'Simulation saved.');
   } catch (error) {
     // Serialization or the localStorage write failed (most likely
     // QuotaExceededError — a mature world's save is multi-MB). Without this
@@ -917,6 +920,11 @@ function saveState() {
       `[SimAnt] Save failed — the game state was NOT stored.${sizeNote} `
       + 'If this is a quota error, clear old site data or export a log instead. Details:',
       error,
+    );
+    showPersistenceStatus(
+      persistenceStatus,
+      'Save failed. Browser storage may be unavailable or full.',
+      'error',
     );
   }
 }
@@ -958,14 +966,23 @@ function loadState() {
     raw = localStorage.getItem(STORAGE_KEY);
   } catch (error) {
     console.error('[SimAnt] Load failed because browser storage is unavailable:', error);
+    showPersistenceStatus(persistenceStatus, 'Load failed. Browser storage is unavailable.', 'error');
     return;
   }
-  if (!raw) return;
+  if (!raw) {
+    showPersistenceStatus(persistenceStatus, 'No saved simulation found.', 'notice');
+    return;
+  }
   let data;
   try {
     data = JSON.parse(raw);
   } catch (error) {
     console.error('[SimAnt] Saved game in localStorage is not valid JSON — skipping load. The save may be from an older version or hand-edited:', error);
+    showPersistenceStatus(
+      persistenceStatus,
+      'Saved simulation is unreadable. The current simulation was not changed.',
+      'error',
+    );
     return;
   }
 
@@ -976,6 +993,11 @@ function loadState() {
       '[SimAnt] Saved game has an invalid structure — keeping the current simulation unchanged. '
       + 'Reset or clear the saved game to start fresh:',
       error,
+    );
+    showPersistenceStatus(
+      persistenceStatus,
+      'Saved simulation is incompatible or damaged. The current simulation was not changed.',
+      'error',
     );
     return;
   }
@@ -1017,6 +1039,7 @@ function loadState() {
   if (mode === VIEW.SURFACE || mode === VIEW.NEST) viewManager.setView(mode);
   controls.sync();
   parameterEditor.syncFromState();
+  showPersistenceStatus(persistenceStatus, 'Simulation loaded.');
 }
 
 function clampUiNumber(value, fallback, min, max) {

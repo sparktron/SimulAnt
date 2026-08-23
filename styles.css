@@ -452,6 +452,38 @@ kbd {
   z-index: 10;
 }
 
+.persistence-status {
+  position: fixed;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 120px);
+  padding: 3px 8px;
+  border: 2px outset #ccc;
+  background: #e4e4e4;
+  color: #111;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  z-index: 20;
+}
+
+.persistence-status:empty {
+  display: none;
+}
+
+.persistence-status[data-level='success'] {
+  background: #d3ead3;
+}
+
+.persistence-status[data-level='notice'] {
+  background: #fff2b3;
+}
+
+.persistence-status[data-level='error'] {
+  background: #ffc0c0;
+}
+
 #jobLegend {
   position: absolute;
   top: 8px;

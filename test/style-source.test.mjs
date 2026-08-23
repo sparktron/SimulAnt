@@ -14,3 +14,12 @@ test('external stylesheet contains styles used by the parameter editor', () => {
   assert.match(stylesheet, /\.param-slider\b/);
   assert.match(stylesheet, /\.parameter-editor\b/);
 });
+
+test('save and load feedback uses a visible polite live region', () => {
+  assert.match(indexHtml, /id="persistenceStatus"/);
+  assert.match(indexHtml, /role="status"/);
+  assert.match(indexHtml, /aria-live="polite"/);
+  assert.match(indexHtml, /aria-atomic="true"/);
+  assert.match(stylesheet, /\.persistence-status\b/);
+  assert.match(stylesheet, /\.persistence-status:empty\s*{[^}]*display:\s*none/s);
+});

@@ -1,6 +1,6 @@
 # Open Items / TODO Plan
 
-Status checked against landed `master` at **v0.57.14** on 2026-08-20.
+Status checked against landed `master` at **v0.58.0** on 2026-08-23.
 
 ## Completed
 
@@ -107,6 +107,8 @@ Status checked against landed `master` at **v0.57.14** on 2026-08-20.
 43. ✅ Retained mature brood as non-feeding hatchlings while the ant cap is
     full, and preserved elapsed queen-succession delay across save/load cycles
     (v0.57.14).
+44. ✅ Added visible, screen-reader-announced save/load feedback for successful
+    operations, empty save slots, storage failures, and invalid saves (v0.58.0).
 
 ## Active work
 
