@@ -103,3 +103,11 @@ const evap = state.config.pheromoneEvapRate;
 - Run npm or any Node package manager commands (no package.json exists).
 - Use `Math.random()` inside `src/sim/`.
 - Commit `localStorage` data, `.env` files, or secrets.
+
+## Where to find deeper context
+
+| Topic | Document |
+|---|---|
+| Current state | `docs/STATUS.md` |
+| Roadmap | `docs/open-items-todo.md` |
+| Architecture | `docs/core-simulation-architecture.md` |
