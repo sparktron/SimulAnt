@@ -325,10 +325,14 @@ export function foragerExitNest(ant, world, colony, rng, config, context) {
   // Scatter exits along a wider band so foragers fan out instead of
   // clustering at the same few tiles.  Uses double the entrance radius
   // plus padding so ants emerge across an 8-10 tile front.
+  // Only fan out from the top of the shaft: aiming at an offset surface tile
+  // from deeper down points through solid soil beside narrow dug shafts and
+  // pins ants against the ceiling. Deeper ants climb the tunnel field first.
+  const atShaftTop = ant.y <= context.entrance.y + 1;
   const radius = Math.max(1, (context.entrance.radius ?? 1) * 2 + 2);
   const scatter = navigation.entranceColumnOffset(ant, radius);
   const scatteredX = context.entrance.x + scatter;
-  if (world.isPassable(scatteredX, exitTargetY)) {
+  if (atShaftTop && world.isPassable(scatteredX, exitTargetY)) {
     return movementAction(steering.moveToward(ant, world, scatteredX, exitTargetY, rng));
   }
   if (world.isPassable(context.entrance.x, exitTargetY)) {

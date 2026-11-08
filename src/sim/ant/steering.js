@@ -12,6 +12,7 @@
 
 import * as navigation from './navigation.js';
 import { DIRS, gaussianRandom } from './constants.js';
+import { UNREACHABLE } from '../behavior/NestExitField.js';
 
 /*
     Moves ant by evaluating pheromone gradient + momentum + directional bias.
@@ -343,12 +344,62 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
 
 export function moveThroughEntranceShaft(ant, world, entrance, targetY, rng) {
   if (!entrance) return false;
+  // Heading up and out from below the mouth: follow real tunnel paths instead
+  // of the straight line, which strands ants in pockets the line cuts through.
+  if (targetY <= entrance.y && ant.y > entrance.y) {
+    const climbed = climbTowardMouth(ant, world, ant._currentColony, rng);
+    if (climbed !== null) return climbed;
+  }
   const shaftHalfWidth = Math.max(1, (entrance.radius ?? 1) + 1);
   return moveToward(ant, world, entrance.x, targetY, rng, {
     entranceX: entrance.x,
     entranceY: entrance.y,
     shaftHalfWidth,
   });
+}
+
+/**
+ * Steps one tile down the colony's tunnel distance field toward its nearest
+ * (by walking distance) entrance mouth. Among downhill neighbours the least
+ * crowded wins, then the usual heading-weighted pick breaks ties.
+ *
+ * Returns null when the field cannot help (no colony, ant already at a mouth,
+ * or on a tile no mouth connects to) so callers fall back to greedy steering.
+ * Draws rng only when it moves, through pickDirectionalCandidate.
+ */
+export function climbTowardMouth(ant, world, colony, rng) {
+  const field = colony?.getNestExitField?.();
+  if (!field) return null;
+  const here = field.distanceAt(ant.x, ant.y);
+  if (here === UNREACHABLE || here === 0) return null;
+
+  const candidates = [];
+  let leastCrowd = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < DIRS.length; i += 1) {
+    const nx = ant.x + DIRS[i][0];
+    const ny = ant.y + DIRS[i][1];
+    const d = field.distanceAt(nx, ny);
+    if (d === UNREACHABLE || d >= here || !world.isPassable(nx, ny)) continue;
+    const crowd = colony.countAntsAt(nx, ny);
+    if (crowd < leastCrowd) {
+      leastCrowd = crowd;
+      candidates.length = 0;
+      candidates.push(i);
+    } else if (crowd === leastCrowd) {
+      candidates.push(i);
+    }
+  }
+  if (candidates.length === 0) return null;
+
+  const bestDir = pickDirectionalCandidate(ant, candidates, rng);
+  const prevX = ant.x;
+  const prevY = ant.y;
+  ant.x += DIRS[bestDir][0];
+  ant.y += DIRS[bestDir][1];
+  ant.dir = bestDir;
+  ant.theta = Math.atan2(DIRS[bestDir][1], DIRS[bestDir][0]);
+  colony.moveAntInGrid(prevX, prevY, ant.x, ant.y);
+  return true;
 }
 
 export function getHomeScentWeight(ant, config, entrance) {

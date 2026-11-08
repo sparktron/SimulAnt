@@ -77,6 +77,10 @@ export class SimulationCore {
     const blackNestX = Math.floor(this.world.width * BLACK_NEST_X_FRACTION);
     const redNestX = Math.floor(this.world.width * RED_NEST_X_FRACTION);
     this.world.setNest(blackNestX, this.world.nestY);
+    // The World constructor carves a starter nest at its default (map-centre)
+    // nest position. Re-initialize now that nestX is the black nest, so no
+    // ownerless shaft and chamber are left between the two colonies.
+    this.world.initializeTerrain();
 
     const wallCount = 6 + Math.floor(this.rng.next() * 5);
     const margin = 10;

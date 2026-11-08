@@ -390,7 +390,11 @@ export class Ant {
       return roles.runDiggerBehavior(this, world, colony, rng, config, context);
     }
 
-    if (!vitals.needsForage(this, colony)) {
+    // Foragers never park on the surface: food stores run far above
+    // foodStoreTarget, so "fed and the store is full" is nearly always true and
+    // standing still here froze every freshly exited forager on the mouth row.
+    // (Foragers inside the nest were already routed out by foragerExitNest.)
+    if (!vitals.needsForage(this, colony) && this.workFocus !== 'forage') {
       return STAY_ACTION;
     }
 
