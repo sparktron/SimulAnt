@@ -36,6 +36,10 @@ export class Ant {
     return '#1a1208';  // Dark brown for workers
   }
 
+  static getNormalColor(state, baseColor) {
+    return state === 'FIGHT' ? '#b44cff' : baseColor;
+  }
+
   static getLegacySoldierBaseColor() {
     return '#d93828';
   }
@@ -50,6 +54,7 @@ export class Ant {
   }
 
   static getJobColor(state, workFocus, role = 'worker') {
+    if (state === 'FIGHT' || state === 'SEEK_FIGHT') return '#ff3030';
     if (role === 'soldier') return '#9a5aff';  // Bright purple for soldiers
 
     switch (state) {
@@ -318,6 +323,9 @@ export class Ant {
    * Returns an explicit movement/fallback action result.
    */
   #decideAndMove(world, colony, rng, config, context) {
+    const combatAction = decisions.seekFight(this, world, colony, rng, config, context);
+    if (combatAction) return combatAction;
+
     if (this.role === 'soldier') {
       return decisions.soldierPatrol(this, world, colony, rng, config, context);
     }

@@ -1,6 +1,6 @@
 # Current Status
 
-**Updated:** 2026-08-30 · **Branch:** `master` · **Commit:** `3ab7e56`
+**Updated:** 2026-11-08 · **Branch:** `master` · **Release:** `v0.59.0`
 
 ## Objective
 
@@ -12,31 +12,27 @@ exactly.
 
 ## Current state
 
-- `master` is at `3ab7e56` — `fix(ui): enlarge core controls — v0.58.1`.
-  `git status --porcelain` is empty: the working tree is clean.
-- `VERSION` reads `0.58.1`, matching the version suffix on the HEAD commit.
-- 116 tracked files, 35 test files under `test/`, 7 benchmark harnesses under
-  `bench/`.
-- The no-package-manager rule holds in the tree, not just in `AGENTS.md`:
-  `git ls-files 'package.json' 'package-lock.json' 'yarn.lock' 'pnpm-lock.yaml'`
-  returns nothing.
-- Shipped behaviour includes two colonies (black and red) with combat, the brood
-  and queen-succession lifecycle, the dig system with chamber carving, and
-  save-schema v4 with named forward migrations.
+- v0.59.0 gives red ants the same physical attributes, caste defaults, work
+  allocation, and digging support as black ants. Each colony excavates from its
+  own home and tracks its own entrances and soil mounds.
+- Healthy, fed red surface foragers and soldiers may pursue locally sensed
+  opponents within six tiles. Cargo, queen couriers, nest work, and recovery
+  retain priority. Red aggression defaults to a 2× engagement multiplier;
+  health and combat damage are unchanged.
+- Fighting ants appear purple in normal mode in both views. JOBS mode includes
+  a red Fight color for fighting/pursuit and now applies to both colonies.
+- Rival digging state is optional in existing schema-v4 saves. Reset/load
+  initializes both colonies' digging navigation consistently; new saves retain
+  rival fronts, progress, shafts, and auto-dig state.
+- Static vanilla JavaScript, no build step or package manager. Seeded randomness,
+  local ant decisions, typed world arrays, and macro/micro phase order remain
+  required contracts.
 
 ## Active work
 
-Nothing is in progress in the working tree — it is clean at `3ab7e56`.
-
-`docs/open-items-todo.md`, reconciled against landed `master` at v0.58.1 on
-2026-08-23, lists 45 completed items and states that no general maintenance
-fixes are queued; the remaining planned work is the environmental-foraging
-experiment programme.
-
-The repository carries 44 local branches besides `master` (23 `ccode/*`, 18
-`codex/*`, plus `code-review/bug-fixes-and-enhancements`,
-`consolidate/pr-review-merge`, and `pr55-resolve`). None is checked out; whether
-any holds unmerged work was not examined.
+This feature is complete. Concurrent food-replenishment edits were present in
+this checkout during validation and were excluded from this feature's commit.
+Do not discard or accidentally commit those remaining changes.
 
 ## Next
 
@@ -72,37 +68,31 @@ any holds unmerged work was not examined.
 
 ## Validation state
 
-Run on this machine on 2026-08-30, against `3ab7e56` with a clean working tree,
-on Node v22.23.2:
+Run on 2026-11-08 with Node v24.16.0:
 
-- `node --test test/*.mjs` → `# tests 402`, `# pass 402`, `# fail 0`,
-  `# cancelled 0`, `# skipped 0`, `# todo 0`, `duration_ms 22391`. Exit 0.
-- `node scripts/check-determinism.mjs` →
-  `Determinism OK: no Math.random() call sites in src/`. Exit 0.
-- `git ls-files 'package.json' 'package-lock.json' 'yarn.lock' 'pnpm-lock.yaml'`
-  → empty, satisfying CI's "No package manager files" gate.
-- `VERSION` → `0.58.1`, valid `MAJOR.MINOR.PATCH`, satisfying CI's semver gate.
-
-`.github/workflows/ci.yml` gates the same test suite on Node 20 and Node 22 for
-pushes to `master`, pull requests, and manual dispatch, plus the three contract
-checks above. That the gates exist is separate from the local run recorded here.
+- `node --test --test-reporter=tap test/*.mjs` → 415 passed, zero failures in
+  the shared checkout, including concurrent food-replenishment tests.
+- The exact staged feature source was exported with `git checkout-index` to
+  `/tmp/simulant-staged-check`; its full suite → 410 passed, zero failures.
+- `node scripts/check-determinism.mjs` → passed; no `Math.random()` in `src/`.
+- `git diff --check` → passed.
+- Browser visual verification used the real SurfaceRenderer and NestRenderer
+  with fixed combat fixtures: purple fighting black/red workers in normal
+  mode, red fighting black/red workers in JOBS mode, normal colony colors for
+  non-fighting workers. This is a renderer fixture check, not a full UI audit.
+- Regression tests cover attribute/work parity, red worker/soldier pursuit,
+  spatial occupancy, cargo/courier/nest-work/healing priorities, disabled combat,
+  engagement odds without damage buffs, rival excavation, and save/load replay.
+- Both colonies passed the existing 6,000-tick production-default survival test.
 
 ## Unverified
 
-- **Node 20.** CI's matrix covers it; only Node 22.23.2 is installed on this
-  machine, so that leg was not exercised.
-- **Browser and UI behaviour.** No browser was launched. The simulation is
-  canvas-rendered, so rendering, the two independent cameras, the HUD, the
-  save/load controls, and the accessibility and type-scale work in v0.58.0–
-  v0.58.1 are untested here. `CLAUDE.md` requires visual proof for UI changes;
-  none was obtained.
-- **Benchmarks.** Nothing under `bench/` was run. The performance budgets are
-  opt-in, and the foraging sweep is a 16,000-tick multi-seed job. The population
-  figures quoted above come from `docs/open-items-todo.md`, not from a run on
-  this commit.
-- **CI result for `3ab7e56` on GitHub.** Not checked; no network calls were made.
-- **The 44 non-`master` local branches.** Not diffed against `master`, so
-  whether any carries unmerged work is unknown.
+- Node 20 and Node 22 CI matrix legs were not run locally in this session.
+- Remote CI status and long benchmark sweeps were not checked.
+- Full interactive camera, controls, and live fight visibility were not audited.
+  Duels still resolve to one survivor within one tick; purple follows `FIGHT`
+  state and returns to the base color when ordinary behavior resumes.
+- The non-master local branches were not examined.
 
 ## Recent decisions
 

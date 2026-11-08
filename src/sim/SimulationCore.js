@@ -113,7 +113,6 @@ export class SimulationCore {
       workerColor: RIVAL_WORKER_COLOR,
       soldierColor: RIVAL_SOLDIER_COLOR,
     });
-    this.rivalColony.setWorkAllocation({ forage: 95, dig: 0, nurse: 5 });
     this.colony.syncQueenPositionToNest(blackNestX, this.world.nestY);
     this.rivalColony.syncQueenPositionToNest(redNestX, this.world.nestY);
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
@@ -240,30 +239,32 @@ export class SimulationCore {
   }
 
   toggleAutoDig() {
-    return this.digSystem.toggleAutoDig();
+    const enabled = this.digSystem.toggleAutoDig();
+    this.rivalDigSystem.autoDig = enabled;
+    return enabled;
   }
 
   forceChamberAtDigFront(config) {
     return this.digSystem.forceChamberAtActiveFront(config);
   }
 
-  onExcavate(volume, worldX, _depthY) {
-    const entrance = this.#nearestEntrance(worldX);
+  onExcavate(volume, worldX, _depthY, entrances = this.nestEntrances) {
+    const entrance = this.#nearestEntrance(worldX, entrances);
     if (!entrance) return;
     entrance.excavatedSoilTotal += volume;
     // Backward compatibility:
     // - single-entrance mode historically surfaced excavated soil directly,
     // - multi-entrance mode tracks excavation totals only until dirt is deposited.
-    if (this.nestEntrances.length <= 1) {
+    if (entrances.length <= 1) {
       entrance.soilOnSurface += volume * SURFACE_DEPOSIT_RATIO;
     }
   }
 
-  onDepositDirt(volume, worldX, _depthY) {
+  onDepositDirt(volume, worldX, _depthY, entrances = this.nestEntrances) {
     // Single-entrance excavation already receives direct mound credit in
     // onExcavate. Multi-entrance nests defer that credit until dirt is hauled.
-    if (this.nestEntrances.length <= 1) return;
-    const entrance = this.#nearestEntrance(worldX);
+    if (entrances.length <= 1) return;
+    const entrance = this.#nearestEntrance(worldX, entrances);
     if (!entrance) return;
     entrance.soilOnSurface += volume * SURFACE_DEPOSIT_RATIO;
   }
@@ -275,9 +276,9 @@ export class SimulationCore {
    * shared nestEntrances array so colony pheromone painting and ant
    * navigation immediately recognize the new opening.
    */
-  #registerNewEntrance(x, y) {
-    const id = `entrance-${this.nestEntrances.length}`;
-    this.nestEntrances.push({
+  #registerNewEntrance(x, y, entrances = this.nestEntrances, prefix = 'entrance') {
+    const id = `${prefix}-${entrances.length}`;
+    entrances.push({
       id,
       x,
       y,
@@ -287,13 +288,13 @@ export class SimulationCore {
     });
   }
 
-  #nearestEntrance(worldX) {
-    if (this.nestEntrances.length === 0) return null;
-    let nearest = this.nestEntrances[0];
+  #nearestEntrance(worldX, entrances = this.nestEntrances) {
+    if (entrances.length === 0) return null;
+    let nearest = entrances[0];
     let bestDistance = Math.abs(worldX - nearest.x);
 
-    for (let i = 1; i < this.nestEntrances.length; i += 1) {
-      const candidate = this.nestEntrances[i];
+    for (let i = 1; i < entrances.length; i += 1) {
+      const candidate = entrances[i];
       const distance = Math.abs(worldX - candidate.x);
       if (distance < bestDistance) {
         bestDistance = distance;
@@ -445,6 +446,7 @@ export class SimulationCore {
       foodPellets: this.foodPellets,
       nextPelletId: this.nextPelletId,
       digSystem: this.digSystem.serialize(),
+      rivalDigSystem: this.rivalDigSystem.serialize(),
       macro: this.macroEngine.serialize(),
       stats: this.stats.serialize(),
       combat: this.combatSystem.serialize(),
@@ -500,12 +502,14 @@ export class SimulationCore {
         workerColor: RIVAL_WORKER_COLOR,
         soldierColor: RIVAL_SOLDIER_COLOR,
       });
-      this.rivalColony.setWorkAllocation({ forage: 95, dig: 0, nurse: 5 });
     }
     this.colony.onExcavate = (volume, worldX, depthY) => this.onExcavate(volume, worldX, depthY);
     this.colony.onDepositDirt = (volume, worldX, depthY) => this.onDepositDirt(volume, worldX, depthY);
     this.#rebuildDigSystem();
     this.digSystem.loadFromSerialized(data.digSystem);
+    this.rivalDigSystem.loadFromSerialized(data.rivalDigSystem);
+    this.colony.setDigFronts(this.digSystem.fronts.map(({ x, y }) => ({ x, y })));
+    this.rivalColony.setDigFronts(this.rivalDigSystem.fronts.map(({ x, y }) => ({ x, y })));
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.loadFromSerialized(data.macro);
     this.combatSystem = new CombatSystem(this.rng);
@@ -661,6 +665,15 @@ export class SimulationCore {
   #rebuildDigSystem() {
     this.digSystem = new DigSystem(this.world, this.colony, this.rng);
     this.digSystem.onNewEntrance = (x, y) => this.#registerNewEntrance(x, y);
+    this.rivalDigSystem = new DigSystem(this.world, this.rivalColony, this.rng);
+    this.colony.setDigFronts(this.digSystem.fronts.map(({ x, y }) => ({ x, y })));
+    this.rivalColony.setDigFronts(this.rivalDigSystem.fronts.map(({ x, y }) => ({ x, y })));
+    this.rivalDigSystem.onNewEntrance = (x, y) =>
+      this.#registerNewEntrance(x, y, this.rivalNestEntrances, 'entrance-red');
+    this.rivalColony.onExcavate = (volume, x, y) =>
+      this.onExcavate(volume, x, y, this.rivalNestEntrances);
+    this.rivalColony.onDepositDirt = (volume, x, y) =>
+      this.onDepositDirt(volume, x, y, this.rivalNestEntrances);
   }
 
   #rebuildTickPipeline() {
@@ -670,6 +683,7 @@ export class SimulationCore {
       this.digSystem,
       this.rivalColony,
       this.combatSystem,
+      this.rivalDigSystem,
     );
     this.tickScheduler = new TickScheduler({ macroEngine: this.macroEngine, microEngine: this.microEngine });
   }

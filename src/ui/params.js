@@ -202,12 +202,22 @@ export const parameterDefinitions = {
   },
   combatEngageChance: {
     label: 'Combat Engagement Chance',
-    description: 'Chance that opposing ants fight when they occupy the same tile.',
+    description: 'Base chance of fighting on a shared tile. Red aggression multiplies this chance, capped at 100%.',
     group: 'Health',
     min: 0,
     max: 1,
     step: 0.05,
     advanced: true,
+  },
+  redAggressionMultiplier: {
+    label: 'Red Ant Aggression',
+    description: 'Multiplier for red ant pursuit and collision engagement. Health and damage stay the same.',
+    group: 'Health', min: 1, max: 4, step: 0.25, advanced: true,
+  },
+  combatSenseRadius: {
+    label: 'Combat Sensing Radius',
+    description: 'How many nearby surface tiles red ants can sense for enemy pursuit.',
+    group: 'Health', min: 1, max: 12, step: 1, advanced: true,
   },
   combatWorkerDamage: {
     label: 'Worker Combat Damage',
@@ -658,6 +668,8 @@ export function getDefaultConfig() {
     healthWorkCarryDrainRate: 0.01,
     healthWorkFightDrainRate: 0.6,
     combatEngageChance: 0.25,
+    redAggressionMultiplier: 2,
+    combatSenseRadius: 6,
     combatWorkerDamage: 8,
     combatSoldierDamage: 16,
     healthEatRecoveryRate: 0.45,

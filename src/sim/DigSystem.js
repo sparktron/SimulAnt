@@ -230,11 +230,12 @@ export class DigSystem {
   }
 
   #seedInitialFronts() {
-    const baseY = this.world.nestY + 3;
+    const homeX = this.colony.homeX ?? this.world.nestX;
+    const baseY = (this.colony.homeY ?? this.world.nestY) + 3;
     this.fronts = [
-      { x: this.world.nestX, y: baseY, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 },
-      { x: this.world.nestX - 2, y: baseY + 1, dir: 2, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 },
-      { x: this.world.nestX + 2, y: baseY + 1, dir: 0, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 },
+      { x: homeX, y: baseY, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 },
+      { x: homeX - 2, y: baseY + 1, dir: 2, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 },
+      { x: homeX + 2, y: baseY + 1, dir: 0, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 },
     ].filter((front) => this.world.inBounds(front.x, front.y));
   }
 
