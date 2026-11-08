@@ -34,6 +34,27 @@
   high-population performance checks on target hardware. GUI implementation is
   complete; README documents themes and required static-deployment files.
 
+## Food replenishment cap — v0.59.0 (2026-11-08)
+
+- Added `maxSurfacePellets`, default **500**, exposed as **Max Surface Food**
+  in Params → Food Economy. Both surface-low and hunger-triggered drops obey
+  this ceiling and fit the remaining capacity. Carried pellets do not count.
+- At or above the cap, replenishment pauses until collection creates room;
+  zero disables replenishment. Existing and manually placed food is preserved.
+- Validation: `node --test test/*.mjs` passed all 35 test files in a clean
+  snapshot containing only this change; the focused food-economy suite passed
+  24 tests. `node scripts/check-determinism.mjs` passed.
+- Review follow-up: added a seeded `SimulationCore` integration test using real
+  tick updates, real cluster spawning, and an actual ant pickup. It verifies
+  that drops pause across ticks at capacity and resume after collection.
+- Browser: the new control and v0.59.0 were visually checked before the final
+  default changed from 1,000 to 500. Rechecking the final default was blocked
+  by browser unavailability. Long-run colony balance was not measured.
+- Active work: food cap complete; review and merge the PR. Concurrent rival
+  behavior edits in the original checkout are excluded from this change.
+
+The sections below record the previous v0.58.1 baseline.
+
 ## Session update — 2026-11-08, v0.60.0
 
 - Added seeded, stationary surface ant lions: up to four alive, clear-ground
@@ -43,13 +64,13 @@
   health falls by 0.25 per tick (death after another 400 ticks).
 - Surface pits and health bars are visible; lifecycle, spawn timer, and predator
   RNG state survive save/load. Older saves receive an initial population.
-- Validation: `node --test test/*.mjs` passed 420/420 tests;
+- Validation after merging current master: `node --test test/*.mjs` passed
+  all 37 test files;
   `node scripts/check-determinism.mjs` passed; `git diff --check` passed.
   Chrome at a loopback dev server showed the pits, health bars, and v0.60.0.
-- Existing rival-behavior work was committed concurrently as `5c9230d`.
-  Food-replenishment changes remain in progress in the shared working tree;
-  those files are outside the ant-lion commit. Reconcile their version and
-  replay baseline when finishing that work.
+- PR branch includes master through `849a6a8`, including the merged food cap
+  and rival-behavior changes. Resolved the replay-baseline conflict using
+  the combined deterministic state; all simulation tests pass.
 - No external dependencies, world dimensions, pheromone tuning, or fixed
   macro/micro tick ordering changed. No cross-repository contracts touched.
 

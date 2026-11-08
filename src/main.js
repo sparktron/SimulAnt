@@ -131,6 +131,7 @@ const state = {
     queenSuccessionFoodCost: 60,
     queenSuccessionMinHealthFraction: 0.5,
     minSurfacePellets: 200,
+    maxSurfacePellets: 500,
     foodReservePerAnt: 12,
     foodMinReserve: 150,
     foodRespawnCooldownTicks: 60,

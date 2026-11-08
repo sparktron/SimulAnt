@@ -508,6 +508,15 @@ export const parameterDefinitions = {
     step: 25,
     advanced: false,
   },
+  maxSurfacePellets: {
+    label: 'Max Surface Food',
+    description: 'Maximum free (unclaimed) surface pellets allowed by replenishment, including hunger-triggered drops. Each drop fits the remaining capacity. Carried food is excluded. Set to zero to disable replenishment; existing food remains until collected.',
+    group: 'Food Economy',
+    min: 0,
+    max: 5000,
+    step: 25,
+    advanced: false,
+  },
   foodReservePerAnt: {
     label: 'Hunger Reserve / Ant',
     description: 'The respawn safety net ALSO fires when the larder (foodStored) falls below max(min reserve, ants × this). Per-ant reserve target. Higher = the colony is judged "hungry" sooner, so food drops more readily (easier).',
@@ -647,6 +656,7 @@ export function getDefaultConfig() {
     queenSuccessionFoodCost: 60,
     queenSuccessionMinHealthFraction: 0.5,
     minSurfacePellets: 200,
+    maxSurfacePellets: 500,
     foodReservePerAnt: 12,
     foodMinReserve: 150,
     foodRespawnCooldownTicks: 60,
