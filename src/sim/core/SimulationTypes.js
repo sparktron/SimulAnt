@@ -150,6 +150,7 @@ export function sanitizeTickConfig(config = {}) {
     // cooldown bounds the rate (hunger trigger isn't self-limiting). Fixes the
     // RCA cause #2 — see docs/starvation-collapse-rca-2026-06-02.md.
     minSurfacePellets: clampPositiveInt(config.minSurfacePellets, 200, 0),
+    maxSurfacePellets: clampPositiveInt(config.maxSurfacePellets, 500, 0),
     foodReservePerAnt: clampNonNegativeNumber(config.foodReservePerAnt, 12),
     foodMinReserve: clampNonNegativeNumber(config.foodMinReserve, 150),
     foodRespawnCooldownTicks: clampPositiveInt(config.foodRespawnCooldownTicks, 60, 0),
