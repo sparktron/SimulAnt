@@ -718,3 +718,42 @@ test('both colonies survive long-run on production defaults (no starvation colla
     );
   }
 });
+
+
+test('surface food cap pauses real drops and resumes after an ant collects food', () => {
+  const sim = new SimulationCore('surface-cap-real-ticks');
+  sim.clearWorld();
+  const config = {
+    ...getDefaultConfig(),
+    maxSurfacePellets: 10,
+    minSurfacePellets: 0,
+    // Keep the hunger trigger active; only the cap can suppress replenishment.
+    foodMinReserve: 1_000_000,
+    foodRespawnCooldownTicks: 0,
+    foodDropDistanceMin: 10,
+    foodDropDistanceRange: 0,
+  };
+  const freeCount = () => sim.foodPellets.filter((p) => p.takenByAntId == null).length;
+
+  // Run the entire tick pipeline and the real spawnFoodCluster callback.
+  sim.update(config);
+  assert.equal(freeCount(), 10, 'first drop fits the capacity instead of spawning a full cluster');
+  const initialPellets = [...sim.foodPellets];
+  const nextIdAtCapacity = sim.nextPelletId;
+  let pausedTicks = 0;
+  let collectedPellet;
+  for (let i = 0; i < 100; i += 1) {
+    sim.update(config);
+    assert.equal(freeCount(), 10, 'every tick respects the free-food cap');
+    collectedPellet = initialPellets.find((p) => p.takenByAntId != null);
+    if (collectedPellet) break;
+    assert.equal(sim.nextPelletId, nextIdAtCapacity, 'no new pellets while at capacity');
+    pausedTicks += 1;
+  }
+
+  assert.ok(pausedTicks > 0, 'replenishment stays paused across real ticks');
+  assert.ok(collectedPellet, 'a real ant must collect an original pellet within 100 ticks');
+  assert.ok(sim.findAntById(collectedPellet.takenByAntId), 'the collector is a living simulation ant');
+  assert.ok(sim.nextPelletId > nextIdAtCapacity, 'collection allows the real spawning path to resume');
+  assert.ok(sim.foodPellets.some((p) => !initialPellets.includes(p)), 'replenishment adds a new pellet');
+});

@@ -2,6 +2,27 @@
 
 **Updated:** 2026-08-30 · **Branch:** `master` · **Commit:** `3ab7e56`
 
+## Food replenishment cap — v0.59.0 (2026-11-08)
+
+- Added `maxSurfacePellets`, default **500**, exposed as **Max Surface Food**
+  in Params → Food Economy. Both surface-low and hunger-triggered drops obey
+  this ceiling and fit the remaining capacity. Carried pellets do not count.
+- At or above the cap, replenishment pauses until collection creates room;
+  zero disables replenishment. Existing and manually placed food is preserved.
+- Validation: `node --test test/*.mjs` passed all 35 test files in a clean
+  snapshot containing only this change; the focused food-economy suite passed
+  24 tests. `node scripts/check-determinism.mjs` passed.
+- Review follow-up: added a seeded `SimulationCore` integration test using real
+  tick updates, real cluster spawning, and an actual ant pickup. It verifies
+  that drops pause across ticks at capacity and resume after collection.
+- Browser: the new control and v0.59.0 were visually checked before the final
+  default changed from 1,000 to 500. Rechecking the final default was blocked
+  by browser unavailability. Long-run colony balance was not measured.
+- Active work: food cap complete; review and merge the PR. Concurrent rival
+  behavior edits in the original checkout are excluded from this change.
+
+The sections below record the previous v0.58.1 baseline.
+
 ## Objective
 
 A browser-playable ant colony simulation with dual surface/nest views, purely

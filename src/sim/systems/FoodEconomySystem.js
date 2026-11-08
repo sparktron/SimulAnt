@@ -17,6 +17,8 @@
     NOT self-limiting (a starving colony that can't reach far food stays hungry every
     tick), so without a cooldown it would flood the map. The surface trigger is
     self-limiting (a drop lifts the count), but the cooldown gates both uniformly.
+    maxSurfacePellets caps free surface supply for BOTH triggers; each cluster
+    fits the remaining capacity. Carried pellets do not use surface capacity.
 
     The living colony with the largest normalized reserve shortfall receives the
     drop. Equal-need ties use the shared seeded RNG, preventing a stable array-order
@@ -33,6 +35,7 @@ export class FoodEconomySystem {
     spawnFoodCluster,
     bootFoodTotal = 390,
     minSurfacePellets = 200,
+    maxSurfacePellets = 500,
     foodReservePerAnt = 12,
     foodMinReserve = 150,
     foodRespawnCooldownTicks = 60,
@@ -48,6 +51,7 @@ export class FoodEconomySystem {
     this.bootFoodTotal = bootFoodTotal;
     // Drop fires when free surface pellets fall below this floor...
     this.minSurfacePellets = minSurfacePellets;
+    this.maxSurfacePellets = maxSurfacePellets;
     // ...OR when foodStored falls below max(foodMinReserve, ants * foodReservePerAnt).
     this.foodReservePerAnt = foodReservePerAnt;
     this.foodMinReserve = foodMinReserve;
@@ -69,7 +73,13 @@ export class FoodEconomySystem {
 
     // Trigger 1 — surface supply low.
     const threshold = config?.minSurfacePellets ?? this.minSurfacePellets;
-    const freePellets = foodPellets.filter((p) => !p.takenByAntId).length;
+    const freePellets = foodPellets.filter((p) => p.takenByAntId == null).length;
+    const configuredMax = config?.maxSurfacePellets ?? this.maxSurfacePellets;
+    const maxSurfacePellets = Number.isFinite(configuredMax) && configuredMax >= 0
+      ? Math.floor(configuredMax)
+      : 500;
+    const count = Math.min(Math.round(this.bootFoodTotal / 4), maxSurfacePellets - freePellets);
+    if (count <= 0) return;
     const surfaceLow = freePellets < threshold;
 
     // Trigger 2 — any colony hungry (larder below its population-scaled floor).
@@ -115,7 +125,6 @@ export class FoodEconomySystem {
     const homeY = Number.isFinite(selected.colony.homeY) ? selected.colony.homeY : this.world.nestY;
     const x = Math.round(homeX + Math.cos(angle) * dist);
     const y = Math.round(homeY - Math.abs(Math.sin(angle)) * dist);
-    const count = Math.round(this.bootFoodTotal / 4);
     this.spawnFoodCluster(x, Math.min(y, this.world.nestY - 2), 8, count);
     if (Number.isFinite(tick)) this._lastDropTick = tick;
   }
