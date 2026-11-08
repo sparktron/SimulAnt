@@ -169,6 +169,8 @@ export function sanitizeTickConfig(config = {}) {
     healthWorkCarryDrainRate: clampNonNegativeNumber(config.healthWorkCarryDrainRate, 0),
     healthWorkFightDrainRate: clampNonNegativeNumber(config.healthWorkFightDrainRate, 0),
     combatEngageChance: clamp01(config.combatEngageChance, 0.25),
+    redAggressionMultiplier: clampFiniteRangeNumber(config.redAggressionMultiplier, 2, 1, 4),
+    combatSenseRadius: Math.floor(clampFiniteRangeNumber(config.combatSenseRadius, 6, 1, 12)),
     combatWorkerDamage,
     combatSoldierDamage,
     healthEatRecoveryRate: clampNonNegativeNumber(config.healthEatRecoveryRate, 0),

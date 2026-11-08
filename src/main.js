@@ -153,6 +153,8 @@ const state = {
     healthWorkCarryDrainRate: 0.01,
     healthWorkFightDrainRate: 0.6,
     combatEngageChance: 0.25,
+    redAggressionMultiplier: 2,
+    combatSenseRadius: 6,
     combatWorkerDamage: 8,
     combatSoldierDamage: 16,
     healthEatRecoveryRate: 0.45,

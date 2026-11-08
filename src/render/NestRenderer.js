@@ -293,9 +293,9 @@ export class NestRenderer {
       if (ant.y <= world.nestY && !antInCarvedNest) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       const drawY = ant.y;
-      ctx.fillStyle = overlays.showAntJobs && colony.id !== 'red'
+      ctx.fillStyle = overlays.showAntJobs
         ? Ant.getJobColor(ant.state, ant.workFocus, ant.role)
-        : ant.baseColor;
+        : Ant.getNormalColor(ant.state, ant.baseColor);
       ctx.fillRect(ant.x, drawY, 1, 1);
 
       const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');

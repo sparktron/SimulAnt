@@ -32,7 +32,8 @@ export class CombatSystem {
 
       for (const redAnt of opponents) {
         if (!redAnt.alive || engagedRed.has(redAnt)) continue;
-        if (this.rng.next() >= config.combatEngageChance) continue;
+        const aggression = redColony.id === 'red' ? (config.redAggressionMultiplier ?? 2) : 1;
+        if (this.rng.next() >= Math.min(1, config.combatEngageChance * aggression)) continue;
 
         engagedBlack.add(blackAnt);
         engagedRed.add(redAnt);

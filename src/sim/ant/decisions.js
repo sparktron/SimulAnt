@@ -17,6 +17,41 @@ import * as navigation from './navigation.js';
 import * as vitals from './vitals.js';
 import { movementAction, STAY_ACTION } from './action-result.js';
 
+// Red ants interrupt ordinary work only for locally sensed opponents. Cargo,
+// couriers, nest work, and recovery keep their existing priorities.
+export function seekFight(ant, world, colony, rng, config, context) {
+  const opponent = colony.opponentColony;
+  if (colony.id !== 'red' || !opponent || context.inNest
+      || ant.carrying?.type || colony.isQueenFoodCourier(ant.id)
+      || (ant.role !== 'soldier' && (ant.role !== 'worker' || ant.workFocus !== 'forage'))
+      || vitals.isLowHealth(ant) || ant.hunger < ant.hungerMax * 0.5
+      || config.combatEngageChance <= 0) return null;
+
+  const radius = config.combatSenseRadius ?? 6;
+  let target = null;
+  let bestDistance = radius * radius + 1;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      const distance = dx * dx + dy * dy;
+      const x = ant.x + dx;
+      const y = ant.y + dy;
+      if (distance >= bestDistance || distance > radius * radius
+          || y > world.nestY || !world.isPassable(x, y)
+          || world.isUndergroundTile(x, y) || !opponent.countAntsAt(x, y)) continue;
+      target = { x, y };
+      bestDistance = distance;
+    }
+  }
+  if (!target || !rng.chance(Math.min(1,
+    config.combatEngageChance * (config.redAggressionMultiplier ?? 2)))) return null;
+
+  ant.state = 'SEEK_FIGHT';
+  // Stay on an opponent's tile so collision resolution can engage this pair.
+  if (bestDistance === 0) return STAY_ACTION;
+  const moved = steering.moveToward(ant, world, target.x, target.y, rng);
+  return { moved, allowFallback: false };
+}
+
 export function soldierPatrol(ant, world, colony, rng, config, context) {
   let didMove = false;
   ant.state = 'PATROL';
