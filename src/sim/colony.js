@@ -20,6 +20,7 @@
 
 import { Ant, RETIRED_SOLDIER_COLORS } from './ant.js';
 import { TERRAIN } from './world.js';
+import { NestExitField } from './behavior/NestExitField.js';
 
 const QUEEN_SPEED_RATIO = 0.1;
 const BASE_TICK_SECONDS = 1 / 30;
@@ -1286,6 +1287,18 @@ export class Colony {
 
   setNestEntrances(nestEntrances) {
     this.nestEntrances = nestEntrances;
+  }
+
+  /**
+   * Tunnel walking-distance field to this colony's nearest entrance mouth,
+   * rebuilt lazily when terrain or entrances change. Derived, not serialized.
+   */
+  getNestExitField() {
+    if (!this._nestExitField || this._nestExitField.world !== this.world) {
+      this._nestExitField = new NestExitField(this.world);
+    }
+    this._nestExitField.ensureCurrent(this.nestEntrances);
+    return this._nestExitField;
   }
 
   #depositEntrancePheromone(config) {

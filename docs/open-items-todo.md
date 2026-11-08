@@ -111,11 +111,28 @@ Status checked against landed `master` at **v0.58.1** on 2026-08-23.
     operations, empty save slots, storage failures, and invalid saves (v0.58.0).
 45. ✅ Increased core UI type sizes and desktop hit areas, with 44px minimum
     targets for coarse-pointer controls (v0.58.1).
+46. ✅ Fixed ants stalling at and under nest entrances (v0.62.1): underground
+    exits follow a per-colony tunnel walking-distance field
+    (`src/sim/behavior/NestExitField.js`) instead of greedy straight-line
+    steps; fed foragers keep searching instead of parking on the mouth row;
+    reset no longer leaves an ownerless starter nest at map centre; dig branch
+    fronts spawn only on the colony's own side of the map.
 
 ## Active work
 
-No general maintenance fixes are currently queued. The remaining planned work is
-the experiment-driven environmental foraging program below.
+- **Nest food-storage saturation.** Food stores run 4–20× `foodStoreTarget`
+  (`max(100, ants × 5)`), and each deposit occupies its own tunnel tile.
+  `findNestFoodDropPoint` re-rolls a random drop tile every tick, so in a
+  saturated nest `STORE_FOOD_IN_NEST` carriers jitter between random targets
+  (up to ~100 stuck samples per 4-seed run for red after v0.62.1). Needs a
+  storage-capacity / stacking rule and a stable per-carrier drop target.
+- **Hurt-forager mouth ping-pong.** A low-health, fed forager inside the nest is
+  sent out by `foragerExitNest`, then the surface low-health rule sends it back
+  in. Resting hurt ants inside was tried in v0.62.1 and reverted: it turned the
+  ping-pong into visible clumps of idle ants in the nest.
+
+The remaining planned work is the experiment-driven environmental foraging
+program below.
 
 ## Future features
 
