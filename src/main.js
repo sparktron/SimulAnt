@@ -156,6 +156,11 @@ const state = {
     combatEngageChance: 0.25,
     redAggressionMultiplier: 2,
     combatSenseRadius: 6,
+    // How hard ants look for the rival colony: soldier raid frequency and
+    // enemy-sensing range both scale with it (0 = old home-patrol behavior).
+    enemySeekBias: 0.5,
+    // How long a duel lasts before the healthier ant wins.
+    combatDuelSeconds: 3,
     combatWorkerDamage: 8,
     combatSoldierDamage: 16,
     healthEatRecoveryRate: 0.45,

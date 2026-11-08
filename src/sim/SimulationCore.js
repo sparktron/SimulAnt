@@ -37,7 +37,7 @@ const SURFACE_DEPOSIT_RATIO = 0.7;
 const BLACK_NEST_X_FRACTION = 0.25;
 const RED_NEST_X_FRACTION = 0.75;
 const RIVAL_WORKER_COLOR = '#d93828';
-const RIVAL_SOLDIER_COLOR = '#ff6654';
+const RIVAL_SOLDIER_COLOR = '#8e1a12';
 
 // Save-format schema version. Bump when serialize()'s shape changes in a way
 // that needs migration on load. Saves written before versioning existed have no
@@ -520,7 +520,7 @@ export class SimulationCore {
     this.macroEngine = new MacroEngine(this.world);
     this.macroEngine.loadFromSerialized(data.macro);
     this.combatSystem = new CombatSystem(this.rng);
-    this.combatSystem.loadFromSerialized(data.combat);
+    this.combatSystem.loadFromSerialized(data.combat, this.colony, this.rivalColony);
     this.bootFoodTotal = data.bootFoodTotal || 390;
     this.foodEconomySystem = new FoodEconomySystem({
       world: this.world,

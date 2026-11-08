@@ -76,7 +76,7 @@ export const modernSkin = Object.freeze({
     const size=radius*5;ctx.drawImage(cached.canvas,entrance.x-size/2,entrance.y-size/2,size,size);
   },
   drawAnt(ctx,ant,colony,options) {
-    const color=options.showAntJobs?options.color:colony.id==='red'?'#df7378':ant.role==='soldier'?'#d9a66b':'#c7d7df';
+    const color=options.showAntJobs||ant.state==='FIGHT'?options.color:colony.id==='red'?(ant.role==='soldier'?'#9e2430':'#df7378'):ant.role==='soldier'?'#a0403a':'#c7d7df';
     drawSprite(ctx,'modern',color,ant.x,ant.y,options.heading);
     const type=ant.carryingType || ant.carrying?.type;
     if(type==='food'||type==='dirt') {ctx.fillStyle=type==='food'?'#b3e878':'#b48b62';ctx.beginPath();ctx.arc(ant.x+.5+Math.cos(options.heading)*.7,ant.y+.5+Math.sin(options.heading)*.7,.23,0,Math.PI*2);ctx.fill();}

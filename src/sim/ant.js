@@ -28,16 +28,21 @@ import { movementAction, STAY_ACTION } from './ant/action-result.js';
 const DEBUG_ANT_FLOW_LOGS = false;
 
 
+// Purple is reserved for ants locked in a duel, in every view and skin.
+export const FIGHT_COLOR = '#b44cff';
+// Retired soldier base colors that older saves may still carry.
+export const RETIRED_SOLDIER_COLORS = Object.freeze(['#7a4a9a', '#ff6654']);
+
 export class Ant {
   static getDefaultBaseColor(role = 'worker') {
     if (role === 'soldier') {
-      return '#7a4a9a';  // Brighter purple for soldiers
+      return '#5c1010';  // Dark maroon for (black-colony) soldiers
     }
     return '#1a1208';  // Dark brown for workers
   }
 
   static getNormalColor(state, baseColor) {
-    return state === 'FIGHT' ? '#b44cff' : baseColor;
+    return state === 'FIGHT' ? FIGHT_COLOR : baseColor;
   }
 
   static getLegacySoldierBaseColor() {
@@ -54,8 +59,9 @@ export class Ant {
   }
 
   static getJobColor(state, workFocus, role = 'worker') {
-    if (state === 'FIGHT' || state === 'SEEK_FIGHT') return '#ff3030';
-    if (role === 'soldier') return '#9a5aff';  // Bright purple for soldiers
+    if (state === 'FIGHT') return FIGHT_COLOR;
+    if (state === 'SEEK_FIGHT' || state === 'RAID') return '#ff3030';
+    if (role === 'soldier') return '#8b1a1a';  // Dark red for soldiers
 
     switch (state) {
       // Foraging jobs - gold/yellow
@@ -192,6 +198,10 @@ export class Ant {
     this.theta = Math.atan2(DIRS[this.dir][1], DIRS[this.dir][0]);
     this.prevTurn = 0;
     this.turnSign = 1;
+    // Combat substate. inDuel is owned by CombatSystem (which serializes the
+    // duel and relinks it on load); raiding is soldier behavior substate.
+    this.inDuel = false;
+    this.raiding = false;
   }
 
   /**
@@ -204,6 +214,13 @@ export class Ant {
     if (!this.alive) return;
 
     const context = this.#sensePhase(world, colony, config);
+    if (this.inDuel) {
+      // Locked in a duel: hold position (no decisions, no rng draws) and pay
+      // the fighting hunger/health costs. CombatSystem decides the outcome.
+      this.state = 'FIGHT';
+      vitals.applyVitals(this, colony, config, context.dt, false, context.inNest);
+      return;
+    }
     const decision = this.#choosePhase(world, colony, rng, config, context);
     if (decision.halted) return;
 
@@ -327,7 +344,7 @@ export class Ant {
     if (combatAction) return combatAction;
 
     if (this.role === 'soldier') {
-      return decisions.soldierPatrol(this, world, colony, rng, config, context);
+      return decisions.soldierDuty(this, world, colony, rng, config, context);
     }
 
     if (this.role !== 'worker') return STAY_ACTION;
