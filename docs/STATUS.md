@@ -23,6 +23,27 @@
 
 The sections below record the previous v0.58.1 baseline.
 
+## Session update — 2026-11-08, v0.60.0
+
+- Added seeded, stationary surface ant lions: up to four alive, clear-ground
+  placement, one replacement per 900 ticks when capacity is available.
+- Nearby ants from either colony are eaten, with a 30-tick feeding cooldown.
+  Feeding restores 100 health and resets hunger. After 900 unfed ticks,
+  health falls by 0.25 per tick (death after another 400 ticks).
+- Surface pits and health bars are visible; lifecycle, spawn timer, and predator
+  RNG state survive save/load. Older saves receive an initial population.
+- Validation after merging current master: `node --test test/*.mjs` passed
+  all 37 test files;
+  `node scripts/check-determinism.mjs` passed; `git diff --check` passed.
+  Chrome at a loopback dev server showed the pits, health bars, and v0.60.0.
+- PR branch includes master through `849a6a8`, including the merged food cap
+  and rival-behavior changes. Resolved the replay-baseline conflict using
+  the combined deterministic state; all simulation tests pass.
+- No external dependencies, world dimensions, pheromone tuning, or fixed
+  macro/micro tick ordering changed. No cross-repository contracts touched.
+
+The sections below retain the earlier 2026-08-30 baseline for context.
+
 ## Objective
 
 A browser-playable ant colony simulation with dual surface/nest views, purely
