@@ -1,3 +1,4 @@
+import { getTheme, setTheme, onThemeChange } from './ui/ThemeManager.js';
 import { createControls } from './ui/controls.js';
 import { updateHud } from './ui/hud.js';
 import { SurfaceRenderer } from './render/SurfaceRenderer.js';
@@ -333,6 +334,28 @@ const surfaceRenderer = new SurfaceRenderer(canvas, simCore.world);
 const nestRenderer = new NestRenderer(canvas, simCore.world);
 const miniMap = new MiniMap(mustById('minimapCanvas'));
 
+const themeSelect = mustById('themeSelect');
+const applyTheme = (name) => {
+  surfaceRenderer.setSkin(name);
+  nestRenderer.setSkin(name);
+  miniMap.setSkin(name);
+};
+onThemeChange(applyTheme);
+applyTheme(getTheme());
+setTheme(getTheme());
+themeSelect.addEventListener('change', () => setTheme(themeSelect.value));
+// The new sheet can change the canvas size after the initial theme event.
+mustById('themeStylesheet').addEventListener('load', () => {
+  surfaceRenderer.resize();
+  nestRenderer.resize();
+});
+const canvasResizeObserver = new ResizeObserver(() => {
+  surfaceRenderer.resize();
+  nestRenderer.resize();
+});
+canvasResizeObserver.observe(canvas);
+
+
 surfaceRenderer.resize();
 nestRenderer.resize();
 
@@ -607,6 +630,10 @@ function loop(now) {
     try {
       updateHud({
         viewMode: activeView,
+        paused: state.paused,
+        speed: state.simSpeed,
+        antCap: state.config.antCap,
+        cursor: state.cursor[activeView === VIEW.SURFACE ? 'surface' : 'nest'],
         fps,
         tick: simCore.tick,
         ants: simCore.colony.ants.length,

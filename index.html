@@ -4,19 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SimAnt Web App</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/switcher.css" />
+    <link id="themeStylesheet" rel="stylesheet" href="styles.css" />
+    <script>
+      (() => {
+        const sheets = { classic: 'styles.css', retro: 'themes/retro.css', modern: 'themes/modern.css' };
+        let theme = 'classic';
+        try { const stored = localStorage.getItem('simulant-theme'); if (Object.hasOwn(sheets, stored)) theme = stored; } catch {}
+        document.documentElement.dataset.theme = theme;
+        document.getElementById('themeStylesheet').setAttribute('href', sheets[theme]);
+      })();
+    </script>
   </head>
   <body>
     <div class="screen">
-      <header class="menu-bar">SimAnt - Rival Colonies</header>
+      <header class="menu-bar">
+        <span class="classic-brand">SimAnt - Rival Colonies</span>
+        <span class="theme-brand"><span class="brand-mark" aria-hidden="true">✳</span> SimulAnt <small>COLONY OBSERVATORY</small></span>
+        <div class="header-readouts"><span class="live-status" id="hudRunState">LIVE</span><span><b id="hudFpsTitle">60</b> FPS</span><span class="tick-lcd">TICK <b id="hudTickTitle">0</b></span></div>
+        <label class="theme-picker"><span>THEME</span><select id="themeSelect" aria-label="Theme"><option value="classic">Classic</option><option value="retro">Retro Polished</option><option value="modern">Modern Sleek</option></select></label>
+      </header>
 
       <div class="frame">
         <aside class="left-palette">
-          <button id="viewToggleBtn" class="palette-btn">VIEW: SURFACE</button>
+          <button id="viewToggleBtn" data-kbd="Q" class="palette-btn">VIEW: SURFACE</button>
           <button id="colonyStatusBtn" class="palette-btn">COLONY STATUS</button>
-          <button id="startPauseBtn" class="palette-btn">PAUSE</button>
-          <button id="stepBtn" class="palette-btn">STEP</button>
+          <button id="startPauseBtn" data-kbd="Space" class="palette-btn">PAUSE</button>
+          <button id="stepBtn" data-kbd="N" class="palette-btn">STEP</button>
 
+          <div class="section-title">Terrain tools <span>1–7</span></div>
           <div class="tool-grid">
             <label><input type="radio" name="tool" value="food" checked />FOOD</label>
             <label><input type="radio" name="tool" value="wall" />WALL</label>
@@ -36,6 +52,7 @@
             </div>
           </div>
 
+          <div class="section-title">Simulation</div>
           <label>Seed <input id="seedInput" type="text" value="simant-default" /></label>
           <label>Brush <span id="brushLabel">3</span>
             <input id="brushSlider" type="range" min="1" max="24" step="1" value="3" />
@@ -47,21 +64,24 @@
             <input id="antCapSlider" type="range" min="100" max="5000" step="100" value="2000" />
           </label>
 
+          <div class="section-title">Session & overlays</div>
           <div class="button-column">
-            <button id="resetBtn" class="palette-btn">RESET</button>
+            <button id="resetBtn" data-kbd="R" class="palette-btn">RESET</button>
             <button id="saveBtn" class="palette-btn">SAVE</button>
             <button id="loadBtn" class="palette-btn">LOAD</button>
             <button id="clearBtn" class="palette-btn">CLEAR</button>
-            <button id="scentBtn" class="palette-btn">SCENT</button>
-            <button id="jobsBtn" class="palette-btn">JOBS</button>
-            <button id="pheromoneBtn" class="palette-btn">PHERO: ON</button>
-            <button id="helpBtn" class="palette-btn">HELP</button>
-            <button id="downloadLogBtn" class="palette-btn" title="Download rolling colony stats as JSONL (Y key)">LOG ↓</button>
+            <button id="scentBtn" data-kbd="V" class="palette-btn">SCENT</button>
+            <button id="jobsBtn" data-kbd="J" class="palette-btn">JOBS</button>
+            <button id="pheromoneBtn" data-kbd="P" class="palette-btn">PHERO: ON</button>
+            <button id="helpBtn" data-kbd="H" class="palette-btn">HELP</button>
+            <button id="downloadLogBtn" data-kbd="Y" class="palette-btn" title="Download rolling colony stats as JSONL (Y key)">LOG ↓</button>
           </div>
         </aside>
 
         <main class="playfield">
           <span id="modeIndicator" style="display:none">SURFACE</span>
+          <div class="canvas-telemetry"><span><i class="live-dot"></i><b id="hudRunChip">LIVE</b></span><span><b id="hudAntsChip">0</b> ANTS</span><span><b id="hudFoodChip">0</b> FOOD</span><span>QUEEN <b id="hudQueenChip">100%</b></span></div>
+          <div class="canvas-footer"><span id="hudCanvasStatus">SURFACE · LIVE · 1.0×</span><span id="hudCursor">PAN: RIGHT DRAG · ZOOM: SCROLL</span></div>
           <div id="jobLegend">
             <div class="legend-item"><div class="legend-color" style="background: #ff3030;"></div><span>Fight</span></div>
             <div class="legend-item"><div class="legend-color" style="background: #ffd700;"></div><span>Forage</span></div>
@@ -83,21 +103,22 @@
           </div>
 
           <div id="statsView" class="hud-view active">
+            <div class="section-title">World overview <span>LIVE</span></div>
             <canvas id="minimapCanvas" class="minimap" width="256" height="256"></canvas>
             <div class="stat-lines">
               <p>TICK: <span id="hudTick">0</span></p>
-              <p>BLACK ANTS: <span id="hudAnts">0</span> <span id="hudAntLocation" style="font-size:11px; opacity:0.7"></span></p>
-              <p>RED ANTS: <span id="hudRedAnts">0</span></p>
-              <p>FOOD: <span id="hudFood">0</span></p>
+              <p class="headline-stat">BLACK ANTS: <span id="hudAnts">0</span> <span id="hudAntLocation" style="font-size:11px; opacity:0.7"></span></p>
+              <p class="headline-stat">RED ANTS: <span id="hudRedAnts">0</span></p>
+              <p class="headline-stat">FOOD: <span id="hudFood">0</span></p>
               <p>BOOTSTRAP: <span id="hudBootstrapFood">100%</span></p>
-              <p>WORKERS: <span id="hudWorkers">0</span></p>
-              <p>SOLDIERS: <span id="hudSoldiers">0</span></p>
-              <p>BREEDERS: <span id="hudBreeders">0</span></p>
-              <p>NURSES: <span id="hudNurses">0</span></p>
-              <p>FORAGERS: <span id="hudForagers">0</span></p>
-              <p>DIGGERS: <span id="hudDiggers">0</span></p>
+              <p>WORKERS: <span id="hudWorkers">0</span><i id="hudWorkersBar" class="distribution-bar" aria-hidden="true"></i></p>
+              <p>SOLDIERS: <span id="hudSoldiers">0</span><i id="hudSoldiersBar" class="distribution-bar" aria-hidden="true"></i></p>
+              <p>BREEDERS: <span id="hudBreeders">0</span><i id="hudBreedersBar" class="distribution-bar" aria-hidden="true"></i></p>
+              <p>NURSES: <span id="hudNurses">0</span><i id="hudNursesBar" class="distribution-bar" aria-hidden="true"></i></p>
+              <p>FORAGERS: <span id="hudForagers">0</span><i id="hudForagersBar" class="distribution-bar" aria-hidden="true"></i></p>
+              <p>DIGGERS: <span id="hudDiggers">0</span><i id="hudDiggersBar" class="distribution-bar" aria-hidden="true"></i></p>
               <p>JOBS F/D/N: <span id="hudJobs">0 / 0 / 0</span></p>
-              <p>QUEEN HP: <span id="hudQueenHealth">0.0</span></p>
+              <p class="headline-stat">QUEEN HP: <span id="hudQueenHealth">0.0</span></p>
               <p>FPS: <span id="hudFps">0</span></p>
               <p>DIG: <span id="hudDig">AUTO-DIG: OFF</span></p>
               <p>PHER MAX: <span id="hudPherMax">F:0.00 H:0.00</span></p>
@@ -117,7 +138,7 @@
     </div>
 
     <dialog id="helpPanel" aria-labelledby="helpTitle">
-      <h2 id="helpTitle">How to Play</h2>
+      <h2 id="helpTitle" tabindex="-1" autofocus>How to Play</h2>
       <ul>
         <li><kbd>Q</kbd>: Toggle SURFACE / NEST view</li>
         <li><kbd>Space</kbd>: Pause/Resume</li>

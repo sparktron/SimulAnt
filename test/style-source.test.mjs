@@ -5,8 +5,9 @@ import { readFileSync } from 'node:fs';
 const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const stylesheet = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
-test('index loads the single external stylesheet without an inline style block', () => {
-  assert.match(indexHtml, /<link rel="stylesheet" href="styles\.css"\s*\/>/);
+test('index loads a swappable theme stylesheet and shared selector without inline CSS', () => {
+  assert.match(indexHtml, /<link id="themeStylesheet" rel="stylesheet" href="styles\.css"\s*\/>/);
+  assert.match(indexHtml, /href="themes\/switcher\.css"/);
   assert.doesNotMatch(indexHtml, /<style[\s>]/i);
 });
 

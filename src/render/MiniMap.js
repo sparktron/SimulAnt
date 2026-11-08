@@ -1,4 +1,5 @@
 import { TERRAIN } from '../sim/world.js';
+import { getSkin } from './skins/index.js';
 
 /*
     Overview minimap for the right-hand panel.
@@ -30,11 +31,14 @@ const DEFAULT_COLOR = TERRAIN_COLOR[TERRAIN.GROUND];
 
 export class MiniMap {
   constructor(canvas) {
+    this.skin = getSkin('classic');
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false });
     this._off = document.createElement('canvas');
     this._offCtx = this._off.getContext('2d');
   }
+
+  setSkin(name) { this.skin = getSkin(name); }
 
   /**
    * Draws one minimap frame.
@@ -61,7 +65,7 @@ export class MiniMap {
     const data = image.data;
     const { terrain } = world;
     for (let i = 0; i < terrain.length; i += 1) {
-      const c = TERRAIN_COLOR[terrain[i]] || DEFAULT_COLOR;
+      const c = (this.skin.minimapPalette || TERRAIN_COLOR)[terrain[i]] || DEFAULT_COLOR;
       const o = i * 4;
       data[o] = c[0];
       data[o + 1] = c[1];
@@ -84,7 +88,7 @@ export class MiniMap {
 
     // Ant dots.
     const ants = colony && colony.ants ? colony.ants : [];
-    ctx.fillStyle = '#ffec80';
+    ctx.fillStyle = this.skin.name === 'modern' ? '#9ccd7f' : '#ffec80';
     for (let k = 0; k < ants.length; k += 1) {
       const a = ants[k];
       if (a.x >= 0 && a.x < W && a.y >= 0 && a.y < H) {
@@ -106,7 +110,7 @@ export class MiniMap {
       const viewH = mainCanvas.clientHeight / cam.zoom;
       const left = cam.cameraX - viewW / 2;
       const top = cam.cameraY - viewH / 2;
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = this.skin.name === 'modern' ? '#acbcc9' : '#ffffff';
       ctx.lineWidth = 1;
       ctx.strokeRect(left + 0.5, top + 0.5, viewW, viewH);
     }
