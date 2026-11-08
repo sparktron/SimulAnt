@@ -31,6 +31,7 @@ import { TickScheduler } from './core/TickScheduler.js';
 import { ColonyStats } from './ColonyStats.js';
 import { FoodEconomySystem } from './systems/FoodEconomySystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
+import { AntLionSystem } from './systems/AntLionSystem.js';
 
 const SURFACE_DEPOSIT_RATIO = 0.7;
 const BLACK_NEST_X_FRACTION = 0.25;
@@ -160,6 +161,8 @@ export class SimulationCore {
     const contestedFoodX = Math.floor(this.world.width / 2);
     this.spawnFoodCluster(contestedFoodX, Math.floor(this.world.nestY / 2), BOOT_RADIUS, BOOT_PELLETS);
     this.spawnFoodCluster(contestedFoodX, this.world.nestY - 25, BOOT_RADIUS, BOOT_PELLETS);
+    this.antLionSystem = new AntLionSystem(this.world, this.seed);
+    this.antLionSystem.populate();
     this.tick = 0;
   }
 
@@ -184,6 +187,8 @@ export class SimulationCore {
       foodPellets: this.foodPellets,
       config,
     });
+
+    this.antLionSystem.update([this.colony, this.rivalColony], config);
 
     // Record stats every 30 ticks (~1 sim second). Passing the world lets
     // the snapshot include pheromone stats; otherwise the recorder still
@@ -413,6 +418,7 @@ export class SimulationCore {
   }
 
   clearWorld() {
+    this.antLionSystem.clear();
     this.world.initializeTerrain();
     this.world.carveStarterNestAt(this.rivalColony.homeX, this.rivalColony.homeY);
     this.#rebuildDigSystem();
@@ -448,6 +454,7 @@ export class SimulationCore {
       macro: this.macroEngine.serialize(),
       stats: this.stats.serialize(),
       combat: this.combatSystem.serialize(),
+      antLions: this.antLionSystem.serialize(),
       bootFoodTotal: this.bootFoodTotal,
       state,
     };
@@ -594,6 +601,9 @@ export class SimulationCore {
     // seed-only behavior (sequence restarts), which is harmless and backward
     // compatible.
     if (data.rng) this.rng.restore(data.rng);
+    this.antLionSystem = new AntLionSystem(this.world, this.seed);
+    if (data.antLions) this.antLionSystem.load(data.antLions);
+    else this.antLionSystem.populate();
   }
 
   #syncMacroHomeTerritory() {

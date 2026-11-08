@@ -100,6 +100,7 @@ export class SurfaceRenderer {
 
     this.#drawTerrain(ctx, overlays);
     this.#drawFoodPellets(ctx, foodPellets);
+    this.#drawAntLions(ctx);
     const allEntrances = options.rivalNestEntrances
       ? [...nestEntrances, ...options.rivalNestEntrances]
       : nestEntrances;
@@ -209,6 +210,35 @@ export class SurfaceRenderer {
       // draws y > nestY); keeps pellets from being double-rendered.
       if (pellet.y > this.world.nestY) continue;
       ctx.fillRect(pellet.x, pellet.y, 1, 1);
+    }
+  }
+
+  #drawAntLions(ctx) {
+    for (const lion of this.world.antLions || []) {
+      // Sand funnel, dark body, and paired mandibles distinguish predators
+      // from ants at both overview and close zoom.
+      ctx.fillStyle = '#caa66b';
+      ctx.beginPath();
+      ctx.arc(lion.x + 0.5, lion.y + 0.5, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#806039';
+      ctx.beginPath();
+      ctx.arc(lion.x + 0.5, lion.y + 0.5, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#38291d';
+      ctx.fillRect(lion.x - 0.2, lion.y - 0.2, 1.4, 1.4);
+      ctx.strokeStyle = '#f4dfb0';
+      ctx.lineWidth = 0.35;
+      ctx.beginPath();
+      ctx.moveTo(lion.x - 0.5, lion.y - 1.3);
+      ctx.lineTo(lion.x, lion.y);
+      ctx.moveTo(lion.x + 1.5, lion.y - 1.3);
+      ctx.lineTo(lion.x + 1, lion.y);
+      ctx.stroke();
+      ctx.fillStyle = '#492e26';
+      ctx.fillRect(lion.x - 1.5, lion.y + 3.2, 4, 0.5);
+      ctx.fillStyle = '#8ed15d';
+      ctx.fillRect(lion.x - 1.5, lion.y + 3.2, 4 * lion.health / 100, 0.5);
     }
   }
 
