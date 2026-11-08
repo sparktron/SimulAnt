@@ -249,12 +249,13 @@ export class SurfaceRenderer {
         }
       }
       if (nearestEntrance && ant.y > nearestEntrance.y) continue;
-      if (overlays.showAntJobs && (ant.state !== ant._cachedJobState || ant.workFocus !== ant._cachedJobWorkFocus)) {
+      if (overlays.showAntJobs && (ant.state !== ant._cachedJobState || ant.workFocus !== ant._cachedJobWorkFocus || ant.role !== ant._cachedJobRole)) {
         ant.jobColor = Ant.getJobColor(ant.state, ant.workFocus, ant.role);
         ant._cachedJobState = ant.state;
         ant._cachedJobWorkFocus = ant.workFocus;
+        ant._cachedJobRole = ant.role;
       }
-      ctx.fillStyle = overlays.showAntJobs && colony.id !== 'red' ? ant.jobColor : ant.baseColor;
+      ctx.fillStyle = overlays.showAntJobs ? ant.jobColor : Ant.getNormalColor(ant.state, ant.baseColor);
       ctx.fillRect(ant.x, ant.y, 1, 1);
 
       const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');

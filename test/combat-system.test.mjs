@@ -38,7 +38,7 @@ function createCollision(blackRole = 'worker', redRole = 'worker') {
   };
 }
 
-test('opposing ants engage below the 25% collision threshold and fight to one survivor', () => {
+test('opposing ants engage below the aggression-adjusted collision threshold and fight to one survivor', () => {
   const collision = createCollision();
   const rng = {
     values: [0.249, 0],
@@ -56,9 +56,9 @@ test('opposing ants engage below the 25% collision threshold and fight to one su
   assert.equal(combat.battles, 1);
 });
 
-test('opposing ants do not engage at or above the 25% collision threshold', () => {
+test('opposing ants do not engage at or above the aggression-adjusted collision threshold', () => {
   const collision = createCollision();
-  const combat = new CombatSystem({ next: () => 0.25 });
+  const combat = new CombatSystem({ next: () => 0.5 });
 
   assert.equal(combat.resolve(collision.blackColony, collision.redColony, CONFIG), 0);
   assert.equal(collision.blackAnt.health, 100);
@@ -95,4 +95,16 @@ test('combat config sanitizer preserves the soldier damage advantage', () => {
 
   assert.equal(sanitized.combatWorkerDamage, 49);
   assert.equal(sanitized.combatSoldierDamage, 50);
+});
+
+
+test('red aggression increases engagement without increasing damage', () => {
+  const normal = createCollision();
+  const aggressive = createCollision();
+  assert.equal(new CombatSystem({ next: () => 0.4 }).resolve(
+    normal.blackColony, normal.redColony, { ...CONFIG, redAggressionMultiplier: 1 }), 0);
+  assert.equal(new CombatSystem({ next: () => 0.4 }).resolve(
+    aggressive.blackColony, aggressive.redColony, CONFIG), 1);
+  assert.equal(aggressive.redAnt.health, 0);
+  assert.equal(aggressive.blackAnt.health, 4);
 });

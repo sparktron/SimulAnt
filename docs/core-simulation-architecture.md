@@ -29,7 +29,7 @@ All ticks are processed in this strict order:
       shared surface food field.
    3. Combat resolution (`combatSystem.resolve`): opposing ants sharing a tile
       roll once to engage, then alternate role-weighted attacks until one dies.
-   4. Dig update (`digSystem.update`): deterministic front iteration with seeded randomness and bounded safety loops.
+   4. Dig updates (`digSystem.update`, then `rivalDigSystem.update`): deterministic front iteration with seeded randomness and bounded safety loops.
    5. Pheromone update (`world.updatePheromones`): evaporation every tick, diffusion on `tick % diffIntervalTicks === 0`.
 3. **Global food-economy phase** (`FoodEconomySystem.update`)
    - Monitors surface supply plus both colonies' population-scaled reserves.
@@ -42,7 +42,7 @@ All ticks are processed in this strict order:
 - **Food pickup conflict**: first ant to mark a pellet (`takenByAntId`) owns it; pellet is removed once claimed.
 - **Rival collision conflict**: opposing pairs are visited in stable colony and
   ant-array order. Each ant can enter at most one battle per tick.
-- **Combat**: engagement uses `combatEngageChance` (25% by default). Attacks
+- **Combat**: engagement uses `combatEngageChance` multiplied by red aggression (25% × 2 = 50% by default, capped at 100%). Red ants locally sense opponents within `combatSenseRadius` and may pursue them using the same seeded chance; cargo, courier duties, nest work, hunger, and healing take priority. Attacks
   alternate from a seeded initiative roll until one participant reaches zero
   health; sanitized soldier damage is always greater than worker damage.
 - **Ant actions**: behavior branches return `{ moved, allowFallback }`. Completed

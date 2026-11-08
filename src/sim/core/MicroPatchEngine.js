@@ -22,12 +22,15 @@ import { getPatchCellState, sanitizeTickConfig } from './SimulationTypes.js';
     Changing phase order will break emergent behavior (even if the code still runs).
 */
 export class MicroPatchEngine {
-  constructor(world, colony, digSystem, rivalColony = null, combatSystem = null) {
+  constructor(world, colony, digSystem, rivalColony = null, combatSystem = null, rivalDigSystem = null) {
     this.world = world;
     this.colony = colony;
     this.digSystem = digSystem;
     this.rivalColony = rivalColony;
     this.combatSystem = combatSystem;
+    this.rivalDigSystem = rivalDigSystem;
+    this.colony.opponentColony = rivalColony;
+    if (rivalColony) rivalColony.opponentColony = colony;
   }
 
   setExternalState({ foodPellets, nestEntrances, rivalNestEntrances = [] }) {
@@ -51,6 +54,7 @@ export class MicroPatchEngine {
 
     // Phase 2: underground excavation front progression.
     this.digSystem.update(safeConfig);
+    if (this.rivalDigSystem) this.rivalDigSystem.update(safeConfig);
 
     // Phase 3: global field transforms from local diffusion/evaporation rules.
     this.world.updatePheromones(safeConfig, tick);

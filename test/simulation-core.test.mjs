@@ -682,7 +682,8 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   for (let i = 0; i < 360; i += 1) sim.update(config);
 
   const replayHash = hashString(JSON.stringify(sim.serialize({})));
-  assert.equal(replayHash, 309898872);
+  // v0.59.0: red colony work parity, rival excavation, and local aggression.
+  assert.equal(replayHash, 1350172771);
 });
 
 // Survival regression: with the PRODUCTION defaults, the black colony used to peak
