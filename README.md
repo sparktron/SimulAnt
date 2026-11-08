@@ -4,7 +4,7 @@ A browser-playable ant colony simulation inspired by **SimAnt**, with dual-view 
 
 > ⚡ **No build step required** — just serve static files and play.
 
-Current landed version: **v0.58.1**. The simulation includes deterministic
+Current GUI version: **v0.61.0**. The simulation includes deterministic
 save/load with explicit migrations, biological crowding controls, nest-space
 carrying capacity, cached surface terrain rendering, and an explicit
 replay-guarded `Ant.update` sense → choose → apply pipeline. Food-respawn drops
@@ -54,6 +54,7 @@ meters and populations update live.
 ## 📚 Table of Contents
 - [✨ Features](#-features)
 - [🚀 Quick Start](#-quick-start)
+- [Themes](#themes)
 - [🎮 Controls](#-controls)
 - [🧠 Colony Status Panel](#-colony-status-panel)
 - [💾 Save / Load](#-save--load)
@@ -122,6 +123,29 @@ or `QUIET=1` to silence everything except the startup banner.
 ### Node compatibility
 Compatible with **Node.js 18+** (no `package.json`, no install step —
 `server.js` only uses Node's built-in `http`, `fs`, and `path` modules).
+
+---
+
+## Themes
+
+Use the always-visible **Theme** selector at the right end of the header:
+
+- **Classic** preserves the original stylesheet, pixel rendering, and controls.
+- **Retro Polished** adds brass and cream panels, an amber LCD stats panel,
+  deterministic grass dithering, berry food, pixel ant sprites, and scanlines.
+- **Modern Sleek** adds a dark observatory layout, telemetry chips, stat cards,
+  vector ant sprites, hexagonal entrances, and a soft pheromone heatmap.
+
+Themes switch live in both surface and nest views. They preserve the running
+simulation, pause state, sliders, active tab, tools, and selected ant. The choice
+is saved separately under `localStorage['simulant-theme']`; saved simulations
+keep their existing format. Classic is the default, and its stylesheet is
+unchanged. The other themes load optional Google Fonts and have local fallbacks.
+
+Renderer skins live in `src/render/skins/`. Camera transforms, culling, bounds,
+and terrain caches remain in the renderers. Sprite, field, and screen overlays
+are cached; rendering does not add visual state to simulation objects. Classic
+terrain buffers are checked against hashes captured before the skin refactor.
 
 ---
 
@@ -203,6 +227,8 @@ Deploy directly to static hosting providers (no backend required):
 Upload:
 - `index.html`
 - `styles.css`
+- `themes/`
+- `VERSION`
 - `src/`
 - `assets/` (optional)
 

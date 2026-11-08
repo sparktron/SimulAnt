@@ -19,8 +19,8 @@
 */
 
 import { TERRAIN } from '../sim/world.js';
-import { drawSoilMound } from './soilMound.js';
 import { Ant } from '../sim/ant.js';
+import { getSkin } from './skins/index.js';
 
 // Surface view treats underground tiles (SOIL, TUNNEL) as GROUND for visual simplicity.
 // This prevents the bottom rows from looking cluttered with brown soil.
@@ -44,6 +44,8 @@ export class SurfaceRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.world = world;
+    this.skin = getSkin('classic');
+    this._headings = new WeakMap();
 
     this.cameraX = world.width * 0.5;
     this.cameraY = world.nestY;
@@ -56,6 +58,21 @@ export class SurfaceRenderer {
     // loop runs at display rate but terrain/pheromones change only on sim
     // ticks (or tool edits), so most frames can reuse the previous bitmap.
     this._terrainCacheKey = '';
+  }
+
+  setSkin(name) {
+    this.skin = getSkin(name);
+    this._terrainCacheKey = '';
+  }
+
+  heading(ant) {
+    const previous = this._headings.get(ant);
+    let angle = previous?.angle ?? 0;
+    if (previous && (ant.x !== previous.x || ant.y !== previous.y)) {
+      angle = Math.atan2(ant.y - previous.y, ant.x - previous.x);
+    }
+    this._headings.set(ant, { x: ant.x, y: ant.y, angle });
+    return angle;
   }
 
   setWorld(world) {
@@ -90,8 +107,9 @@ export class SurfaceRenderer {
     const cw = this.canvas.clientWidth;
     const ch = this.canvas.clientHeight;
 
-    ctx.fillStyle = '#4a7a2e';
+    ctx.fillStyle = this.skin.surfaceBackground;
     ctx.fillRect(0, 0, cw, ch);
+    this.skin.preProcess?.(ctx, cw, ch, this);
 
     ctx.save();
     ctx.translate(cw * 0.5, ch * 0.5);
@@ -99,12 +117,13 @@ export class SurfaceRenderer {
     ctx.translate(-this.cameraX, -this.cameraY);
 
     this.#drawTerrain(ctx, overlays);
+    this.skin.drawFields(ctx, this.world, overlays, this);
     this.#drawFoodPellets(ctx, foodPellets);
     this.#drawAntLions(ctx);
     const allEntrances = options.rivalNestEntrances
       ? [...nestEntrances, ...options.rivalNestEntrances]
       : nestEntrances;
-    this.#drawEntranceMounds(ctx, allEntrances);
+    this.#drawEntranceMounds(ctx, allEntrances, options.rivalNestEntrances);
     this.#drawAnts(ctx, colony, allEntrances, options.selectedAntId, options.showDebugStats, overlays);
     if (options.rivalColony) {
       this.#drawAnts(
@@ -120,6 +139,7 @@ export class SurfaceRenderer {
     if (options.showEntranceInfo) this.#drawEntranceDebug(ctx, nestEntrances);
 
     ctx.restore();
+    this.skin.postProcess(ctx, cw, ch, this);
   }
 
   #drawTerrain(ctx, overlays) {
@@ -131,7 +151,7 @@ export class SurfaceRenderer {
     // terrain always feeds it; the pheromone fields only matter while a
     // field overlay is visible. Otherwise reuse the cached bitmap — at 60fps
     // over a ~12 ticks/sec sim this skips most rebuilds even with scent on.
-    const fieldsVisible = overlays.showToFood || overlays.showToHome || overlays.showScent || overlays.showDanger;
+    const fieldsVisible = this.skin.name !== 'modern' && (overlays.showToFood || overlays.showToHome || overlays.showScent || overlays.showDanger);
     const cacheKey = `${world.terrainVersion ?? -1}|${fieldsVisible ? world.fieldsVersion ?? -1 : 'off'}`
       + `|${!!overlays.showToFood}|${!!overlays.showToHome}|${!!overlays.showScent}|${!!overlays.showDanger}`;
     if (cacheKey === this._terrainCacheKey && this._off.width === W && this._off.height === H) {
@@ -151,50 +171,13 @@ export class SurfaceRenderer {
       for (let x = 0; x < W; x += 1) {
         const idx = y * W + x;
         const o = idx * 4;
-        const noise = ((x * 7 + y * 13) % 11) - 5;
-
         const terrain = world.terrain[idx];
-        let r = 96 + noise;
-        let g = 138 + noise;
-        let b = 52 + (noise >> 1);
-
-        const surfaceTerrain = normalizeSurfaceTerrain(terrain);
-
-        if (surfaceTerrain === TERRAIN.WALL) {
-          r = 142;
-          g = 142;
-          b = 150;
-        } else if (surfaceTerrain === TERRAIN.WATER) {
-          r = 48;
-          g = 100;
-          b = 172;
-        } else if (surfaceTerrain === TERRAIN.HAZARD) {
-          r = 174;
-          g = 52;
-          b = 46;
-        }
-
-        if (overlays.showToFood || overlays.showScent) {
-          const scentFood = Math.min(1, Math.sqrt(world.toFood[idx] / 6));
-          r = Math.floor(r * (1 - scentFood) + 40 * scentFood);
-          g = Math.floor(g * (1 - scentFood) + 220 * scentFood);
-          b = Math.floor(b * (1 - scentFood) + 70 * scentFood);
-        }
-        if (overlays.showToHome || overlays.showScent) {
-          const scentHome = Math.min(1, Math.sqrt(world.toHome[idx] / 6));
-          r = Math.floor(r * (1 - scentHome) + 55 * scentHome);
-          g = Math.floor(g * (1 - scentHome) + 110 * scentHome);
-          b = Math.floor(b * (1 - scentHome) + 245 * scentHome);
-        }
-        if (overlays.showDanger) {
-          r = Math.min(255, r + Math.floor(world.danger[idx] * 100));
-          g = Math.max(0, g - Math.floor(world.danger[idx] * 40));
-        }
+        const [r, g, b] = this.skin.surfaceTerrainPixel(terrain, x, y, idx, world, overlays);
 
         data[o] = r;
         data[o + 1] = g;
         data[o + 2] = b;
-        data[o + 3] = 255;
+        data[o + 3] = this.skin.surfaceAlpha(terrain);
       }
     }
 
@@ -204,12 +187,13 @@ export class SurfaceRenderer {
   }
 
   #drawFoodPellets(ctx, foodPellets) {
-    ctx.fillStyle = '#35d84b';
+    ctx.fillStyle = this.skin.food;
     for (const pellet of foodPellets) {
       // Surface owns rows y <= nestY (complementary to NestRenderer which
       // draws y > nestY); keeps pellets from being double-rendered.
       if (pellet.y > this.world.nestY) continue;
-      ctx.fillRect(pellet.x, pellet.y, 1, 1);
+      if (this.skin.drawFood) this.skin.drawFood(ctx, pellet.x, pellet.y);
+      else ctx.fillRect(pellet.x, pellet.y, 1, 1);
     }
   }
 
@@ -242,8 +226,8 @@ export class SurfaceRenderer {
     }
   }
 
-  #drawEntranceMounds(ctx, nestEntrances) {
-    for (const entrance of nestEntrances) drawSoilMound(ctx, entrance);
+  #drawEntranceMounds(ctx, nestEntrances, rivals = []) {
+    for (const entrance of nestEntrances) this.skin.drawEntrance(ctx, entrance, rivals.includes(entrance) ? 'red' : 'black');
   }
 
   #drawAnts(ctx, colony, nestEntrances, selectedAntId, showDebugStats, overlays = {}) {
@@ -279,26 +263,14 @@ export class SurfaceRenderer {
         }
       }
       if (nearestEntrance && ant.y > nearestEntrance.y) continue;
-      if (overlays.showAntJobs && (ant.state !== ant._cachedJobState || ant.workFocus !== ant._cachedJobWorkFocus || ant.role !== ant._cachedJobRole)) {
-        ant.jobColor = Ant.getJobColor(ant.state, ant.workFocus, ant.role);
-        ant._cachedJobState = ant.state;
-        ant._cachedJobWorkFocus = ant.workFocus;
-        ant._cachedJobRole = ant.role;
-      }
-      ctx.fillStyle = overlays.showAntJobs ? ant.jobColor : Ant.getNormalColor(ant.state, ant.baseColor);
-      ctx.fillRect(ant.x, ant.y, 1, 1);
-
-      const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');
-      if (carryingType === 'food' || carryingType === 'dirt') {
-        ctx.fillStyle = carryingType === 'food' ? '#35d84b' : '#7a4b22';
-        ctx.fillRect(ant.x + 0.7, ant.y, 0.6, 0.6);
-      }
-
-      if (selectedAntId === ant.id) {
-        ctx.strokeStyle = '#ffea00';
-        ctx.lineWidth = 0.25;
-        ctx.strokeRect(ant.x - 0.4, ant.y - 0.4, 1.8, 1.8);
-      }
+      const color = overlays.showAntJobs
+        ? Ant.getJobColor(ant.state, ant.workFocus, ant.role)
+        : Ant.getNormalColor(ant.state, ant.baseColor);
+      this.skin.drawAnt(ctx, ant, colony, {
+        color, showAntJobs: overlays.showAntJobs,
+        selected: selectedAntId === ant.id,
+        heading: this.skin.name === 'classic' ? 0 : this.heading(ant), zoom: this.zoom,
+      });
 
       if (showDebugStats) {
         ctx.fillStyle = '#ffffff';

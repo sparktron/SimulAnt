@@ -1,6 +1,38 @@
 # Current Status
 
-**Updated:** 2026-11-08 · **Branch:** `master` · **Release:** `v0.59.0`
+**Updated:** 2026-11-08 · **Branch:** `master` · **Release:** `v0.61.0`
+
+## GUI update — 2026-11-08, v0.61.0
+
+- Added live Classic / Retro Polished / Modern Sleek themes in the header.
+  The preference persists separately from simulation saves. Switching preserves
+  simulation state, paused state, active tab, tools, sliders, and selected ant.
+- Classic styles.css is byte-for-byte unchanged. Terrain hashes captured before
+  refactoring still match in surface, scent/danger, and nest modes.
+- Retro adds brass/cream controls, LCD stats, pixel sprites, stepped mounds,
+  deterministic terrain dithering, and cached scanlines/vignette. Modern adds
+  dark panels, live telemetry, stat cards, distribution bars, vector sprites,
+  hex entrances, glow sprites, and a separately cached pheromone heatmap.
+- Both minimaps, parameter controls, dialogs, overlays, tool radios, keyboard
+  shortcuts, and vertical health fills are retained. Sprite and heading caches
+  remain renderer-owned. No simulation source or save-format change is made.
+- Reconciled the GUI refactor with concurrent ant-lion commit b0a2fc6 and rival
+  behavior commit 5c9230d. Their rendering and behavior are preserved. Existing
+  food-replenishment working edits remain outside the GUI commit.
+- Validation: full Node test suite and determinism guard passed after integration.
+  New tests cover theme defaults/storage/errors/listeners, pre-refactor terrain
+  hashes, camera/world identity, original DOM IDs, and render-only state ownership.
+  Browser checks cover all three themes, both views, advancing ticks across live
+  switches, paused switching, retained PARAMS/JOBS state, theme restoration,
+  SCENT/JOBS, help/status dialogs, and successful save/load feedback. No app
+  console errors were observed; the default-world FPS readout stayed near 60.
+- Limits: the HTML mockup referenced in the design prompt was unavailable, so
+  styling follows the written specifications. Full simulation performance with
+  2,000 ants per colony and Node 20/22 CI were not benchmarked in this session.
+  Google Fonts are optional in the new themes; Classic makes no font requests.
+- Next: finish the concurrent food-replenishment work independently, then run
+  high-population performance checks on target hardware. GUI implementation is
+  complete; README documents themes and required static-deployment files.
 
 ## Food replenishment cap — v0.59.0 (2026-11-08)
 

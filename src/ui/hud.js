@@ -1,6 +1,19 @@
 export function updateHud(stats) {
   setText('modeIndicator', stats.viewMode);
   setText('hudTick', String(stats.tick));
+  setText('hudTickTitle', String(stats.tick));
+  setText('hudFpsTitle', String(Math.round(stats.fps)));
+  setText('hudRunState', stats.paused ? 'PAUSED' : 'LIVE');
+  setText('hudRunChip', stats.paused ? 'PAUSED' : 'LIVE');
+  setText('hudAntsChip', `${stats.ants + asNonNegativeInt(stats.redAnts)} / ${Number.isFinite(stats.antCap) ? stats.antCap * 2 : '—'}`);
+  setText('hudFoodChip', formatNumber(stats.foodStored));
+  setText('hudQueenChip', `${Math.round(stats.queenHealth)}%`);
+  setText('hudCanvasStatus', `${stats.viewMode} · ${stats.paused ? 'PAUSED' : 'LIVE'} · ${Number(stats.speed ?? 1).toFixed(1)}×`);
+  setText('hudCursor', stats.cursor ? `X ${stats.cursor.x} / Y ${stats.cursor.y}` : 'PAN: RIGHT DRAG · ZOOM: SCROLL');
+  for (const [id, count] of Object.entries({ hudWorkers: stats.workers, hudSoldiers: stats.soldiers, hudBreeders: stats.breeders, hudNurses: stats.nurses, hudForagers: stats.foragers, hudDiggers: stats.diggers })) {
+    const bar = document.getElementById(`${id}Bar`);
+    if (bar) bar.style.width = `${Math.min(100, asNonNegativeInt(count) / Math.max(1, stats.ants) * 100)}%`;
+  }
   setText('hudAnts', `${stats.ants}`);
   setText('hudRedAnts', `${asNonNegativeInt(stats.redAnts)}`);
   const surface = asNonNegativeInt(stats.antsSurface);

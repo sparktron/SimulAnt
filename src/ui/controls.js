@@ -111,6 +111,10 @@ export function createControls(state, actions) {
   resetBtn.addEventListener('click', () => actions.reset(seedInput.value));
   viewToggleBtn.addEventListener('click', () => actions.toggleView());
 
+  for (const slider of [speedSlider, brushSlider, antCapSlider]) {
+    slider.addEventListener('input', () => syncRangeFill(slider));
+  }
+
   speedSlider.addEventListener('input', () => {
     state.simSpeed = Number(speedSlider.value);
     byId('speedLabel').textContent = `${state.simSpeed.toFixed(1)}x`;
@@ -280,6 +284,7 @@ export function syncControlState(state, view) {
 function syncRange(inputId, labelId, value, format) {
   const input = byId(inputId);
   input.value = String(value);
+  syncRangeFill(input);
   byId(labelId).textContent = format(input.value);
 }
 
@@ -293,4 +298,10 @@ function byId(id) {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing UI element: ${id}`);
   return el;
+}
+
+function syncRangeFill(input) {
+  const min = Number(input.min), max = Number(input.max);
+  const fill = max > min ? Math.max(0, Math.min(100, (Number(input.value) - min) / (max - min) * 100)) : 0;
+  input.style?.setProperty?.('--fill', `${fill}%`);
 }
