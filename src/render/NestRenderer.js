@@ -1,5 +1,6 @@
 import { TERRAIN } from '../sim/world.js';
 import { Ant } from '../sim/ant.js';
+import { getSkin } from './skins/index.js';
 
 /**
  * Nest Renderer -- Side-view 2D cross-section of the underground nest.
@@ -23,6 +24,8 @@ export class NestRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.world = world;
+    this.skin = getSkin('classic');
+    this._headings = new WeakMap();
 
     this.cameraX = world.width * 0.5;
     this.cameraY = world.nestY + 28;
@@ -34,8 +37,24 @@ export class NestRenderer {
     this._offCtx = this._off.getContext('2d');
   }
 
+  setSkin(name) {
+    this.skin = getSkin(name);
+    this._terrainCacheKey = '';
+  }
+
+  heading(ant) {
+    const previous = this._headings.get(ant);
+    let angle = previous?.angle ?? 0;
+    if (previous && (ant.x !== previous.x || ant.y !== previous.y)) {
+      angle = Math.atan2(ant.y - previous.y, ant.x - previous.x);
+    }
+    this._headings.set(ant, { x: ant.x, y: ant.y, angle });
+    return angle;
+  }
+
   setWorld(world) {
     this.world = world;
+    this._terrainCacheKey = '';
     this._off.width = world.width;
     this._off.height = world.height;
   }
@@ -68,7 +87,7 @@ export class NestRenderer {
     const cw = this.canvas.clientWidth;
     const ch = this.canvas.clientHeight;
 
-    ctx.fillStyle = '#2a1e14';
+    ctx.fillStyle = this.skin.nestBackground;
     ctx.fillRect(0, 0, cw, ch);
 
     ctx.save();
@@ -93,6 +112,7 @@ export class NestRenderer {
     }
 
     ctx.restore();
+    this.skin.postProcess(ctx, cw, ch, this);
   }
 
   /* ------------------------------------------------------------------
@@ -103,6 +123,14 @@ export class NestRenderer {
     const W = world.width;
     const H = world.height;
 
+    const key = `${world.terrainVersion ?? -1}|${this.skin.name}`;
+    if (world.terrainVersion !== undefined && this._terrainCacheKey === key) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this._off, 0, 0);
+      this.#drawHorizon(ctx, W, world.nestY);
+      return;
+    }
+    this._terrainCacheKey = key;
     this._off.width = W;
     this._off.height = H;
 
@@ -115,61 +143,8 @@ export class NestRenderer {
         const o = idx * 4;
         const terrain = world.terrain[idx];
 
-        let r, g, b;
-
-        // Terrain takes precedence over the y-based sky/horizon banding so
-        // that tunnels or chambers carved into the surface band (e.g. the
-        // entrance shaft above nestY) render as tunnel, not sky. Otherwise
-        // real nest terrain would be hidden by the decorative sky wash.
-        const isCarvedAboveHorizon = y < world.nestY
-          && (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER);
-
-        if (y < world.nestY - 1 && !isCarvedAboveHorizon) {
-          // Sky -- subtle top-to-bottom gradient
-          const t = y / world.nestY;
-          r = Math.floor(38 + 32 * t);
-          g = Math.floor(58 + 42 * t);
-          b = Math.floor(108 + 44 * t);
-        } else if (y <= world.nestY && !isCarvedAboveHorizon) {
-          // Ground-surface strip (green)
-          r = 66;
-          g = 118;
-          b = 40;
-        } else if (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER) {
-          const isChamber = terrain === TERRAIN.CHAMBER;
-          const edge = this.#isTunnelEdge(x, y);
-          if (edge) {
-            // Tunnel edge: slightly darker than tunnel interior
-            r = 200;
-            g = 190;
-            b = 170;
-          } else if (isChamber) {
-            // Chamber: light color for visibility
-            r = 240;
-            g = 235;
-            b = 220;
-          } else {
-            // Tunnel interior: light, distinct from dirt
-            r = 235;
-            g = 225;
-            b = 205;
-          }
-        } else if (terrain === TERRAIN.WATER) {
-          r = 36;
-          g = 82;
-          b = 146;
-        } else if (terrain === TERRAIN.HAZARD) {
-          r = 128;
-          g = 42;
-          b = 38;
-        } else {
-          // Compact soil -- depth gradient + noise
-          const depthFrac = (y - world.nestY) / (H - world.nestY);
-          const noise = ((x * 5 + y * 9) % 7) - 3;
-          r = Math.floor(76 - 16 * depthFrac) + noise;
-          g = Math.floor(56 - 12 * depthFrac) + noise;
-          b = Math.floor(38 - 10 * depthFrac);
-        }
+        const carved = terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER;
+        const [r, g, b] = this.skin.nestTerrainPixel(terrain, x, y, idx, world, carved && this.#isTunnelEdge(x, y));
 
         data[o] = r;
         data[o + 1] = g;
@@ -182,12 +157,16 @@ export class NestRenderer {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this._off, 0, 0);
 
+    this.#drawHorizon(ctx, W, world.nestY);
+  }
+
+  #drawHorizon(ctx, W, nestY) {
     // Horizon line
-    ctx.strokeStyle = '#5a9a44';
+    ctx.strokeStyle = this.skin.horizon;
     ctx.lineWidth = 0.7;
     ctx.beginPath();
-    ctx.moveTo(0, world.nestY + 0.5);
-    ctx.lineTo(W, world.nestY + 0.5);
+    ctx.moveTo(0, nestY + 0.5);
+    ctx.lineTo(W, nestY + 0.5);
     ctx.stroke();
   }
 
@@ -199,7 +178,8 @@ export class NestRenderer {
       if (pellet.amount <= 0.01) continue;
       if (pellet.y <= this.world.nestY) continue;
       const r = Math.max(0.2, Math.min(0.45, 0.18 + Math.sqrt(pellet.amount) * 0.08));
-      ctx.fillStyle = '#35d84b';
+      ctx.fillStyle = this.skin.food;
+      if (this.skin.drawFood) { this.skin.drawFood(ctx, pellet.x, pellet.y); continue; }
       ctx.beginPath();
       ctx.arc(pellet.x + 0.5, pellet.y + 0.5, r, 0, Math.PI * 2);
       ctx.fill();
@@ -237,6 +217,7 @@ export class NestRenderer {
       const stage = larva.stage || 1;
       const baseRadius = 0.35 + (stage - 1) * 0.118;  // linear growth across 4 stages
 
+      if (this.skin.drawLarva) { this.skin.drawLarva(ctx, larvaX, larvaY, baseRadius); continue; }
       // Draw larva with color indicating stage (lighter to darker)
       const hue = 200 - (stage - 1) * 20;  // blues and teals
       ctx.fillStyle = `hsl(${hue}, 80%, ${85 - (stage - 1) * 8}%)`;
@@ -293,22 +274,14 @@ export class NestRenderer {
       if (ant.y <= world.nestY && !antInCarvedNest) continue;
       if (ant.x < minX || ant.x > maxX || ant.y < minY || ant.y > maxY) continue;
       const drawY = ant.y;
-      ctx.fillStyle = overlays.showAntJobs
+      const color = overlays.showAntJobs
         ? Ant.getJobColor(ant.state, ant.workFocus, ant.role)
         : Ant.getNormalColor(ant.state, ant.baseColor);
-      ctx.fillRect(ant.x, drawY, 1, 1);
-
-      const carryingType = ant.carryingType || (ant.carrying?.type === 'food' ? 'food' : 'none');
-      if (carryingType === 'food' || carryingType === 'dirt') {
-        ctx.fillStyle = carryingType === 'food' ? '#35d84b' : '#7a4b22';
-        ctx.fillRect(ant.x + 0.7, drawY, 0.6, 0.6);
-      }
-
-      if (selectedAntId === ant.id) {
-        ctx.strokeStyle = '#ffea00';
-        ctx.lineWidth = 0.25;
-        ctx.strokeRect(ant.x - 0.4, drawY - 0.4, 1.8, 1.8);
-      }
+      this.skin.drawAnt(ctx, ant, colony, {
+        color, showAntJobs: overlays.showAntJobs,
+        selected: selectedAntId === ant.id,
+        heading: this.skin.name === 'classic' ? 0 : this.heading(ant), zoom: this.zoom,
+      });
 
       if (showDebugStats) {
         ctx.fillStyle = '#ffffff';
@@ -323,15 +296,7 @@ export class NestRenderer {
       const queenX = Number.isFinite(colony.queen.x) ? colony.queen.x : (colony.homeX ?? world.nestX);
       const queenY = Number.isFinite(colony.queen.y) ? colony.queen.y : world.nestY + 6;
 
-      ctx.fillStyle = colony.id === 'red' ? '#b71c1c' : '#7b3fc9';
-      ctx.beginPath();
-      ctx.arc(queenX + 0.5, queenY + 0.5, 1.8, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = colony.id === 'red' ? '#ffb3a7' : '#d1aa38';
-      ctx.beginPath();
-      ctx.arc(queenX + 0.5, queenY + 0.5, 0.85, 0, Math.PI * 2);
-      ctx.fill();
+      this.skin.drawQueen(ctx, queenX, queenY, colony);
     }
 
     if (showDebugStats) {
