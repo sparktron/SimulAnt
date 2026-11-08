@@ -18,7 +18,7 @@
     This creates emergent behavior without explicit central planning.
 */
 
-import { Ant } from './ant.js';
+import { Ant, RETIRED_SOLDIER_COLORS } from './ant.js';
 import { TERRAIN } from './world.js';
 
 const QUEEN_SPEED_RATIO = 0.1;
@@ -1434,6 +1434,11 @@ export class Colony {
       deathsByCause: { ...this.deathsByCause },
       queenDeaths: this.queenDeaths,
       queenSuccessions: this.queenSuccessions,
+      updateCounter: this._updateCounter,
+      ...(this._queenTargetTile ? {
+        queenTargetTile: { x: this._queenTargetTile.x, y: this._queenTargetTile.y },
+        queenTargetRecalcCounter: this._queenTargetRecalcCounter || 0,
+      } : {}),
       ...(!this.queen.alive && this._queenDeathCounter != null
         ? { queenSuccessionElapsedTicks: Math.max(0, this._updateCounter - this._queenDeathCounter) }
         : {}),
@@ -1485,6 +1490,7 @@ export class Colony {
         hasInitiallyScattered: ant._hasInitiallyScattered,
         failedSurfaceFoodSearchTicks: ant.failedSurfaceFoodSearchTicks,
         lastNestEatTick: ant._lastNestEatTick,
+        ...(ant.raiding ? { raiding: true } : {}),
         ...(Number.isFinite(ant._recruitBudget) ? { recruitBudget: ant._recruitBudget } : {}),
       })),
     };
@@ -1518,8 +1524,19 @@ export class Colony {
     const successionElapsedTicks = Number.isFinite(data.queenSuccessionElapsedTicks)
       ? Math.max(0, Math.floor(data.queenSuccessionElapsedTicks))
       : null;
+    // The update counter phases periodic work (entrance pheromone every 5
+    // ticks); restoring it keeps a reloaded run in step with an uninterrupted one.
+    colony._updateCounter = Number.isInteger(data.updateCounter) && data.updateCounter >= 0
+      ? data.updateCounter
+      : 0;
+    if (Number.isFinite(data.queenTargetTile?.x) && Number.isFinite(data.queenTargetTile?.y)) {
+      colony._queenTargetTile = { x: data.queenTargetTile.x, y: data.queenTargetTile.y };
+      colony._queenTargetRecalcCounter = Number.isInteger(data.queenTargetRecalcCounter)
+        ? data.queenTargetRecalcCounter
+        : 0;
+    }
     colony._queenDeathCounter = !colony.queen.alive && successionElapsedTicks != null
-      ? -successionElapsedTicks
+      ? colony._updateCounter - successionElapsedTicks
       : null;
     if (!Number.isFinite(colony.queen.x) || !Number.isFinite(colony.queen.y)) {
       colony.syncQueenPositionToNest(colony.homeX, colony.homeY);
@@ -1586,8 +1603,12 @@ export class Colony {
       if (colony.id === 'black' && ant.baseColor === soldierBaseColor) {
         ant.baseColor = ant.originalBaseColor;
       }
+      // Migration guard: soldiers were purple / light red before v0.62.0.
+      if (RETIRED_SOLDIER_COLORS.includes(ant.originalBaseColor)) ant.originalBaseColor = defaultBaseColor;
+      if (RETIRED_SOLDIER_COLORS.includes(ant.baseColor)) ant.baseColor = ant.originalBaseColor;
 
       ant.state = a.state || ant.state;
+      ant.raiding = a.raiding === true;
       ant.stepCounter = a.stepCounter || 0;
       ant.age = a.age || 0;
       if (a.maxAge) ant.maxAge = a.maxAge;

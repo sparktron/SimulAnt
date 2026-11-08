@@ -40,7 +40,7 @@ export const retroSkin = Object.freeze({
   },
   drawAnt(ctx,ant,colony,options) {
     if (options.zoom < 4) {classicSkin.drawAnt(ctx,ant,colony,options);return;}
-    const color = options.showAntJobs ? options.color : colony.id === 'red' ? '#a33323' : ant.role === 'soldier' ? '#44180a' : '#2a1808';
+    const color = options.showAntJobs || ant.state === 'FIGHT' ? options.color : colony.id === 'red' ? (ant.role === 'soldier' ? '#6e140c' : '#a33323') : ant.role === 'soldier' ? '#4a0e0a' : '#2a1808';
     drawSprite(ctx,'retro',color,ant.x,ant.y,options.heading,2.4);
     drawCarrying(ctx,ant);
     if (options.selected) {ctx.strokeStyle='#ffe287';ctx.lineWidth=0.25;ctx.strokeRect(ant.x-0.5,ant.y-0.5,2,2);}

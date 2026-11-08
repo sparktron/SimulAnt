@@ -171,6 +171,8 @@ export function sanitizeTickConfig(config = {}) {
     combatEngageChance: clamp01(config.combatEngageChance, 0.25),
     redAggressionMultiplier: clampFiniteRangeNumber(config.redAggressionMultiplier, 2, 1, 4),
     combatSenseRadius: Math.floor(clampFiniteRangeNumber(config.combatSenseRadius, 6, 1, 12)),
+    enemySeekBias: clamp01(config.enemySeekBias, 0.5),
+    combatDuelSeconds: clampFiniteRangeNumber(config.combatDuelSeconds, 3, 0.5, 10),
     combatWorkerDamage,
     combatSoldierDamage,
     healthEatRecoveryRate: clampNonNegativeNumber(config.healthEatRecoveryRate, 0),

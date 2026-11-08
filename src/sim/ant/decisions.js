@@ -17,39 +17,120 @@ import * as navigation from './navigation.js';
 import * as vitals from './vitals.js';
 import { movementAction, STAY_ACTION } from './action-result.js';
 
-// Red ants interrupt ordinary work only for locally sensed opponents. Cargo,
-// couriers, nest work, and recovery keep their existing priorities.
-export function seekFight(ant, world, colony, rng, config, context) {
-  const opponent = colony.opponentColony;
-  if (colony.id !== 'red' || !opponent || context.inNest
-      || ant.carrying?.type || colony.isQueenFoodCourier(ant.id)
-      || (ant.role !== 'soldier' && (ant.role !== 'worker' || ant.workFocus !== 'forage'))
-      || vitals.isLowHealth(ant) || ant.hunger < ant.hungerMax * 0.5
-      || config.combatEngageChance <= 0) return null;
+// Per-tick chance (scaled by enemySeekBias) that a fit, patrolling soldier
+// sets off on a raid toward the rival nest. At bias 0.5 that is 1%/tick, so a
+// soldier patrols ~3 sim-seconds on average before raiding.
+const SOLDIER_RAID_START_RATE = 0.02;
+// Soldiers sense enemies further away than workers.
+const SOLDIER_SENSE_SCALE = 1.5;
 
-  const radius = config.combatSenseRadius ?? 6;
+export function combatAggression(colony, config) {
+  return colony?.id === 'red' ? (config.redAggressionMultiplier ?? 2) : 1;
+}
+
+/**
+ * Enemy sensing radius for an ant. enemySeekBias widens it for everyone, and
+ * soldiers see further than workers.
+ */
+export function combatSenseRadiusFor(ant, config) {
+  const base = config.combatSenseRadius ?? 6;
+  const bias = config.enemySeekBias ?? 0;
+  const roleScale = ant.role === 'soldier' ? SOLDIER_SENSE_SCALE : 1;
+  return Math.max(1, Math.round(base * (1 + bias) * roleScale));
+}
+
+// Workers fight only when at least half fed. Soldiers live hungrier (they
+// hover near 50% between nest feedings), so enemySeekBias lowers their gate:
+// 50% at bias 0, 35% at 0.5, 20% at 1.
+export function fightHungerFloor(ant, config) {
+  const bias = ant.role === 'soldier' ? (config.enemySeekBias ?? 0) : 0;
+  return ant.hungerMax * (0.5 - 0.3 * bias);
+}
+
+function isFitToFight(ant, config) {
+  return !vitals.isLowHealth(ant) && ant.hunger >= fightHungerFloor(ant, config);
+}
+
+// Nearest living opponent on a surface tile within `radius`. Scans the
+// opponent's ant list (bounded by population) rather than every tile in the
+// radius, which keeps wide soldier sensing cheap. Ties keep list order, so the
+// pick is deterministic.
+function findNearestEnemy(ant, world, opponent, radius) {
   let target = null;
   let bestDistance = radius * radius + 1;
-  for (let dy = -radius; dy <= radius; dy++) {
-    for (let dx = -radius; dx <= radius; dx++) {
-      const distance = dx * dx + dy * dy;
-      const x = ant.x + dx;
-      const y = ant.y + dy;
-      if (distance >= bestDistance || distance > radius * radius
-          || y > world.nestY || !world.isPassable(x, y)
-          || world.isUndergroundTile(x, y) || !opponent.countAntsAt(x, y)) continue;
-      target = { x, y };
-      bestDistance = distance;
-    }
+  for (const enemy of opponent.ants) {
+    if (!enemy.alive) continue;
+    const dx = enemy.x - ant.x;
+    const dy = enemy.y - ant.y;
+    const distance = dx * dx + dy * dy;
+    if (distance >= bestDistance) continue;
+    if (enemy.y > world.nestY || world.isUndergroundTile(enemy.x, enemy.y)) continue;
+    target = enemy;
+    bestDistance = distance;
   }
-  if (!target || !rng.chance(Math.min(1,
-    config.combatEngageChance * (config.redAggressionMultiplier ?? 2)))) return null;
+  return target ? { target, distance: bestDistance } : null;
+}
+
+// Ants interrupt ordinary work only for locally sensed opponents. Cargo,
+// couriers, nest work, and recovery keep their existing priorities. Soldiers
+// always commit to a sensed enemy; foragers roll the engage chance.
+export function seekFight(ant, world, colony, rng, config, context) {
+  const opponent = colony.opponentColony;
+  if (!opponent || context.inNest
+      || ant.carrying?.type || colony.isQueenFoodCourier(ant.id)
+      || (ant.role !== 'soldier' && (ant.role !== 'worker' || ant.workFocus !== 'forage'))
+      || !isFitToFight(ant, config)
+      || config.combatEngageChance <= 0) return null;
+
+  const found = findNearestEnemy(ant, world, opponent, combatSenseRadiusFor(ant, config));
+  if (!found) return null;
+  if (ant.role !== 'soldier' && !rng.chance(Math.min(1,
+    config.combatEngageChance * combatAggression(colony, config)))) return null;
 
   ant.state = 'SEEK_FIGHT';
   // Stay on an opponent's tile so collision resolution can engage this pair.
-  if (bestDistance === 0) return STAY_ACTION;
-  const moved = steering.moveToward(ant, world, target.x, target.y, rng);
+  if (found.distance === 0) return STAY_ACTION;
+  const moved = steering.moveToward(ant, world, found.target.x, found.target.y, rng);
   return { moved, allowFallback: false };
+}
+
+/**
+ * Soldier behavior when no enemy is in sight: patrol home, or — driven by
+ * enemySeekBias — march on the rival nest to hunt there. A raid lasts until
+ * the soldier gets hungry or hurt, then it returns to patrol (which walks it
+ * home to eat).
+ */
+export function soldierDuty(ant, world, colony, rng, config, context) {
+  const opponent = colony.opponentColony;
+  const bias = config.enemySeekBias ?? 0;
+  if (!opponent || bias <= 0 || config.combatEngageChance <= 0 || !isFitToFight(ant, config)) {
+    ant.raiding = false;
+    return soldierPatrol(ant, world, colony, rng, config, context);
+  }
+  if (!ant.raiding && !context.inNest && rng.chance(Math.min(1, bias * SOLDIER_RAID_START_RATE))) {
+    ant.raiding = true;
+  }
+  if (!ant.raiding) return soldierPatrol(ant, world, colony, rng, config, context);
+  return soldierRaid(ant, world, colony, rng, config, context, opponent);
+}
+
+function soldierRaid(ant, world, colony, rng, config, context, opponent) {
+  ant.state = 'RAID';
+  const rivalEntrance = opponent.nearestEntrance(ant.x, ant.y);
+  const targetX = rivalEntrance?.x ?? opponent.homeX ?? ant.x;
+  // Aim just above the rival mouth so raiders stay on the surface.
+  const targetY = Math.max(0, (rivalEntrance?.y ?? world.nestY) - 2);
+  const holdRadius = (config.nearEntranceScatterRadius ?? 6) + 5;
+  let didMove = false;
+  if (Math.hypot(ant.x - targetX, ant.y - targetY) > holdRadius) {
+    didMove = steering.moveToward(ant, world, targetX, targetY, rng);
+  }
+  if (!didMove) {
+    // Loiter around the rival nest, wandering until enemies come into view.
+    steering.updateWanderHeading(ant, rng, world, config);
+    didMove = steering.moveByPheromone(ant, world, rng, config, 'food', context.entrance, colony);
+  }
+  return movementAction(didMove);
 }
 
 export function soldierPatrol(ant, world, colony, rng, config, context) {

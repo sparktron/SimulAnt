@@ -202,7 +202,7 @@ export const parameterDefinitions = {
   },
   combatEngageChance: {
     label: 'Combat Engagement Chance',
-    description: 'Base chance of fighting on a shared tile. Red aggression multiplies this chance, capped at 100%.',
+    description: 'Per-tick chance two workers start a duel on contact (soldiers always engage). Red aggression multiplies this chance, capped at 100%. 0 disables combat.',
     group: 'Health',
     min: 0,
     max: 1,
@@ -216,12 +216,22 @@ export const parameterDefinitions = {
   },
   combatSenseRadius: {
     label: 'Combat Sensing Radius',
-    description: 'How many nearby surface tiles red ants can sense for enemy pursuit.',
+    description: 'Base number of surface tiles within which ants sense enemies to pursue. Enemy Seek Bias widens it; soldiers see 1.5x further.',
     group: 'Health', min: 1, max: 12, step: 1, advanced: true,
+  },
+  enemySeekBias: {
+    label: 'Enemy Seek Bias',
+    description: 'How hard ants look for the rival colony. Higher = soldiers raid the enemy nest more often and all ants sense enemies from further away. 0 = soldiers stay home on patrol.',
+    group: 'Health', min: 0, max: 1, step: 0.05, advanced: false,
+  },
+  combatDuelSeconds: {
+    label: 'Duel Duration (s)',
+    description: 'How long two ants fight (shown purple) before the one with more health wins and the other dies.',
+    group: 'Health', min: 0.5, max: 10, step: 0.5, advanced: true,
   },
   combatWorkerDamage: {
     label: 'Worker Combat Damage',
-    description: 'Damage a worker deals per combat strike.',
+    description: 'Health a worker takes from its opponent over one duel.',
     group: 'Health',
     min: 1,
     max: 49,
@@ -230,7 +240,7 @@ export const parameterDefinitions = {
   },
   combatSoldierDamage: {
     label: 'Soldier Combat Damage',
-    description: 'Damage a soldier deals per combat strike.',
+    description: 'Health a soldier takes from its opponent over one duel.',
     group: 'Health',
     min: 1,
     max: 50,
@@ -680,6 +690,8 @@ export function getDefaultConfig() {
     combatEngageChance: 0.25,
     redAggressionMultiplier: 2,
     combatSenseRadius: 6,
+    enemySeekBias: 0.5,
+    combatDuelSeconds: 3,
     combatWorkerDamage: 8,
     combatSoldierDamage: 16,
     healthEatRecoveryRate: 0.45,
