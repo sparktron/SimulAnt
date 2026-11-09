@@ -266,3 +266,4 @@ trailLockThreshold: 1.0
 | v0.44.1 | `foodVisionRadius` 24 → 18 (user preference). |
 | v0.45.0 | Carrier trail-gravitation → corridor convergence (PR −68%). Introduced rare death spirals. |
 | v0.45.1 | Homeward filter on gravitation → kills spirals (circling below baseline); convergence settles at PR ~726. |
+| v0.63.0 | Not a foraging change: nest-exit routing A/B, instant field vs lagged exit scent (`exitScentField`, off). Scent no worse over 24 seeds. See `docs/exit-field-experiment.md`. |
