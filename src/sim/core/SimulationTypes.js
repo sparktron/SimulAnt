@@ -237,6 +237,8 @@ export function sanitizeTickConfig(config = {}) {
     // the channel params mirror the toFood evap/diff clamps. Fallbacks match
     // getDefaultConfig() (Phase 0 rule: no silent physics drift).
     dualPheromone: Boolean(config.dualPheromone),
+    // Experimental lagged nest-exit scent (default off = instant exit field).
+    exitScentField: Boolean(config.exitScentField),
     evapRecruit: clampNonNegativeNumber(config.evapRecruit, 0.6),
     diffRecruit: clamp01(config.diffRecruit, 0.08),
     depositRecruit: clampNonNegativeNumber(config.depositRecruit, 2.0),
