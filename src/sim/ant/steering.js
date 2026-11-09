@@ -13,6 +13,7 @@
 import * as navigation from './navigation.js';
 import { DIRS, gaussianRandom } from './constants.js';
 import { UNREACHABLE } from '../behavior/NestExitField.js';
+import { TERRAIN } from '../world.js';
 
 /*
     Moves ant by evaluating pheromone gradient + momentum + directional bias.
@@ -391,14 +392,77 @@ export function climbTowardMouth(ant, world, colony, rng) {
   }
   if (candidates.length === 0) return null;
 
-  const bestDir = pickDirectionalCandidate(ant, candidates, rng);
+  stepAntInDir(ant, colony, pickDirectionalCandidate(ant, candidates, rng));
+  return true;
+}
+
+function stepAntInDir(ant, colony, dir) {
   const prevX = ant.x;
   const prevY = ant.y;
-  ant.x += DIRS[bestDir][0];
-  ant.y += DIRS[bestDir][1];
-  ant.dir = bestDir;
-  ant.theta = Math.atan2(DIRS[bestDir][1], DIRS[bestDir][0]);
+  ant.x += DIRS[dir][0];
+  ant.y += DIRS[dir][1];
+  ant.dir = dir;
+  ant.theta = Math.atan2(DIRS[dir][1], DIRS[dir][0]);
   colony.moveAntInGrid(prevX, prevY, ant.x, ant.y);
+}
+
+/**
+ * Own-colony ants on the 3x3 block centred on (x,y): a cheap local-density
+ * reading, so a healer steps toward open floor rather than a standing group.
+ */
+function localCrowd(colony, x, y) {
+  let total = 0;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) total += colony.countAntsAt(x + dx, y + dy);
+  }
+  return total;
+}
+
+// Tunnels are traffic lanes; healers drifting in them block carriers. Treat a
+// tunnel tile like this many extra ants nearby so chambers win when available.
+const HEAL_TUNNEL_CROWD_PENALTY = 2;
+
+/**
+ * One step of a hurt ant's recovery drift through the nest. Only tiles at
+ * least minMouthDistance walking steps from every mouth count as resting
+ * ground, so healers never loiter in an entrance shaft; an ant still inside
+ * that band always steps deeper. Among the allowed neighbours the least
+ * crowded wins (tunnels count as crowded), then the heading-weighted pick
+ * keeps the drift smooth instead of jittery.
+ *
+ * Returns true after a step, false when the ant is on resting ground with
+ * nowhere better to go (it simply rests), and null when the exit field cannot
+ * place the ant (no colony, or a tile no mouth connects to) so the caller
+ * falls back to its normal routing. Draws rng only when it moves.
+ */
+export function driftWhileHealing(ant, world, colony, rng, minMouthDistance) {
+  const field = colony?.getNestExitField?.();
+  if (!field) return null;
+  const here = field.distanceAt(ant.x, ant.y);
+  if (here === UNREACHABLE) return null;
+  const inShaftBand = here < minMouthDistance;
+
+  const candidates = [];
+  let best = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < DIRS.length; i += 1) {
+    const nx = ant.x + DIRS[i][0];
+    const ny = ant.y + DIRS[i][1];
+    const d = field.distanceAt(nx, ny);
+    if (d === UNREACHABLE || !world.isPassable(nx, ny)) continue;
+    if (inShaftBand ? d <= here : d < minMouthDistance) continue;
+    const isTunnel = world.terrain[world.index(nx, ny)] === TERRAIN.TUNNEL;
+    const score = localCrowd(colony, nx, ny) + (isTunnel ? HEAL_TUNNEL_CROWD_PENALTY : 0);
+    if (score < best) {
+      best = score;
+      candidates.length = 0;
+      candidates.push(i);
+    } else if (score === best) {
+      candidates.push(i);
+    }
+  }
+  if (candidates.length === 0) return inShaftBand ? null : false;
+
+  stepAntInDir(ant, colony, pickDirectionalCandidate(ant, candidates, rng));
   return true;
 }
 

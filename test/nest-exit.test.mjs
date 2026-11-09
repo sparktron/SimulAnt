@@ -154,3 +154,98 @@ test('dig branch fronts only spawn from the colony\'s own side of the map', () =
     assert.ok(Math.abs(x - homeX) <= world.width / 4, `branch front spawned at x=${x}`);
   }
 });
+
+// --- Hurt foragers heal in the nest instead of ping-ponging at the mouth ---
+
+function healSetup(seed, count, { health = 0.3, hunger = 1 } = {}) {
+  const sim = new SimulationCore(seed);
+  const colony = sim.colony;
+  sim.microEngine.setExternalState({
+    foodPellets: [], nestEntrances: sim.nestEntrances, rivalNestEntrances: sim.rivalNestEntrances,
+  });
+  const field = colony.getNestExitField();
+  // Start every healer on one tile just inside the shaft, the worst case for
+  // both the old exit bounce and for clumping.
+  const entrance = sim.nestEntrances[0];
+  const startY = entrance.y + 2;
+  const startX = [0, -1, 1].map((dx) => entrance.x + dx)
+    .find((x) => field.distanceAt(x, startY) > 0);
+  const workers = colony.ants.filter((a) => a.role === 'worker').slice(0, count);
+  for (const ant of workers) {
+    Object.assign(ant, {
+      x: startX, y: startY, workFocus: 'forage', carrying: null, carryingType: 'none',
+      hunger: ant.hungerMax * hunger, health: ant.healthMax * health, state: 'RETURN_TO_NEST_HEAL',
+      _nestDepartureDelay: 0,
+    });
+  }
+  colony.ants = workers;
+  sim.rivalColony.ants = [];
+  colony.rebuildAntGridFromAnts();
+  sim.rivalColony.rebuildAntGridFromAnts();
+  return { sim, colony, workers, entrance, field };
+}
+
+const NO_REGEN = { ...CONFIG, healthRegenRate: 0, healthDrainRate: 0 };
+
+test('hurt, fed foragers stay underground and drift slowly instead of bouncing at the mouth', () => {
+  const { sim, colony, workers, entrance, field } = healSetup('heal-no-bounce', 1);
+  const [ant] = workers;
+  const visited = new Set();
+  let moves = 0;
+  for (let i = 0; i < 240; i += 1) {
+    const before = `${ant.x},${ant.y}`;
+    ant.update(sim.world, colony, sim.rng, NO_REGEN);
+    const after = `${ant.x},${ant.y}`;
+    if (after !== before) moves += 1;
+    visited.add(after);
+    assert.ok(ant.y > entrance.y, `hurt forager surfaced at tick ${i} (${after}, ${ant.state})`);
+  }
+  assert.equal(ant.state, 'HEAL_IN_NEST');
+  assert.ok(field.distanceAt(ant.x, ant.y) >= 5, 'healer should leave the entrance shaft');
+  assert.ok(visited.size > 8, `healer should keep wandering, visited ${visited.size} tiles`);
+  assert.ok(moves < 120, `healer should move slowly, moved on ${moves} of 240 ticks`);
+});
+
+test('a group of healers spreads out instead of clumping', () => {
+  const { sim, colony, workers } = healSetup('heal-spread', 10);
+  for (let i = 0; i < 300; i += 1) {
+    for (const ant of workers) ant.update(sim.world, colony, sim.rng, NO_REGEN);
+  }
+  const tiles = new Map();
+  for (const ant of workers) {
+    assert.equal(ant.state, 'HEAL_IN_NEST');
+    const k = `${ant.x},${ant.y}`;
+    tiles.set(k, (tiles.get(k) ?? 0) + 1);
+  }
+  assert.ok(Math.max(...tiles.values()) <= 2, `tile shared by ${Math.max(...tiles.values())} healers`);
+  assert.ok(tiles.size >= 7, `10 healers should occupy most of 10 tiles, got ${tiles.size}`);
+  for (const ant of workers) assert.equal(colony.countAntsAt(ant.x, ant.y), tiles.get(`${ant.x},${ant.y}`));
+});
+
+test('healers go back out once recovered past the resume threshold, not at the low-health line', () => {
+  const { sim, colony, workers, entrance } = healSetup('heal-resume', 1, { health: 0.6 });
+  const [ant] = workers;
+  ant.state = 'HEAL_IN_NEST';
+  for (let i = 0; i < 20; i += 1) ant.update(sim.world, colony, sim.rng, NO_REGEN);
+  assert.equal(ant.state, 'HEAL_IN_NEST', 'still recovering between 50% and 75%');
+
+  ant.health = ant.healthMax * 0.8;
+  let surfaced = false;
+  for (let i = 0; i < 200 && !surfaced; i += 1) {
+    ant.update(sim.world, colony, sim.rng, NO_REGEN);
+    surfaced = ant.y <= entrance.y;
+  }
+  assert.ok(surfaced, `recovered forager should head back out (state ${ant.state})`);
+});
+
+test('a hurt forager with an empty store and an empty stomach goes foraging', () => {
+  const { sim, colony, workers, entrance } = healSetup('heal-no-food', 1, { hunger: 0.4 });
+  const [ant] = workers;
+  colony.foodStored = 0;
+  let surfaced = false;
+  for (let i = 0; i < 200 && !surfaced; i += 1) {
+    ant.update(sim.world, colony, sim.rng, NO_REGEN);
+    surfaced = ant.y <= entrance.y;
+  }
+  assert.ok(surfaced, 'with nothing to eat, resting cannot heal; the ant should forage');
+});
