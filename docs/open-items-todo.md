@@ -128,6 +128,16 @@ Status checked against landed `master` at **v0.58.1** on 2026-08-23.
 
 ## Active work
 
+- **Adopt the lagged exit scent?** `exitScentField` (v0.64.2, default off) was
+  A/B-tested against the instant exit field over 24 seeds and was no worse on
+  any metric (`docs/exit-field-experiment.md`), and it satisfies the local-AI
+  rule. To make it the default: serialize the scent array in saves, then
+  re-capture the replay hash.
+- **Famine bounce for hurt foragers.** With the food store empty, a hungry,
+  hurt forager is sent out of the nest to forage, then the surface low-health
+  rule sends it straight home again (seed q: up to ~4,000 mouth crossings per
+  500 ticks). The surface rule should not send it home when it cannot eat there.
+
 - **Nest food-storage saturation.** Food stores run 4–20× `foodStoreTarget`
   (`max(100, ants × 5)`), and each deposit occupies its own tunnel tile.
   `findNestFoodDropPoint` re-rolls a random drop tile every tick, so in a
