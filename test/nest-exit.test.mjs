@@ -6,7 +6,7 @@ import { Colony } from '../src/sim/colony.js';
 import { DigSystem } from '../src/sim/DigSystem.js';
 import { SeededRng } from '../src/sim/rng.js';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
-import { UNREACHABLE } from '../src/sim/behavior/NestExitField.js';
+import { UNREACHABLE, NestExitField } from '../src/sim/behavior/NestExitField.js';
 import { moveThroughEntranceShaft } from '../src/sim/ant/steering.js';
 import * as vitals from '../src/sim/ant/vitals.js';
 import { getDefaultConfig } from '../src/ui/params.js';
@@ -276,4 +276,55 @@ test('recovery intent survives save and load', () => {
   assert.equal(ant._recoveringInNest, true);
   const restored = Colony.fromSerialized(sim.world, new SeededRng('heal-save-load'), colony.serialize());
   assert.equal(restored.ants[0]._recoveringInNest, true);
+});
+
+// --- Experimental lagged exit scent (config.exitScentField) ---
+
+test('exit scent seeds at steady state, then spreads terrain changes one tile per tick', () => {
+  const { world, entrance } = pocketWorld();
+  const instant = new NestExitField(world);
+  instant.ensureCurrent([entrance]);
+  const scent = new NestExitField(world);
+  scent.stepScent([entrance]);
+  assert.equal(scent.distanceAt(16, 19), instant.distanceAt(16, 19), 'seeded at steady state');
+
+  // Dig a shortcut from the shaft to the pocket. Instant rebuilds at once;
+  // the scent only learns about it as the wavefront walks the new tunnel.
+  for (let x = 11; x <= 15; x += 1) world.setTerrain(world.index(x, 18), TERRAIN.TUNNEL);
+  instant.ensureCurrent([entrance]);
+  const target = instant.distanceAt(16, 19);
+  assert.ok(target < 17);
+  scent.stepScent([entrance]);
+  assert.equal(scent.distanceAt(16, 19), 17, 'one tick later the pocket still smells the old route');
+  let ticks = 1;
+  while (scent.distanceAt(16, 19) !== target && ticks < 50) { scent.stepScent([entrance]); ticks += 1; }
+  assert.equal(scent.distanceAt(16, 19), target, 'scent converges to the walking distance');
+  assert.ok(ticks >= 4, `the change should take several ticks to arrive, took ${ticks}`);
+  for (let t = 0; t < 20; t += 1) scent.stepScent([entrance]); // let the wave settle everywhere
+  for (let y = 16; y < 26; y += 1) {
+    for (let x = 8; x < 18; x += 1) assert.equal(scent.distanceAt(x, y), instant.distanceAt(x, y), `(${x},${y})`);
+  }
+});
+
+test('exit scent in a cut-off pocket fades instead of vanishing at once', () => {
+  const { world, entrance } = pocketWorld();
+  const scent = new NestExitField(world);
+  scent.stepScent([entrance]);
+  world.setTerrain(world.index(12, 24), TERRAIN.SOIL); // sever the corridor
+  scent.stepScent([entrance]);
+  assert.notEqual(scent.distanceAt(16, 19), UNREACHABLE, 'stale scent lingers right after the cut');
+  for (let t = 0; t < 1100; t += 1) scent.stepScent([entrance]);
+  assert.equal(scent.distanceAt(16, 19), UNREACHABLE, 'and is gone once it climbs past the cap');
+  assert.equal(scent.distanceAt(10, 20), 4, 'the connected shaft is unaffected');
+});
+
+test('exitScentField defaults off and leaves a full sim deterministic', () => {
+  assert.equal(CONFIG.exitScentField, false);
+  const run = () => {
+    const sim = new SimulationCore('exit-scent-det');
+    const cfg = { ...CONFIG, exitScentField: true };
+    for (let t = 0; t < 300; t += 1) sim.update(cfg);
+    return sim.colony.ants.map((a) => `${a.x},${a.y},${a.state}`).join('|');
+  };
+  assert.equal(run(), run());
 });

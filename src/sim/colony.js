@@ -227,6 +227,9 @@ export class Colony {
     // rolling buffer. Foragers work until the store reaches 90% of this,
     // so a larger colony keeps more reserves without over-hoarding.
     this.foodStoreTarget = Math.max(100, this.ants.length * 5);
+    // Experimental lagged exit scent (default off; see NestExitField.stepScent).
+    this._exitScentMode = config?.exitScentField === true;
+    if (this._exitScentMode) this.#nestExitFieldInstance().stepScent(this.nestEntrances);
     // Deposit entrance pheromone every 5 ticks to prevent saturation flooding
     if (this._updateCounter % 5 === 0) this.#depositEntrancePheromone(config);
     this.#updateQueenSurvival(config);
@@ -1294,10 +1297,19 @@ export class Colony {
    * rebuilt lazily when terrain or entrances change. Derived, not serialized.
    */
   getNestExitField() {
+    const field = this.#nestExitFieldInstance();
+    if (this._exitScentMode) {
+      if (!field.scentSeeded) field.stepScent(this.nestEntrances);
+      return field;
+    }
+    field.ensureCurrent(this.nestEntrances);
+    return field;
+  }
+
+  #nestExitFieldInstance() {
     if (!this._nestExitField || this._nestExitField.world !== this.world) {
       this._nestExitField = new NestExitField(this.world);
     }
-    this._nestExitField.ensureCurrent(this.nestEntrances);
     return this._nestExitField;
   }
 

@@ -274,6 +274,8 @@ const state = {
     // Second short-lived, high-diffusion recruitment channel; off → inert. See
     // docs/pheromone-strategy.md future-direction #3.
     dualPheromone: false,
+    // Experimental lagged nest-exit scent (default off = instant exit field).
+    exitScentField: false,
     evapRecruit: 0.6,
     diffRecruit: 0.08,
     depositRecruit: 2.0,

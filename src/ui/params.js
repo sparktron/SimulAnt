@@ -771,6 +771,9 @@ export function getDefaultConfig() {
     // recruit field stays empty and inert (single-mode behavior unchanged).
     // See docs/pheromone-strategy.md future-direction #3.
     dualPheromone: false,
+    // Experimental: nest-exit routing from a scent that spreads one tile per
+    // tick instead of an instantly rebuilt tunnel-distance field. Default off.
+    exitScentField: false,
     evapRecruit: 0.6,        // fast evaporation — recruitment is volatile (toFood is 0.25)
     diffRecruit: 0.08,       // higher diffusion to spread fresh finds (toFood is ~0.02; must stay < 0.25)
     depositRecruit: 2.0,     // burst strength laid at a fresh pickup (used in dual mode)
