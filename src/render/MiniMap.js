@@ -88,7 +88,7 @@ export class MiniMap {
 
     // Ant dots.
     const ants = colony && colony.ants ? colony.ants : [];
-    ctx.fillStyle = this.skin.name === 'modern' ? '#9ccd7f' : '#ffec80';
+    ctx.fillStyle = this.skin.minimapAntColor;
     for (let k = 0; k < ants.length; k += 1) {
       const a = ants[k];
       if (a.x >= 0 && a.x < W && a.y >= 0 && a.y < H) {
@@ -110,7 +110,7 @@ export class MiniMap {
       const viewH = mainCanvas.clientHeight / cam.zoom;
       const left = cam.cameraX - viewW / 2;
       const top = cam.cameraY - viewH / 2;
-      ctx.strokeStyle = this.skin.name === 'modern' ? '#acbcc9' : '#ffffff';
+      ctx.strokeStyle = this.skin.minimapViewport;
       ctx.lineWidth = 1;
       ctx.strokeRect(left + 0.5, top + 0.5, viewW, viewH);
     }
