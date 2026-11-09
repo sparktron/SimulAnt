@@ -151,7 +151,7 @@ export class SurfaceRenderer {
     // terrain always feeds it; the pheromone fields only matter while a
     // field overlay is visible. Otherwise reuse the cached bitmap — at 60fps
     // over a ~12 ticks/sec sim this skips most rebuilds even with scent on.
-    const fieldsVisible = this.skin.name !== 'modern' && (overlays.showToFood || overlays.showToHome || overlays.showScent || overlays.showDanger);
+    const fieldsVisible = this.skin.fieldsInTerrain && (overlays.showToFood || overlays.showToHome || overlays.showScent || overlays.showDanger);
     const cacheKey = `${world.terrainVersion ?? -1}|${fieldsVisible ? world.fieldsVersion ?? -1 : 'off'}`
       + `|${!!overlays.showToFood}|${!!overlays.showToHome}|${!!overlays.showScent}|${!!overlays.showDanger}`;
     if (cacheKey === this._terrainCacheKey && this._off.width === W && this._off.height === H) {
@@ -269,7 +269,7 @@ export class SurfaceRenderer {
       this.skin.drawAnt(ctx, ant, colony, {
         color, showAntJobs: overlays.showAntJobs,
         selected: selectedAntId === ant.id,
-        heading: this.skin.name === 'classic' ? 0 : this.heading(ant), zoom: this.zoom,
+        heading: this.skin.usesHeading ? this.heading(ant) : 0, zoom: this.zoom,
       });
 
       if (showDebugStats) {

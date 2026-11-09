@@ -15,6 +15,7 @@ function glowPod(ctx,x,y) {
 export const modernSkin = Object.freeze({
   ...classicSkin,name:'modern',surfaceBackground:'#0f1a1f',nestBackground:'#0c0f12',
   horizon:'#82b96c',food:'#b3e878',
+  usesHeading:true,fieldsInTerrain:false,minimapAntColor:'#9ccd7f',minimapViewport:'#acbcc9',
   surfaceAlpha(terrain) {return terrain === TERRAIN.GROUND || terrain === TERRAIN.SOIL || terrain === TERRAIN.TUNNEL ? 95 : 255;},
   preProcess(ctx,w,h,owner) {
     let cached=backgrounds.get(owner);

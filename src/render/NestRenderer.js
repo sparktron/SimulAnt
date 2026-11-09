@@ -280,7 +280,7 @@ export class NestRenderer {
       this.skin.drawAnt(ctx, ant, colony, {
         color, showAntJobs: overlays.showAntJobs,
         selected: selectedAntId === ant.id,
-        heading: this.skin.name === 'classic' ? 0 : this.heading(ant), zoom: this.zoom,
+        heading: this.skin.usesHeading ? this.heading(ant) : 0, zoom: this.zoom,
       });
 
       if (showDebugStats) {
