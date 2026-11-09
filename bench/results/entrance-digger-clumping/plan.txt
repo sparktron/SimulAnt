@@ -1,0 +1,7 @@
+Hypotheses: (1) repeated entrance stalls are driven mostly by specific return/cargo states, and lagged exit scent does not consistently remove them; (2) sustained underground digger clusters mostly occur during DIG_MOVE_TO_FRONT outside the 2-tile arrival radius, rather than at the working face. Refute (1) if no state family accounts for half of persistent entrance ant-samples or if scent lowers each colony’s rate by at least 50%; refute (2) if DIG_MOVE_TO_FRONT accounts for less than half of underground digger cluster samples.
+Use production default config, set exitScentField false/true, seeds a,b,c,d,e,f,g,h,q,simant-default, 7500 ticks, sample every 5 ticks after 1000; exclude queens, count clustered ants whose positions stayed within one tile of an anchor for >=60 ticks and who have >=2 neighboring peers in a 3x3 area. Entrance within 5 Chebyshev tiles of own mouths. Underground digger denominator is all underground workFocus=dig samples. Track state, food availability, and nearest front distance; quantify observed excavation and completed deposits where accessible. Isolated deterministic digger and famine probes to test mechanism separately.
+f4c9787e82a1811654d142bb767be537ac30ae17
+v24.16.0
+Linux x86_64
+20
+Follow-up control after observing the default-seed hunger loop: keep the 1-tick failed-search trigger and set the surface return threshold to 0.35. Expect the 45%-fed worker to stop bouncing if the threshold mismatch is causal.
