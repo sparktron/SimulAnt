@@ -99,3 +99,23 @@ export function noiseField(width, height, seed, scale = 32, octaves = 4) {
   noiseFields.set(key, field);
   return field;
 }
+
+// Per-tile RGB that depends only on (x, y) — noise, dither, pebbles — painted
+// once per world size so terrain rebuilds (every tick while a scent overlay is
+// on) only pay for neighbour checks and overlay blending.
+export function tileTableCache(paint) {
+  let w = -1, h = -1, rgb = null;
+  const c = [0, 0, 0];
+  return (width, height) => {
+    if (width === w && height === h) return rgb;
+    rgb = new Uint8ClampedArray(width * height * 3); w = width; h = height;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        paint(x, y, width, height, c);
+        const o = (y * width + x) * 3;
+        rgb[o] = c[0]; rgb[o + 1] = c[1]; rgb[o + 2] = c[2];
+      }
+    }
+    return rgb;
+  };
+}
