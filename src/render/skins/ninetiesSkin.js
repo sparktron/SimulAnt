@@ -1,6 +1,6 @@
 import { TERRAIN } from '../../sim/world.js';
 import { classicSkin } from './classicSkin.js';
-import { bayer, hash2, noiseField } from './skinAssets.js';
+import { bayer, hash2, noiseField, tileTableCache } from './skinAssets.js';
 
 // "90s Retro": 16-colour VGA palette, ordered (Bayer) dithering on terrain,
 // chunky 4-direction pixel sprites at close zoom. Purple stays reserved for
@@ -30,6 +30,24 @@ function ditherBlend(c, strength, d, target) {
   c[2] = Math.floor(c[2] * (1 - q) + target[2] * q);
 }
 
+// Static ground: moss/soil noise, Bayer dither, tufts and pebbles.
+const groundTable = tileTableCache((x, y, W, H, out) => {
+  const tuft = hash2(x, y, 7), pebble = hash2(x, y, 9);
+  let c;
+  if (tuft < 0.012) c = RGB.green;
+  else if (tuft < 0.017) c = RGB.lgreen;
+  else if (pebble < 0.003) c = RGB.lgray;
+  else if (pebble < 0.004) c = RGB.white;
+  else {
+    const i = y * W + x;
+    const pal = noiseField(W, H, 'nineties-moss', 50, 3)[i] > 0.47 ? MOSS : SOIL;
+    const t = noiseField(W, H, 'nineties-soil', 34, 3)[i] + bayer(x, y) * 0.22 + (hash2(x, y) - 0.5) * 0.34;
+    c = pal[clampIndex(Math.floor((t - 0.15) * pal.length * 1.4), pal.length)];
+  }
+  out[0] = c[0]; out[1] = c[1]; out[2] = c[2];
+});
+
+const OUT = [0, 0, 0]; // reused: renderers copy the channels out immediately
 function surfaceTerrainPixel(terrain, x, y, idx, world, overlays) {
   const W = world.width, T = world.terrain, d = bayer(x, y);
   let c;
@@ -47,26 +65,13 @@ function surfaceTerrainPixel(terrain, x, y, idx, world, overlays) {
     c = hash2(x, y, 5) < 0.08 ? RGB.lred : d > -0.1 ? RGB.red : RGB.darkRed;
   } else if ((T[idx - W] === TERRAIN.WALL || (x > 0 && T[idx - W - 1] === TERRAIN.WALL)) && d > -0.3) {
     c = RGB.shadow; // drop shadow cast by the rock above
-  } else {
-    const tuft = hash2(x, y, 7), pebble = hash2(x, y, 9);
-    if (tuft < 0.012) c = RGB.green;
-    else if (tuft < 0.017) c = RGB.lgreen;
-    else if (pebble < 0.003) c = RGB.lgray;
-    else if (pebble < 0.004) c = RGB.white;
-    else {
-      const n = noiseField(W, world.height, 'nineties-soil', 34, 3)[idx];
-      const g = noiseField(W, world.height, 'nineties-moss', 50, 3)[idx];
-      const pal = g > 0.47 ? MOSS : SOIL;
-      const t = n + d * 0.22 + (hash2(x, y) - 0.5) * 0.34;
-      c = pal[clampIndex(Math.floor((t - 0.15) * pal.length * 1.4), pal.length)];
-    }
   }
-  if (!overlays.showToFood && !overlays.showToHome && !overlays.showScent && !overlays.showDanger) return c;
-  const out = [c[0], c[1], c[2]];
-  if (overlays.showToFood || overlays.showScent) ditherBlend(out, Math.min(1, Math.sqrt(world.toFood[idx] / 6)), d, RGB.lgreen);
-  if (overlays.showToHome || overlays.showScent) ditherBlend(out, Math.min(1, Math.sqrt(world.toHome[idx] / 6)), d, RGB.lblue);
-  if (overlays.showDanger) ditherBlend(out, Math.min(1, world.danger[idx]), d, RGB.lred);
-  return out;
+  if (c) { OUT[0] = c[0]; OUT[1] = c[1]; OUT[2] = c[2]; }
+  else { const g = groundTable(W, world.height), o = idx * 3; OUT[0] = g[o]; OUT[1] = g[o + 1]; OUT[2] = g[o + 2]; }
+  if (overlays.showToFood || overlays.showScent) ditherBlend(OUT, Math.min(1, Math.sqrt(world.toFood[idx] / 6)), d, RGB.lgreen);
+  if (overlays.showToHome || overlays.showScent) ditherBlend(OUT, Math.min(1, Math.sqrt(world.toHome[idx] / 6)), d, RGB.lblue);
+  if (overlays.showDanger) ditherBlend(OUT, Math.min(1, world.danger[idx]), d, RGB.lred);
+  return OUT;
 }
 
 function nestTerrainPixel(terrain, x, y, idx, world, edge) {
