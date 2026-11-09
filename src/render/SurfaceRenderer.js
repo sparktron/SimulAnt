@@ -58,6 +58,8 @@ export class SurfaceRenderer {
     // loop runs at display rate but terrain/pheromones change only on sim
     // ticks (or tool edits), so most frames can reuse the previous bitmap.
     this._terrainCacheKey = '';
+    // What actually gets blitted: _off itself, or a skin's composed version of it.
+    this._terrainImage = null;
   }
 
   setSkin(name) {
@@ -155,8 +157,7 @@ export class SurfaceRenderer {
     const cacheKey = `${world.terrainVersion ?? -1}|${fieldsVisible ? world.fieldsVersion ?? -1 : 'off'}`
       + `|${!!overlays.showToFood}|${!!overlays.showToHome}|${!!overlays.showScent}|${!!overlays.showDanger}`;
     if (cacheKey === this._terrainCacheKey && this._off.width === W && this._off.height === H) {
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(this._off, 0, 0);
+      this.#blitTerrain(ctx, W, H);
       return;
     }
     this._terrainCacheKey = cacheKey;
@@ -182,8 +183,16 @@ export class SurfaceRenderer {
     }
 
     this._offCtx.putImageData(image, 0, 0);
+    // A skin may bake detail (smooth upscale, grain) once per rebuild instead
+    // of paying for it on every frame.
+    this._terrainImage = this.skin.composeTerrain?.(this._off, world, this) || this._off;
+    this.#blitTerrain(ctx, W, H);
+  }
+
+  #blitTerrain(ctx, W, H) {
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this._off, 0, 0);
+    if (this._terrainImage && this._terrainImage !== this._off) ctx.drawImage(this._terrainImage, 0, 0, W, H);
+    else ctx.drawImage(this._off, 0, 0);
   }
 
   #drawFoodPellets(ctx, foodPellets) {

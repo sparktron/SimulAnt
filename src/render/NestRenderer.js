@@ -35,6 +35,7 @@ export class NestRenderer {
     this._off.width = world.width;
     this._off.height = world.height;
     this._offCtx = this._off.getContext('2d');
+    this._terrainImage = null;
   }
 
   setSkin(name) {
@@ -125,8 +126,7 @@ export class NestRenderer {
 
     const key = `${world.terrainVersion ?? -1}|${this.skin.name}`;
     if (world.terrainVersion !== undefined && this._terrainCacheKey === key) {
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(this._off, 0, 0);
+      this.#blitTerrain(ctx, W, H);
       this.#drawHorizon(ctx, W, world.nestY);
       return;
     }
@@ -154,10 +154,16 @@ export class NestRenderer {
     }
 
     this._offCtx.putImageData(image, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this._off, 0, 0);
+    this._terrainImage = this.skin.composeTerrain?.(this._off, world, this) || this._off;
+    this.#blitTerrain(ctx, W, H);
 
     this.#drawHorizon(ctx, W, world.nestY);
+  }
+
+  #blitTerrain(ctx, W, H) {
+    ctx.imageSmoothingEnabled = false;
+    if (this._terrainImage && this._terrainImage !== this._off) ctx.drawImage(this._terrainImage, 0, 0, W, H);
+    else ctx.drawImage(this._off, 0, 0);
   }
 
   #drawHorizon(ctx, W, nestY) {
