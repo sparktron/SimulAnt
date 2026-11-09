@@ -206,6 +206,8 @@ export class Ant {
     // duel and relinks it on load); raiding is soldier behavior substate.
     this.inDuel = false;
     this.raiding = false;
+    // Set while a hurt forager is recovering in the nest (HEAL_IN_NEST).
+    this._recoveringInNest = false;
   }
 
   /**

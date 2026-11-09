@@ -311,12 +311,16 @@ const NEST_HEAL_STEP_INTERVAL_TICKS = 4;
 // keeps healers out of the entrance shaft that every forager passes through.
 const NEST_HEAL_MIN_MOUTH_DISTANCE = 5;
 
+// Recovery intent lives in its own flag, not in ant.state: eating from the
+// store mid-recovery overwrites state with EAT, which used to drop the
+// hysteresis and send a 50-75% ant back out after a single meal.
 export function shouldHealInNest(ant, colony) {
   const recovering = vitals.isLowHealth(ant)
-    || (ant.state === 'HEAL_IN_NEST' && ant.health < ant.healthMax * NEST_HEAL_RESUME_FRACTION);
-  if (!recovering) return false;
+    || (ant._recoveringInNest && ant.health < ant.healthMax * NEST_HEAL_RESUME_FRACTION);
   // A hungry ant with nothing in the store cannot regen here; it forages.
-  return ant.hunger > ant.hungerMax * 0.5 || colony.foodStored > 0;
+  const canHeal = ant.hunger > ant.hungerMax * 0.5 || colony.foodStored > 0;
+  ant._recoveringInNest = recovering && canHeal;
+  return ant._recoveringInNest;
 }
 
 function healInNest(ant, world, colony, rng) {
@@ -356,6 +360,7 @@ export function foragerExitNest(ant, world, colony, rng, config, context) {
   if (shouldHealInNest(ant, colony)) {
     const healAction = healInNest(ant, world, colony, rng);
     if (healAction) return healAction;
+    ant._recoveringInNest = false; // no resting ground reachable from here
   }
 
   // Stagger departures: after eating, wait a random delay before leaving
