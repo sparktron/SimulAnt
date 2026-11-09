@@ -8,7 +8,7 @@
     <link id="themeStylesheet" rel="stylesheet" href="styles.css" />
     <script>
       (() => {
-        const sheets = { classic: 'styles.css', retro: 'themes/retro.css', modern: 'themes/modern.css' };
+        const sheets = { classic: 'styles.css', retro: 'themes/retro.css', modern: 'themes/modern.css', nineties: 'themes/nineties.css' };
         let theme = 'classic';
         try { const stored = localStorage.getItem('simulant-theme'); if (Object.hasOwn(sheets, stored)) theme = stored; } catch {}
         document.documentElement.dataset.theme = theme;
@@ -22,7 +22,7 @@
         <span class="classic-brand">SimAnt - Rival Colonies</span>
         <span class="theme-brand"><span class="brand-mark" aria-hidden="true">✳</span> SimulAnt <small>COLONY OBSERVATORY</small></span>
         <div class="header-readouts"><span class="live-status" id="hudRunState">LIVE</span><span><b id="hudFpsTitle">60</b> FPS</span><span class="tick-lcd">TICK <b id="hudTickTitle">0</b></span></div>
-        <label class="theme-picker"><span>THEME</span><select id="themeSelect" aria-label="Theme"><option value="classic">Classic</option><option value="retro">Retro Polished</option><option value="modern">Modern Sleek</option></select></label>
+        <label class="theme-picker"><span>THEME</span><select id="themeSelect" aria-label="Theme"><option value="classic">Classic</option><option value="retro">Retro Polished</option><option value="modern">Modern Sleek</option><option value="nineties">90s Retro</option></select></label>
       </header>
 
       <div class="frame">

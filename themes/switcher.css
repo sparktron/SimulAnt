@@ -4,14 +4,14 @@
 .theme-picker select { max-width: 155px; font: 11px 'Courier New', monospace; color: inherit; cursor: pointer; }
 .theme-picker > span { display: none; }
 .theme-brand, .header-readouts, .section-title, .canvas-telemetry, .canvas-footer, .distribution-bar { display: none; }
-:root:not([data-theme='modern']):not([data-theme='retro']) .theme-picker select { height: 20px; padding: 0 3px; border: 1px solid #777; background: #e4e4e4; color: #111; }
+:root:not([data-theme='modern']):not([data-theme='retro']):not([data-theme='nineties']) .theme-picker select { height: 20px; padding: 0 3px; border: 1px solid #777; background: #e4e4e4; color: #111; }
 :focus-visible { outline: 2px solid #76a755; outline-offset: 3px; }
 @media (max-width: 650px) {
   :root[data-theme='classic'] .classic-brand { display: block; width: calc(100% - 165px); overflow: hidden; white-space: nowrap; }
 }
 @media (pointer: coarse) {
   .theme-picker select { min-height: 44px; }
-  :root:not([data-theme='modern']):not([data-theme='retro']) .screen { grid-template-rows: 48px 1fr; }
+  :root:not([data-theme='modern']):not([data-theme='retro']):not([data-theme='nineties']) .screen { grid-template-rows: 48px 1fr; }
 }
 
 #helpTitle:focus { outline:none; }

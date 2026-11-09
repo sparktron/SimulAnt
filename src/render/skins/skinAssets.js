@@ -1,3 +1,5 @@
+import { SeededRng } from '../../sim/rng.js';
+
 // All caches belong to rendering, never to simulation objects.
 const atlases = new Map();
 const overlays = new WeakMap();
@@ -55,4 +57,45 @@ export function postProcess(ctx, width, height, owner, retro = false) {
     layer = { canvas, width: canvas.width, height: canvas.height, retro }; overlays.set(owner, layer);
   }
   ctx.drawImage(layer.canvas, 0, 0, width, height);
+}
+
+// 4x4 ordered-dither (Bayer) thresholds, normalised to [-0.5, 0.5).
+export const BAYER4 = Object.freeze([0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => v / 16 - 0.5));
+export function bayer(x, y) { return BAYER4[((y & 3) << 2) | (x & 3)]; }
+
+// Integer hash of a tile coordinate, in [0, 1). Pure, so terrain stays stable
+// across rebuilds without storing per-tile state.
+export function hash2(x, y, salt = 0) {
+  let h = Math.imul(x + 1 + salt * 31, 374761393) ^ Math.imul(y + 1, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+// Smooth fractal value noise sampled once per tile and cached by size+seed.
+// Uses its own SeededRng instance, so rendering never draws from (or advances)
+// the simulation's RNG stream.
+const noiseFields = new Map();
+export function noiseField(width, height, seed, scale = 32, octaves = 4) {
+  const key = `${width}x${height}|${seed}|${scale}|${octaves}`;
+  const hit = noiseFields.get(key);
+  if (hit) return hit;
+  const size = 64, rng = new SeededRng(seed), grid = new Float32Array(size * size);
+  for (let i = 0; i < grid.length; i += 1) grid[i] = rng.next();
+  const at = (x, y) => grid[(y & (size - 1)) * size + (x & (size - 1))];
+  const sample = (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = at(xi, yi), b = at(xi + 1, yi), c = at(xi, yi + 1), d = at(xi + 1, yi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  const field = new Float32Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let value = 0, amp = 0.5, freq = 1 / scale, total = 0;
+      for (let o = 0; o < octaves; o += 1) { value += amp * sample(x * freq, y * freq); total += amp; amp *= 0.5; freq *= 2; }
+      field[y * width + x] = value / total;
+    }
+  }
+  noiseFields.set(key, field);
+  return field;
 }

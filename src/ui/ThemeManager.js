@@ -2,6 +2,7 @@ export const THEMES = Object.freeze({
   classic: Object.freeze({ label: 'Classic', href: 'styles.css' }),
   retro: Object.freeze({ label: 'Retro Polished', href: 'themes/retro.css' }),
   modern: Object.freeze({ label: 'Modern Sleek', href: 'themes/modern.css' }),
+  nineties: Object.freeze({ label: '90s Retro', href: 'themes/nineties.css' }),
 });
 const STORAGE_KEY = 'simulant-theme';
 const listeners = new Set();
