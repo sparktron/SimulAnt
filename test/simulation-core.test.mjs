@@ -685,7 +685,8 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   // v0.60.0: rival work parity, excavation, and aggression from master,
   // plus seeded ant-lion predation and persisted predator lifecycle.
   // v0.62.0: timed duels, both colonies hunting, enemySeekBias soldier raids.
-  assert.equal(replayHash, 2253706712);
+  // v0.63.0: seeded close-fight outcomes and survivor wounds.
+  assert.equal(replayHash, 2105796279);
 });
 
 // Survival regression: with the PRODUCTION defaults, the black colony used to peak

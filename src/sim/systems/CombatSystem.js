@@ -11,7 +11,9 @@
  * combatDuelSeconds. Over the duel each ant loses its opponent's damage stat
  * (combatWorkerDamage / combatSoldierDamage) in even per-tick slices, on top of
  * the normal fighting hunger/health drain. When the timer runs out the ant
- * with more health wins and the other dies; an exact tie is a coin flip. If
+ * with more health usually wins and the other dies. Close fights give the
+ * healthier ant a 60% chance; an exact tie is a coin flip. The survivor also
+ * takes a random finishing wound. If
  * either ant dies early (damage, starvation, a predator), the other is freed.
  */
 const NEIGHBOR_OFFSETS = Object.freeze([
@@ -146,8 +148,15 @@ export class CombatSystem {
     if (duel.ticksLeft > 0) return false;
 
     let blackLoses;
-    if (black.health === red.health) blackLoses = this.rng.next() < 0.5;
-    else blackLoses = black.health < red.health;
+    const healthGap = Math.abs(black.health - red.health);
+    const healthierIsBlack = black.health > red.health;
+    if (healthGap === 0) blackLoses = this.rng.next() < 0.5;
+    else if (healthGap <= Math.max(black.health, red.health) * 0.2) {
+      const healthierWins = this.rng.next() < 0.6;
+      blackLoses = healthierWins !== healthierIsBlack;
+    } else blackLoses = !healthierIsBlack;
+    const winner = blackLoses ? red : black;
+    winner.health *= 0.75 - this.rng.next() * 0.15;
     if (blackLoses) kill(black, blackColony);
     else kill(red, redColony);
     this.#endDuel(duel);
