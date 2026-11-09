@@ -1504,6 +1504,7 @@ export class Colony {
         failedSurfaceFoodSearchTicks: ant.failedSurfaceFoodSearchTicks,
         lastNestEatTick: ant._lastNestEatTick,
         ...(ant.raiding ? { raiding: true } : {}),
+        ...(ant._recoveringInNest ? { recoveringInNest: true } : {}),
         ...(Number.isFinite(ant._recruitBudget) ? { recruitBudget: ant._recruitBudget } : {}),
       })),
     };
@@ -1622,6 +1623,7 @@ export class Colony {
 
       ant.state = a.state || ant.state;
       ant.raiding = a.raiding === true;
+      ant._recoveringInNest = a.recoveringInNest === true;
       ant.stepCounter = a.stepCounter || 0;
       ant.age = a.age || 0;
       if (a.maxAge) ant.maxAge = a.maxAge;

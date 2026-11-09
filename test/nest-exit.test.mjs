@@ -226,6 +226,7 @@ test('healers go back out once recovered past the resume threshold, not at the l
   const { sim, colony, workers, entrance } = healSetup('heal-resume', 1, { health: 0.6 });
   const [ant] = workers;
   ant.state = 'HEAL_IN_NEST';
+  ant._recoveringInNest = true;
   for (let i = 0; i < 20; i += 1) ant.update(sim.world, colony, sim.rng, NO_REGEN);
   assert.equal(ant.state, 'HEAL_IN_NEST', 'still recovering between 50% and 75%');
 
@@ -248,4 +249,31 @@ test('a hurt forager with an empty store and an empty stomach goes foraging', ()
     surfaced = ant.y <= entrance.y;
   }
   assert.ok(surfaced, 'with nothing to eat, resting cannot heal; the ant should forage');
+});
+
+test('a recovering healer that eats mid-recovery keeps healing instead of leaving', () => {
+  // 55% health is above the low-health line, so only recovery intent keeps it
+  // in. 34% hunger is below the 35% meal line, so it eats on its first update,
+  // and eating overwrites state with EAT.
+  const { sim, colony, workers, entrance } = healSetup('heal-meal', 1, { health: 0.55, hunger: 0.34 });
+  const [ant] = workers;
+  ant.state = 'HEAL_IN_NEST';
+  ant._recoveringInNest = true;
+  colony.foodStored = 500;
+  const hungerBefore = ant.hunger;
+  for (let i = 0; i < 60; i += 1) {
+    ant.update(sim.world, colony, sim.rng, NO_REGEN);
+    assert.ok(ant.y > entrance.y, `healer left after eating at tick ${i} (${ant.state})`);
+  }
+  assert.ok(ant.hunger > hungerBefore, 'precondition: the healer ate from the store');
+  assert.equal(ant.state, 'HEAL_IN_NEST');
+});
+
+test('recovery intent survives save and load', () => {
+  const { sim, colony, workers } = healSetup('heal-save', 1);
+  const [ant] = workers;
+  for (let i = 0; i < 5; i += 1) ant.update(sim.world, colony, sim.rng, NO_REGEN);
+  assert.equal(ant._recoveringInNest, true);
+  const restored = Colony.fromSerialized(sim.world, new SeededRng('heal-save-load'), colony.serialize());
+  assert.equal(restored.ants[0]._recoveringInNest, true);
 });
