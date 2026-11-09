@@ -296,6 +296,45 @@ export function carryFood(ant, world, colony, rng, config, context) {
   return movementAction(didMove);
 }
 
+// Hurt foragers heal inside the nest instead of bouncing at the mouth.
+// foragerExitNest used to send a hurt, fed forager straight out, where the
+// surface low-health rule sent it straight back in. Healing is passive regen
+// (hunger above 50%), so the ant only has to stay fed and underground.
+// Hysteresis: start below isLowHealth (50%), resume foraging at 75%, so an ant
+// healed just past the threshold doesn't flip straight back out.
+const NEST_HEAL_RESUME_FRACTION = 0.75;
+// Healers drift one tile every few ticks: slow enough to read as resting, but
+// never standing still long enough to pile up. (Standing rest was tried in
+// v0.62.1 and produced visible idle clumps.)
+const NEST_HEAL_STEP_INTERVAL_TICKS = 4;
+// Resting ground starts this many walking steps from the nearest mouth, which
+// keeps healers out of the entrance shaft that every forager passes through.
+const NEST_HEAL_MIN_MOUTH_DISTANCE = 5;
+
+export function shouldHealInNest(ant, colony) {
+  const recovering = vitals.isLowHealth(ant)
+    || (ant.state === 'HEAL_IN_NEST' && ant.health < ant.healthMax * NEST_HEAL_RESUME_FRACTION);
+  if (!recovering) return false;
+  // A hungry ant with nothing in the store cannot regen here; it forages.
+  return ant.hunger > ant.hungerMax * 0.5 || colony.foodStored > 0;
+}
+
+function healInNest(ant, world, colony, rng) {
+  // Stagger the cadence per ant so a group of healers doesn't step in unison.
+  const phase = Number.parseInt(String(ant.id ?? '').slice(4), 10) || 0;
+  const field = colony.getNestExitField?.();
+  const here = field ? field.distanceAt(ant.x, ant.y) : -1;
+  const onRestingGround = here >= NEST_HEAL_MIN_MOUTH_DISTANCE;
+  if (onRestingGround && (ant.stepCounter + phase) % NEST_HEAL_STEP_INTERVAL_TICKS !== 0) {
+    ant.state = 'HEAL_IN_NEST';
+    return STAY_ACTION;
+  }
+  const drift = steering.driftWhileHealing(ant, world, colony, rng, NEST_HEAL_MIN_MOUTH_DISTANCE);
+  if (drift === null) return null;
+  ant.state = 'HEAL_IN_NEST';
+  return drift ? movementAction(true) : STAY_ACTION;
+}
+
 export function foragerExitNest(ant, world, colony, rng, config, context) {
   const returnHungerThreshold = Math.max(
     0,
@@ -312,6 +351,11 @@ export function foragerExitNest(ant, world, colony, rng, config, context) {
       navigation.getNestEntryTargetY(ant,world, context.entrance),
       rng,
     ));
+  }
+
+  if (shouldHealInNest(ant, colony)) {
+    const healAction = healInNest(ant, world, colony, rng);
+    if (healAction) return healAction;
   }
 
   // Stagger departures: after eating, wait a random delay before leaving

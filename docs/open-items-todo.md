@@ -117,6 +117,14 @@ Status checked against landed `master` at **v0.58.1** on 2026-08-23.
     steps; fed foragers keep searching instead of parking on the mouth row;
     reset no longer leaves an ownerless starter nest at map centre; dig branch
     fronts spawn only on the colony's own side of the map.
+47. ✅ Ended the hurt-forager mouth ping-pong (v0.62.3): a low-health, fed
+    forager inside the nest now enters `HEAL_IN_NEST` instead of being sent
+    out. It drifts one tile every 4 ticks over resting ground ≥5 walking steps
+    from any mouth, stepping toward the least crowded chamber floor, and
+    resumes foraging at 75% health (hysteresis above the 50% low-health line).
+    Over 8 seeds × 7,500 ticks, hurt-worker mouth crossings fell from ~580 to
+    3–13 per 1,000 hurt-ticks with no rise in in-nest clump tiles, and both
+    colonies ended larger.
 
 ## Active work
 
@@ -126,10 +134,6 @@ Status checked against landed `master` at **v0.58.1** on 2026-08-23.
   saturated nest `STORE_FOOD_IN_NEST` carriers jitter between random targets
   (up to ~100 stuck samples per 4-seed run for red after v0.62.1). Needs a
   storage-capacity / stacking rule and a stable per-carrier drop target.
-- **Hurt-forager mouth ping-pong.** A low-health, fed forager inside the nest is
-  sent out by `foragerExitNest`, then the surface low-health rule sends it back
-  in. Resting hurt ants inside was tried in v0.62.1 and reverted: it turned the
-  ping-pong into visible clumps of idle ants in the nest.
 
 The remaining planned work is the experiment-driven environmental foraging
 program below.

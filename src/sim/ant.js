@@ -80,6 +80,10 @@ export class Ant {
       case 'EAT':
         return '#00ff00';
 
+      // Recovering in the nest - soft pink
+      case 'HEAL_IN_NEST':
+        return '#ff9eb5';
+
       // Hauling/storing - orange
       case 'HAUL_DIRT':
       case 'STORE_FOOD_IN_NEST':
