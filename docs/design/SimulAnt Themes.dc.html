@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #dcd9d1; }
+a { color: #2b2a26; text-decoration: none; }
+a:hover { color: #000; text-decoration: underline; }
+</style>
+</helmet>
+<section style="padding: 64px; display: flex; flex-direction: column; gap: 28px; font-family: 'Barlow', sans-serif; color: #2b2a26;">
+  <div style="display: flex; flex-direction: column; gap: 6px; max-width: 900px;">
+    <div style="font: 600 13px 'Barlow Condensed', sans-serif; letter-spacing: .18em; color: #77736a;">SIMULANT · THEME SELECTOR · TURN 1</div>
+    <div style="font: 600 30px 'Barlow Condensed', sans-serif; letter-spacing: .02em;">Two new themes: 90s Retro and Realistic</div>
+    <div style="font-size: 15px; line-height: 1.5; color: #55524b; text-wrap: pretty;">Same DOM and controls as Classic, Retro Polished and Modern Sleek. Each new theme pairs a stylesheet with a renderer skin. Both playfields are live: click an ant to select it, or click empty ground with FOOD selected to drop food.</div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 72px; align-items: flex-start;">
+
+    <!-- 1a · 90s Retro -->
+    <div id="1a" style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <a href="#1a" style="font: 600 13px 'Barlow Condensed', sans-serif; letter-spacing: .08em; background: #2b2a26; color: #fff; padding: 4px 9px; border-radius: 4px;">1a</a>
+        <span style="font: 600 20px 'Barlow Condensed', sans-serif;">90s Retro</span>
+        <span style="font-size: 13px; color: #77736a;">themes/nineties.css + skins/ninetiesSkin.js</span>
+      </div>
+      <div data-screen-label="1a 90s Retro" style="width: 1440px; height: 900px; box-sizing: border-box; padding: 10px; background: #12a4e2; box-shadow: 0 30px 80px rgba(0,0,0,.25);">
+        <div style="height: 100%; display: flex; flex-direction: column; border: 1px solid #000; background: #c0c0c0; font-family: Tahoma, 'MS Sans Serif', Geneva, sans-serif; color: #000;">
+          <header style="display: flex; flex-direction: column; flex-shrink: 0;">
+            <div style="height: 24px; display: flex; align-items: center; background: #000080; border-bottom: 1px solid #000;">
+              <div style="width: 24px; height: 23px; background: #c0c0c0; border-right: 1px solid #000; display: flex; align-items: center; justify-content: center;"><div style="width: 12px; height: 3px; background: #fff; border: 1px solid #000; box-shadow: 1px 1px 0 #808080;"></div></div>
+              <div style="flex: 1; text-align: center; color: #fff; font-weight: bold; font-size: 13px; letter-spacing: .02em;">SimulAnt - Rival Colonies</div>
+              <div style="width: 24px; height: 23px; background: #c0c0c0; border-left: 1px solid #000; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; display: flex; align-items: center; justify-content: center; font-size: 9px;">▲</div>
+            </div>
+            <div style="height: 24px; display: flex; align-items: center; gap: 22px; padding: 0 10px; background: #fff; border-bottom: 1px solid #000; font-size: 12px;">
+              <span style="display: flex; align-items: center; gap: 6px; font-weight: bold;"><span style="width: 8px; height: 8px; background: #00aa00; border: 1px solid #000;"></span>{{ n.runState }}</span>
+              <span><b>{{ fps }}</b> FPS</span>
+              <span style="font: 10px 'Press Start 2P', monospace; background: #000; color: #55ff55; padding: 4px 6px;">TICK {{ n.tickPad }}</span>
+              <span style="margin-left: auto; color: #555;">v0.62.1</span>
+              <span style="display: flex; align-items: center; gap: 6px;">Theme:
+                <span style="display: flex; align-items: center; height: 18px; border: 1px solid #000; background: #fff; font-size: 11px;"><span style="padding: 0 30px 0 6px;">90s Retro</span><span style="width: 16px; height: 16px; background: #c0c0c0; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080; border-left: 1px solid #000; display: flex; align-items: center; justify-content: center; font-size: 8px;">▼</span></span>
+              </span>
+            </div>
+          </header>
+
+          <div style="flex: 1; min-height: 0; display: flex;">
+            <aside style="width: 140px; flex-shrink: 0; padding: 5px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid #000; box-shadow: inset 1px 1px 0 #fff; overflow: hidden;">
+              <div style="height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 7px; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; font-size: 11px; font-weight: bold; cursor: pointer;"><span>VIEW: SURFACE</span><span style="font-weight: normal; color: #555; font-size: 10px;">Q</span></div>
+              <div style="height: 26px; display: flex; align-items: center; padding: 0 7px; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; font-size: 11px; font-weight: bold; cursor: pointer;">COLONY STATUS</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px;">
+                <div onClick="{{ n.togglePause }}" style="height: 26px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; font-size: 10px; font-weight: bold; cursor: pointer;">{{ n.pauseLabel }}</div>
+                <div onClick="{{ n.step }}" style="height: 26px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; font-size: 10px; font-weight: bold; cursor: pointer;">STEP</div>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; margin-top: 4px; padding-bottom: 2px; border-bottom: 1px solid #808080; box-shadow: 0 1px 0 #fff; font-size: 10px; font-weight: bold; color: #000080;"><span>TOOLS</span><span>1–7</span></div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px;">
+                <sc-for list="{{ n.tools }}" as="t" hint-placeholder-count="7">
+                  <div onClick="{{ t.pick }}" style="height: 22px; display: flex; align-items: center; gap: 5px; padding: 0 5px; border: 1px solid #000; box-shadow: {{ t.sh }}; background: {{ t.bg }}; font-size: 10px; font-weight: bold; cursor: pointer;"><span style="width: 8px; height: 8px; border: 1px solid #000; background: {{ t.sw }}; flex-shrink: 0;"></span>{{ t.label }}</div>
+                </sc-for>
+              </div>
+
+              <div style="margin-top: 4px; padding: 6px; background: #000; border: 1px solid; border-color: #808080 #fff #fff #808080; display: flex; flex-direction: column; gap: 6px;">
+                <div style="font: 7px 'Press Start 2P', monospace; color: #ffff55;">HEALTH</div>
+                <div style="display: flex; justify-content: space-around;">
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;"><div style="width: 16px; height: 60px; border: 1px solid #555; position: relative;"><div style="position: absolute; left: 0; right: 0; bottom: 0; height: {{ n.selH }}; background: #ffff55;"></div></div><span style="font: 7px 'Press Start 2P', monospace; color: #fff;">SEL</span></div>
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;"><div style="width: 16px; height: 60px; border: 1px solid #555; position: relative;"><div style="position: absolute; left: 0; right: 0; bottom: 0; height: {{ n.blkH }}; background: #5555ff;"></div></div><span style="font: 7px 'Press Start 2P', monospace; color: #fff;">BLK</span></div>
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;"><div style="width: 16px; height: 60px; border: 1px solid #555; position: relative;"><div style="position: absolute; left: 0; right: 0; bottom: 0; height: {{ n.redH }}; background: #ff5555;"></div></div><span style="font: 7px 'Press Start 2P', monospace; color: #fff;">RED</span></div>
+                </div>
+              </div>
+
+              <div style="margin-top: 4px; padding-bottom: 2px; border-bottom: 1px solid #808080; box-shadow: 0 1px 0 #fff; font-size: 10px; font-weight: bold; color: #000080;">SIMULATION</div>
+              <div style="display: flex; flex-direction: column; gap: 2px; font-size: 11px;">Seed
+                <div style="height: 20px; display: flex; align-items: center; padding: 0 4px; background: #fff; border: 1px solid; border-color: #808080 #fff #fff #808080; box-shadow: inset 1px 1px 0 #000; font: 11px 'Courier New', monospace;">simant-default</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 2px; font-size: 11px;">
+                <div style="display: flex; justify-content: space-between;"><span>Brush</span><b>{{ n.brush }}</b></div>
+                <div style="display: flex; height: 16px;">
+                  <div onClick="{{ n.brushDec }}" style="width: 14px; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080; font-size: 7px; display: flex; align-items: center; justify-content: center; cursor: pointer;">◄</div>
+                  <div onPointerDown="{{ n.brushDown }}" style="flex: 1; position: relative; border-top: 1px solid #000; border-bottom: 1px solid #000; background: repeating-conic-gradient(#fff 0 25%, #c0c0c0 0 50%) 0 0 / 2px 2px; cursor: pointer;"><div style="position: absolute; top: 0; bottom: 0; width: 14px; left: {{ n.brushPct }}; transform: translateX(-50%); background: #c0c0c0; border-left: 1px solid #000; border-right: 1px solid #000; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080;"></div></div>
+                  <div onClick="{{ n.brushInc }}" style="width: 14px; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080; font-size: 7px; display: flex; align-items: center; justify-content: center; cursor: pointer;">►</div>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 2px; font-size: 11px;">
+                <div style="display: flex; justify-content: space-between;"><span>Speed</span><b>{{ n.speedLabel }}</b></div>
+                <div style="display: flex; height: 16px;">
+                  <div onClick="{{ n.speedDec }}" style="width: 14px; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080; font-size: 7px; display: flex; align-items: center; justify-content: center; cursor: pointer;">◄</div>
+                  <div onPointerDown="{{ n.speedDown }}" style="flex: 1; position: relative; border-top: 1px solid #000; border-bottom: 1px solid #000; background: repeating-conic-gradient(#fff 0 25%, #c0c0c0 0 50%) 0 0 / 2px 2px; cursor: pointer;"><div style="position: absolute; top: 0; bottom: 0; width: 14px; left: {{ n.speedPct }}; transform: translateX(-50%); background: #c0c0c0; border-left: 1px solid #000; border-right: 1px solid #000; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080;"></div></div>
+                  <div onClick="{{ n.speedInc }}" style="width: 14px; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080; font-size: 7px; display: flex; align-items: center; justify-content: center; cursor: pointer;">►</div>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 2px; font-size: 11px;">
+                <div style="display: flex; justify-content: space-between;"><span>Ant cap</span><b>{{ n.cap }}</b></div>
+                <div style="display: flex; height: 16px;">
+                  <div onClick="{{ n.capDec }}" style="width: 14px; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080; font-size: 7px; display: flex; align-items: center; justify-content: center; cursor: pointer;">◄</div>
+                  <div onPointerDown="{{ n.capDown }}" style="flex: 1; position: relative; border-top: 1px solid #000; border-bottom: 1px solid #000; background: repeating-conic-gradient(#fff 0 25%, #c0c0c0 0 50%) 0 0 / 2px 2px; cursor: pointer;"><div style="position: absolute; top: 0; bottom: 0; width: 14px; left: {{ n.capPct }}; transform: translateX(-50%); background: #c0c0c0; border-left: 1px solid #000; border-right: 1px solid #000; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080;"></div></div>
+                  <div onClick="{{ n.capInc }}" style="width: 14px; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080; font-size: 7px; display: flex; align-items: center; justify-content: center; cursor: pointer;">►</div>
+                </div>
+              </div>
+
+              <div style="margin-top: 4px; padding-bottom: 2px; border-bottom: 1px solid #808080; box-shadow: 0 1px 0 #fff; font-size: 10px; font-weight: bold; color: #000080;">SESSION</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; font-size: 10px; font-weight: bold;">
+                <div style="height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; cursor: pointer;">RESET</div>
+                <div style="height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; cursor: pointer;">SAVE</div>
+                <div style="height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; cursor: pointer;">LOAD</div>
+                <div style="height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; cursor: pointer; color: #aa0000;">CLEAR</div>
+                <div onClick="{{ n.toggleScent }}" style="height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; box-shadow: {{ n.scent.sh }}; background: {{ n.scent.bg }}; cursor: pointer;">SCENT</div>
+                <div onClick="{{ n.toggleJobs }}" style="height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; box-shadow: {{ n.jobs.sh }}; background: {{ n.jobs.bg }}; cursor: pointer;">JOBS</div>
+                <div onClick="{{ n.togglePhero }}" style="grid-column: 1 / -1; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; box-shadow: {{ n.phero.sh }}; background: {{ n.phero.bg }}; cursor: pointer;">{{ n.pheroLabel }}</div>
+                <div style="height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; cursor: pointer;">HELP</div>
+                <div style="height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; cursor: pointer;">LOG ↓</div>
+              </div>
+            </aside>
+
+            <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 4px; gap: 4px;">
+              <div style="flex: 1; min-height: 0; position: relative; background: #000; border: 2px solid; border-color: #808080 #fff #fff #808080; box-shadow: inset 1px 1px 0 #000;">
+                <canvas ref="{{ nCanvas }}" onPointerDown="{{ n.canvasDown }}" style="position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; cursor: crosshair; display: block;"></canvas>
+                <div style="position: absolute; top: 8px; left: 8px; font: 8px 'Press Start 2P', monospace; color: #ffff55; background: #000; padding: 5px 6px; border: 1px solid #ffff55; pointer-events: none;">SURFACE</div>
+                <sc-if value="{{ n.jobsOn }}" hint-placeholder-val="{{ false }}">
+                  <div style="position: absolute; top: 8px; right: 8px; background: #000; border: 2px solid #c0c0c0; padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; font: 7px 'Press Start 2P', monospace; color: #fff; pointer-events: none;">
+                    <sc-for list="{{ legend }}" as="j" hint-placeholder-count="9">
+                      <div style="display: flex; align-items: center; gap: 7px;"><span style="width: 8px; height: 8px; background: {{ j.c }}; border: 1px solid #555;"></span>{{ j.l }}</div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+              <div style="height: 50px; flex-shrink: 0; display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 18px; align-items: center; padding: 0 12px; border: 1px solid #000; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; font: 11px 'Press Start 2P', monospace;">
+                <div style="display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; justify-content: space-between;"><span>BLK</span><span>{{ n.blkPad }}</span></div><div style="height: 9px; background: #000; border: 1px solid; border-color: #808080 #fff #fff #808080;"><div style="height: 100%; width: {{ n.blkH }}; background: #5555ff;"></div></div></div>
+                <div style="display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; justify-content: space-between; gap: 8px;"><span>{{ n.runShort }}</span><span style="font-size: 7px; align-self: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ n.st.selShort }}</span></div><div style="height: 9px; background: #000; border: 1px solid; border-color: #808080 #fff #fff #808080;"><div style="height: 100%; width: {{ n.selH }}; background: #ffff55;"></div></div></div>
+                <div style="display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; justify-content: space-between;"><span>RED</span><span>{{ n.redPad }}</span></div><div style="height: 9px; background: #000; border: 1px solid; border-color: #808080 #fff #fff #808080;"><div style="height: 100%; width: {{ n.redH }}; background: #ff5555;"></div></div></div>
+              </div>
+            </main>
+
+            <aside style="width: 216px; flex-shrink: 0; padding: 5px; display: flex; flex-direction: column; gap: 5px; border-left: 1px solid #000; box-shadow: inset 1px 1px 0 #fff; overflow: hidden;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px;">
+                <div onClick="{{ n.showStats }}" style="height: 24px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; box-shadow: {{ n.tabStats.sh }}; background: {{ n.tabStats.bg }}; font-size: 11px; font-weight: bold; cursor: pointer;">STATS</div>
+                <div onClick="{{ n.showParams }}" style="height: 24px; display: flex; align-items: center; justify-content: center; border: 1px solid #000; box-shadow: {{ n.tabParams.sh }}; background: {{ n.tabParams.bg }}; font-size: 11px; font-weight: bold; cursor: pointer;">PARAMS</div>
+              </div>
+              <div style="display: {{ n.statsDisplay }}; flex-direction: column; gap: 5px;">
+                <div style="display: flex; justify-content: space-between; padding: 2px 4px; background: #000080; color: #fff; font-size: 10px; font-weight: bold;"><span>WORLD OVERVIEW</span><span>LIVE</span></div>
+                <canvas ref="{{ nMini }}" style="width: 204px; height: 204px; display: block; image-rendering: pixelated; background: #000; border: 1px solid; border-color: #808080 #fff #fff #808080; box-sizing: border-box;"></canvas>
+                <div style="background: #fff; border: 1px solid; border-color: #808080 #fff #fff #808080; box-shadow: inset 1px 1px 0 #000; padding: 5px 6px; display: flex; flex-direction: column; gap: 2px; font-size: 11px;">
+                  <div style="display: flex; justify-content: space-between;"><span>TICK:</span><span>{{ n.st.tick }}</span></div>
+                  <div style="display: flex; justify-content: space-between; align-items: baseline; font-weight: bold;"><span>BLACK ANTS:</span><span style="font: 10px 'Press Start 2P', monospace;">{{ n.st.blackAnts }}</span></div>
+                  <div style="text-align: right; font-size: 10px; color: #555;">{{ n.st.antLoc }}</div>
+                  <div style="display: flex; justify-content: space-between; align-items: baseline; font-weight: bold;"><span>RED ANTS:</span><span style="font: 10px 'Press Start 2P', monospace; color: #aa0000;">{{ n.st.redAnts }}</span></div>
+                  <div style="display: flex; justify-content: space-between; align-items: baseline; font-weight: bold;"><span>FOOD:</span><span style="font: 10px 'Press Start 2P', monospace; color: #00aa00;">{{ n.st.food }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>BOOTSTRAP:</span><span>100%</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>WORKERS:</span><span>{{ n.st.workers }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>SOLDIERS:</span><span>{{ n.st.soldiers }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>BREEDERS:</span><span>0</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>NURSES:</span><span>{{ n.st.nurses }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>FORAGERS:</span><span>{{ n.st.foragers }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>DIGGERS:</span><span>{{ n.st.diggers }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>JOBS F/D/N:</span><span>{{ n.st.jobs }}</span></div>
+                  <div style="display: flex; justify-content: space-between; align-items: baseline; font-weight: bold;"><span>QUEEN HP:</span><span style="font: 10px 'Press Start 2P', monospace;">{{ n.st.queenHP }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>FPS:</span><span>{{ fps }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>DIG:</span><span style="color: #aa5500;">AUTO-DIG: OFF</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>PHER MAX:</span><span>{{ n.st.pherMax }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>PHER AVG:</span><span>{{ n.st.pherAvg }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>FOLLOW:</span><span>{{ n.st.follow }}</span></div>
+                  <div style="display: flex; flex-direction: column;"><span>HEALTH:</span><span style="text-align: right; font-size: 10px;">{{ n.st.health }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>DEATHS:</span><span>{{ n.st.deaths }}</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>BY CAUSE:</span><span style="font-size: 10px;">{{ n.st.byCause }}</span></div>
+                </div>
+              </div>
+              <div style="display: {{ n.paramsDisplay }}; flex-direction: column; gap: 3px;">
+                <div onClick="{{ n.toggleAdv }}" style="display: flex; align-items: center; gap: 6px; padding: 4px 2px; font-size: 11px; cursor: pointer;"><span style="width: 12px; height: 12px; background: #fff; border: 1px solid; border-color: #808080 #fff #fff #808080; box-shadow: inset 1px 1px 0 #000; font-size: 10px; line-height: 12px; text-align: center;">{{ n.advMark }}</span>Show advanced</div>
+                <sc-for list="{{ groups }}" as="g" hint-placeholder-count="10">
+                  <div style="height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 6px; border: 1px solid #000; background: #c0c0c0; box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #808080; font-size: 11px; font-weight: bold;"><span style="font-size: 8px;">►</span>{{ g }}</div>
+                </sc-for>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1b · Realistic -->
+    <div id="1b" style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <a href="#1b" style="font: 600 13px 'Barlow Condensed', sans-serif; letter-spacing: .08em; background: #2b2a26; color: #fff; padding: 4px 9px; border-radius: 4px;">1b</a>
+        <span style="font: 600 20px 'Barlow Condensed', sans-serif;">Realistic</span>
+        <span style="font-size: 13px; color: #77736a;">themes/realistic.css + skins/realisticSkin.js</span>
+      </div>
+      <div data-screen-label="1b Realistic" style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #14110c; font-family: 'Barlow', sans-serif; color: #f2eee4; box-shadow: 0 30px 80px rgba(0,0,0,.3);">
+        <canvas ref="{{ rCanvas }}" onPointerDown="{{ r.canvasDown }}" style="position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair;"></canvas>
+        <div style="position: absolute; left: 0; right: 0; top: 0; height: 150px; background: linear-gradient(rgba(8,6,4,.82), rgba(8,6,4,0)); pointer-events: none;"></div>
+        <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 120px; background: linear-gradient(rgba(8,6,4,0), rgba(8,6,4,.6)); pointer-events: none;"></div>
+
+        <header style="position: absolute; left: 0; right: 0; top: 0; height: 64px; display: flex; align-items: center; gap: 28px; padding: 0 28px;">
+          <div style="display: flex; align-items: baseline; gap: 14px; white-space: nowrap;">
+            <span style="font: 700 26px 'Barlow Condensed', sans-serif; letter-spacing: .16em;">SIMULANT</span>
+            <span style="font: 500 11px 'Barlow Condensed', sans-serif; letter-spacing: .3em; color: rgba(242,238,228,.6); padding-left: 14px; border-left: 1px solid rgba(255,255,255,.2);">RIVAL COLONIES</span>
+          </div>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 22px; white-space: nowrap; font: 500 14px 'Barlow Condensed', sans-serif; letter-spacing: .1em; color: rgba(242,238,228,.65); font-variant-numeric: tabular-nums;">
+            <span style="display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 20px; background: rgba(155,224,122,.12); border: 1px solid rgba(155,224,122,.35); color: #b9ec9e;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #9be07a; box-shadow: 0 0 8px #9be07a;"></span>{{ r.runState }}</span>
+            <span><b style="color: #f2eee4; font-weight: 600;">{{ fps }}</b> FPS</span>
+            <span>TICK <b style="color: #f2eee4; font-weight: 600;">{{ r.st.tick }}</b></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; font: 500 11px 'Barlow Condensed', sans-serif; letter-spacing: .2em; color: rgba(242,238,228,.55);">THEME
+            <div style="height: 34px; width: 168px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-radius: 8px; background: rgba(20,18,14,.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,248,230,.14); font: 500 13px 'Barlow', sans-serif; letter-spacing: 0; color: #f2eee4;"><span>Realistic</span><span style="font-size: 9px; color: rgba(242,238,228,.6);">▼</span></div>
+          </div>
+        </header>
+
+        <aside style="position: absolute; left: 20px; top: 76px; bottom: 20px; width: 240px; box-sizing: border-box; padding: 14px; display: grid; align-content: start; gap: 6px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,248,230,.25) transparent; border-radius: 14px; background: rgba(17,15,11,.6); backdrop-filter: blur(16px) saturate(140%); border: 1px solid rgba(255,248,230,.1); box-shadow: 0 18px 50px rgba(0,0,0,.35);">
+          <div style="height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.1); font: 600 13px 'Barlow Condensed', sans-serif; letter-spacing: .1em; cursor: pointer;"><span>VIEW: SURFACE</span><span style="font: 500 10px 'Barlow', sans-serif; color: rgba(242,238,228,.6); border: 1px solid rgba(255,255,255,.16); border-radius: 4px; padding: 1px 6px;">Q</span></div>
+          <div style="height: 32px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.1); font: 600 13px 'Barlow Condensed', sans-serif; letter-spacing: .1em; cursor: pointer;">COLONY STATUS</div>
+          <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 6px;">
+            <div onClick="{{ r.togglePause }}" style="height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-radius: 8px; background: linear-gradient(#f5c26c, #d99a3e); color: #241708; font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: .12em; cursor: pointer; box-shadow: 0 6px 18px rgba(217,154,62,.3);"><span>{{ r.pauseLabel }}</span><span style="font: 600 9px 'Barlow', sans-serif; letter-spacing: .04em; opacity: .7;">SPACE</span></div>
+            <div onClick="{{ r.step }}" style="height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.1); font: 600 13px 'Barlow Condensed', sans-serif; letter-spacing: .1em; cursor: pointer;"><span>STEP</span><span style="font: 500 10px 'Barlow', sans-serif; color: rgba(242,238,228,.6);">N</span></div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; margin-top: 4px; font: 600 11px 'Barlow Condensed', sans-serif; letter-spacing: .22em; color: rgba(242,238,228,.5);"><span>TERRAIN TOOLS</span><span>1–7</span></div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <sc-for list="{{ r.tools }}" as="t" hint-placeholder-count="7">
+              <div onClick="{{ t.pick }}" style="height: 32px; display: flex; align-items: center; gap: 9px; padding: 0 10px; border-radius: 8px; border: 1px solid {{ t.bd }}; background: {{ t.bg }}; color: {{ t.col }}; font: 600 13px 'Barlow Condensed', sans-serif; letter-spacing: .1em; cursor: pointer;"><span style="width: 16px; height: 16px; border-radius: 50%; background: {{ t.sw }}; border: 1px dashed {{ t.dash }}; box-sizing: border-box; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,.5);"></span>{{ t.label }}</div>
+            </sc-for>
+          </div>
+
+          <div style="margin-top: 4px; font: 600 11px 'Barlow Condensed', sans-serif; letter-spacing: .22em; color: rgba(242,238,228,.5);">HEALTH</div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: rgba(0,0,0,.22); border: 1px solid rgba(255,248,230,.07);">
+            <div style="display: flex; align-items: center; gap: 10px; font: 600 12px 'Barlow Condensed', sans-serif; letter-spacing: .1em;"><span style="width: 28px; color: #f6d79a;">SEL</span><div style="flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,.09); overflow: hidden;"><div style="height: 100%; width: {{ r.selH }}; border-radius: 3px; background: linear-gradient(90deg, #d99a3e, #f6d79a);"></div></div><span style="width: 34px; text-align: right; font-variant-numeric: tabular-nums;">{{ r.selH }}</span></div>
+            <div style="display: flex; align-items: center; gap: 10px; font: 600 12px 'Barlow Condensed', sans-serif; letter-spacing: .1em;"><span style="width: 28px; color: #d6d0c2;">BLK</span><div style="flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,.09); overflow: hidden;"><div style="height: 100%; width: {{ r.blkH }}; border-radius: 3px; background: linear-gradient(90deg, #6f685c, #e3ddd0);"></div></div><span style="width: 34px; text-align: right; font-variant-numeric: tabular-nums;">{{ r.blkH }}</span></div>
+            <div style="display: flex; align-items: center; gap: 10px; font: 600 12px 'Barlow Condensed', sans-serif; letter-spacing: .1em;"><span style="width: 28px; color: #f0896a;">RED</span><div style="flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,.09); overflow: hidden;"><div style="height: 100%; width: {{ r.redH }}; border-radius: 3px; background: linear-gradient(90deg, #a83a1e, #f0896a);"></div></div><span style="width: 34px; text-align: right; font-variant-numeric: tabular-nums;">{{ r.redH }}</span></div>
+          </div>
+
+          <div style="margin-top: 4px; font: 600 11px 'Barlow Condensed', sans-serif; letter-spacing: .22em; color: rgba(242,238,228,.5);">SIMULATION</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: rgba(242,238,228,.7);">Seed
+            <div style="flex: 1; height: 28px; display: flex; align-items: center; padding: 0 10px; border-radius: 6px; background: rgba(0,0,0,.3); border: 1px solid rgba(255,248,230,.1); font-size: 12px; color: #f2eee4;">simant-default</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: rgba(242,238,228,.7); white-space: nowrap;"><span>Brush</span><span style="color: #f2eee4; font-variant-numeric: tabular-nums;">{{ r.brush }}</span></div>
+            <div onPointerDown="{{ r.brushDown }}" style="position: relative; height: 16px; cursor: pointer;"><div style="position: absolute; left: 0; right: 0; top: 6px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.1);"></div><div style="position: absolute; left: 0; top: 6px; height: 4px; border-radius: 2px; width: {{ r.brushPct }}; background: #e9ad55;"></div><div style="position: absolute; top: 2px; width: 12px; height: 12px; border-radius: 50%; left: {{ r.brushPct }}; transform: translateX(-50%); background: #f8f3e8; box-shadow: 0 1px 4px rgba(0,0,0,.6);"></div></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: rgba(242,238,228,.7); white-space: nowrap;"><span>Speed</span><span style="color: #f2eee4; font-variant-numeric: tabular-nums;">{{ r.speedLabel }}</span></div>
+            <div onPointerDown="{{ r.speedDown }}" style="position: relative; height: 16px; cursor: pointer;"><div style="position: absolute; left: 0; right: 0; top: 6px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.1);"></div><div style="position: absolute; left: 0; top: 6px; height: 4px; border-radius: 2px; width: {{ r.speedPct }}; background: #e9ad55;"></div><div style="position: absolute; top: 2px; width: 12px; height: 12px; border-radius: 50%; left: {{ r.speedPct }}; transform: translateX(-50%); background: #f8f3e8; box-shadow: 0 1px 4px rgba(0,0,0,.6);"></div></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: rgba(242,238,228,.7); white-space: nowrap;"><span>Ant cap</span><span style="color: #f2eee4; font-variant-numeric: tabular-nums;">{{ r.cap }}</span></div>
+            <div onPointerDown="{{ r.capDown }}" style="position: relative; height: 16px; cursor: pointer;"><div style="position: absolute; left: 0; right: 0; top: 6px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.1);"></div><div style="position: absolute; left: 0; top: 6px; height: 4px; border-radius: 2px; width: {{ r.capPct }}; background: #e9ad55;"></div><div style="position: absolute; top: 2px; width: 12px; height: 12px; border-radius: 50%; left: {{ r.capPct }}; transform: translateX(-50%); background: #f8f3e8; box-shadow: 0 1px 4px rgba(0,0,0,.6);"></div></div>
+          </div>
+
+          <div style="margin-top: 4px; font: 600 11px 'Barlow Condensed', sans-serif; letter-spacing: .22em; color: rgba(242,238,228,.5);">SESSION &amp; OVERLAYS</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; font: 600 12px 'Barlow Condensed', sans-serif; letter-spacing: .1em;">
+            <div style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 7px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.1); cursor: pointer;">RESET</div>
+            <div style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 7px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.1); cursor: pointer;">SAVE</div>
+            <div style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 7px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.1); cursor: pointer;">LOAD</div>
+            <div style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 7px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.1); cursor: pointer; color: #f0896a;">CLEAR</div>
+            <div style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 7px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.1); cursor: pointer;">HELP</div>
+            <div style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 7px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.1); cursor: pointer;">LOG ↓</div>
+            <div onClick="{{ r.toggleScent }}" style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 15px; border: 1px solid {{ r.scent.bd }}; background: {{ r.scent.bg }}; color: {{ r.scent.col }}; cursor: pointer;">SCENT</div>
+            <div onClick="{{ r.toggleJobs }}" style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 15px; border: 1px solid {{ r.jobs.bd }}; background: {{ r.jobs.bg }}; color: {{ r.jobs.col }}; cursor: pointer;">JOBS</div>
+            <div onClick="{{ r.togglePhero }}" style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 15px; border: 1px solid {{ r.phero.bd }}; background: {{ r.phero.bg }}; color: {{ r.phero.col }}; cursor: pointer;">{{ r.pheroShort }}</div>
+          </div>
+        </aside>
+
+        <div style="position: absolute; left: 282px; top: 80px; font: 600 11px 'Barlow Condensed', sans-serif; letter-spacing: .32em; color: rgba(242,238,228,.7); pointer-events: none;">SURFACE</div>
+        <sc-if value="{{ r.jobsOn }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; left: 282px; top: 104px; padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; border-radius: 10px; background: rgba(17,15,11,.66); backdrop-filter: blur(14px); border: 1px solid rgba(255,248,230,.1); font: 600 12px 'Barlow Condensed', sans-serif; letter-spacing: .08em; pointer-events: none;">
+            <sc-for list="{{ legend }}" as="j" hint-placeholder-count="9">
+              <div style="display: flex; align-items: center; gap: 9px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: {{ j.c }}; box-shadow: 0 0 6px {{ j.c }};"></span>{{ j.l }}</div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="position: absolute; left: 282px; right: 342px; bottom: 20px; height: 40px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-radius: 10px; background: rgba(17,15,11,.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,248,230,.1); font: 500 12px 'Barlow Condensed', sans-serif; letter-spacing: .14em; color: rgba(242,238,228,.65); pointer-events: none;">
+          <span>{{ r.status }}</span>
+          <span style="color: #f6d79a;">{{ r.st.selLabel }}</span>
+          <span>PAN: RIGHT DRAG · ZOOM: SCROLL</span>
+        </div>
+
+        <aside style="position: absolute; right: 20px; top: 76px; bottom: 20px; width: 302px; box-sizing: border-box; padding: 16px; display: grid; align-content: start; gap: 10px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,248,230,.25) transparent; border-radius: 14px; background: rgba(17,15,11,.6); backdrop-filter: blur(16px) saturate(140%); border: 1px solid rgba(255,248,230,.1); box-shadow: 0 18px 50px rgba(0,0,0,.35);">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 9px; background: rgba(0,0,0,.28); flex-shrink: 0;">
+            <div onClick="{{ r.showStats }}" style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid {{ r.tabStats.bd }}; background: {{ r.tabStats.bg }}; color: {{ r.tabStats.col }}; font: 600 13px 'Barlow Condensed', sans-serif; letter-spacing: .16em; cursor: pointer;">STATS</div>
+            <div onClick="{{ r.showParams }}" style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid {{ r.tabParams.bd }}; background: {{ r.tabParams.bg }}; color: {{ r.tabParams.col }}; font: 600 13px 'Barlow Condensed', sans-serif; letter-spacing: .16em; cursor: pointer;">PARAMS</div>
+          </div>
+          <div style="display: {{ r.statsDisplay }}; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; font: 600 11px 'Barlow Condensed', sans-serif; letter-spacing: .22em; color: rgba(242,238,228,.5);"><span>WORLD OVERVIEW</span><span style="color: #b9ec9e;">LIVE</span></div>
+            <canvas ref="{{ rMini }}" style="width: 270px; height: 270px; display: block; border-radius: 10px; border: 1px solid rgba(255,248,230,.12); box-sizing: border-box; background: #0c0a07;"></canvas>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <div style="padding: 10px 12px; border-radius: 9px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.08);"><div style="font: 600 10px 'Barlow Condensed', sans-serif; letter-spacing: .18em; color: rgba(242,238,228,.55);">BLACK ANTS</div><div style="font: 600 28px 'Barlow Condensed', sans-serif; line-height: 1.1; font-variant-numeric: tabular-nums;">{{ r.st.blackAnts }}</div><div style="font-size: 10px; color: rgba(242,238,228,.5);">{{ r.st.antLoc }}</div></div>
+              <div style="padding: 10px 12px; border-radius: 9px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.08);"><div style="font: 600 10px 'Barlow Condensed', sans-serif; letter-spacing: .18em; color: rgba(242,238,228,.55);">RED ANTS</div><div style="font: 600 28px 'Barlow Condensed', sans-serif; line-height: 1.1; color: #f0896a; font-variant-numeric: tabular-nums;">{{ r.st.redAnts }}</div></div>
+              <div style="padding: 10px 12px; border-radius: 9px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.08);"><div style="font: 600 10px 'Barlow Condensed', sans-serif; letter-spacing: .18em; color: rgba(242,238,228,.55);">FOOD</div><div style="font: 600 28px 'Barlow Condensed', sans-serif; line-height: 1.1; color: #f6d79a; font-variant-numeric: tabular-nums;">{{ r.st.food }}</div></div>
+              <div style="padding: 10px 12px; border-radius: 9px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.08);"><div style="font: 600 10px 'Barlow Condensed', sans-serif; letter-spacing: .18em; color: rgba(242,238,228,.55);">QUEEN HP</div><div style="font: 600 28px 'Barlow Condensed', sans-serif; line-height: 1.1; font-variant-numeric: tabular-nums;">{{ r.st.queenHP }}</div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; font-size: 12px; font-variant-numeric: tabular-nums;">
+              <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">Tick</span><span>{{ r.st.tick }}</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">Bootstrap</span><span>100%</span></div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><div style="display: flex; justify-content: space-between;"><span style="color: rgba(242,238,228,.55);">Workers</span><span>{{ r.st.workers }}</span></div><div style="height: 2px; background: rgba(255,255,255,.06);"><div style="height: 100%; width: {{ r.workersW }}; background: #e9ad55;"></div></div></div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><div style="display: flex; justify-content: space-between;"><span style="color: rgba(242,238,228,.55);">Soldiers</span><span>{{ r.st.soldiers }}</span></div><div style="height: 2px; background: rgba(255,255,255,.06);"><div style="height: 100%; width: {{ r.soldiersW }}; background: #e9ad55;"></div></div></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">Breeders</span><span>0</span></div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><div style="display: flex; justify-content: space-between;"><span style="color: rgba(242,238,228,.55);">Nurses</span><span>{{ r.st.nurses }}</span></div><div style="height: 2px; background: rgba(255,255,255,.06);"><div style="height: 100%; width: {{ r.nursesW }}; background: #e9ad55;"></div></div></div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><div style="display: flex; justify-content: space-between;"><span style="color: rgba(242,238,228,.55);">Foragers</span><span>{{ r.st.foragers }}</span></div><div style="height: 2px; background: rgba(255,255,255,.06);"><div style="height: 100%; width: {{ r.foragersW }}; background: #e9ad55;"></div></div></div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><div style="display: flex; justify-content: space-between;"><span style="color: rgba(242,238,228,.55);">Diggers</span><span>{{ r.st.diggers }}</span></div><div style="height: 2px; background: rgba(255,255,255,.06);"><div style="height: 100%; width: {{ r.diggersW }}; background: #e9ad55;"></div></div></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">Jobs F/D/N</span><span>{{ r.st.jobs }}</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">FPS</span><span>{{ fps }}</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">Dig</span><span style="color: #e9ad55;">AUTO-DIG: OFF</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">Pher max</span><span>{{ r.st.pherMax }}</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">Pher avg</span><span>{{ r.st.pherAvg }}</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">Follow</span><span>{{ r.st.follow }}</span></div>
+              <div style="display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">Health</span><span style="font-size: 11px;">{{ r.st.health }}</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07);"><span style="color: rgba(242,238,228,.55);">Deaths</span><span>{{ r.st.deaths }}</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 0;"><span style="color: rgba(242,238,228,.55);">By cause</span><span style="font-size: 11px;">{{ r.st.byCause }}</span></div>
+            </div>
+          </div>
+          <div style="display: {{ r.paramsDisplay }}; flex-direction: column; gap: 6px;">
+            <div onClick="{{ r.toggleAdv }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,248,230,.08); font-size: 13px; cursor: pointer;"><span style="width: 30px; height: 16px; border-radius: 8px; background: {{ r.advTrack }}; position: relative;"><span style="position: absolute; top: 2px; left: {{ r.advKnob }}; width: 12px; height: 12px; border-radius: 50%; background: #f8f3e8;"></span></span>Show advanced</div>
+            <sc-for list="{{ groups }}" as="g" hint-placeholder-count="10">
+              <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-radius: 8px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,248,230,.08); font: 600 13px 'Barlow Condensed', sans-serif; letter-spacing: .12em; cursor: pointer;"><span>{{ g }}</span><span style="font-size: 10px; color: rgba(242,238,228,.5);">▸</span></div>
+            </sc-for>
+          </div>
+        </aside>
+        <div style="position: absolute; right: 26px; bottom: 4px; font: 500 10px 'Barlow', sans-serif; color: rgba(242,238,228,.4);">v0.62.1</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TOOLS = [['food', 'FOOD'], ['wall', 'WALL'], ['water', 'WATER'], ['hazard', 'DANGER'], ['erase', 'ERASE'], ['dig', 'DIG'], ['fill', 'FILL']];
+const SW90 = { food: '#55ff55', wall: '#aaaaaa', water: '#0000aa', hazard: '#aa0000', erase: '#ffffff', dig: '#aa5500', fill: '#aa00aa' };
+const SWR = {
+  food: 'radial-gradient(circle at 35% 30%, #fbe7b5, #c89048 55%, #6e4a1c)', wall: 'radial-gradient(circle at 35% 30%, #d4cdc0, #7d766c 55%, #34302a)',
+  water: 'radial-gradient(circle at 35% 30%, #9fc0bd, #2c4644 55%, #101a19)', hazard: 'radial-gradient(circle at 35% 30%, #f39a78, #9a2c1c 55%, #3e0e08)',
+  erase: 'transparent', dig: 'radial-gradient(circle at 35% 30%, #c09a6a, #6a4a2c 55%, #2a1a0e)', fill: 'radial-gradient(circle at 35% 30%, #9a8a68, #4a3e2a 55%, #1e180e)',
+};
+const SL = { brush: [1, 24, 1], speed: [0.5, 10, 0.5], cap: [100, 5000, 100] };
+const DEF = { paused: false, tool: 'food', tab: 'stats', scent: false, jobs: false, phero: true, brush: 3, speed: 1, cap: 2000, adv: false };
+const GROUPS = ['Movement', 'Decision-Making', 'Obstacle Avoidance', 'Health', 'Nest Behavior', 'Pheromone', 'Queen', 'Population', 'Food Economy', 'Digging'];
+const LEGEND = [['Fight', '#ff3030'], ['Forage', '#ffd700'], ['Return', '#00d4ff'], ['Eat', '#00ff00'], ['Haul', '#ff8c00'], ['Dig', '#d2691e'], ['Nurse', '#66ff99'], ['Queen', '#ff1493'], ['Patrol', '#9a5aff']].map(([l, c]) => ({ l, c }));
+const EMPTY = { tick: 0, blackAnts: 0, antLoc: '', redAnts: 0, food: 0, workers: 0, soldiers: 0, nurses: 0, foragers: 0, diggers: 0, jobs: '0 / 0 / 0', queenHP: '0.0', pherMax: 'F:0.00 H:0.00', pherAvg: 'F:0.00 H:0.00', follow: 'F:0 H:0', health: 'MIN:0.0 AVG:0.0 MAX:0.0', deaths: 0, byCause: 'S:0 A:0 H:0 C:0 O:0', selHP: 0, blkHP: 0, redHP: 0, selLabel: 'No ant selected', selShort: '' };
+
+class Component extends DCLogic {
+  state = { n: { ...DEF }, r: { ...DEF }, sn: EMPTY, sr: EMPTY, fps: 60 };
+  nCanvas = React.createRef(); nMini = React.createRef(); rCanvas = React.createRef(); rMini = React.createRef();
+  S = {};
+
+  componentDidMount() {
+    import('./simulant-render.js').then(m => { this.m = m; this.tryInit(); });
+  }
+  componentWillUnmount() { cancelAnimationFrame(this.raf); this.dead = true; }
+
+  tryInit() {
+    if (this.dead) return;
+    const m = this.m;
+    if (!this.S.n && this.nCanvas.current && this.nMini.current && this.nCanvas.current.clientWidth > 0) {
+      const W = 560, H = 320;
+      const nests = { black: [Math.round(W * 0.3), Math.round(H * 0.55)], red: [Math.round(W * 0.74), Math.round(H * 0.36)] };
+      const sim = m.createSim({ W, H, unit: 1, seed: 7, nBlack: 62, nRed: 48, nests, foods: [[W * 0.5, H * 0.24, 40], [W * 0.14, H * 0.3, 30], [W * 0.56, H * 0.6, 36], [W * 0.9, H * 0.72, 30]] });
+      for (let i = 0; i < 400; i++) sim.step();
+      sim.selected = sim.ants.find(a => a.colony === 'black' && a.state === 'return')?.id ?? null;
+      this.S.n = { sim, view: m.createNineties(this.nCanvas.current, this.nMini.current, sim, nests), acc: 0 };
+    }
+    if (!this.S.r && this.rCanvas.current && this.rMini.current && this.rCanvas.current.clientWidth > 0) {
+      const W = 1800, H = 1060;
+      const nests = { black: [Math.round(W * 0.36), Math.round(H * 0.56)], red: [Math.round(W * 0.66), Math.round(H * 0.34)] };
+      const foods = [[W * 0.52, H * 0.22, 40], [W * 0.26, H * 0.3, 30], [W * 0.44, H * 0.7, 36], [W * 0.78, H * 0.62, 30]];
+      const sim = m.createSim({ W, H, unit: 3.2, seed: 11, nBlack: 64, nRed: 46, nests, foods });
+      for (let i = 0; i < 500; i++) sim.step();
+      sim.selected = sim.ants.find(a => a.colony === 'black' && a.state === 'return' && a.x > 500 && a.x < 1300)?.id ?? null;
+      this.S.r = { sim, view: m.createRealistic(this.rCanvas.current, this.rMini.current, sim, nests, foods), acc: 0 };
+    }
+    if (!this.S.n || !this.S.r) { setTimeout(() => this.tryInit(), 200); }
+    if (!this.looping && (this.S.n || this.S.r)) { this.looping = true; this.last = performance.now(); this.frames = 0; this.raf = requestAnimationFrame(this.loop); }
+  }
+
+  loop = (t) => {
+    if (this.dead) return;
+    this.raf = requestAnimationFrame(this.loop);
+    for (const k of ['n', 'r']) {
+      const S = this.S[k]; if (!S) continue;
+      const st = this.state[k];
+      if (!st.paused) { S.acc += st.speed; while (S.acc >= 1) { S.sim.step(); S.acc -= 1; } }
+      S.view.render({ jobs: st.jobs });
+    }
+    this.frames++;
+    if (t - this.last > 300) {
+      const fps = Math.round(this.frames * 1000 / (t - this.last)); this.frames = 0; this.last = t;
+      const sn = this.S.n ? this.S.n.sim.stats() : EMPTY, sr = this.S.r ? this.S.r.sim.stats() : EMPTY;
+      sn.selShort = sn.hasSel ? sn.selLabel.split(' · ')[1] : '';
+      this.setState({ fps, sn, sr });
+    }
+  };
+
+  patch(k, p) { this.setState(s => ({ [k]: { ...s[k], ...p } })); }
+  snap(name, v) { const [a, b, st] = SL[name]; return Math.min(b, Math.max(a, Math.round(v / st) * st)); }
+  nudge(k, name, dir) { this.patch(k, { [name]: this.snap(name, this.state[k][name] + dir * SL[name][2]) }); }
+  sliderDown(k, name) {
+    return (e) => {
+      const el = e.currentTarget; e.preventDefault(); e.stopPropagation();
+      const upd = (ev) => { const r = el.getBoundingClientRect(); const p = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)); const [a, b] = SL[name]; this.patch(k, { [name]: this.snap(name, a + p * (b - a)) }); };
+      upd(e);
+      const up = () => { window.removeEventListener('pointermove', upd); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', upd); window.addEventListener('pointerup', up);
+    };
+  }
+  canvasDown(k) {
+    return (e) => {
+      const S = this.S[k]; if (!S) return;
+      e.stopPropagation();
+      const r = e.currentTarget.getBoundingClientRect();
+      const [wx, wy] = S.view.toWorld((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+      const hit = S.sim.selectNear(wx, wy, S.view.pickRadius);
+      if (!hit && this.state[k].tool === 'food') S.sim.addFood(wx, wy, k === 'n' ? 36 : 40);
+    };
+  }
+
+  ui(k) {
+    const s = this.state[k], st = this.state['s' + k] || EMPTY, is90 = k === 'n';
+    const sty = is90
+      ? (on) => on ? { sh: 'inset 2px 2px 0 #808080, inset -1px -1px 0 #dfdfdf', bg: '#a8a8a8' } : { sh: 'inset 2px 2px 0 #ffffff, inset -2px -2px 0 #808080', bg: '#c0c0c0' }
+      : (on) => on ? { bd: 'rgba(240,184,90,.7)', bg: 'rgba(240,184,90,.15)', col: '#f6d79a' } : { bd: 'rgba(255,248,230,.09)', bg: 'rgba(255,255,255,.035)', col: 'rgba(242,238,228,.82)' };
+    const pc = (name) => { const [a, b] = SL[name]; return ((s[name] - a) / (b - a) * 100).toFixed(1) + '%'; };
+    const pct = (v) => Math.max(0, Math.min(100, v || 0)).toFixed(0) + '%';
+    const share = (v) => pct(st.blackAnts ? v / st.blackAnts * 100 : 0);
+    return {
+      tools: TOOLS.map(([v, label]) => ({ label, sw: (is90 ? SW90 : SWR)[v], dash: v === 'erase' ? 'rgba(242,238,228,.6)' : 'transparent', ...sty(s.tool === v), pick: () => this.patch(k, { tool: v }) })),
+      pauseLabel: s.paused ? 'RESUME' : 'PAUSE', runState: s.paused ? 'PAUSED' : 'LIVE', runShort: s.paused ? 'PAUSE' : 'LIVE',
+      togglePause: () => this.patch(k, { paused: !s.paused }), step: () => this.S[k]?.sim.step(),
+      scent: sty(s.scent), jobs: sty(s.jobs), phero: sty(s.phero), jobsOn: s.jobs,
+      pheroLabel: s.phero ? 'PHERO: ON' : 'PHERO: OFF', pheroShort: s.phero ? 'PHERO ON' : 'PHERO OFF',
+      toggleScent: () => this.patch(k, { scent: !s.scent }), toggleJobs: () => this.patch(k, { jobs: !s.jobs }), togglePhero: () => this.patch(k, { phero: !s.phero }),
+      tabStats: sty(s.tab === 'stats'), tabParams: sty(s.tab === 'params'),
+      statsDisplay: s.tab === 'stats' ? 'flex' : 'none', paramsDisplay: s.tab === 'params' ? 'flex' : 'none',
+      showStats: () => this.patch(k, { tab: 'stats' }), showParams: () => this.patch(k, { tab: 'params' }),
+      toggleAdv: () => this.patch(k, { adv: !s.adv }), advMark: s.adv ? '✓' : '',
+      advTrack: s.adv ? '#e9ad55' : 'rgba(255,255,255,.15)', advKnob: s.adv ? '16px' : '2px',
+      brush: s.brush, speedLabel: s.speed.toFixed(1) + 'x', cap: s.cap,
+      brushPct: pc('brush'), speedPct: pc('speed'), capPct: pc('cap'),
+      brushDown: this.sliderDown(k, 'brush'), speedDown: this.sliderDown(k, 'speed'), capDown: this.sliderDown(k, 'cap'),
+      brushDec: () => this.nudge(k, 'brush', -1), brushInc: () => this.nudge(k, 'brush', 1),
+      speedDec: () => this.nudge(k, 'speed', -1), speedInc: () => this.nudge(k, 'speed', 1),
+      capDec: () => this.nudge(k, 'cap', -1), capInc: () => this.nudge(k, 'cap', 1),
+      st, selH: pct(st.selHP), blkH: pct(st.blkHP), redH: pct(st.redHP),
+      blkPad: String(st.blackAnts).padStart(3, '0'), redPad: String(st.redAnts).padStart(3, '0'), tickPad: String(st.tick).padStart(6, '0'),
+      workersW: share(st.workers), soldiersW: share(st.soldiers), nursesW: share(st.nurses), foragersW: share(st.foragers), diggersW: share(st.diggers),
+      status: `SURFACE · ${s.paused ? 'PAUSED' : 'LIVE'} · ${s.speed.toFixed(1)}×`,
+      canvasDown: this.canvasDown(k),
+    };
+  }
+
+  renderVals() {
+    return { n: this.ui('n'), r: this.ui('r'), fps: this.state.fps, groups: GROUPS, legend: LEGEND, nCanvas: this.nCanvas, nMini: this.nMini, rCanvas: this.rCanvas, rMini: this.rMini };
+  }
+}
+</script>
+</body>
+</html>

@@ -135,6 +135,15 @@ Use the always-visible **Theme** selector at the right end of the header:
   deterministic grass dithering, berry food, pixel ant sprites, and scanlines.
 - **Modern Sleek** adds a dark observatory layout, telemetry chips, stat cards,
   vector ant sprites, hexagonal entrances, and a soft pheromone heatmap.
+- **90s Retro** is a silver desktop-OS window: navy title bar, 2px bevels,
+  sunken status wells, segmented health bars, and system fonts only (no
+  webfont). The renderer uses a 16-colour VGA palette, Bayer-dithered terrain
+  and overlays, and chunky 4-direction pixel ants at zoom 4 and above.
+- **Realistic** lets the canvas fill the window, with translucent panels
+  floating over a dark scrim (Barlow / Barlow Condensed, system fallback). The
+  renderer draws seeded-noise grass, soil strata and rock, shaded segmented
+  ants with a fixed key-light shadow, seed food, grub larvae, granular mounds,
+  and a soft vignette.
 
 Themes switch live in both surface and nest views. They preserve the running
 simulation, pause state, sliders, active tab, tools, and selected ant. The choice
@@ -142,10 +151,14 @@ is saved separately under `localStorage['simulant-theme']`; saved simulations
 keep their existing format. Classic is the default, and its stylesheet is
 unchanged. The other themes load optional Google Fonts and have local fallbacks.
 
-Renderer skins live in `src/render/skins/`. Camera transforms, culling, bounds,
-and terrain caches remain in the renderers. Sprite, field, and screen overlays
+Renderer skins live in `src/render/skins/`. Behaviour differences are skin
+properties (`usesHeading`, `fieldsInTerrain`, `minimapAntColor`,
+`minimapViewport`, optional `composeTerrain`), never checks on the skin name.
+Camera transforms, culling, bounds, and terrain caches remain in the renderers. Sprite, field, and screen overlays
 are cached; rendering does not add visual state to simulation objects. Classic
-terrain buffers are checked against hashes captured before the skin refactor.
+terrain buffers are checked against hashes captured before the skin refactor,
+and Classic, Retro, and Modern output is locked by golden render digests.
+Skin noise uses its own `SeededRng` instances and never touches the sim stream.
 
 ---
 
