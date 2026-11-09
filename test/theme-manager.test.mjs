@@ -42,3 +42,24 @@ test('saved choice is restored, invalid choice defaults, and blocked storage is 
   m.setTheme('modern');
   assert.equal(root.dataset.theme, 'modern');
 });
+
+test('90s Retro and Realistic are registered, persist, and swap their stylesheets', async () => {
+  const { manager:m, storage, root, link, select } = await setup();
+  assert.deepEqual(Object.keys(m.THEMES), ['classic', 'retro', 'modern', 'nineties', 'realistic']);
+  assert.equal(m.THEMES.nineties.label, '90s Retro');
+  assert.equal(m.THEMES.realistic.label, 'Realistic');
+  for (const [name, href] of [['nineties', 'themes/nineties.css'], ['realistic', 'themes/realistic.css']]) {
+    m.setTheme(name);
+    assert.equal(root.dataset.theme, name);
+    assert.equal(link.href, href);
+    assert.equal(select.value, name);
+    assert.equal(storage.get('simulant-theme'), name);
+  }
+  m.setTheme('classic');
+  assert.equal(link.href, 'styles.css');
+});
+test('saved 90s Retro and Realistic choices are restored; near-miss names fall back to classic', async () => {
+  assert.equal((await setup('nineties')).manager.getTheme(), 'nineties');
+  assert.equal((await setup('realistic')).manager.getTheme(), 'realistic');
+  for (const bad of ['90s', 'Realistic', 'nineties ', 'toString']) assert.equal((await setup(bad)).manager.getTheme(), 'classic');
+});

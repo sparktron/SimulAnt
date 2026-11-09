@@ -58,6 +58,8 @@ export class SurfaceRenderer {
     // loop runs at display rate but terrain/pheromones change only on sim
     // ticks (or tool edits), so most frames can reuse the previous bitmap.
     this._terrainCacheKey = '';
+    // What actually gets blitted: _off itself, or a skin's composed version of it.
+    this._terrainImage = null;
   }
 
   setSkin(name) {
@@ -151,12 +153,11 @@ export class SurfaceRenderer {
     // terrain always feeds it; the pheromone fields only matter while a
     // field overlay is visible. Otherwise reuse the cached bitmap — at 60fps
     // over a ~12 ticks/sec sim this skips most rebuilds even with scent on.
-    const fieldsVisible = this.skin.name !== 'modern' && (overlays.showToFood || overlays.showToHome || overlays.showScent || overlays.showDanger);
+    const fieldsVisible = this.skin.fieldsInTerrain && (overlays.showToFood || overlays.showToHome || overlays.showScent || overlays.showDanger);
     const cacheKey = `${world.terrainVersion ?? -1}|${fieldsVisible ? world.fieldsVersion ?? -1 : 'off'}`
       + `|${!!overlays.showToFood}|${!!overlays.showToHome}|${!!overlays.showScent}|${!!overlays.showDanger}`;
     if (cacheKey === this._terrainCacheKey && this._off.width === W && this._off.height === H) {
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(this._off, 0, 0);
+      this.#blitTerrain(ctx, W, H);
       return;
     }
     this._terrainCacheKey = cacheKey;
@@ -182,8 +183,16 @@ export class SurfaceRenderer {
     }
 
     this._offCtx.putImageData(image, 0, 0);
+    // A skin may bake detail (smooth upscale, grain) once per rebuild instead
+    // of paying for it on every frame.
+    this._terrainImage = this.skin.composeTerrain?.(this._off, world, this) || this._off;
+    this.#blitTerrain(ctx, W, H);
+  }
+
+  #blitTerrain(ctx, W, H) {
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this._off, 0, 0);
+    if (this._terrainImage && this._terrainImage !== this._off) ctx.drawImage(this._terrainImage, 0, 0, W, H);
+    else ctx.drawImage(this._off, 0, 0);
   }
 
   #drawFoodPellets(ctx, foodPellets) {
@@ -269,7 +278,7 @@ export class SurfaceRenderer {
       this.skin.drawAnt(ctx, ant, colony, {
         color, showAntJobs: overlays.showAntJobs,
         selected: selectedAntId === ant.id,
-        heading: this.skin.name === 'classic' ? 0 : this.heading(ant), zoom: this.zoom,
+        heading: this.skin.usesHeading ? this.heading(ant) : 0, zoom: this.zoom,
       });
 
       if (showDebugStats) {

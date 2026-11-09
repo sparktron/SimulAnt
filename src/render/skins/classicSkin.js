@@ -131,5 +131,11 @@ export const classicSkin = Object.freeze({
   horizon: '#5a9a44', food: '#35d84b', surfaceTerrainPixel, nestTerrainPixel,
   drawAnt, drawQueen, drawEntrance: drawSoilMound,
   surfaceAlpha: () => 255,
+  // Behavior flags read by the renderers instead of checking skin names.
+  usesHeading: false,       // drawAnt ignores options.heading, so skip tracking it
+  fieldsInTerrain: true,    // pheromone fields are baked into surfaceTerrainPixel
+  // Optional composeTerrain(bitmap, world, owner) -> canvas: bake detail into the
+  // terrain once per rebuild; renderers then blit that instead of the raw bitmap.
+  minimapAntColor: '#ffec80', minimapViewport: '#ffffff',
   postProcess() {}, drawFields() {},
 });

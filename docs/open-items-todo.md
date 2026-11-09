@@ -128,7 +128,7 @@ Status checked against landed `master` at **v0.58.1** on 2026-08-23.
 
 ## Active work
 
-- **Adopt the lagged exit scent?** `exitScentField` (v0.63.0, default off) was
+- **Adopt the lagged exit scent?** `exitScentField` (v0.64.2, default off) was
   A/B-tested against the instant exit field over 24 seeds and was no worse on
   any metric (`docs/exit-field-experiment.md`), and it satisfies the local-AI
   rule. To make it the default: serialize the scent array in saves, then

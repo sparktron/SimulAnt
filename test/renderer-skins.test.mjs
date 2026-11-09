@@ -35,7 +35,7 @@ test('theme switches invalidate terrain without replacing world or camera state'
     const r=new Renderer(canvas,w);
     r.draw(colony,{},[],[]);
     const camera=[r.cameraX,r.cameraY,r.zoom];
-    for(const theme of ['retro','modern','classic']) {
+    for(const theme of ['retro','modern','nineties','realistic','classic']) {
       r._terrainCacheKey='old';r.setSkin(theme);
       assert.equal(r._terrainCacheKey,'');assert.equal(r.world,w);
       assert.deepEqual([r.cameraX,r.cameraY,r.zoom],camera);
@@ -45,7 +45,7 @@ test('theme switches invalidate terrain without replacing world or camera state'
 });
 test('renderer skins do not write heading, sprite, or job caches onto ants', () => {
   const ant=Object.freeze({x:3,y:4,id:9,role:'worker',state:'FORAGE_SEARCH'});
-  for(const name of ['classic','retro','modern']) {
+  for(const name of ['classic','retro','modern','nineties','realistic']) {
     const renderer=new SurfaceRenderer(canvas,w);renderer.setSkin(name);
     const before=JSON.stringify(ant);
     renderer.heading(ant);
@@ -60,4 +60,69 @@ test('every pre-existing DOM ID and tool radio is preserved', () => {
   assert.equal(new Set(ids).size,ids.length,'IDs must be unique');
   for(const id of required) assert.ok(ids.includes(id),`Missing ${id}`);
   assert.equal([...html.matchAll(/name="tool"/g)].length,7);
+});
+
+const ALL_SKINS=['classic','retro','modern','nineties','realistic'];
+test('every skin exposes the full renderer interface', () => {
+  const fns=['surfaceTerrainPixel','nestTerrainPixel','surfaceAlpha','drawAnt','drawQueen','drawEntrance','drawFields','postProcess'];
+  for(const name of ALL_SKINS) {
+    const skin=getSkin(name);
+    assert.equal(skin.name,name);
+    assert.ok(Object.isFrozen(skin),`${name} frozen`);
+    for(const fn of fns) assert.equal(typeof skin[fn],'function',`${name}.${fn}`);
+    for(const key of ['surfaceBackground','nestBackground','horizon','food','minimapAntColor','minimapViewport']) assert.equal(typeof skin[key],'string',`${name}.${key}`);
+    for(const key of ['usesHeading','fieldsInTerrain']) assert.equal(typeof skin[key],'boolean',`${name}.${key}`);
+    for(const fn of ['drawFood','drawLarva','preProcess','composeTerrain']) assert.ok(skin[fn]===undefined||typeof skin[fn]==='function',`${name}.${fn}`);
+  }
+  assert.equal(getSkin('nineties').usesHeading,true);
+  assert.equal(getSkin('realistic').usesHeading,true);
+});
+test('getSkin returns the new skins and still rejects unknown names', () => {
+  assert.equal(getSkin('nineties').name,'nineties');
+  assert.equal(getSkin('realistic').name,'realistic');
+  for(const bad of ['unknown','Nineties','__proto__','toString']) assert.throws(()=>getSkin(bad),RangeError);
+});
+test('new skins return in-range RGB for every terrain type, with and without overlays', () => {
+  for(const name of ['nineties','realistic']) {
+    const skin=getSkin(name);
+    for(const overlays of [{},{showScent:true,showDanger:true},{showToFood:true},{showToHome:true}]) {
+      for(let y=0;y<w.height;y++) for(let x=0;x<w.width;x++) {
+        const i=y*w.width+x;
+        const s=[...skin.surfaceTerrainPixel(w.terrain[i],x,y,i,w,overlays)];
+        const n=[...skin.nestTerrainPixel(w.terrain[i],x,y,i,w,x%3===0)];
+        for(const v of [...s,...n]) assert.ok(Number.isFinite(v)&&v>=-1&&v<=256,`${name} ${x},${y} -> ${v}`);
+      }
+    }
+  }
+});
+test('new skins are pure: same world gives the same terrain bitmap twice', () => {
+  for(const name of ['nineties','realistic']) for(const Renderer of [SurfaceRenderer,NestRenderer]) {
+    const hashes=[];
+    for(let k=0;k<2;k++) {
+      const r=new Renderer(canvas,w);r.setSkin(name);r.draw(colony,{showScent:true},[],[]);
+      hashes.push(createHash('sha256').update(r._offCtx.image.data).digest('hex'));
+    }
+    assert.equal(hashes[0],hashes[1],`${name} ${Renderer.name}`);
+  }
+});
+test('new skins keep purple for duels: FIGHT ants are drawn with the duel colour', () => {
+  for(const name of ['nineties','realistic']) {
+    const used=[];
+    const ctx=new Proxy({},{get:(o,k)=>k in o?o[k]:()=>{},set:(o,k,v)=>{if(k==='fillStyle')used.push(v);o[k]=v;return true;}});
+    getSkin(name).drawAnt(ctx,{x:3,y:3,id:1,role:'worker',state:'FIGHT'},{id:'black'},{color:'#b44cff',showAntJobs:false,selected:false,heading:0,zoom:8});
+    const atlasColours=[];
+    // nineties bakes the colour into its atlas; realistic paints a halo directly.
+    if(name==='realistic') assert.ok(used.includes('#b44cff'),'realistic halo uses duel colour');
+    else {
+      globalThis.document={createElement:()=>({getContext:()=>new Proxy({},{get:(o,k)=>k in o?o[k]:()=>{},set:(o,k,v)=>{if(k==='fillStyle')atlasColours.push(v);o[k]=v;return true;}})})};
+      getSkin(name).drawAnt(ctx,{x:3,y:3,id:2,role:'soldier',state:'FIGHT'},{id:'red'},{color:'#b44cff',showAntJobs:false,selected:false,heading:1,zoom:8});
+      assert.ok(atlasColours.includes('#b44cff'),'nineties sprite body uses duel colour');
+      globalThis.document={createElement:()=>({getContext:()=>context()})};
+    }
+  }
+  // Neither skin uses purple for anything else (normal colony, queen, larvae).
+  for(const name of ['nineties','realistic']) {
+    const src=readFileSync(new URL(`../src/render/skins/${name}Skin.js`,import.meta.url),'utf8');
+    assert.doesNotMatch(src,/#(b44cff|7b3fc9|9a5aff|800080|aa00aa|ff55ff)/i);
+  }
 });

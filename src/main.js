@@ -353,9 +353,13 @@ applyTheme(getTheme());
 setTheme(getTheme());
 themeSelect.addEventListener('change', () => setTheme(themeSelect.value));
 // The new sheet can change the canvas size after the initial theme event.
+// ThemeManager drops the previous (retained) sheet in its own load listener,
+// which runs after this one, so measure once that has happened.
 mustById('themeStylesheet').addEventListener('load', () => {
-  surfaceRenderer.resize();
-  nestRenderer.resize();
+  setTimeout(() => {
+    surfaceRenderer.resize();
+    nestRenderer.resize();
+  }, 0);
 });
 const canvasResizeObserver = new ResizeObserver(() => {
   surfaceRenderer.resize();
