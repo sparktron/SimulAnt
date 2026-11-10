@@ -78,7 +78,7 @@ test('the duel lasts the full duration and the healthier ant wins', () => {
   c.blackAnt.health = 90;
   c.redAnt.health = 70;
   c.blackAnt.state = 'FORAGE_SEARCH';
-  const combat = new CombatSystem(scriptedRng([0]));
+  const combat = new CombatSystem(scriptedRng([0, 0]));
 
   runTicks(combat, c, DUEL_TICKS); // engage tick + DUEL_TICKS-1 combat ticks
   assert.equal(c.blackAnt.alive, true, 'duel must still be running before the timer expires');
@@ -93,19 +93,19 @@ test('the duel lasts the full duration and the healthier ant wins', () => {
   assert.equal(c.blackColony.ants.length, 1);
   assert.equal(c.blackAnt.inDuel, false);
   assert.equal(c.blackAnt.state, 'FORAGE_SEARCH', 'winner resumes what it was doing');
-  // Winner absorbed the opponent's full worker damage over the duel.
-  assert.ok(Math.abs(c.blackAnt.health - (90 - CONFIG.combatWorkerDamage)) < 1e-9);
+  // Winner absorbed the opponent's damage and a finishing wound.
+  assert.ok(Math.abs(c.blackAnt.health - (90 - CONFIG.combatWorkerDamage) * 0.75) < 1e-9);
 });
 
 test('soldiers always engage and out-damage workers in a duel', () => {
   const c = createCollision('worker', 'soldier');
-  const combat = new CombatSystem(scriptedRng([]));
+  const combat = new CombatSystem(scriptedRng([0, 0]));
 
   assert.equal(combat.resolve(c.blackColony, c.redColony, CONFIG), 1, 'soldier engages without a roll');
   runTicks(combat, c, DUEL_TICKS);
   assert.equal(c.blackColony.ants.length, 0);
   assert.equal(c.redColony.ants.length, 1);
-  assert.ok(Math.abs(c.redAnt.health - (100 - CONFIG.combatWorkerDamage)) < 1e-9);
+  assert.ok(Math.abs(c.redAnt.health - (100 - CONFIG.combatWorkerDamage) * 0.75) < 1e-9);
   assert.equal(c.blackColony.deathsByCause.combat, 1);
 });
 
@@ -177,5 +177,79 @@ test('red aggression increases worker engagement without increasing damage', () 
   aggressive.redAnt.health = 100;
   runTicks(combat, aggressive, DUEL_TICKS);
   const survivor = aggressive.blackAnt.alive ? aggressive.blackAnt : aggressive.redAnt;
-  assert.ok(Math.abs(survivor.health - (100 - CONFIG.combatWorkerDamage)) < 1e-9);
+  assert.ok(Math.abs(survivor.health - (100 - CONFIG.combatWorkerDamage) * 0.69) < 1e-9);
+});
+
+test('close duels favor the healthier ant 60/40 regardless of colony', () => {
+  const config = { ...CONFIG, combatWorkerDamage: 0, combatSoldierDamage: 0 };
+  for (const [blackHealth, redHealth, roll, blackWins] of [
+    [100, 80, 0.599, true], [100, 80, 0.6, false],
+    [80, 100, 0.599, false], [80, 100, 0.6, true],
+    [100, 79, 0.99, true], [79, 100, 0.99, false],
+    [100, 100, 0.49, false], [100, 100, 0.5, true],
+  ]) {
+    const c = createCollision('soldier', 'soldier');
+    c.blackAnt.health = blackHealth;
+    c.redAnt.health = redHealth;
+    const combat = new CombatSystem(scriptedRng([roll, 0]));
+    runTicks(combat, c, DUEL_TICKS + 1, config);
+    assert.equal(c.blackAnt.alive, blackWins, `${blackHealth} vs ${redHealth}, roll ${roll}`);
+  }
+});
+
+test('finishing wounds reduce the survivor\'s remaining health by 25 to 40 percent', () => {
+  const config = { ...CONFIG, combatWorkerDamage: 0, combatSoldierDamage: 0 };
+  for (const [roll, multiplier] of [[0, 0.75], [0.999, 0.75 - 0.999 * 0.15]]) {
+    const c = createCollision('soldier', 'soldier');
+    c.redAnt.health = 50;
+    const combat = new CombatSystem(scriptedRng([roll]));
+    runTicks(combat, c, DUEL_TICKS + 1, config);
+    assert.ok(Math.abs(c.blackAnt.health - 100 * multiplier) < 1e-9);
+    assert.equal(c.blackAnt.alive, true);
+  }
+});
+
+test('close-fight and wound knobs default to the documented values', () => {
+  assert.equal(CONFIG.combatCloseFightMargin, 0.2);
+  assert.equal(CONFIG.combatCloseFightWinChance, 0.6);
+  assert.equal(CONFIG.combatWoundMinHealthFraction, 0.6);
+  assert.equal(CONFIG.combatWoundMaxHealthFraction, 0.75);
+});
+
+test('sanitizer clamps close-fight and wound knobs and keeps wound max >= min', () => {
+  const s = sanitizeTickConfig({
+    combatCloseFightMargin: 5,
+    combatCloseFightWinChance: 0.1,
+    combatWoundMinHealthFraction: 0.9,
+    combatWoundMaxHealthFraction: 0.3,
+  });
+  assert.equal(s.combatCloseFightMargin, 1);
+  assert.equal(s.combatCloseFightWinChance, 0.5);
+  assert.equal(s.combatWoundMinHealthFraction, 0.9);
+  assert.equal(s.combatWoundMaxHealthFraction, 0.9);
+  const bad = sanitizeTickConfig({ combatCloseFightWinChance: NaN, combatWoundMinHealthFraction: 'x' });
+  assert.equal(bad.combatCloseFightWinChance, 0.6);
+  assert.equal(bad.combatWoundMinHealthFraction, 0.6);
+});
+
+test('close-fight margin, win chance and wound range follow config', () => {
+  // Gap of 30% of the healthier ant: not close by default, close at margin 0.4.
+  const base = { ...CONFIG, combatWorkerDamage: 0, combatSoldierDamage: 0 };
+  const config = { ...base, combatCloseFightMargin: 0.4, combatCloseFightWinChance: 0.9, combatWoundMinHealthFraction: 0.5, combatWoundMaxHealthFraction: 0.5 };
+  for (const [roll, blackWins] of [[0.89, true], [0.9, false]]) {
+    const c = createCollision('soldier', 'soldier');
+    c.blackAnt.health = 100;
+    c.redAnt.health = 70;
+    const combat = new CombatSystem(scriptedRng([roll, 0.7]));
+    runTicks(combat, c, DUEL_TICKS + 1, config);
+    assert.equal(c.blackAnt.alive, blackWins, `roll ${roll}`);
+    const survivor = blackWins ? c.blackAnt : c.redAnt;
+    assert.ok(Math.abs(survivor.health - (blackWins ? 100 : 70) * 0.5) < 1e-9);
+  }
+  // Default margin treats the same 30% gap as decisive regardless of the roll.
+  const c = createCollision('soldier', 'soldier');
+  c.blackAnt.health = 100;
+  c.redAnt.health = 70;
+  runTicks(new CombatSystem(scriptedRng([0.99, 0])), c, DUEL_TICKS + 1, base);
+  assert.equal(c.blackAnt.alive, true);
 });

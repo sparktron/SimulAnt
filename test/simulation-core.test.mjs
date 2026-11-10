@@ -687,7 +687,8 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   // v0.62.0: timed duels, both colonies hunting, enemySeekBias soldier raids.
   // v0.62.1: tunnel-field nest exits, fed foragers keep searching, no
   // ownerless centre nest, dig branches confined to each colony's side.
-  assert.equal(replayHash, 763781695);
+  // v0.63.0: seeded close-fight outcomes and survivor wounds.
+  assert.equal(replayHash, 3969874335);
 });
 
 // Survival regression: with the PRODUCTION defaults, the black colony used to peak

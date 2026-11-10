@@ -238,6 +238,26 @@ export const parameterDefinitions = {
     step: 1,
     advanced: true,
   },
+  combatCloseFightMargin: {
+    label: 'Close Fight Margin',
+    description: 'A duel is a close fight when the health gap is within this fraction of the healthier ant\'s health.',
+    group: 'Health', min: 0, max: 1, step: 0.05, advanced: true,
+  },
+  combatCloseFightWinChance: {
+    label: 'Close Fight Win Chance',
+    description: 'Chance the healthier ant wins a close fight (0.5 = coin flip, 1 = always).',
+    group: 'Health', min: 0.5, max: 1, step: 0.05, advanced: true,
+  },
+  combatWoundMinHealthFraction: {
+    label: 'Worst Survivor Wound',
+    description: 'Lowest fraction of health a duel survivor keeps (random finishing wound).',
+    group: 'Health', min: 0.05, max: 1, step: 0.05, advanced: true,
+  },
+  combatWoundMaxHealthFraction: {
+    label: 'Mildest Survivor Wound',
+    description: 'Highest fraction of health a duel survivor keeps (random finishing wound).',
+    group: 'Health', min: 0.05, max: 1, step: 0.05, advanced: true,
+  },
   combatSoldierDamage: {
     label: 'Soldier Combat Damage',
     description: 'Health a soldier takes from its opponent over one duel.',
@@ -694,6 +714,10 @@ export function getDefaultConfig() {
     combatDuelSeconds: 3,
     combatWorkerDamage: 8,
     combatSoldierDamage: 16,
+    combatCloseFightMargin: 0.2,
+    combatCloseFightWinChance: 0.6,
+    combatWoundMinHealthFraction: 0.6,
+    combatWoundMaxHealthFraction: 0.75,
     healthEatRecoveryRate: 0.45,
     workerEmergencyEatNutrition: 35,
     carryingHungerDrainRate: 0.5,

@@ -163,6 +163,13 @@ const state = {
     combatDuelSeconds: 3,
     combatWorkerDamage: 8,
     combatSoldierDamage: 16,
+    // Close fights (health gap within this fraction of the healthier ant) go to
+    // the healthier ant with this probability; survivors keep a random fraction
+    // of health between the wound min/max.
+    combatCloseFightMargin: 0.2,
+    combatCloseFightWinChance: 0.6,
+    combatWoundMinHealthFraction: 0.6,
+    combatWoundMaxHealthFraction: 0.75,
     healthEatRecoveryRate: 0.45,
     workerEmergencyEatNutrition: 35,
     carryingHungerDrainRate: 0.5,
