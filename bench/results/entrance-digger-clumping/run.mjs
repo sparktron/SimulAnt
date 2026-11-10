@@ -42,7 +42,7 @@ for(let t=1;t<=7500;t++){
         const front=isDig?c.getActiveDigFrontPosition(a.x,a.y):null;
         if(z.examples.length<8 || t-h.t>z.examples.at(-1).age){
           if(!z.examples.some(e=>e.id===a.id&&e.start===h.t))z.examples.push({id:a.id,start:h.t,t,age:t-h.t,state,focus:a.workFocus,x:a.x,y:a.y,count,food:c.foodStored,front});
-          else {const e=z.examples.find(e=>e.id===a.id&&e.start===h.t);e.age=t-h.t;e.t=t;}
+          else {const e=z.examples.find(e=>e.id===a.id&&e.start===h.t);Object.assign(e,{t,age:t-h.t,state,focus:a.workFocus,x:a.x,y:a.y,count,food:c.foodStored,front});}
           z.examples.sort((a,b)=>b.age-a.age);z.examples.length=Math.min(z.examples.length,8);
         }
       }
