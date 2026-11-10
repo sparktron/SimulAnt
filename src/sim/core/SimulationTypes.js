@@ -70,6 +70,11 @@ function clampFiniteRangeNumber(value, fallback, min, max) {
  */
 export function sanitizeTickConfig(config = {}) {
   const combatWorkerDamage = clampFiniteRangeNumber(config.combatWorkerDamage, 8, 1, 49);
+  const combatWoundMinHealthFraction = clampFiniteRangeNumber(config.combatWoundMinHealthFraction, 0.6, 0.05, 1);
+  const combatWoundMaxHealthFraction = Math.max(
+    combatWoundMinHealthFraction,
+    clampFiniteRangeNumber(config.combatWoundMaxHealthFraction, 0.75, 0.05, 1),
+  );
   const combatSoldierDamage = Math.max(
     combatWorkerDamage + 1,
     clampFiniteRangeNumber(config.combatSoldierDamage, 16, 2, 50),
@@ -175,6 +180,10 @@ export function sanitizeTickConfig(config = {}) {
     combatDuelSeconds: clampFiniteRangeNumber(config.combatDuelSeconds, 3, 0.5, 10),
     combatWorkerDamage,
     combatSoldierDamage,
+    combatCloseFightMargin: clamp01(config.combatCloseFightMargin, 0.2),
+    combatCloseFightWinChance: clampFiniteRangeNumber(config.combatCloseFightWinChance, 0.6, 0.5, 1),
+    combatWoundMinHealthFraction,
+    combatWoundMaxHealthFraction,
     healthEatRecoveryRate: clampNonNegativeNumber(config.healthEatRecoveryRate, 0),
     workerEmergencyEatNutrition: clampNonNegativeNumber(config.workerEmergencyEatNutrition, 0),
     carryingHungerDrainRate: clampNonNegativeNumber(config.carryingHungerDrainRate, 0),

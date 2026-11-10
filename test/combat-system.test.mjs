@@ -208,3 +208,48 @@ test('finishing wounds reduce the survivor\'s remaining health by 25 to 40 perce
     assert.equal(c.blackAnt.alive, true);
   }
 });
+
+test('close-fight and wound knobs default to the documented values', () => {
+  assert.equal(CONFIG.combatCloseFightMargin, 0.2);
+  assert.equal(CONFIG.combatCloseFightWinChance, 0.6);
+  assert.equal(CONFIG.combatWoundMinHealthFraction, 0.6);
+  assert.equal(CONFIG.combatWoundMaxHealthFraction, 0.75);
+});
+
+test('sanitizer clamps close-fight and wound knobs and keeps wound max >= min', () => {
+  const s = sanitizeTickConfig({
+    combatCloseFightMargin: 5,
+    combatCloseFightWinChance: 0.1,
+    combatWoundMinHealthFraction: 0.9,
+    combatWoundMaxHealthFraction: 0.3,
+  });
+  assert.equal(s.combatCloseFightMargin, 1);
+  assert.equal(s.combatCloseFightWinChance, 0.5);
+  assert.equal(s.combatWoundMinHealthFraction, 0.9);
+  assert.equal(s.combatWoundMaxHealthFraction, 0.9);
+  const bad = sanitizeTickConfig({ combatCloseFightWinChance: NaN, combatWoundMinHealthFraction: 'x' });
+  assert.equal(bad.combatCloseFightWinChance, 0.6);
+  assert.equal(bad.combatWoundMinHealthFraction, 0.6);
+});
+
+test('close-fight margin, win chance and wound range follow config', () => {
+  // Gap of 30% of the healthier ant: not close by default, close at margin 0.4.
+  const base = { ...CONFIG, combatWorkerDamage: 0, combatSoldierDamage: 0 };
+  const config = { ...base, combatCloseFightMargin: 0.4, combatCloseFightWinChance: 0.9, combatWoundMinHealthFraction: 0.5, combatWoundMaxHealthFraction: 0.5 };
+  for (const [roll, blackWins] of [[0.89, true], [0.9, false]]) {
+    const c = createCollision('soldier', 'soldier');
+    c.blackAnt.health = 100;
+    c.redAnt.health = 70;
+    const combat = new CombatSystem(scriptedRng([roll, 0.7]));
+    runTicks(combat, c, DUEL_TICKS + 1, config);
+    assert.equal(c.blackAnt.alive, blackWins, `roll ${roll}`);
+    const survivor = blackWins ? c.blackAnt : c.redAnt;
+    assert.ok(Math.abs(survivor.health - (blackWins ? 100 : 70) * 0.5) < 1e-9);
+  }
+  // Default margin treats the same 30% gap as decisive regardless of the roll.
+  const c = createCollision('soldier', 'soldier');
+  c.blackAnt.health = 100;
+  c.redAnt.health = 70;
+  runTicks(new CombatSystem(scriptedRng([0.99, 0])), c, DUEL_TICKS + 1, base);
+  assert.equal(c.blackAnt.alive, true);
+});
