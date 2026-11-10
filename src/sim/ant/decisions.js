@@ -296,6 +296,49 @@ export function carryFood(ant, world, colony, rng, config, context) {
   return movementAction(didMove);
 }
 
+// Hurt foragers heal inside the nest instead of bouncing at the mouth.
+// foragerExitNest used to send a hurt, fed forager straight out, where the
+// surface low-health rule sent it straight back in. Healing is passive regen
+// (hunger above 50%), so the ant only has to stay fed and underground.
+// Hysteresis: start below isLowHealth (50%), resume foraging at 75%, so an ant
+// healed just past the threshold doesn't flip straight back out.
+const NEST_HEAL_RESUME_FRACTION = 0.75;
+// Healers drift one tile every few ticks: slow enough to read as resting, but
+// never standing still long enough to pile up. (Standing rest was tried in
+// v0.62.1 and produced visible idle clumps.)
+const NEST_HEAL_STEP_INTERVAL_TICKS = 4;
+// Resting ground starts this many walking steps from the nearest mouth, which
+// keeps healers out of the entrance shaft that every forager passes through.
+const NEST_HEAL_MIN_MOUTH_DISTANCE = 5;
+
+// Recovery intent lives in its own flag, not in ant.state: eating from the
+// store mid-recovery overwrites state with EAT, which used to drop the
+// hysteresis and send a 50-75% ant back out after a single meal.
+export function shouldHealInNest(ant, colony) {
+  const recovering = vitals.isLowHealth(ant)
+    || (ant._recoveringInNest && ant.health < ant.healthMax * NEST_HEAL_RESUME_FRACTION);
+  // A hungry ant with nothing in the store cannot regen here; it forages.
+  const canHeal = ant.hunger > ant.hungerMax * 0.5 || colony.foodStored > 0;
+  ant._recoveringInNest = recovering && canHeal;
+  return ant._recoveringInNest;
+}
+
+function healInNest(ant, world, colony, rng) {
+  // Stagger the cadence per ant so a group of healers doesn't step in unison.
+  const phase = Number.parseInt(String(ant.id ?? '').slice(4), 10) || 0;
+  const field = colony.getNestExitField?.();
+  const here = field ? field.distanceAt(ant.x, ant.y) : -1;
+  const onRestingGround = here >= NEST_HEAL_MIN_MOUTH_DISTANCE;
+  if (onRestingGround && (ant.stepCounter + phase) % NEST_HEAL_STEP_INTERVAL_TICKS !== 0) {
+    ant.state = 'HEAL_IN_NEST';
+    return STAY_ACTION;
+  }
+  const drift = steering.driftWhileHealing(ant, world, colony, rng, NEST_HEAL_MIN_MOUTH_DISTANCE);
+  if (drift === null) return null;
+  ant.state = 'HEAL_IN_NEST';
+  return drift ? movementAction(true) : STAY_ACTION;
+}
+
 export function foragerExitNest(ant, world, colony, rng, config, context) {
   const returnHungerThreshold = Math.max(
     0,
@@ -314,6 +357,12 @@ export function foragerExitNest(ant, world, colony, rng, config, context) {
     ));
   }
 
+  if (shouldHealInNest(ant, colony)) {
+    const healAction = healInNest(ant, world, colony, rng);
+    if (healAction) return healAction;
+    ant._recoveringInNest = false; // no resting ground reachable from here
+  }
+
   // Stagger departures: after eating, wait a random delay before leaving
   // so ants don't all rush the entrance at once.
   ant.state = 'EXIT_NEST';
@@ -325,10 +374,14 @@ export function foragerExitNest(ant, world, colony, rng, config, context) {
   // Scatter exits along a wider band so foragers fan out instead of
   // clustering at the same few tiles.  Uses double the entrance radius
   // plus padding so ants emerge across an 8-10 tile front.
+  // Only fan out from the top of the shaft: aiming at an offset surface tile
+  // from deeper down points through solid soil beside narrow dug shafts and
+  // pins ants against the ceiling. Deeper ants climb the tunnel field first.
+  const atShaftTop = ant.y <= context.entrance.y + 1;
   const radius = Math.max(1, (context.entrance.radius ?? 1) * 2 + 2);
   const scatter = navigation.entranceColumnOffset(ant, radius);
   const scatteredX = context.entrance.x + scatter;
-  if (world.isPassable(scatteredX, exitTargetY)) {
+  if (atShaftTop && world.isPassable(scatteredX, exitTargetY)) {
     return movementAction(steering.moveToward(ant, world, scatteredX, exitTargetY, rng));
   }
   if (world.isPassable(context.entrance.x, exitTargetY)) {

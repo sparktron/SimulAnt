@@ -1,0 +1,3 @@
+{"test":"fed-threshold","seed":"probe-a","food":500,"crosses":1,"states":{"EXIT_NEST":1,"FORAGE_SEARCH":119}}
+{"test":"fed-threshold","seed":"probe-b","food":500,"crosses":1,"states":{"EXIT_NEST":1,"FORAGE_SEARCH":119}}
+{"test":"fed-threshold","seed":"probe-c","food":500,"crosses":3,"states":{"EXIT_NEST":2,"FORAGE_SEARCH":118}}

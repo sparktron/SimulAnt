@@ -29,6 +29,9 @@ const CARDINAL_DIRS = [
 
 const TURN_OPTIONS = [0, -1, 1];
 const DIGGER_ASSIGNMENT_RADIUS2 = 64;
+// Branch fronts may only spawn within this fraction of the world width of the
+// colony's home column. 1/4 splits the map evenly between nests at 1/4 and 3/4.
+const BRANCH_TERRITORY_HALF_WIDTH_FRACTION = 0.25;
 
 export class DigSystem {
   constructor(world, colony, rng) {
@@ -410,7 +413,12 @@ export class DigSystem {
       const idx = this.world.index(x, y);
       const terrain = this.world.terrain[idx];
       if (terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER) continue;
-      if (Math.abs(x - this.world.nestX) < 8 && y < this.world.nestY + 12) continue;
+      // Branch only from this colony's own tunnels (both nests share one
+      // terrain grid), and keep clear of its own entrance shaft. Both checks
+      // used to key off world.nestX, which is the black nest only.
+      const homeX = this.colony.homeX ?? this.world.nestX;
+      if (Math.abs(x - homeX) > this.world.width * BRANCH_TERRITORY_HALF_WIDTH_FRACTION) continue;
+      if (Math.abs(x - homeX) < 8 && y < this.world.nestY + 12) continue;
 
       this.fronts.push({
         x,

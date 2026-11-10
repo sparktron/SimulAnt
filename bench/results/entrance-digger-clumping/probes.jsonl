@@ -1,0 +1,12 @@
+{"test":"digger","seed":"probe-a","shortcut":false,"arrived":0,"visited":["10,18","10,20","10,19","10,21","10,17"]}
+{"test":"digger","seed":"probe-a","shortcut":true,"arrived":3,"visited":["11,19","10,18","12,19","13,19","14,19","15,19","16,19","16,20","16,18","16,21","16,17","16,22"]}
+{"test":"famine","seed":"probe-a","food":0,"crosses":120,"states":{"EXIT_NEST":60,"RETURN_TO_NEST_HEAL":60}}
+{"test":"famine","seed":"probe-a","food":500,"crosses":1,"states":{"EXIT_NEST":1,"FORAGE_SEARCH":119}}
+{"test":"digger","seed":"probe-b","shortcut":false,"arrived":0,"visited":["10,20","10,18","10,19","10,17","10,21"]}
+{"test":"digger","seed":"probe-b","shortcut":true,"arrived":3,"visited":["11,19","10,20","12,19","13,19","14,19","15,19","16,19","16,20","16,18","16,21","16,17","16,22"]}
+{"test":"famine","seed":"probe-b","food":0,"crosses":120,"states":{"EXIT_NEST":60,"RETURN_TO_NEST_HEAL":60}}
+{"test":"famine","seed":"probe-b","food":500,"crosses":1,"states":{"EXIT_NEST":1,"FORAGE_SEARCH":119}}
+{"test":"digger","seed":"probe-c","shortcut":false,"arrived":0,"visited":["10,18","10,20","10,19","10,21","10,17"]}
+{"test":"digger","seed":"probe-c","shortcut":true,"arrived":3,"visited":["11,19","10,18","12,19","13,19","14,19","15,19","16,20","16,19","16,21","16,22","16,18","16,17"]}
+{"test":"famine","seed":"probe-c","food":0,"crosses":120,"states":{"EXIT_NEST":60,"RETURN_TO_NEST_HEAL":60}}
+{"test":"famine","seed":"probe-c","food":500,"crosses":3,"states":{"EXIT_NEST":2,"FORAGE_SEARCH":118}}

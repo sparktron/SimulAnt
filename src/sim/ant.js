@@ -80,6 +80,10 @@ export class Ant {
       case 'EAT':
         return '#00ff00';
 
+      // Recovering in the nest - soft pink
+      case 'HEAL_IN_NEST':
+        return '#ff9eb5';
+
       // Hauling/storing - orange
       case 'HAUL_DIRT':
       case 'STORE_FOOD_IN_NEST':
@@ -202,6 +206,8 @@ export class Ant {
     // duel and relinks it on load); raiding is soldier behavior substate.
     this.inDuel = false;
     this.raiding = false;
+    // Set while a hurt forager is recovering in the nest (HEAL_IN_NEST).
+    this._recoveringInNest = false;
   }
 
   /**
@@ -390,7 +396,11 @@ export class Ant {
       return roles.runDiggerBehavior(this, world, colony, rng, config, context);
     }
 
-    if (!vitals.needsForage(this, colony)) {
+    // Foragers never park on the surface: food stores run far above
+    // foodStoreTarget, so "fed and the store is full" is nearly always true and
+    // standing still here froze every freshly exited forager on the mouth row.
+    // (Foragers inside the nest were already routed out by foragerExitNest.)
+    if (!vitals.needsForage(this, colony) && this.workFocus !== 'forage') {
       return STAY_ACTION;
     }
 

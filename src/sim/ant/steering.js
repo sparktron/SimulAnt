@@ -12,6 +12,8 @@
 
 import * as navigation from './navigation.js';
 import { DIRS, gaussianRandom } from './constants.js';
+import { UNREACHABLE } from '../behavior/NestExitField.js';
+import { TERRAIN } from '../world.js';
 
 /*
     Moves ant by evaluating pheromone gradient + momentum + directional bias.
@@ -343,12 +345,125 @@ export function moveByPheromone(ant, world, rng, config, channel, entrance, colo
 
 export function moveThroughEntranceShaft(ant, world, entrance, targetY, rng) {
   if (!entrance) return false;
+  // Heading up and out from below the mouth: follow real tunnel paths instead
+  // of the straight line, which strands ants in pockets the line cuts through.
+  if (targetY <= entrance.y && ant.y > entrance.y) {
+    const climbed = climbTowardMouth(ant, world, ant._currentColony, rng);
+    if (climbed !== null) return climbed;
+  }
   const shaftHalfWidth = Math.max(1, (entrance.radius ?? 1) + 1);
   return moveToward(ant, world, entrance.x, targetY, rng, {
     entranceX: entrance.x,
     entranceY: entrance.y,
     shaftHalfWidth,
   });
+}
+
+/**
+ * Steps one tile down the colony's tunnel distance field toward its nearest
+ * (by walking distance) entrance mouth. Among downhill neighbours the least
+ * crowded wins, then the usual heading-weighted pick breaks ties.
+ *
+ * Returns null when the field cannot help (no colony, ant already at a mouth,
+ * or on a tile no mouth connects to) so callers fall back to greedy steering.
+ * Draws rng only when it moves, through pickDirectionalCandidate.
+ */
+export function climbTowardMouth(ant, world, colony, rng) {
+  const field = colony?.getNestExitField?.();
+  if (!field) return null;
+  const here = field.distanceAt(ant.x, ant.y);
+  if (here === UNREACHABLE || here === 0) return null;
+
+  const candidates = [];
+  let leastCrowd = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < DIRS.length; i += 1) {
+    const nx = ant.x + DIRS[i][0];
+    const ny = ant.y + DIRS[i][1];
+    const d = field.distanceAt(nx, ny);
+    if (d === UNREACHABLE || d >= here || !world.isPassable(nx, ny)) continue;
+    const crowd = colony.countAntsAt(nx, ny);
+    if (crowd < leastCrowd) {
+      leastCrowd = crowd;
+      candidates.length = 0;
+      candidates.push(i);
+    } else if (crowd === leastCrowd) {
+      candidates.push(i);
+    }
+  }
+  if (candidates.length === 0) return null;
+
+  stepAntInDir(ant, colony, pickDirectionalCandidate(ant, candidates, rng));
+  return true;
+}
+
+function stepAntInDir(ant, colony, dir) {
+  const prevX = ant.x;
+  const prevY = ant.y;
+  ant.x += DIRS[dir][0];
+  ant.y += DIRS[dir][1];
+  ant.dir = dir;
+  ant.theta = Math.atan2(DIRS[dir][1], DIRS[dir][0]);
+  colony.moveAntInGrid(prevX, prevY, ant.x, ant.y);
+}
+
+/**
+ * Own-colony ants on the 3x3 block centred on (x,y): a cheap local-density
+ * reading, so a healer steps toward open floor rather than a standing group.
+ */
+function localCrowd(colony, x, y) {
+  let total = 0;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) total += colony.countAntsAt(x + dx, y + dy);
+  }
+  return total;
+}
+
+// Tunnels are traffic lanes; healers drifting in them block carriers. Treat a
+// tunnel tile like this many extra ants nearby so chambers win when available.
+const HEAL_TUNNEL_CROWD_PENALTY = 2;
+
+/**
+ * One step of a hurt ant's recovery drift through the nest. Only tiles at
+ * least minMouthDistance walking steps from every mouth count as resting
+ * ground, so healers never loiter in an entrance shaft; an ant still inside
+ * that band always steps deeper. Among the allowed neighbours the least
+ * crowded wins (tunnels count as crowded), then the heading-weighted pick
+ * keeps the drift smooth instead of jittery.
+ *
+ * Returns true after a step, false when the ant is on resting ground with
+ * nowhere better to go (it simply rests), and null when the exit field cannot
+ * place the ant (no colony, or a tile no mouth connects to) so the caller
+ * falls back to its normal routing. Draws rng only when it moves.
+ */
+export function driftWhileHealing(ant, world, colony, rng, minMouthDistance) {
+  const field = colony?.getNestExitField?.();
+  if (!field) return null;
+  const here = field.distanceAt(ant.x, ant.y);
+  if (here === UNREACHABLE) return null;
+  const inShaftBand = here < minMouthDistance;
+
+  const candidates = [];
+  let best = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < DIRS.length; i += 1) {
+    const nx = ant.x + DIRS[i][0];
+    const ny = ant.y + DIRS[i][1];
+    const d = field.distanceAt(nx, ny);
+    if (d === UNREACHABLE || !world.isPassable(nx, ny)) continue;
+    if (inShaftBand ? d <= here : d < minMouthDistance) continue;
+    const isTunnel = world.terrain[world.index(nx, ny)] === TERRAIN.TUNNEL;
+    const score = localCrowd(colony, nx, ny) + (isTunnel ? HEAL_TUNNEL_CROWD_PENALTY : 0);
+    if (score < best) {
+      best = score;
+      candidates.length = 0;
+      candidates.push(i);
+    } else if (score === best) {
+      candidates.push(i);
+    }
+  }
+  if (candidates.length === 0) return inShaftBand ? null : false;
+
+  stepAntInDir(ant, colony, pickDirectionalCandidate(ant, candidates, rng));
+  return true;
 }
 
 export function getHomeScentWeight(ant, config, entrance) {

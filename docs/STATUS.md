@@ -1,6 +1,52 @@
 # Current Status
 
-**Updated:** 2026-11-08 · **Branch:** `master` · **Release:** `v0.61.0`
+**Updated:** 2026-11-08 · **Branch:** `master` · **Release:** `v0.64.1`
+
+## Themes: 90s Retro + Realistic — 2026-11-08, v0.62.2 → v0.64.1
+
+- Added two live themes, now five in total: **90s Retro** (`nineties`) and
+  **Realistic** (`realistic`). Each is a stylesheet in `themes/` (verbatim
+  `styles.css` base plus overrides, like Retro and Modern) and a renderer skin
+  in `src/render/skins/`. No DOM IDs were added or renamed, and no sim code changed.
+- Refactor (v0.62.2): the `skin.name === 'modern'/'classic'` checks in
+  `MiniMap`, `SurfaceRenderer` and `NestRenderer` are now skin properties:
+  `minimapAntColor`, `minimapViewport`, `fieldsInTerrain`, `usesHeading`.
+  `test/theme-regression.test.mjs` locks Classic, Retro and Modern
+  surface/scent/jobs/nest/minimap output to golden digests recorded before the
+  refactor. They still match.
+- 90s Retro (v0.63.0, perf v0.63.1): silver bevelled chrome, navy title bar,
+  sunken status wells, segmented bars, and no webfonts. VGA palette, Bayer
+  dither, pixel ant atlas (4 directions × 2 walk frames, zoom ≥ 4; classic dot
+  below), pixel queen, and dithered mound. Static ground colours come from a
+  per-world `tileTableCache()` table.
+- Realistic (v0.64.0): a full-viewport canvas with glass panels. Scrims are
+  `.playfield` pseudo-elements. Seeded-noise terrain and prebaked ant, queen,
+  seed, larva and mound sprites. The new optional `skin.composeTerrain()` hook
+  bakes a smooth 4× upscale plus grain once per terrain rebuild, so each frame
+  is a single nearest-neighbour blit.
+- Fix (v0.64.1): after a theme switch the canvas was measured while the
+  previous, retained sheet was still applied, so it relied on `ResizeObserver`
+  to correct the size. `main.js` now re-measures after that sheet is removed.
+  This affected all themes.
+- Render cost per frame (1000×700 offscreen, real default world, hidden browser
+  pane, so read these as relative): classic 0.8 ms (2.1 with scent), retro 4.0
+  (6.2), modern 8.6 (15.6), 90s 1.0 (3.3), realistic 4.6 (9.3). Terrain
+  rebuild: 90s ~3 ms and realistic ~1 ms, against ~1.6 ms for classic.
+  `bench/tick-profile.mjs` is sim-only and unaffected.
+- Validation: `node --test test/*.mjs` 468/468, `scripts/check-determinism.mjs`
+  OK. New tests cover registration, persistence and fallback; the full skin
+  interface; RGB range and purity; purple reserved for duels; rendering every
+  theme leaving the sim RNG and state untouched; and the theme sheets,
+  pre-paint map and `<option>`s staying in sync. Browser checks cover all five
+  live switches with correct canvas backing size, both views, low and high
+  zoom, scent and jobs overlays, minimaps, queen, larvae, mounds and selection.
+  No console errors were seen.
+- Limits: the Browser pane was hidden during most checks, so FPS readouts were
+  throttled. Render timing used direct offscreen draws, and visuals were
+  checked through exported canvas images. 2,000-ant populations and real GPU
+  frame times were not measured. The design mockups' extra status strip
+  (BLK/SEL/RED bars under the canvas) was not added, because it would need new
+  DOM and JS; the existing `.canvas-footer` is styled as the status bar instead.
 
 ## GUI update — 2026-11-08, v0.61.0
 

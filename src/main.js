@@ -274,6 +274,8 @@ const state = {
     // Second short-lived, high-diffusion recruitment channel; off → inert. See
     // docs/pheromone-strategy.md future-direction #3.
     dualPheromone: false,
+    // Experimental lagged nest-exit scent (default off = instant exit field).
+    exitScentField: false,
     evapRecruit: 0.6,
     diffRecruit: 0.08,
     depositRecruit: 2.0,
@@ -351,9 +353,13 @@ applyTheme(getTheme());
 setTheme(getTheme());
 themeSelect.addEventListener('change', () => setTheme(themeSelect.value));
 // The new sheet can change the canvas size after the initial theme event.
+// ThemeManager drops the previous (retained) sheet in its own load listener,
+// which runs after this one, so measure once that has happened.
 mustById('themeStylesheet').addEventListener('load', () => {
-  surfaceRenderer.resize();
-  nestRenderer.resize();
+  setTimeout(() => {
+    surfaceRenderer.resize();
+    nestRenderer.resize();
+  }, 0);
 });
 const canvasResizeObserver = new ResizeObserver(() => {
   surfaceRenderer.resize();

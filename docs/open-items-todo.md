@@ -111,11 +111,42 @@ Status checked against landed `master` at **v0.58.1** on 2026-08-23.
     operations, empty save slots, storage failures, and invalid saves (v0.58.0).
 45. ✅ Increased core UI type sizes and desktop hit areas, with 44px minimum
     targets for coarse-pointer controls (v0.58.1).
+46. ✅ Fixed ants stalling at and under nest entrances (v0.62.1): underground
+    exits follow a per-colony tunnel walking-distance field
+    (`src/sim/behavior/NestExitField.js`) instead of greedy straight-line
+    steps; fed foragers keep searching instead of parking on the mouth row;
+    reset no longer leaves an ownerless starter nest at map centre; dig branch
+    fronts spawn only on the colony's own side of the map.
+47. ✅ Ended the hurt-forager mouth ping-pong (v0.62.3): a low-health, fed
+    forager inside the nest now enters `HEAL_IN_NEST` instead of being sent
+    out. It drifts one tile every 4 ticks over resting ground ≥5 walking steps
+    from any mouth, stepping toward the least crowded chamber floor, and
+    resumes foraging at 75% health (hysteresis above the 50% low-health line).
+    Over 8 seeds × 7,500 ticks, hurt-worker mouth crossings fell from ~580 to
+    3–13 per 1,000 hurt-ticks with no rise in in-nest clump tiles, and both
+    colonies ended larger.
 
 ## Active work
 
-No general maintenance fixes are currently queued. The remaining planned work is
-the experiment-driven environmental foraging program below.
+- **Adopt the lagged exit scent?** `exitScentField` (v0.64.2, default off) was
+  A/B-tested against the instant exit field over 24 seeds and was no worse on
+  any metric (`docs/exit-field-experiment.md`), and it satisfies the local-AI
+  rule. To make it the default: serialize the scent array in saves, then
+  re-capture the replay hash.
+- **Famine bounce for hurt foragers.** With the food store empty, a hungry,
+  hurt forager is sent out of the nest to forage, then the surface low-health
+  rule sends it straight home again (seed q: up to ~4,000 mouth crossings per
+  500 ticks). The surface rule should not send it home when it cannot eat there.
+
+- **Nest food-storage saturation.** Food stores run 4–20× `foodStoreTarget`
+  (`max(100, ants × 5)`), and each deposit occupies its own tunnel tile.
+  `findNestFoodDropPoint` re-rolls a random drop tile every tick, so in a
+  saturated nest `STORE_FOOD_IN_NEST` carriers jitter between random targets
+  (up to ~100 stuck samples per 4-seed run for red after v0.62.1). Needs a
+  storage-capacity / stacking rule and a stable per-carrier drop target.
+
+The remaining planned work is the experiment-driven environmental foraging
+program below.
 
 ## Future features
 

@@ -5,7 +5,7 @@ const grass = [[74,104,48],[90,122,58],[107,138,74],[122,153,88],[138,172,98]];
 const browns = ['#6a3a1a','#784320','#855025','#92592b','#9c6230','#a86a35'];
 export const retroSkin = Object.freeze({
   ...classicSkin, name: 'retro', surfaceBackground: '#4a6830', nestBackground: '#3a2410',
-  food: '#c02828', horizon: '#d8c997',
+  food: '#c02828', horizon: '#d8c997', usesHeading: true,
   surfaceTerrainPixel(terrain, x, y, idx, world, overlays) {
     let hash = Math.imul(x + 1, 374761393) ^ Math.imul(y + 1, 668265263);
     hash = Math.imul(hash ^ (hash >>> 13), 1274126177);
