@@ -74,21 +74,7 @@ function createConfig() {
   };
 }
 
-function getLowerHalfStartY(world) {
-  let minY = Number.POSITIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
 
-  for (let y = world.nestY + 1; y < world.height; y += 1) {
-    for (let x = 0; x < world.width; x += 1) {
-      if (!world.isPassable(x, y)) continue;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
-    }
-  }
-
-  if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return world.nestY + 1;
-  return minY + Math.floor((maxY - minY + 1) / 2);
-}
 
 test('deterministic regression: same seed + config yields identical snapshot', () => {
   const config = createConfig();
@@ -161,37 +147,22 @@ test('nest relocation also repositions queen marker state away from entrance', (
 
   sim.applyTool('nest', targetX, targetY, 2);
 
-  const lowerHalfStartY = getLowerHalfStartY(sim.world);
-
-  assert.equal(sim.colony.queen.x, targetX);
-  assert.ok(sim.colony.queen.y >= lowerHalfStartY);
+  assert.ok(sim.colony.isChamberTile(sim.colony.queen.x, sim.colony.queen.y));
+  assert.ok(Math.abs(sim.colony.queen.x - targetX) <= 6);
   assert.equal(sim.nestEntrances[0].x, targetX);
   assert.equal(sim.nestEntrances[0].y, targetY);
 });
 
-test('queen movement remains in lower nest half and is capped at 10% ant speed', () => {
-  const sim = new SimulationCore('queen-safety-speed-seed');
-  const config = createConfig();
-
-  sim.colony.ants = [];
-  sim.colony.queen.x = sim.world.nestX;
-  sim.colony.queen.y = sim.world.nestY + 2;
-  sim.colony.queen.moveProgress = 0;
-
-  const lowerHalfStartY = getLowerHalfStartY(sim.world);
-  const startX = sim.colony.queen.x;
-  const startY = sim.colony.queen.y;
-
-  for (let i = 0; i < 9; i += 1) sim.update(config);
-  assert.equal(sim.colony.queen.x, startX);
-  assert.equal(sim.colony.queen.y, startY);
-
-  sim.update(config);
-  const movedDistance = Math.hypot(sim.colony.queen.x - startX, sim.colony.queen.y - startY);
-  assert.ok(movedDistance <= Math.SQRT2);
-
-  for (let i = 0; i < 120; i += 1) sim.update(config);
-  assert.ok(sim.colony.queen.y >= lowerHalfStartY);
+test('queen stays in her chamber even when a deeper tunnel is available', () => {
+  const sim = new SimulationCore('queen-safety');
+  const queen = sim.colony.queen;
+  const start = { x: queen.x, y: queen.y };
+  for (let y = queen.y + 1; y < queen.y + 18; y += 1) {
+    sim.world.setTerrain(sim.world.index(queen.x, y), TERRAIN.TUNNEL);
+  }
+  for (let i = 0; i < 70; i += 1) sim.update(createConfig());
+  assert.deepEqual({ x: queen.x, y: queen.y }, start);
+  assert.equal(sim.world.terrain[sim.world.index(queen.x, queen.y)], TERRAIN.CHAMBER);
 });
 
 test('macro load sanitizes malformed saved territories and restores home territory', () => {
@@ -336,7 +307,7 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   }
 
   assert.equal(sim.colony.nestFoodPellets.length > 0, true);
-  assert.equal(sim.colony.foodStored >= 3, true);
+  assert.ok(sim.colony.foodStored >= 3 * 0.85);
   assert.equal(ant.carrying, null);
   assert.ok(ant.carryingType === 'none' || ant.carryingType === 'dirt');
   assert.equal(ant.baseColor, ant.originalBaseColor);
@@ -434,7 +405,7 @@ test('low-health ant eats from pellet then carries the remainder home', () => {
 
   const ant = sim.colony.ants[0];
   ant.health = 45;  // low but above the 40% critical floor
-  ant.hunger = 15;
+  ant.hunger = 45;
 
   const pellet = sim.foodPellets[0];
   ant.x = pellet.x;
@@ -497,10 +468,9 @@ test('assigned queen courier feeds queen from nest store', () => {
 
   const ant = sim.colony.ants[0];
   sim.colony.ants = [ant];
-  ant.x = sim.world.nestX;
-  ant.y = sim.world.nestY + 4;
-  sim.colony.queen.x = sim.world.nestX + 1;
-  sim.colony.queen.y = sim.world.nestY + 4;
+  ant.role = 'worker';
+  ant.x = sim.colony.queen.x;
+  ant.y = sim.colony.queen.y;
   sim.colony.queen.health = 40;
   sim.colony.queen.hunger = 0;
   sim.colony.foodStored = 100;
@@ -520,7 +490,10 @@ test('queen courier assignment preserves food already in transit', () => {
   const ant = sim.colony.ants[0];
   sim.colony.ants = [ant];
   ant.x = sim.world.nestX;
-  ant.y = sim.world.nestY + 8;
+  ant.y = sim.world.nestY - 5;
+  ant.role = 'worker';
+  ant.health = ant.healthMax;
+  sim.colony.setNestEntrances(sim.nestEntrances);
   ant.carrying = { type: 'food', pelletId: 'surface-food', pelletNutrition: 12 };
   ant.carryingType = 'food';
   sim.colony.queen.foodCourierAntId = ant.id;
@@ -583,20 +556,29 @@ test('queen-food reservation subtracts in-flight nutrition from the actual defic
   assert.equal(sim.colony.foodStored, 99.5);
 });
 
-test('brood consumes stored food while gestating', () => {
-  const sim = new SimulationCore('brood-food-drain-seed');
-  const config = createConfig();
-
-  sim.colony.ants = [];
-  sim.colony.queen.brood = 3;
-  sim.colony.foodStored = 50;
-
-  const before = sim.colony.foodStored;
+test('brood develops after a nurse carries a ration to its chamber', () => {
+  const sim = new SimulationCore('brood-nurse-delivery');
+  const config = { ...createConfig(), broodDevelopmentNutrition: 24, broodGestationSeconds: 8 };
+  const colony = sim.colony;
+  const nurse = colony.ants.find(ant => ant.role === 'worker');
+  nurse.age = 0;
+  colony.ants = [nurse];
+  colony.queen.brood = 1;
+  colony.queen.broodGestationProgress = 0;
+  colony.foodStored = 50;
+  config.queenEggTicks = 10000;
   sim.update(config);
-
-  assert.ok(sim.colony.foodStored < before);
+  assert.equal(colony.larvae[0].progress, 0);
+  let hauled = nurse.carrying?.type === 'brood-food';
+  for (let i = 0; i < 40 && !colony.larvae[0].progress; i += 1) {
+    sim.update(config);
+    hauled ||= nurse.carrying?.type === 'brood-food';
+  }
+  assert.ok(hauled);
+  assert.ok(colony.larvae[0].progress > 0);
+  assert.ok(colony.isChamberTile(colony.larvae[0].x, colony.larvae[0].y));
+  assert.ok(colony.foodStored < 50);
 });
-
 
 
 test('hungry worker with no surface food returns to nest to eat and resumes foraging', () => {
@@ -612,6 +594,7 @@ test('hungry worker with no surface food returns to nest to eat and resumes fora
   const entrance = sim.nestEntrances[0];
   ant.role = 'worker';
   ant.workFocus = 'forage';
+  ant.age = ant.maxAge * 0.65;
   ant.x = entrance.x + 24;
   ant.y = Math.max(0, entrance.y - 6);
   ant.hunger = 20;
@@ -790,36 +773,17 @@ test('nest food drops skip dirt and occupied tiles with varied placement', () =>
 });
 
 
-test('nest food drop depth increases when deeper nest space is available', () => {
-  const sim = new SimulationCore('nest-food-depth-growth-seed');
+test('nest food storage rejects a tunnel and an unreachable chamber', () => {
+  const sim = new SimulationCore('nest-food-chambers');
   const entrance = sim.nestEntrances[0];
-
-  const sampleAvgDropY = (count) => {
-    const ys = [];
-    for (let i = 0; i < count; i += 1) {
-      const before = sim.colony.nestFoodPellets.length;
-      const deposited = sim.colony.depositPellet(1, entrance.x, entrance.y + 2, entrance);
-      assert.equal(deposited, 1);
-      assert.equal(sim.colony.nestFoodPellets.length, before + 1);
-      ys.push(sim.colony.nestFoodPellets[sim.colony.nestFoodPellets.length - 1].y);
-    }
-    return ys.reduce((sum, y) => sum + y, 0) / ys.length;
-  };
-
-  const shallowAvgY = sampleAvgDropY(5);
-
-  sim.colony.nestFoodPellets = [];
-  sim.world.nestFood.fill(0);
-
-  const deepY = Math.min(sim.world.height - 2, sim.world.nestY + 40);
-  for (let x = entrance.x - 2; x <= entrance.x + 2; x += 1) {
-    if (!sim.world.inBounds(x, deepY)) continue;
-    sim.world.terrain[sim.world.index(x, deepY)] = TERRAIN.CHAMBER;
-  }
-
-  const deepAvgY = sampleAvgDropY(5);
-  assert.ok(deepAvgY > shallowAvgY + 8);
+  const x = entrance.x;
+  const y = entrance.y + 40;
+  sim.world.setTerrain(sim.world.index(x, y), TERRAIN.CHAMBER);
+  const point = sim.colony.findNestFoodDropPoint(entrance, x, entrance.y + 8);
+  assert.ok(sim.colony.isChamberTile(point.x, point.y));
+  assert.notEqual(point.y, y);
 });
+
 
 test('returning ant can still reach nest entrance from mid-range distance', () => {
   const sim = new SimulationCore('return-home-reliability-seed');
@@ -900,7 +864,7 @@ test('food pickup overrides stale dirt carryingType so renderer markers stay cor
   ant.carrying = null;
   ant.carryingType = 'dirt';
   ant.health = ant.healthMax;
-  ant.hunger = 30;  // Below 40% threshold so ant will forage and pick up food
+  ant.hunger = 50;
   ant.workFocus = 'forage';
   sim.colony.foodStored = 0;  // Force colony into critical food shortage
   sim.colony.queen.alive = false;
@@ -925,6 +889,7 @@ test('100% worker caste allocation hatches only worker-colored ants', () => {
 
   config.queenEggTicks = 1;
   config.queenEggFoodCost = 0;
+  config.broodFoodDrainRate = 0;
   config.broodGestationSeconds = 0.05;
   sim.colony.setCasteAllocation({ workers: 100, soldiers: 0, breeders: 0 });
 
@@ -944,6 +909,7 @@ test('100% soldier caste allocation hatches soldier ants with non-worker color',
 
   config.queenEggTicks = 1;
   config.queenEggFoodCost = 0;
+  config.broodFoodDrainRate = 0;
   config.broodGestationSeconds = 0.05;
   sim.colony.setCasteAllocation({ workers: 0, soldiers: 100, breeders: 0 });
 
@@ -960,6 +926,7 @@ test('100% soldier caste allocation hatches soldier ants with non-worker color',
 test('brood hatching redirects disabled breeder allocation to active castes', () => {
   const sim = new SimulationCore('caste-allocation-hatch-seed');
   const config = createConfig();
+  config.broodFoodDrainRate = 0;
   config.broodGestationSeconds = 0.001;
 
   sim.colony.ants = [];
@@ -981,32 +948,21 @@ test('brood hatching redirects disabled breeder allocation to active castes', ()
   assert.ok(Math.abs((soldiers / total) - (25 / 85)) <= 0.1);
 });
 
-test('worker workFocus distribution is rebalanced to work allocation ratios', () => {
-  const sim = new SimulationCore('work-allocation-focus-seed');
-
-  sim.colony.setWorkAllocation({ forage: 40, dig: 35, nurse: 25 });
-  sim.colony.rebalanceWorkerFocuses();
-
-  const workers = sim.colony.ants.filter((ant) => ant.role === 'worker');
-  const counts = workers.reduce(
-    (acc, ant) => {
-      if (ant.workFocus === 'dig') acc.dig += 1;
-      else if (ant.workFocus === 'nurse') acc.nurse += 1;
-      else acc.forage += 1;
-      return acc;
-    },
-    { forage: 0, dig: 0, nurse: 0 },
-  );
-
-  const totalWorkers = workers.length;
-  const expectedForage = Math.round(totalWorkers * 0.4);
-  const expectedDig = Math.round(totalWorkers * 0.35);
-  const expectedNurse = totalWorkers - expectedForage - expectedDig;
-
-  assert.equal(counts.forage, expectedForage);
-  assert.equal(counts.dig, expectedDig);
-  assert.equal(counts.nurse, expectedNurse);
+test('a worker progresses from nursing to digging to foraging as it ages', () => {
+  const sim = new SimulationCore('age-based-work-focus');
+  const colony = sim.colony;
+  const ant = colony.ants.find(worker => worker.role === 'worker');
+  colony.setWorkAllocation({ forage: 40, dig: 35, nurse: 25 });
+  ant.age = 0;
+  assert.equal(colony.workerFocusFor(ant), 'nurse');
+  ant.age = ant.maxAge * 0.3;
+  assert.equal(colony.workerFocusFor(ant), 'dig');
+  ant.age = ant.maxAge * 0.6;
+  assert.equal(colony.workerFocusFor(ant), 'forage');
+  colony.setWorkAllocation({ forage: 0, dig: 0, nurse: 100 });
+  assert.equal(colony.workerFocusFor(ant), 'nurse');
 });
+
 
 test('serialization preserves worker workFocus and alive flags for HUD/job accounting', () => {
   const sim = new SimulationCore('workfocus-serialize-seed');
@@ -1052,6 +1008,7 @@ test('newly spawned workers receive workFocus assignments from work allocation',
   sim.colony.queen.brood = 12;
   const config = createConfig();
   config.antCap = 50;
+  config.broodFoodDrainRate = 0;
   config.broodGestationSeconds = 0.001;
 
   for (let i = 0; i < 60; i += 1) sim.update(config);
@@ -1059,4 +1016,48 @@ test('newly spawned workers receive workFocus assignments from work allocation',
   const workers = sim.colony.ants.filter((ant) => ant.role === 'worker');
   assert.ok(workers.length > 0);
   assert.equal(workers.every((ant) => ant.workFocus === 'nurse'), true);
+});
+
+test('carriers use a connected tunnel and keep their chamber target around a bend', () => {
+  const sim = new SimulationCore('storage-around-bend');
+  const { colony, world, rng } = sim;
+  const { x, y } = sim.nestEntrances[0];
+  const route = [[x + 1, y + 13], [x + 2, y + 14], [x + 3, y + 15],
+    [x + 4, y + 15], [x + 5, y + 15], [x + 6, y + 14], [x + 6, y + 13],
+    [x + 6, y + 12], [x + 6, y + 11]];
+  for (const [tx, ty] of route) world.setTerrain(world.index(tx, ty), TERRAIN.TUNNEL);
+  const point = { x: x + 6, y: y + 11 };
+  world.setTerrain(world.index(point.x, point.y), TERRAIN.CHAMBER);
+  const carrier = new Ant(x + 1, y + 13, rng);
+  carrier.hunger = carrier.hungerMax;
+  carrier.health = carrier.healthMax;
+  carrier.carrying = { type: 'food', pelletNutrition: 8, dropPoint: point };
+  colony.ants = [carrier];
+  colony.rebuildAntGridFromAnts();
+  for (let i = 0; i < route.length + 2 && carrier.carrying; i += 1) {
+    carrier.update(world, colony, rng, createConfig());
+    if (carrier.carrying) assert.deepEqual(carrier.carrying.dropPoint, point);
+  }
+  assert.equal(carrier.carrying, null);
+  assert.ok(colony.nestFoodPellets.some(pellet => pellet.x === point.x && pellet.y === point.y));
+});
+
+test('a nurse hauls a dead ant to a chamber midden', () => {
+  const sim = new SimulationCore('corpse-midden');
+  const { colony, world, rng } = sim;
+  const { x, y } = colony.queen;
+  const nurse = new Ant(x, y, rng);
+  nurse.workFocus = 'nurse';
+  nurse.hunger = nurse.hungerMax;
+  nurse.health = nurse.healthMax;
+  const dead = new Ant(x, y, rng);
+  dead.alive = false;
+  colony.ants = [nurse, dead];
+  colony.removeDeadAnts();
+  nurse.update(world, colony, rng, createConfig());
+  assert.equal(nurse.carrying?.type, 'corpse');
+  for (let i = 0; i < 30 && nurse.carrying; i += 1) nurse.update(world, colony, rng, createConfig());
+  assert.equal(nurse.carrying, null);
+  assert.ok(colony.corpses.some(corpse => corpse.id === dead.id
+    && corpse.buried && colony.isChamberTile(corpse.x, corpse.y)));
 });

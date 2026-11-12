@@ -55,7 +55,7 @@ function isFitToFight(ant, config) {
 // opponent's ant list (bounded by population) rather than every tile in the
 // radius, which keeps wide soldier sensing cheap. Ties keep list order, so the
 // pick is deterministic.
-function findNearestEnemy(ant, world, opponent, radius) {
+function findNearestEnemy(ant, world, opponent, radius, trackedId) {
   let target = null;
   let bestDistance = radius * radius + 1;
   for (const enemy of opponent.ants) {
@@ -63,10 +63,13 @@ function findNearestEnemy(ant, world, opponent, radius) {
     const dx = enemy.x - ant.x;
     const dy = enemy.y - ant.y;
     const distance = dx * dx + dy * dy;
-    if (distance >= bestDistance) continue;
+    if (distance > radius * radius) continue;
     if (enemy.y > world.nestY || world.isUndergroundTile(enemy.x, enemy.y)) continue;
-    target = enemy;
-    bestDistance = distance;
+    if (enemy.id === trackedId) return { target: enemy, distance };
+    if (distance < bestDistance) {
+      target = enemy;
+      bestDistance = distance;
+    }
   }
   return target ? { target, distance: bestDistance } : null;
 }
@@ -80,12 +83,29 @@ export function seekFight(ant, world, colony, rng, config, context) {
       || ant.carrying?.type || colony.isQueenFoodCourier(ant.id)
       || (ant.role !== 'soldier' && (ant.role !== 'worker' || ant.workFocus !== 'forage'))
       || !isFitToFight(ant, config)
-      || config.combatEngageChance <= 0) return null;
+      || !(config.combatEngageChance > 0)) {
+    ant.pursuit = null;
+    return null;
+  }
 
-  const found = findNearestEnemy(ant, world, opponent, combatSenseRadiusFor(ant, config));
-  if (!found) return null;
-  if (ant.role !== 'soldier' && !rng.chance(Math.min(1,
-    config.combatEngageChance * combatAggression(colony, config)))) return null;
+  const found = findNearestEnemy(ant, world, opponent, combatSenseRadiusFor(ant, config), ant.pursuit?.targetId);
+  if (!found) {
+    ant.pursuit = null;
+    return null;
+  }
+
+  const now = ant.stepCounter;
+  if (ant.pursuit?.targetId !== found.target.id || now >= (ant.pursuit.retryAt ?? Infinity)) {
+    const committed = ant.role === 'soldier' || rng.chance(Math.min(1,
+      config.combatEngageChance * combatAggression(colony, config)));
+    const until = now + (config.combatPursuitTicks ?? 30);
+    ant.pursuit = {
+      targetId: found.target.id,
+      until: committed ? until : now,
+      retryAt: committed ? until + (config.combatPursuitCooldownTicks ?? 30) : null,
+    };
+  }
+  if (now >= ant.pursuit.until) return null;
 
   ant.state = 'SEEK_FIGHT';
   // Stay on an opponent's tile so collision resolution can engage this pair.
@@ -102,6 +122,23 @@ export function seekFight(ant, world, colony, rng, config, context) {
  */
 export function soldierDuty(ant, world, colony, rng, config, context) {
   const opponent = colony.opponentColony;
+  if (!context.inNest && config.enablePheromones !== false
+      && config.combatEngageChance > 0 && isFitToFight(ant, config)) {
+    let alarm = null;
+    let bestDistance = combatSenseRadiusFor(ant, config) * 1.5;
+    for (const signal of world.combatAlarms) {
+      const distance = Math.hypot(ant.x - signal.x, ant.y - signal.y);
+      if (distance >= bestDistance) continue;
+      bestDistance = distance;
+      alarm = signal;
+    }
+    if (alarm) {
+      ant.state = 'RESPOND_ALARM';
+      return bestDistance > 0
+        ? movementAction(steering.moveToward(ant, world, alarm.x, alarm.y, rng))
+        : STAY_ACTION;
+    }
+  }
   const bias = config.enemySeekBias ?? 0;
   if (!opponent || bias <= 0 || config.combatEngageChance <= 0 || !isFitToFight(ant, config)) {
     ant.raiding = false;
@@ -155,7 +192,7 @@ export function soldierPatrol(ant, world, colony, rng, config, context) {
   }
   // Soldiers deposit home pheromone while patrolling
   if (didMove && ant.stepCounter % config.homeDepositIntervalTicks === 0 && config.enablePheromones !== false) {
-    world.depositToHome(context.idx, config.depositHome * 0.5, config.pheromoneMaxClamp);
+    world.depositToHome(context.idx, config.depositHome * 0.5, config.pheromoneMaxClamp, colony.id);
   }
   return movementAction(didMove);
 }
@@ -201,7 +238,12 @@ export function carryFood(ant, world, colony, rng, config, context) {
 
   ant.state = 'RETURN_HOME';
   if (context.inNest) {
-    const dropPoint = colony.findNestFoodDropPoint(context.entrance, ant.x, ant.y);
+    let dropPoint = ant.carrying.dropPoint;
+    if (!dropPoint || !colony.isFoodStorageAvailable?.(dropPoint.x, dropPoint.y)
+        || colony.getNestDestinationField(dropPoint.x, dropPoint.y).distanceAt(ant.x, ant.y) < 0) {
+      dropPoint = colony.findNestFoodDropPoint(context.entrance, null, null, ant);
+      ant.carrying.dropPoint = dropPoint;
+    }
     if (dropPoint) {
       if (ant.x === dropPoint.x && ant.y === dropPoint.y) {
         const deposited = colony.depositFoodFromAnt(ant, context.entrance, dropPoint);
@@ -221,18 +263,12 @@ export function carryFood(ant, world, colony, rng, config, context) {
       }
 
       ant.state = 'STORE_FOOD_IN_NEST';
-      didMove = steering.moveToward(ant, world, dropPoint.x, dropPoint.y, rng);
-      if (!didMove) didMove = steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance);
-      return movementAction(didMove);
+      return { moved: steering.moveTowardNest(ant, world, colony, dropPoint, rng), allowFallback: false };
     }
 
-    // No storage tile available (nest not excavated enough yet).
-    // Exit back to the surface so the ant doesn't freeze at the entrance boundary.
-    ant.state = 'RETURN_HOME';
-    if (context.entrance) {
-      didMove = steering.moveThroughEntranceShaft(ant, world, context.entrance, context.entrance.y - 1, rng);
-      if (didMove) return movementAction(didMove);
-    }
+    // Wait below the mouth with the cargo until a chamber slot opens.
+    ant.state = 'STORE_FOOD_IN_NEST';
+    return STAY_ACTION;
   }
 
   const distToNest = context.entrance ? Math.hypot(ant.x - context.entrance.x, ant.y - context.entrance.y) : 0;
@@ -273,6 +309,7 @@ export function carryFood(ant, world, colony, rng, config, context) {
       context.idx,
       config.depositFood * trailScale * entranceFadeFraction * recruitFactor,
       config.pheromoneMaxClamp,
+      colony.id,
     );
   }
 
@@ -288,7 +325,7 @@ export function carryFood(ant, world, colony, rng, config, context) {
       rng,
     );
   } else {
-    didMove = steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance, null, world.toFood);
+    didMove = steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance, colony, world.getTrail('food', colony.id));
     if (!didMove && context.entrance) {
       didMove = steering.moveThroughEntranceShaft(ant, world, context.entrance, context.entrance.y, rng);
     }
@@ -315,15 +352,15 @@ const NEST_HEAL_MIN_MOUTH_DISTANCE = 5;
 // store mid-recovery overwrites state with EAT, which used to drop the
 // hysteresis and send a 50-75% ant back out after a single meal.
 export function shouldHealInNest(ant, colony) {
-  const recovering = vitals.isLowHealth(ant)
-    || (ant._recoveringInNest && ant.health < ant.healthMax * NEST_HEAL_RESUME_FRACTION);
+  const recovering = !vitals.isSenescent(ant) && (vitals.isLowHealth(ant)
+    || (ant._recoveringInNest && ant.health < ant.healthMax * NEST_HEAL_RESUME_FRACTION));
   // A hungry ant with nothing in the store cannot regen here; it forages.
   const canHeal = ant.hunger > ant.hungerMax * 0.5 || colony.foodStored > 0;
   ant._recoveringInNest = recovering && canHeal;
   return ant._recoveringInNest;
 }
 
-function healInNest(ant, world, colony, rng) {
+export function healInNest(ant, world, colony, rng) {
   // Stagger the cadence per ant so a group of healers doesn't step in unison.
   const phase = Number.parseInt(String(ant.id ?? '').slice(4), 10) || 0;
   const field = colony.getNestExitField?.();
@@ -340,10 +377,7 @@ function healInNest(ant, world, colony, rng) {
 }
 
 export function foragerExitNest(ant, world, colony, rng, config, context) {
-  const returnHungerThreshold = Math.max(
-    0,
-    Math.min(1, config.surfaceReturnToNestHungerThreshold ?? 0.65),
-  );
+  const returnHungerThreshold = vitals.nestMealFraction(config);
   const shouldContinueIntoNestForFood = !context.inNestInterior
     && colony.foodStored > 0
     && ant.hunger < ant.hungerMax * returnHungerThreshold;
@@ -356,6 +390,10 @@ export function foragerExitNest(ant, world, colony, rng, config, context) {
       rng,
     ));
   }
+
+  if (context.inNestInterior && ant.state === 'RETURN_NEST_TO_EAT'
+      && colony.foodStored > 0 && (config.workerEatNutrition ?? 0) > 0
+      && ant.hunger < ant.hungerMax * returnHungerThreshold) return STAY_ACTION;
 
   if (shouldHealInNest(ant, colony)) {
     const healAction = healInNest(ant, world, colony, rng);
@@ -424,6 +462,10 @@ function eatOrClaimPelletAtTile(ant, world, colony, config, pellet) {
     return;
   }
 
+  claimPellet(ant, world, colony, config, pellet, abundantFood);
+}
+
+function claimPellet(ant, world, colony, config, pellet, abundantFood) {
   pellet.takenByAntId = ant.id;
   ant.carrying = {
     type: 'food',
@@ -453,6 +495,34 @@ function eatOrClaimPelletAtTile(ant, world, colony, config, pellet) {
   depositDepletionRepulsion(world, colony, config, pellet.x, pellet.y);
   ant.state = 'PICKUP';
   navigation.aimThetaAtEntrance(ant, colony);
+}
+
+export function recoverAtSurfaceFood(ant, world, colony, rng, config, context) {
+  if (!ant.fieldMeal && !vitals.isCriticalHealth(ant) && ant.hunger >= ant.hungerMax * 0.4) {
+    return null;
+  }
+  if (ant.fieldMeal !== 'pickup' && vitals.fieldRecoveryRate(ant, config) === 0
+      && ant.hunger >= ant.hungerMax * 0.4) {
+    ant.fieldMeal = null;
+    return null;
+  }
+  const pellet = colony.findAvailablePelletAt(ant.x, ant.y)
+    ?? colony.findVisiblePellet(ant.x, ant.y, config.foodVisionRadius);
+  if (!pellet) return null;
+  if (ant.x !== pellet.x || ant.y !== pellet.y) {
+    ant.state = 'SEEK_FOOD_HEAL';
+    return movementAction(steering.moveToward(ant, world, pellet.x, pellet.y, rng));
+  }
+  ant.failedSurfaceFoodSearchTicks = 0;
+  if (ant.fieldMeal !== 'pickup') {
+    vitals.consumeRecoveryMeal(ant, colony, pellet, config);
+    ant.state = 'EAT';
+  } else {
+    const abundantFood = colony.countVisiblePellets(ant.x, ant.y, config.foodVisionRadius) >= 3;
+    claimPellet(ant, world, colony, config, pellet, abundantFood);
+    ant.fieldMeal = null;
+  }
+  return STAY_ACTION;
 }
 
 export function pickUpVisiblePellet(ant, world, colony, rng, config, context, pellet) {
@@ -518,7 +588,7 @@ export function forageSearch(ant, world, colony, rng, config, context) {
   // Skip the update when the ant is on a strong food trail — its theta
   // shouldn't keep drifting against pheromone steering, otherwise the
   // headingBias term injects sporadic course changes on a clear trail.
-  const trailAtAnt = world.toFood[context.idx] ?? 0;
+  const trailAtAnt = world.getTrail('food', colony.id)[context.idx] ?? 0;
   const onClearTrail = trailAtAnt > (config.trailLockThreshold ?? 1.0);
   if (!onClearTrail) {
     steering.updateWanderHeading(ant, rng, world, config);
@@ -545,6 +615,7 @@ export function forageSearch(ant, world, colony, rng, config, context) {
       context.idx,
       config.depositHome * homeDepositFraction,
       config.pheromoneMaxClamp,
+      colony.id,
     );
   }
 
@@ -567,7 +638,7 @@ export function forageSearch(ant, world, colony, rng, config, context) {
   // food pheromone peak deposited by returners. The radius is kept small
   // (config default 6) so the push is only 1–2 steps and never causes the
   // long diagonal march the larger radius produced.
-  const onFoodTrail = world.toFood[context.idx] > 0.5;
+  const onFoodTrail = world.getTrail('food', colony.id)[context.idx] > 0.5;
   const nearEntranceScatter = !context.inNest && context.entrance
     && (
       distFromEntrance < innerScatterRadius

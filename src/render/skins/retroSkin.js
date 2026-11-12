@@ -1,4 +1,4 @@
-import { TERRAIN } from '../../sim/world.js';
+import { TERRAIN, getDisplayTrailValue } from '../../sim/world.js';
 import { classicSkin, drawCarrying } from './classicSkin.js';
 import { drawSprite, postProcess } from './skinAssets.js';
 const grass = [[74,104,48],[90,122,58],[107,138,74],[122,153,88],[138,172,98]];
@@ -14,8 +14,8 @@ export const retroSkin = Object.freeze({
     else if (terrain === TERRAIN.WATER) c = (x * 11 + y * 7) % 19 === 0 ? [113,184,210] : [43,104,148];
     else if (terrain === TERRAIN.HAZARD) c = (x + y) % 2 ? [146,44,34] : [116,34,28];
     let [r,g,b] = c;
-    if (overlays.showToFood || overlays.showScent) { const f = Math.min(1,Math.sqrt(world.toFood[idx]/6)); r = Math.floor(r*(1-f)+40*f);g=Math.floor(g*(1-f)+220*f);b=Math.floor(b*(1-f)+70*f); }
-    if (overlays.showToHome || overlays.showScent) { const f = Math.min(1,Math.sqrt(world.toHome[idx]/6)); r = Math.floor(r*(1-f)+55*f);g=Math.floor(g*(1-f)+110*f);b=Math.floor(b*(1-f)+245*f); }
+    if (overlays.showToFood || overlays.showScent) { const f = Math.min(1,Math.sqrt(getDisplayTrailValue(world, 'food', idx)/6)); r = Math.floor(r*(1-f)+40*f);g=Math.floor(g*(1-f)+220*f);b=Math.floor(b*(1-f)+70*f); }
+    if (overlays.showToHome || overlays.showScent) { const f = Math.min(1,Math.sqrt(getDisplayTrailValue(world, 'home', idx)/6)); r = Math.floor(r*(1-f)+55*f);g=Math.floor(g*(1-f)+110*f);b=Math.floor(b*(1-f)+245*f); }
     if (overlays.showDanger) {r=Math.min(255,r+Math.floor(world.danger[idx]*100));g=Math.max(0,g-Math.floor(world.danger[idx]*40));}
     return [r,g,b];
   },

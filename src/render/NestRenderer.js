@@ -1,3 +1,4 @@
+import { drawCorpses } from './CorpseRenderer.js';
 import { TERRAIN } from '../sim/world.js';
 import { Ant } from '../sim/ant.js';
 import { getSkin } from './skins/index.js';
@@ -99,8 +100,10 @@ export class NestRenderer {
     this.#drawTerrain(ctx);
     this.#drawNestFood(ctx, colony);
     this.#drawEggs(ctx, colony);
+    drawCorpses(ctx, colony, this.world, true);
     this.#drawAnts(ctx, colony, options.selectedAntId, options.showDebugStats, overlays);
     if (options.rivalColony) {
+      drawCorpses(ctx, options.rivalColony, this.world, true);
       this.#drawNestFood(ctx, options.rivalColony);
       this.#drawEggs(ctx, options.rivalColony);
       this.#drawAnts(
@@ -195,7 +198,7 @@ export class NestRenderer {
   #drawEggs(ctx, colony) {
     // Draw larvae in various growth stages in the nest chamber.
     const larvae = colony.larvae || [];
-    if (!colony.queen.alive || larvae.length === 0) return;
+    if (larvae.length === 0) return;
 
     const homeX = Number.isFinite(colony.homeX) ? colony.homeX : this.world.nestX;
     const homeY = Number.isFinite(colony.homeY) ? colony.homeY : this.world.nestY;
@@ -215,8 +218,8 @@ export class NestRenderer {
       const row = Math.floor(i / cols);
       const col = i % cols;
       const stagger = (row % 2) * (colSpacing * 0.5);
-      const larvaX = broodX - patchHalfWidth + (col * colSpacing) + stagger;
-      const larvaY = broodY - patchHalfHeight + (row * rowSpacing);
+      const larvaX = Number.isFinite(larva.x) ? larva.x + (i % 5 - 2) * 0.18 : broodX - patchHalfWidth + (col * colSpacing) + stagger;
+      const larvaY = Number.isFinite(larva.y) ? larva.y + (Math.floor(i / 5) % 5 - 2) * 0.18 : broodY - patchHalfHeight + (row * rowSpacing);
 
       // Size grows from ~0.35 (stage 1, like food pellet) to ~0.7 (stage 4, like ~4 pellets)
       // Stage 1: 0.35, Stage 2: 0.45, Stage 3: 0.6, Stage 4: 0.7
@@ -328,7 +331,7 @@ export class NestRenderer {
     const maxX = world.width - viewW * 0.5;
     this.cameraX = minX > maxX ? world.width * 0.5 : Math.max(minX, Math.min(maxX, this.cameraX));
 
-    const minY = world.nestY + viewH * 0.5;
+    const minY = world.nestY;
     const maxY = world.height - viewH * 0.5;
     this.cameraY = minY > maxY ? (world.nestY + world.height) * 0.5 : Math.max(minY, Math.min(maxY, this.cameraY));
   }

@@ -360,6 +360,8 @@ export class SimulationCore {
           this.world.food[idx] = 0;
           this.world.toFood[idx] = 0;
           this.world.toHome[idx] = 0;
+          this.world.getTrail('food', 'red')[idx] = 0;
+          this.world.getTrail('home', 'red')[idx] = 0;
           this.world.danger[idx] = 0;
           erasedCells.add(`${x},${y}`);
         });
@@ -389,10 +391,13 @@ export class SimulationCore {
               this.world.setTerrain(idx, TERRAIN.SOIL);
               this.world.toHome[idx] = 0;
               this.world.toFood[idx] = 0;
+              this.world.getTrail('home', 'red')[idx] = 0;
+              this.world.getTrail('food', 'red')[idx] = 0;
               this.world.danger[idx] = 0;
             }
           }
         });
+        this.world.markFieldsDirty();
         break;
       case 'nest':
         this.world.setNest(worldX, worldY);
@@ -433,6 +438,10 @@ export class SimulationCore {
     this.world.nestFood.fill(0);
     this.world.toFood.fill(0);
     this.world.toHome.fill(0);
+    this.world.clearRivalTrails();
+    this.world.combatAlarms.length = 0;
+    this.colony.corpses.length = 0;
+    this.rivalColony.corpses.length = 0;
     this.world.danger.fill(0);
     this.colony.nestFoodPellets = [];
     this.colony._nestFoodTiles.clear();

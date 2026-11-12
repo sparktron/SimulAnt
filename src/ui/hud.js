@@ -9,7 +9,7 @@ export function updateHud(stats) {
   setText('hudFoodChip', formatNumber(stats.foodStored));
   setText('hudQueenChip', `${Math.round(stats.queenHealth)}%`);
   setText('hudCanvasStatus', `${stats.viewMode} · ${stats.paused ? 'PAUSED' : 'LIVE'} · ${Number(stats.speed ?? 1).toFixed(1)}×`);
-  setText('hudCursor', stats.cursor ? `X ${stats.cursor.x} / Y ${stats.cursor.y}` : 'PAN: RIGHT DRAG · ZOOM: SCROLL');
+  setText('hudCursor', stats.cursor ? `X ${stats.cursor.x} / Y ${stats.cursor.y}` : '');
   for (const [id, count] of Object.entries({ hudWorkers: stats.workers, hudSoldiers: stats.soldiers, hudBreeders: stats.breeders, hudNurses: stats.nurses, hudForagers: stats.foragers, hudDiggers: stats.diggers })) {
     const bar = document.getElementById(`${id}Bar`);
     if (bar) bar.style.width = `${Math.min(100, asNonNegativeInt(count) / Math.max(1, stats.ants) * 100)}%`;
@@ -18,7 +18,26 @@ export function updateHud(stats) {
   setText('hudRedAnts', `${asNonNegativeInt(stats.redAnts)}`);
   const surface = asNonNegativeInt(stats.antsSurface);
   const underground = asNonNegativeInt(stats.antsUnderground);
-  setText('hudAntLocation', `(${surface}↑ ${underground}↓)`);
+  setText('hudAntLocation', `${surface} / ${underground}`);
+  setText('hudRedAntLocation', `${asNonNegativeInt(stats.redSurface)} / ${asNonNegativeInt(stats.redUnderground)}`);
+  setText('hudRedFood', formatNumber(stats.redFood));
+  setText('hudRedQueenHealth', stats.redQueenAlive === false ? 'Dead' : formatNumber(stats.redQueenHealth));
+  for (const cause of ['starvation', 'oldAge', 'hazard', 'combat', 'predation', 'other']) {
+    setText(`hudBlackDeath${cause}`, String(asNonNegativeInt(stats.blackDeathsByCause?.[cause])));
+    setText(`hudRedDeath${cause}`, String(asNonNegativeInt(stats.redDeathsByCause?.[cause])));
+  }
+
+  const ant = stats.selectedAnt;
+  const cargo = ant?.carrying;
+  setText('antInspector', ant
+    ? [
+        [ant.role, ant.role === 'worker' && ant.workFocus].filter(Boolean).join(' · '),
+        ant.state.toLowerCase().replaceAll('_', ' '),
+        `Hunger ${Math.round(ant.hunger / ant.hungerMax * 100)}% · Health ${Math.round(ant.health / ant.healthMax * 100)}%`,
+        `Age ${Math.round(ant.age).toLocaleString()} / ${ant.maxAge.toLocaleString()} ticks`,
+        cargo ? `Cargo ${cargo.type.replaceAll('-', ' ')} ${formatNumber(cargo.pelletNutrition ?? cargo.amount ?? 1)}` : 'Cargo empty',
+      ].join('\n')
+    : 'Click an ant to inspect it.');
   setText('hudWorkers', `${stats.workers}`);
   setText('hudSoldiers', `${stats.soldiers}`);
   setText('hudBreeders', `${asNonNegativeInt(stats.breeders)}`);
@@ -43,7 +62,7 @@ export function updateHud(stats) {
   setText('hudJobs', `${jobsForage} / ${jobsDig} / ${jobsNurse}`);
   setText('hudFood', formatNumber(stats.foodStored));
   setText('hudBootstrapFood', formatBootstrap(stats.virtualFoodRemaining, stats.virtualFoodInitial));
-  setText('hudQueenHealth', formatNumber(stats.queenHealth));
+  setText('hudQueenHealth', stats.queenAlive === false ? 'Dead' : formatNumber(stats.queenHealth));
   setText('hudFps', Math.round(stats.fps).toString());
   setText('hudDig', stats.digStatus || 'AUTO-DIG: OFF');
 
@@ -88,6 +107,7 @@ export function updateHud(stats) {
       + `A:${asNonNegativeInt(byCause.oldAge)} `
       + `H:${asNonNegativeInt(byCause.hazard)} `
       + `C:${asNonNegativeInt(byCause.combat)} `
+      + `P:${asNonNegativeInt(byCause.predation)} `
       + `O:${asNonNegativeInt(byCause.other)}`,
   );
 }

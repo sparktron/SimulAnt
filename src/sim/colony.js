@@ -22,7 +22,6 @@ import { Ant, RETIRED_SOLDIER_COLORS } from './ant.js';
 import { TERRAIN } from './world.js';
 import { NestExitField } from './behavior/NestExitField.js';
 
-const QUEEN_SPEED_RATIO = 0.1;
 const BASE_TICK_SECONDS = 1 / 30;
 const DEBUG_NEST_FOOD_LOGS = false;
 
@@ -39,6 +38,8 @@ function stepCrowding(value, overCapacity) {
     : Math.max(0, value - CROWDING_FALL_PER_TICK);
 }
 
+export const DEFAULT_WORK_ALLOCATION = Object.freeze({ forage: 55, dig: 20, nurse: 25 });
+
 export class Colony {
   constructor(world, rng, initialAnts = 300, options = {}) {
     this.world = world;
@@ -49,6 +50,7 @@ export class Colony {
     this.workerColor = options.workerColor || null;
     this.soldierColor = options.soldierColor || null;
     this.ants = [];
+    this.corpses = [];
     this.foodStored = 0;
     // Target scales with colony size so foragers keep working as ants grow.
     // Updated each tick via #updateFoodStoreTarget().
@@ -64,7 +66,7 @@ export class Colony {
     // deterministic drop placement while the aggregate food ledger balances.
     this._foodLedgerAdjustment = 0;
 
-    this.workAllocation = { forage: 90, dig: 5, nurse: 5 };
+    this.workAllocation = { ...DEFAULT_WORK_ALLOCATION };
     // Soldiers patrol the entrance and eat from the store but never forage, so
     // in the default (combat-free) scenario they are a pure food sink. The old
     // 25% allocation starved the colony once bootstrap food ran out
@@ -81,6 +83,7 @@ export class Colony {
       oldAge: 0,
       hazard: 0,
       combat: 0,
+      predation: 0,
       other: 0,
     };
     // Queen succession telemetry. _queenDeathCounter holds the _updateCounter
@@ -119,7 +122,8 @@ export class Colony {
     // ant per tick, so key allocation + hashing dominated the steering cost.
     this._antGrid = new Int16Array(world.size);
     this._digFronts = [];  // active dig front positions, set by DigSystem each tick
-    this._nestFoodTiles = new Set();  // occupied nest food tile keys: "x,y"
+    this._nestFoodTiles = new Map();  // pellet count per storage tile
+    this._nestDestinationFields = new Map();
     this._virtualFoodStored = 0;  // bootstrap food not backed by physical pellets
     this._aliveWorkerCount = 0;  // cache of alive worker count, updated each tick
 
@@ -137,6 +141,7 @@ export class Colony {
       const role = i < soldierCount ? 'soldier' : 'worker';
       const ant = this.#spawnNearNest(role);
       ant.age = Math.floor(rng.range(0, ant.maxAge * 0.6));
+      ant.workFocus = this.workerFocusFor(ant);
       this.ants.push(ant);
     }
 
@@ -200,7 +205,7 @@ export class Colony {
     );
 
     if (role === 'worker') {
-      ant.workFocus = this.chooseWorkFocus();
+      ant.workFocus = this.workerFocusFor(ant);
     }
     ant.colonyId = this.id;
     ant.originalBaseColor = this.getAntBaseColor(role);
@@ -223,6 +228,7 @@ export class Colony {
    */
   update(config) {
     this._updateCounter += 1;
+    if (this.corpses.length > 0) this.corpses = this.corpses.filter(corpse => corpse.expiresAt > this._updateCounter);
     // Scale food store target with colony size: ~5 nutrition per ant as a
     // rolling buffer. Foragers work until the store reaches 90% of this,
     // so a larger colony keeps more reserves without over-hoarding.
@@ -246,7 +252,12 @@ export class Colony {
     this.#rebuildNestFoodTiles();
 
     for (let i = 0; i < this.ants.length; i += 1) {
-      this.ants[i].update(this.world, this, this.rng, config);
+      const ant = this.ants[i];
+      if (ant.alive && ant.role === 'worker' && !ant.carrying?.type
+          && (this.world.isUndergroundTile(ant.x, ant.y) || ant.workFocus !== 'forage')) {
+        ant.workFocus = this.workerFocusFor(ant);
+      }
+      ant.update(this.world, this, this.rng, config);
     }
 
     this.#runTrophallaxis(config);
@@ -254,7 +265,7 @@ export class Colony {
     this.removeDeadAnts();
 
     if (this.queen.alive) {
-      this.#updateQueenPosition(config);
+      this.#updateQueenPosition();
     }
 
     // Disable instant brood spawning; let queen lay eggs naturally via eggProgress
@@ -265,14 +276,17 @@ export class Colony {
     //   }
     // }
 
-    this.rebalanceWorkerFocuses();
   }
 
   removeDeadAnts() {
     let write = 0;
     this._aliveWorkerCount = 0;
     for (let read = 0; read < this.ants.length; read += 1) {
-      if (!this.ants[read].alive) continue;
+      if (!this.ants[read].alive) {
+        const ant = this.ants[read];
+        this.corpses.push({ id: ant.id, x: ant.x, y: ant.y, expiresAt: this._updateCounter + 900 });
+        continue;
+      }
       this.ants[write] = this.ants[read];
       if (this.ants[write].role === 'worker') this._aliveWorkerCount += 1;
       write += 1;
@@ -288,9 +302,9 @@ export class Colony {
     const nurse = Number.isFinite(allocation.nurse) ? allocation.nurse : this.workAllocation.nurse;
     const total = Math.max(1, forage + dig + nurse);
     this.workAllocation = {
-      forage: Math.max(0, (forage / total) * 100),
-      dig: Math.max(0, (dig / total) * 100),
-      nurse: Math.max(0, (nurse / total) * 100),
+      forage: Math.max(0, (forage * 100) / total),
+      dig: Math.max(0, (dig * 100) / total),
+      nurse: Math.max(0, (nurse * 100) / total),
     };
   }
 
@@ -305,33 +319,15 @@ export class Colony {
     };
   }
 
-  chooseWorkFocus() {
-    const workerCounts = {
-      forage: 0,
-      dig: 0,
-      nurse: 0,
-    };
-
-    for (let i = 0; i < this.ants.length; i += 1) {
-      const ant = this.ants[i];
-      if (!ant.alive || ant.role !== 'worker') continue;
-      if (ant.workFocus === 'dig') {
-        workerCounts.dig += 1;
-      } else if (ant.workFocus === 'nurse') {
-        workerCounts.nurse += 1;
-      } else {
-        workerCounts.forage += 1;
-      }
-    }
-
-    return this.#chooseWeightedDeficit(
-      {
-        forage: this.workAllocation.forage,
-        dig: this.workAllocation.dig,
-        nurse: this.workAllocation.nurse,
-      },
-      workerCounts,
-    );
+  workerFocusFor(ant) {
+    if (ant.role !== 'worker') return ant.workFocus;
+    // Stable per-ant variation spreads job changes across cohorts. The
+    // allocation weights set the fraction of working life in each job.
+    const workLife = 0.8 + ant.surfaceSearchMissThresholdOffsetTicks / 150;
+    const agePercent = ant.age / (ant.maxAge * workLife) * 100;
+    if (agePercent < this.workAllocation.nurse) return 'nurse';
+    if (agePercent < this.workAllocation.nurse + this.workAllocation.dig) return 'dig';
+    return 'forage';
   }
 
   selectHatchRole(_config) {
@@ -357,57 +353,6 @@ export class Colony {
       },
       roleCounts,
     );
-  }
-
-  rebalanceWorkerFocuses() {
-    const workers = [];
-    const counts = { forage: 0, dig: 0, nurse: 0 };
-
-    for (let i = 0; i < this.ants.length; i += 1) {
-      const ant = this.ants[i];
-      if (!ant.alive || ant.role !== 'worker') continue;
-      workers.push(ant);
-      counts[ant.workFocus] = (counts[ant.workFocus] || 0) + 1;
-    }
-
-    if (workers.length === 0) return;
-
-    const forageTarget = Math.round((this.workAllocation.forage / 100) * workers.length);
-    const digTarget = Math.round((this.workAllocation.dig / 100) * workers.length);
-    const nurseTarget = Math.max(0, workers.length - forageTarget - digTarget);
-
-    const targets = { forage: forageTarget, dig: digTarget, nurse: nurseTarget };
-
-    // Only reassign workers from overstaffed roles to understaffed roles
-    const overstaffed = [];
-    for (const focus of ['forage', 'dig', 'nurse']) {
-      const excess = counts[focus] - targets[focus];
-      if (excess > 0) {
-        let reassigned = 0;
-        for (let i = workers.length - 1; i >= 0 && reassigned < excess; i -= 1) {
-          if (workers[i].workFocus === focus && !workers[i].carrying?.type) {
-            overstaffed.push(workers[i]);
-            counts[focus] -= 1;
-            reassigned += 1;
-          }
-        }
-      }
-    }
-
-    for (const ant of overstaffed) {
-      // Assign to the most understaffed role
-      let bestFocus = 'forage';
-      let bestDeficit = Number.NEGATIVE_INFINITY;
-      for (const focus of ['forage', 'dig', 'nurse']) {
-        const deficit = targets[focus] - counts[focus];
-        if (deficit > bestDeficit) {
-          bestDeficit = deficit;
-          bestFocus = focus;
-        }
-      }
-      ant.workFocus = bestFocus;
-      counts[bestFocus] += 1;
-    }
   }
 
   /*
@@ -558,7 +503,8 @@ export class Colony {
       && this.foodStored >= config.queenEggFoodCost;
 
     if (canLay) {
-      this.queen.eggProgress += healthFraction * nestCrowdingBrake;
+      const fedFraction = this.queen.hunger / this.queen.hungerMax;
+      this.queen.eggProgress += healthFraction * Math.min(1, fedFraction / 0.65) * nestCrowdingBrake;
       if (this.queen.eggProgress >= config.queenEggTicks) {
         this.queen.eggProgress = 0;
         // Keep physical pellet markers stable: they drive _nestFoodTiles and
@@ -571,7 +517,7 @@ export class Colony {
         const eggHealthCost = config.queenEggHealthCost ?? 0;
         this.queen.health = Math.max(0, this.queen.health - eggHealthCost);
         // Add new larva at stage 1
-        this.larvae.push({ stage: 1, progress: 0 });
+        this.larvae.push({ stage: 1, progress: 0, eggNutrition: config.queenEggFoodCost });
       }
     }
   }
@@ -601,32 +547,13 @@ export class Colony {
 
     if (this.larvae.length === 0) return;
 
-    // Larvae consume food and progress through stages
-    const feedingLarvae = this.larvae.reduce(
-      (count, larva) => count + (larva.stage <= 4 ? 1 : 0),
-      0,
-    );
-    const broodFoodRequest = feedingLarvae * (config.broodFoodDrainRate ?? 0) * dt;
-    const broodFoodConsumed = this.consumeFromStore(broodFoodRequest);
-    const broodFeedRatio = broodFoodRequest > 0 ? broodFoodConsumed / broodFoodRequest : 1;
-
-    // Crowding: brood chambers with more larvae than nurses can tend develop slower.
-    // Accumulates when count exceeds the threshold; decays naturally when not overcrowded.
-    // Nurse calls to spreadLarvae() actively drive it down.
     const crowdingThreshold = config.larvaeCrowdingThreshold ?? 8;
     this.larvaeCrowding = stepCrowding(this.larvaeCrowding, this.larvae.length > crowdingThreshold);
-
-    const gestationRateScale = Math.max(0.1, Math.min(1, broodFeedRatio) * (1 - this.larvaeCrowding * 0.4));
-
-    // Track how long larvae have been severely underfed (feed ratio < 30%).
-    // Each tick at that level increments a counter; adequate feeding resets it.
-    const severelyUnderfed = broodFeedRatio < 0.3;
-
-    // Time per stage (in seconds) - divided by 4 since we have 4 stages
-    const stageSeconds = Math.max(
-      0.001,
-      (Number.isFinite(config.broodGestationSeconds) ? config.broodGestationSeconds : dt) / 4,
-    );
+    const gestationSeconds = Math.max(dt, config.broodGestationSeconds ?? dt);
+    const nutritionPerSecond = config.broodDevelopmentNutrition != null
+      ? config.broodDevelopmentNutrition / gestationSeconds
+      : (config.broodFoodDrainRate ?? 0);
+    const stageSeconds = gestationSeconds / 4;
 
     const broodStarvationTicks = config.broodStarvationTicks ?? 600;
 
@@ -641,6 +568,20 @@ export class Colony {
         this.#tryHatchLarva(i, config);
         continue;
       }
+
+      if (!this.isChamberTile(larva.x, larva.y)) {
+        const brood = this.findChamberTile(this.homeX + 4, this.homeY + 6);
+        if (brood) Object.assign(larva, brood);
+      }
+      const requestedProgress = Math.min(stageSeconds - larva.progress, dt * (1 - this.larvaeCrowding * 0.4));
+      const requested = Math.max(0, requestedProgress * nutritionPerSecond);
+      const eaten = Math.min(requested, larva.nutrition ?? 0);
+      if (eaten > 0) {
+        larva.nutrition -= eaten;
+        larva.nutritionEaten = (larva.nutritionEaten ?? 0) + eaten;
+      }
+      const feedRatio = requested > 0 ? eaten / requested : 1;
+      const severelyUnderfed = feedRatio < 0.3;
 
       // Accumulate or reset malnourishment counter.
       if (severelyUnderfed) {
@@ -658,10 +599,11 @@ export class Colony {
       // path below, matching the real-world preference to protect more mature
       // brood first.
       const oophagyDelayTicks = config.oophagyDelayTicks ?? 120;
-      if (larva.stage === 1 && larva.malnourishmentTicks >= oophagyDelayTicks) {
+      if (larva.stage === 1 && severelyUnderfed && larva.malnourishmentTicks >= oophagyDelayTicks) {
         this.larvae.splice(i, 1);
         this.queen.brood -= 1;
-        const recycledNutrition = config.oophagyRecycleNutrition ?? 5;
+        const invested = (larva.eggNutrition ?? 0) + (larva.nutritionEaten ?? 0) + (larva.nutrition ?? 0);
+        const recycledNutrition = Math.min(config.oophagyRecycleNutrition ?? 5, invested);
         this.foodStored += recycledNutrition;
         this._foodLedgerAdjustment += recycledNutrition;
         continue;
@@ -674,9 +616,9 @@ export class Colony {
         continue;
       }
 
-      larva.progress += dt * gestationRateScale;
+      larva.progress += requestedProgress * feedRatio;
 
-      if (larva.progress >= stageSeconds) {
+      if (larva.progress >= stageSeconds - 1e-9) {
         larva.progress -= stageSeconds;
         larva.stage += 1;
 
@@ -692,7 +634,7 @@ export class Colony {
   #tryHatchLarva(index, config) {
     if (this.queen.alive && this.ants.length >= config.antCap) return false;
 
-    this.larvae.splice(index, 1);
+    const [larva] = this.larvae.splice(index, 1);
     this.queen.brood -= 1;
     this.births += 1;
 
@@ -703,7 +645,12 @@ export class Colony {
       this.#restoreQueenFromHeir();
     } else {
       const role = this.selectHatchRole(config);
-      this.ants.push(this.#spawnNearNest(role));
+      const ant = this.#spawnNearNest(role);
+      if (this.isChamberTile(larva.x, larva.y)) {
+        ant.x = larva.x;
+        ant.y = larva.y;
+      }
+      this.ants.push(ant);
     }
     return true;
   }
@@ -712,14 +659,6 @@ export class Colony {
     if (!this.queen.alive) return;
     const dt = config.tickSeconds || 1 / 30;
     this.queen.hunger = Math.max(0, this.queen.hunger - config.queenHungerDrain * dt);
-
-    // Queen eats from stored food when hunger drops below 40% (before starvation triggers health drain)
-    if (this.queen.hunger < this.queen.hungerMax * 0.4 && this.foodStored > 0) {
-      const consumed = this.consumeFromStore(config.queenEatNutrition ?? 5);
-      this.queen.hunger = Math.min(this.queen.hungerMax, this.queen.hunger + consumed);
-      const healthGain = consumed * (config.queenHealthRecoveryPerNutrition ?? 0);
-      this.queen.health = Math.min(this.queen.healthMax, this.queen.health + healthGain);
-    }
 
     if (this.queen.hunger <= 0) {
       this.queen.health = Math.max(0, this.queen.health - config.queenHealthDrainRate * dt);
@@ -871,7 +810,7 @@ export class Colony {
     // thresholds are included because they can initiate delivery independently
     // of the dedicated courier signal.
     const healthTargetFraction = Math.max(config.queenFoodRequestClearThreshold ?? 0.8, 0.6);
-    const hungerTargetFraction = Math.max(config.queenFoodRequestHungerThreshold ?? 0.2, 0.25);
+    const hungerTargetFraction = Math.min(1, Math.max(config.queenFoodRequestHungerThreshold ?? 0.2, 0.25) + 0.2);
     const hungerDeficit = Math.max(
       0,
       this.queen.hungerMax * hungerTargetFraction - this.queen.hunger,
@@ -933,14 +872,14 @@ export class Colony {
    * Returns the position of the nearest active dig front, if any.
    * Used by dig-focus workers to navigate toward excavation sites.
    */
-  getActiveDigFrontPosition(antX, antY) {
+  getActiveDigFrontPosition(antX, antY, radius = Infinity) {
     if (!this._digFronts || this._digFronts.length === 0) return null;
     let nearest = null;
-    let bestDist = Number.POSITIVE_INFINITY;
+    let bestDist = radius;
     for (let i = 0; i < this._digFronts.length; i += 1) {
       const front = this._digFronts[i];
       const d = Math.hypot(front.x - antX, front.y - antY);
-      if (d < bestDist) {
+      if (d <= bestDist && (!nearest || d < bestDist)) {
         bestDist = d;
         nearest = front;
       }
@@ -955,112 +894,89 @@ export class Colony {
     this._digFronts = fronts;
   }
 
-  #updateQueenPosition(config) {
-    // Recalculate queen target tile every 60 ticks (~2 seconds) instead of every tick
-    if (!this._queenTargetTile || (this._queenTargetRecalcCounter = (this._queenTargetRecalcCounter || 0) + 1) >= 60) {
-      this._queenTargetTile = this.#findQueenSafeTile();
-      this._queenTargetRecalcCounter = 0;
-    }
-    const target = this._queenTargetTile;
-    if (!target) return;
-
-    const dt = config.tickSeconds || BASE_TICK_SECONDS;
-    const normalizedStep = QUEEN_SPEED_RATIO * (dt / BASE_TICK_SECONDS);
-    this.queen.moveProgress = Math.min(4, (this.queen.moveProgress || 0) + normalizedStep);
-
-    while (this.queen.moveProgress >= 1) {
-      const moved = this.#stepQueenToward(target.x, target.y);
-      this.queen.moveProgress -= 1;
-      if (!moved) break;
-    }
+  #updateQueenPosition() {
+    if (this.isChamberTile(this.queen.x, this.queen.y)) return;
+    const chamber = this.findChamberTile(this.homeX - 3, this.homeY + 6);
+    if (chamber) Object.assign(this.queen, chamber);
   }
 
-  #stepQueenToward(targetX, targetY) {
-    let best = null;
-    let bestDistance = Math.hypot(targetX - this.queen.x, targetY - this.queen.y);
+  isChamberTile(x, y) {
+    return Number.isInteger(x) && Number.isInteger(y) && this.world.inBounds(x, y)
+      && this.world.terrain[this.world.index(x, y)] === TERRAIN.CHAMBER;
+  }
 
-    for (let dx = -1; dx <= 1; dx += 1) {
-      for (let dy = -1; dy <= 1; dy += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const nx = this.queen.x + dx;
-        const ny = this.queen.y + dy;
-        if (!this.world.isPassable(nx, ny)) continue;
-        if (ny <= this.world.nestY) continue;
-
-        const distance = Math.hypot(targetX - nx, targetY - ny);
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          best = { x: nx, y: ny };
+  findChamberTile(targetX, targetY, eligible = () => true, entrance = null, from = null) {
+    const world = this.world;
+    const exits = this.nestEntrances.length > 0 ? this.nestEntrances : [{ x: this.homeX, y: this.homeY }];
+    if (!this._chamberField) this._chamberField = new NestExitField(world);
+    const field = this._chamberField;
+    const cacheKey = `${world.terrainVersion}:${exits.map(exit => world.index(exit.x, exit.y)).join(",")}`;
+    if (this._chamberCacheKey !== cacheKey) {
+      field.ensureCurrent(exits);
+      this._chamberCacheKey = cacheKey;
+      this._chamberTiles = [];
+      for (let i = (world.nestY + 1) * world.width; i < world.size; i += 1) {
+        if (world.terrain[i] === TERRAIN.CHAMBER && field.distance[i] >= 0) {
+          this._chamberTiles.push({ x: i % world.width, y: Math.floor(i / world.width) });
         }
       }
     }
-
-    if (!best) return false;
-    this.queen.x = best.x;
-    this.queen.y = best.y;
-    return true;
-  }
-
-  #findQueenSafeTile() {
-    const SEARCH_RADIUS = 30;
-    const lowerHalfStartY = this.#getLowerHalfStartY(SEARCH_RADIUS);
-    const { width, height } = this.world;
-    const nestX = this.homeX;
-    const nestY = this.homeY;
-    const minX = Math.max(0, nestX - SEARCH_RADIUS);
-    const maxX = Math.min(width - 1, nestX + SEARCH_RADIUS);
-    const maxY = Math.min(height - 1, nestY + SEARCH_RADIUS);
+    const minMouthDistance = entrance ? Math.max(4, (entrance.radius ?? 2) + 3) : 0;
+    const reachable = from && this.world.isUndergroundTile(from.x, from.y)
+      ? this.getNestDestinationField(from.x, from.y) : null;
     let best = null;
-    let bestDepth = Number.NEGATIVE_INFINITY;
-    let bestOffset = Number.POSITIVE_INFINITY;
-
-    for (let y = lowerHalfStartY; y <= maxY; y += 1) {
-      for (let x = minX; x <= maxX; x += 1) {
-        if (!this.world.isPassable(x, y)) continue;
-        const depth = y;
-        const offset = Math.abs(x - nestX);
-        if (depth > bestDepth || (depth === bestDepth && offset < bestOffset)) {
-          bestDepth = depth;
-          bestOffset = offset;
-          best = { x, y };
-        }
-      }
+    let bestDistance = Infinity;
+    for (const point of this._chamberTiles) {
+      const distance = (point.x - targetX) ** 2 + (point.y - targetY) ** 2;
+      if (distance >= bestDistance || !eligible(point.x, point.y)) continue;
+      if (entrance && Math.hypot(point.x - entrance.x, point.y - entrance.y) < minMouthDistance) continue;
+      if (reachable && reachable.distanceAt(point.x, point.y) < 0) continue;
+      best = point;
+      bestDistance = distance;
     }
-
-    if (best) return best;
-
-    return {
-      x: Math.max(0, Math.min(width - 1, Math.round(nestX))),
-      y: Math.max(nestY + 1, Math.min(height - 1, Math.round(nestY + 6))),
-    };
+    return best ? { ...best } : null;
   }
 
-  #getLowerHalfStartY(searchRadius) {
-    const { width, height } = this.world;
-    const nestX = this.homeX;
-    const nestY = this.homeY;
-    const minX = Math.max(0, nestX - searchRadius);
-    const maxX = Math.min(width - 1, nestX + searchRadius);
-    const maxScanY = Math.min(height - 1, nestY + searchRadius);
-    let minPassableY = Number.POSITIVE_INFINITY;
-    let maxPassableY = Number.NEGATIVE_INFINITY;
-
-    for (let y = nestY + 1; y <= maxScanY; y += 1) {
-      for (let x = minX; x <= maxX; x += 1) {
-        if (!this.world.isPassable(x, y)) continue;
-        if (y < minPassableY) minPassableY = y;
-        if (y > maxPassableY) maxPassableY = y;
+  getNestDestinationField(x, y) {
+    const key = this.world.index(x, y);
+    let field = this._nestDestinationFields.get(key);
+    if (!field) {
+      if (this._nestDestinationFields.size >= 24) {
+        this._nestDestinationFields.delete(this._nestDestinationFields.keys().next().value);
       }
+      field = new NestExitField(this.world);
+      this._nestDestinationFields.set(key, field);
     }
+    field.ensureCurrent([{ x, y }]);
+    return field;
+  }
 
-    if (!Number.isFinite(minPassableY) || !Number.isFinite(maxPassableY)) {
-      return Math.max(nestY + 1, Math.min(height - 1, nestY + 6));
+  findHungryLarva(x, y, radius = 20) {
+    const underground = this.world.isUndergroundTile(x, y);
+    let target = null;
+    let best = Infinity;
+    for (const larva of this.larvae) {
+      if (larva.stage > 4 || (larva.nutrition ?? 0) >= 1 || !this.isChamberTile(larva.x, larva.y)) continue;
+      const distance = underground
+        ? this.getNestDestinationField(larva.x, larva.y).distanceAt(x, y)
+        : Math.hypot(x - larva.x, y - larva.y);
+      if (distance < 0 || distance > radius || distance >= best) continue;
+      best = distance;
+      target = larva;
     }
+    return target;
+  }
 
-    return Math.max(
-      nestY + 1,
-      Math.min(height - 1, minPassableY + Math.floor((maxPassableY - minPassableY + 1) / 2)),
-    );
+  findHungryLarvaAt(x, y) {
+    return this.larvae.find((larva) => larva.x === x
+      && larva.y === y
+      && larva.stage <= 4
+      && (larva.nutrition ?? 0) < 1
+      && this.isChamberTile(larva.x, larva.y)) ?? null;
+  }
+
+  getNestRationPoint() {
+    return this.findChamberTile(this.homeX - 4, this.homeY + 7);
   }
 
   consumeFromStore(amount) {
@@ -1116,7 +1032,7 @@ export class Colony {
       y: pelletY,
       amount: nutrition,
     });
-    this._nestFoodTiles.add(`${pelletX},${pelletY}`);
+    this.#changeStorageStack(pelletX, pelletY, 1);
     this.#applyNestCellFoodDelta(nutrition, pelletX, pelletY);
     if (DEBUG_NEST_FOOD_LOGS && this.nestFoodPellets.length !== before) {
       console.log(`[SimAnt][nest-food] nest food pellet count is now ${this.nestFoodPellets.length}`);
@@ -1134,85 +1050,30 @@ export class Colony {
     };
   }
 
-  #isNestFoodTileClear(x, y) {
-    if (!this.world.inBounds(x, y) || y < this.world.nestY + 1) return false;
-    const terrain = this.world.terrain[this.world.index(x, y)];
-    if (terrain !== TERRAIN.TUNNEL && terrain !== TERRAIN.CHAMBER) return false;
-    return !this._nestFoodTiles.has(`${x},${y}`);
+  isFoodStorageAvailable(x, y) {
+    return this.isChamberTile(x, y) && this.#storageStack(x, y) < 4;
   }
 
-  #findDeepNestStorageY(anchorX) {
-    const xRadius = 12;
-    const minX = Math.max(0, Math.round(anchorX) - xRadius);
-    const maxX = Math.min(this.world.width - 1, Math.round(anchorX) + xRadius);
-
-    for (let y = this.world.height - 1; y >= this.world.nestY + 1; y -= 1) {
-      for (let x = minX; x <= maxX; x += 1) {
-        const terrain = this.world.terrain[this.world.index(x, y)];
-        if (terrain === TERRAIN.TUNNEL || terrain === TERRAIN.CHAMBER) return y;
-      }
-    }
-
-    return this.world.nestY + 3;
+  #storageStack(x, y) {
+    return this._nestFoodTiles.get(this.world.index(x, y)) ?? 0;
   }
 
-  findNestFoodDropPoint(entrance = null, preferredX = null, preferredY = null) {
-    const storageCenterX = entrance ? entrance.x : this.homeX;
-    const deepestStorageY = this.#findDeepNestStorageY(storageCenterX);
-    const storageCenterY = Math.max(this.world.nestY + 3, deepestStorageY - 2);
+  #changeStorageStack(x, y, amount) {
+    const index = this.world.index(x, y);
+    const count = this.#storageStack(x, y) + amount;
+    if (count > 0) this._nestFoodTiles.set(index, count);
+    else this._nestFoodTiles.delete(index);
+  }
 
-    const minDistanceFromEntrance = entrance ? Math.max(4, (entrance.radius ?? 2) + 3) : 0;
-    const isFarEnoughFromEntrance = (x, y) => {
-      if (!entrance) return true;
-      return Math.hypot(x - entrance.x, y - entrance.y) >= minDistanceFromEntrance;
-    };
-
-    const preferredTileX = Number.isFinite(preferredX)
-      ? Math.max(0, Math.min(this.world.width - 1, Math.round(preferredX)))
-      : null;
-    const preferredTileY = Number.isFinite(preferredY)
-      ? Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(preferredY)))
-      : null;
-    if (
-      preferredTileX != null
-      && preferredTileY != null
-      && this.#isNestFoodTileClear(preferredTileX, preferredTileY)
-      && isFarEnoughFromEntrance(preferredTileX, preferredTileY)
-    ) {
-      return { x: preferredTileX, y: preferredTileY };
+  findNestFoodDropPoint(entrance = null, preferredX = null, preferredY = null, from = null) {
+    if (this.isFoodStorageAvailable(preferredX, preferredY)
+        && (!entrance || Math.hypot(preferredX - entrance.x, preferredY - entrance.y) >= Math.max(4, (entrance.radius ?? 2) + 3))) {
+      return { x: preferredX, y: preferredY };
     }
-
-    const centerX = Math.max(0, Math.min(this.world.width - 1, Math.round(storageCenterX)));
-    const centerY = Math.max(this.world.nestY + 1, Math.min(this.world.height - 1, Math.round(storageCenterY)));
-    const maxRadius = 8;
-    const randomAttempts = 20;
-    const isValidCandidate = (x, y) => {
-      if (!this.#isNestFoodTileClear(x, y)) return false;
-      return isFarEnoughFromEntrance(x, y);
-    };
-
-    for (let i = 0; i < randomAttempts; i += 1) {
-      const dx = this.rng.int(maxRadius * 2 + 1) - maxRadius;
-      const dy = this.rng.int(maxRadius * 2 + 1) - maxRadius;
-      const x = centerX + dx;
-      const y = centerY + dy;
-      if (isValidCandidate(x, y)) return { x, y };
-    }
-
-    for (let radius = 0; radius <= maxRadius; radius += 1) {
-      for (let dy = -radius; dy <= radius; dy += 1) {
-        for (let dx = -radius; dx <= radius; dx += 1) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
-          const x = centerX + dx;
-          const y = centerY + dy;
-          if (isValidCandidate(x, y)) {
-            return { x, y };
-          }
-        }
-      }
-    }
-
-    return null;
+    const x = this.homeX - 4;
+    const y = this.homeY + 7;
+    return this.findChamberTile(x, y, (tx, ty) => this.#storageStack(tx, ty) === 0, entrance, from)
+      ?? this.findChamberTile(x, y, (tx, ty) => this.isFoodStorageAvailable(tx, ty), entrance, from);
   }
 
   depositFoodFromAnt(ant, entrance = null, dropPoint = null) {
@@ -1221,22 +1082,25 @@ export class Colony {
     const nutrition = ant.carrying.pelletNutrition || 0;
     const targetDropPoint = dropPoint || this.findNestFoodDropPoint(entrance, ant.x, ant.y);
     if (!targetDropPoint) return false;
-    if (dropPoint && (ant.x !== targetDropPoint.x || ant.y !== targetDropPoint.y)) return false;
+    if (dropPoint && (ant.x !== targetDropPoint.x || ant.y !== targetDropPoint.y
+        || !this.isFoodStorageAvailable(targetDropPoint.x, targetDropPoint.y))) return false;
 
     // depositPellet re-resolves the drop point internally and returns 0 if it
     // can't place the pellet (e.g. the nest food area is fully congested). Only
     // release the ant's cargo once the food is actually stored — otherwise the
     // carried nutrition would be destroyed without ever entering foodStored,
     // leaking food. On failure the ant keeps its cargo and retries next tick.
-    const deposited = this.depositPellet(nutrition, targetDropPoint.x, targetDropPoint.y, entrance);
+    const snack = Math.max(0, Math.min(nutrition * 0.15, ant.hungerMax - ant.hunger));
+    const deposited = this.depositPellet(nutrition - snack, targetDropPoint.x, targetDropPoint.y, entrance);
     if (deposited <= 0) return false;
     ant.carrying = null;
     ant.carryingType = 'none';
     ant.baseColor = ant.originalBaseColor || ant.baseColor;
     ant.state = 'FORAGE_SEARCH';
-    ant.hunger = Math.min(ant.hungerMax, ant.hunger + nutrition * 0.15);
+    ant.hunger += snack;
 
     if (this.world.isPassable(targetDropPoint.x, targetDropPoint.y)) {
+      this.moveAntInGrid(ant.x, ant.y, targetDropPoint.x, targetDropPoint.y);
       ant.x = targetDropPoint.x;
       ant.y = targetDropPoint.y;
     }
@@ -1248,7 +1112,7 @@ export class Colony {
   }
 
   #applyNestCellFoodDelta(delta, x, y) {
-    const dropPoint = this.getNestFoodDropPoint();
+    const dropPoint = Number.isFinite(x) && Number.isFinite(y) ? null : this.getNestFoodDropPoint();
     const tx = Number.isFinite(x) ? Math.round(x) : dropPoint.x;
     const ty = Number.isFinite(y) ? Math.round(y) : dropPoint.y;
     const clampedX = Math.max(0, Math.min(this.world.width - 1, tx));
@@ -1269,7 +1133,7 @@ export class Colony {
       remaining -= consumed;
       this.#applyNestCellFoodDelta(-consumed, pellet.x, pellet.y);
       if (pellet.amount <= 0.0001) {
-        this._nestFoodTiles.delete(`${Math.round(pellet.x)},${Math.round(pellet.y)}`);
+        this.#changeStorageStack(Math.round(pellet.x), Math.round(pellet.y), -1);
         this.nestFoodPellets.splice(i, 1);
       }
     }
@@ -1317,18 +1181,14 @@ export class Colony {
     for (const entrance of this.nestEntrances) {
       const radius = (entrance.radius ?? 1) + 3;
       this.world.paintCircle(entrance.x, entrance.y, radius, (idx) => {
-        this.world.depositToHome(idx, config.depositHome * 0.8, config.pheromoneMaxClamp);
+        this.world.depositToHome(idx, config.depositHome * 0.8, config.pheromoneMaxClamp, this.id);
       });
     }
   }
 
   syncQueenPositionToNest(nestX = this.homeX, nestY = this.homeY) {
-    const safeTile = this.#findQueenSafeTile();
-    this.queen.x = Math.max(0, Math.min(this.world.width - 1, Math.round(safeTile?.x ?? nestX)));
-    this.queen.y = Math.max(
-      this.world.nestY + 1,
-      Math.min(this.world.height - 1, Math.round(safeTile?.y ?? (nestY + 6))),
-    );
+    const safeTile = this.findChamberTile(nestX - 3, nestY + 6);
+    if (safeTile) Object.assign(this.queen, safeTile);
     this.queen.moveProgress = 0;
   }
 
@@ -1357,7 +1217,7 @@ export class Colony {
       const dx = pellet.x - x;
       const dy = pellet.y - y;
       const d2 = dx * dx + dy * dy;
-      if (d2 > r2 || d2 >= bestD2) continue;
+      if (d2 > r2 || d2 >= bestD2 || !this.world.hasClearFoodSight(x, y, pellet.x, pellet.y)) continue;
       bestD2 = d2;
       best = pellet;
     }
@@ -1372,7 +1232,7 @@ export class Colony {
       if (pellet.takenByAntId != null) continue;
       const dx = pellet.x - x;
       const dy = pellet.y - y;
-      if (dx * dx + dy * dy <= r2) count += 1;
+      if (dx * dx + dy * dy <= r2 && this.world.hasClearFoodSight(x, y, pellet.x, pellet.y)) count += 1;
     }
     return count;
   }
@@ -1408,7 +1268,7 @@ export class Colony {
     for (let i = 0; i < this.nestFoodPellets.length; i += 1) {
       const pellet = this.nestFoodPellets[i];
       if (pellet.amount > 0.0001) {
-        this._nestFoodTiles.add(`${Math.round(pellet.x)},${Math.round(pellet.y)}`);
+        this.#changeStorageStack(Math.round(pellet.x), Math.round(pellet.y), 1);
       }
     }
   }
@@ -1478,6 +1338,7 @@ export class Colony {
       nestCrowding: this.nestCrowding,
       excavatedTiles: this.excavatedTiles,
       nestFoodPellets: this.nestFoodPellets,
+      ...(this.corpses.length ? { corpses: this.corpses.map(corpse => ({ ...corpse })) } : {}),
       workAllocation: this.workAllocation,
       casteAllocation: this.casteAllocation,
       ants: this.ants.map((ant) => ({
@@ -1517,6 +1378,8 @@ export class Colony {
         lastNestEatTick: ant._lastNestEatTick,
         ...(ant.raiding ? { raiding: true } : {}),
         ...(ant._recoveringInNest ? { recoveringInNest: true } : {}),
+        ...(ant.fieldMeal ? { fieldMeal: ant.fieldMeal } : {}),
+        ...(ant.pursuit ? { pursuit: { ...ant.pursuit } } : {}),
         ...(Number.isFinite(ant._recruitBudget) ? { recruitBudget: ant._recruitBudget } : {}),
       })),
     };
@@ -1542,6 +1405,7 @@ export class Colony {
       colony.deathsByCause.oldAge = data.deathsByCause.oldAge || 0;
       colony.deathsByCause.hazard = data.deathsByCause.hazard || 0;
       colony.deathsByCause.combat = data.deathsByCause.combat || 0;
+      colony.deathsByCause.predation = data.deathsByCause.predation || 0;
       colony.deathsByCause.other = data.deathsByCause.other || 0;
     }
     colony.queenDeaths = data.queenDeaths || 0;
@@ -1575,6 +1439,9 @@ export class Colony {
       ? data.larvae.filter((larva) => larva && Number.isFinite(larva.stage) && Number.isFinite(larva.progress))
       : [];
     colony.excavatedTiles = data.excavatedTiles || 0;
+    colony.corpses = Array.isArray(data.corpses) ? data.corpses.filter(corpse => corpse
+      && typeof corpse.id === 'string' && Number.isFinite(corpse.expiresAt)
+      && Number.isInteger(corpse.x) && Number.isInteger(corpse.y) && world.inBounds(corpse.x, corpse.y)) : [];
     // Restore the crowding accumulators (clamped to [0,1]); missing/invalid → 0,
     // matching a fresh colony. See the serialize() note.
     colony.larvaeCrowding = Number.isFinite(data.larvaeCrowding)
@@ -1636,6 +1503,10 @@ export class Colony {
       ant.state = a.state || ant.state;
       ant.raiding = a.raiding === true;
       ant._recoveringInNest = a.recoveringInNest === true;
+      ant.fieldMeal = a.fieldMeal === 'recover' || a.fieldMeal === 'pickup' ? a.fieldMeal : null;
+      if (typeof a.pursuit?.targetId === 'string' && Number.isFinite(a.pursuit.until)) {
+        ant.pursuit = { ...a.pursuit };
+      }
       ant.stepCounter = a.stepCounter || 0;
       ant.age = a.age || 0;
       if (a.maxAge) ant.maxAge = a.maxAge;

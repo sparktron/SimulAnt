@@ -1,6 +1,29 @@
 # Current Status
 
-**Updated:** 2026-11-08 · **Branch:** `master` · **Release:** `v0.64.1`
+**Updated:** 2026-11-11 · **Branch:** `master` · **Release:** `v0.67.0`
+
+## Behavior and UI review — 2026-11-11, v0.66.0 → v0.67.0
+
+- Nest meals and hunger-triggered return trips share a 25% threshold.
+  Below 40% hunger or health, an ant that finds surface food completes a field
+  meal before pickup. Senescence prevents health recovery and nest convalescence.
+- Both colonies share the same age-based work allocation. Attendants deliver
+  the queen's food, and brood develops on nurse-delivered rations. Ants follow
+  cached walking-distance gradients to nest destinations. Food goes to capped
+  chamber stacks, diggers work beside the front, and the queen stays in a chamber.
+- Predation has a dedicated death counter and danger signal. Combat pursuit
+  persists by target, duels emit local alarms, and ants can carry corpses to a
+  midden. Food and home trails are colony-specific, and walls block food sight.
+- The browser has two colony stats cards, an ant inspector, visible overlay
+  controls, a nest-home action, a compact parameter filter and a narrow-screen
+  stats drawer.
+- Validation: all 42 Node test files and the determinism guard passed. Classic
+  and Modern browser checks covered nest focus, both stats cards, selected
+  ants, overlay legend, parameter filtering and the 820px drawer. A midgame JSON
+  replay matched for 25 ticks after reload with active trails.
+- The paired 12-seed comparison finished with all 24 queens alive and a median
+  reserve of 3,153 nutrition at tick 5,000. See the
+  [review and raw measurements](2026-11-11-behavior-and-ui-review.md#implementation-experiment).
 
 ## Themes: 90s Retro + Realistic — 2026-11-08, v0.62.2 → v0.64.1
 
@@ -150,9 +173,7 @@ exactly.
 
 ## Active work
 
-This feature is complete. Concurrent food-replenishment edits were present in
-this checkout during validation and were excluded from this feature's commit.
-Do not discard or accidentally commit those remaining changes.
+The behavior and UI review is implemented on local `master`.
 
 ## Next
 
@@ -165,8 +186,6 @@ Do not discard or accidentally commit those remaining changes.
    `docs/environmental-foraging-tests.md`. Pheromone-behaviour tuning is
    recorded as exhausted — the forward lever is the environment (respawn rate,
    vision radius, ant count), not searcher steering.
-3. Reconcile `docs/KNOWN_ISSUES.md` with the foraging results (see Known
-   problems).
 
 ## Known problems
 
@@ -176,15 +195,9 @@ Do not discard or accidentally commit those remaining changes.
   scans that were suspected (~0.7%). Passability-mask caching, pheromone
   double-buffering, active-cell updates (v0.37.0), and cached surface terrain
   rendering (v0.54.9) are applied; the item is still open.
-- **`docs/KNOWN_ISSUES.md` contradicts `docs/open-items-todo.md` on starvation.**
-  The performance entry in `KNOWN_ISSUES.md` asserts that "the colony starves to
-  zero before reaching truly large ant counts", so perf-at-scale is "partly
-  moot". `docs/open-items-todo.md` items 22–23 record the opposite outcome after
-  the 30–60-tile food-drop band shipped in v0.56.3: a 12-seed validation
-  averaging 261.3 final ants, a 217 minimum, and queens alive 12 of 12. File
-  timestamps favour the roadmap — `KNOWN_ISSUES.md` last changed 2026-07-12,
-  `open-items-todo.md` 2026-08-23 — but the sweep was not re-run here, so which
-  claim currently holds is unverified. The two documents cannot both be current.
+- **High-population performance is unverified after the review.** The latest
+  paired run measures behavior through tick 5,000. Its highest populations are
+  below the configured ant cap.
 
 ## Validation state
 

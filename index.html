@@ -3,9 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>SimAnt Web App</title>
+    <title>SimulAnt</title>
     <link rel="stylesheet" href="themes/switcher.css" />
     <link id="themeStylesheet" rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/layout.css" />
     <script>
       (() => {
         const sheets = { classic: 'styles.css', retro: 'themes/retro.css', modern: 'themes/modern.css', nineties: 'themes/nineties.css', realistic: 'themes/realistic.css' };
@@ -19,8 +20,9 @@
   <body>
     <div class="screen">
       <header class="menu-bar">
-        <span class="classic-brand">SimAnt - Rival Colonies</span>
+        <span class="classic-brand">SimulAnt · Rival Colonies</span>
         <span class="theme-brand"><span class="brand-mark" aria-hidden="true">✳</span> SimulAnt <small>COLONY OBSERVATORY</small></span>
+        <span id="versionLabel">v…</span>
         <div class="header-readouts"><span class="live-status" id="hudRunState">LIVE</span><span><b id="hudFpsTitle">60</b> FPS</span><span class="tick-lcd">TICK <b id="hudTickTitle">0</b></span></div>
         <label class="theme-picker"><span>THEME</span><select id="themeSelect" aria-label="Theme"><option value="classic">Classic</option><option value="retro">Retro Polished</option><option value="modern">Modern Sleek</option><option value="nineties">90s Retro</option><option value="realistic">Realistic</option></select></label>
       </header>
@@ -43,45 +45,33 @@
             <label><input type="radio" name="tool" value="fill" />FILL</label>
           </div>
 
-          <div class="health-block">
-            <h3>HEALTH</h3>
-            <div class="health-bars">
-              <div class="health-meter" title="Selected ant health"><div class="bar-wrap"><div id="healthYellow" class="bar yellow" role="progressbar" aria-label="Selected ant health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="No ant selected"></div></div><span id="healthFocusLabel">SEL</span></div>
-              <div class="health-meter" title="Black colony average ant health"><div class="bar-wrap"><div id="healthBlack" class="bar black" role="progressbar" aria-label="Black colony average ant health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div><span>BLK</span></div>
-              <div class="health-meter" title="Red colony average ant health"><div class="bar-wrap"><div id="healthRed" class="bar red" role="progressbar" aria-label="Red colony average ant health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div><span>RED</span></div>
-            </div>
-          </div>
-
-          <div class="section-title">Simulation</div>
-          <label>Seed <input id="seedInput" type="text" value="simant-default" /></label>
           <label>Brush <span id="brushLabel">3</span>
             <input id="brushSlider" type="range" min="1" max="24" step="1" value="3" />
           </label>
-          <label>Speed <span id="speedLabel">1.0x</span>
-            <input id="speedSlider" type="range" min="0.5" max="10" step="0.5" value="1" />
-          </label>
-          <label>Ant cap <span id="antCapLabel">2000</span>
-            <input id="antCapSlider" type="range" min="100" max="5000" step="100" value="2000" />
-          </label>
-
-          <div class="section-title">Session & overlays</div>
+          <div class="section-title">Session</div>
           <div class="button-column">
             <button id="resetBtn" data-kbd="R" class="palette-btn">RESET</button>
             <button id="saveBtn" class="palette-btn">SAVE</button>
             <button id="loadBtn" class="palette-btn">LOAD</button>
             <button id="clearBtn" class="palette-btn">CLEAR</button>
-            <button id="scentBtn" data-kbd="V" class="palette-btn">SCENT</button>
-            <button id="jobsBtn" data-kbd="J" class="palette-btn">JOBS</button>
-            <button id="pheromoneBtn" data-kbd="P" class="palette-btn">PHERO: ON</button>
             <button id="helpBtn" data-kbd="H" class="palette-btn">HELP</button>
             <button id="downloadLogBtn" data-kbd="Y" class="palette-btn" title="Download rolling colony stats as JSONL (Y key)">LOG ↓</button>
           </div>
+          <details class="secondary-actions">
+            <summary>More actions</summary>
+            <button type="button" class="palette-btn" id="foodClusterBtn" title="Spawn near the last map position (F)">Food cluster</button>
+            <button type="button" class="palette-btn" id="autoDigBtn" title="Toggle auto-dig (G)">Auto-dig</button>
+            <button type="button" class="palette-btn" id="forceChamberBtn" title="Carve a chamber at the dig front (C)">Carve chamber</button>
+            <button type="button" class="palette-btn" id="addFoodBtn" title="Cheat: add 50 nutrition to the store (O)">Add nest food</button>
+            <button type="button" class="palette-btn" id="starveAntBtn" title="Cheat: reduce selected ant's hunger (K)">Starve selected</button>
+            <button type="button" class="palette-btn" id="debugOverlayBtn" title="Toggle debug overlay (F3)">Debug overlay</button>
+          </details>
         </aside>
 
         <main class="playfield">
           <span id="modeIndicator" style="display:none">SURFACE</span>
           <div class="canvas-telemetry"><span><i class="live-dot"></i><b id="hudRunChip">LIVE</b></span><span><b id="hudAntsChip">0</b> ANTS</span><span><b id="hudFoodChip">0</b> FOOD</span><span>QUEEN <b id="hudQueenChip">100%</b></span></div>
-          <div class="canvas-footer"><span id="hudCanvasStatus">SURFACE · LIVE · 1.0×</span><span id="hudCursor">PAN: RIGHT DRAG · ZOOM: SCROLL</span></div>
+          <div class="canvas-footer"><span id="hudCanvasStatus">SURFACE · LIVE · 1.0×</span><span id="hudCursor"></span><span class="canvas-hint">PAN: RIGHT DRAG · ZOOM: SCROLL</span></div>
           <div id="jobLegend">
             <div class="legend-item"><div class="legend-color" style="background: #ff3030;"></div><span>Fight</span></div>
             <div class="legend-item"><div class="legend-color" style="background: #ffd700;"></div><span>Forage</span></div>
@@ -92,12 +82,23 @@
             <div class="legend-item"><div class="legend-color" style="background: #d2691e;"></div><span>Dig</span></div>
             <div class="legend-item"><div class="legend-color" style="background: #66ff99;"></div><span>Nurse</span></div>
             <div class="legend-item"><div class="legend-color" style="background: #ff1493;"></div><span>Queen</span></div>
-            <div class="legend-item"><div class="legend-color" style="background: #9a5aff;"></div><span>Patrol</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #8b1a1a;"></div><span>Soldier</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #b44cff;"></div><span>Duel</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #d3d3d3;"></div><span>Leaving nest</span></div>
+          </div>
+          <div class="canvas-tools" role="group" aria-label="Map overlays">
+            <button id="scentBtn" data-kbd="V" class="palette-btn">SCENT</button>
+            <button id="jobsBtn" data-kbd="J" class="palette-btn">JOBS</button>
+            <button id="pheromoneBtn" data-kbd="P" class="palette-btn">PHERO: ON</button>
+            <button type="button" class="palette-btn" id="foodTrailBtn" title="Food trail overlay (T)">Food trail</button>
+            <button type="button" class="palette-btn" id="homeTrailBtn" title="Home trail overlay (L)">Home trail</button>
+            <button type="button" class="palette-btn" id="dangerTrailBtn" title="Danger overlay (D)">Danger</button>
           </div>
           <canvas id="simCanvas" width="960" height="640"></canvas>
         </main>
 
-        <aside class="right-panel">
+        <button type="button" id="panelToggle" class="palette-btn" aria-expanded="false" aria-controls="rightPanel">Stats / Params</button>
+        <aside id="rightPanel" class="right-panel">
           <div class="hud-tabs" role="tablist" aria-label="Right panel">
             <button id="statsTabBtn" class="hud-tab-btn active" role="tab" aria-controls="statsView" aria-selected="true" data-tab="stats">STATS</button>
             <button id="paramsTabBtn" class="hud-tab-btn" role="tab" aria-controls="paramsView" aria-selected="false" data-tab="params">PARAMS</button>
@@ -105,30 +106,96 @@
 
           <div id="statsView" class="hud-view active">
             <div class="section-title">World overview <span>LIVE</span></div>
-            <canvas id="minimapCanvas" class="minimap" width="256" height="256"></canvas>
-            <div class="stat-lines">
-              <p>TICK: <span id="hudTick">0</span></p>
-              <p class="headline-stat">BLACK ANTS: <span id="hudAnts">0</span> <span id="hudAntLocation" style="font-size:11px; opacity:0.7"></span></p>
-              <p class="headline-stat">RED ANTS: <span id="hudRedAnts">0</span></p>
-              <p class="headline-stat">FOOD: <span id="hudFood">0</span></p>
-              <p>BOOTSTRAP: <span id="hudBootstrapFood">100%</span></p>
-              <p>WORKERS: <span id="hudWorkers">0</span><i id="hudWorkersBar" class="distribution-bar" aria-hidden="true"></i></p>
-              <p>SOLDIERS: <span id="hudSoldiers">0</span><i id="hudSoldiersBar" class="distribution-bar" aria-hidden="true"></i></p>
-              <p>BREEDERS: <span id="hudBreeders">0</span><i id="hudBreedersBar" class="distribution-bar" aria-hidden="true"></i></p>
-              <p>NURSES: <span id="hudNurses">0</span><i id="hudNursesBar" class="distribution-bar" aria-hidden="true"></i></p>
-              <p>FORAGERS: <span id="hudForagers">0</span><i id="hudForagersBar" class="distribution-bar" aria-hidden="true"></i></p>
-              <p>DIGGERS: <span id="hudDiggers">0</span><i id="hudDiggersBar" class="distribution-bar" aria-hidden="true"></i></p>
-              <p>JOBS F/D/N: <span id="hudJobs">0 / 0 / 0</span></p>
-              <p class="headline-stat">QUEEN HP: <span id="hudQueenHealth">0.0</span></p>
-              <p>FPS: <span id="hudFps">0</span></p>
-              <p>DIG: <span id="hudDig">AUTO-DIG: OFF</span></p>
-              <p>PHER MAX: <span id="hudPherMax">F:0.00 H:0.00</span></p>
-              <p>PHER AVG: <span id="hudPherAvg">F:0.00 H:0.00</span></p>
-              <p>FOLLOW: <span id="hudFollow">F:0 H:0</span></p>
-              <p>HEALTH: <span id="hudHealthStats">MIN:0.0 AVG:0.0 MAX:0.0</span></p>
-              <p>DEATHS: <span id="hudDeaths">0</span></p>
-              <p>BY CAUSE: <span id="hudDeathsByCause">S:0 A:0 H:0 C:0 O:0</span></p>
+            <button type="button" id="minimapHomeBtn" aria-label="Center nest view on the black queen" title="Center nest on the black queen (Home)">
+              <canvas id="minimapCanvas" class="minimap" width="256" height="256"></canvas>
+            </button>
+            <div class="colony-cards">
+              <section class="colony-card" data-colony="black">
+                <h3>Black</h3>
+                <dl>
+                  <div><dt>Ants</dt><dd id="hudAnts">0</dd></div>
+                  <div class="location"><dt>Surface / Nest</dt><dd id="hudAntLocation">0 / 0</dd></div>
+                  <div><dt>Food</dt><dd id="hudFood">0</dd></div>
+                  <div><dt>Queen HP</dt><dd id="hudQueenHealth">0</dd></div>
+                </dl>
+                <h4>Deaths</h4>
+                <dl>
+                  <div><dt>Starvation</dt><dd id="hudBlackDeathstarvation">0</dd></div>
+                  <div><dt>Old age</dt><dd id="hudBlackDeatholdAge">0</dd></div>
+                  <div><dt>Hazard</dt><dd id="hudBlackDeathhazard">0</dd></div>
+                  <div><dt>Combat</dt><dd id="hudBlackDeathcombat">0</dd></div>
+                  <div><dt>Predation</dt><dd id="hudBlackDeathpredation">0</dd></div>
+                  <div><dt>Other</dt><dd id="hudBlackDeathother">0</dd></div>
+                </dl>
+              </section>
+              <section class="colony-card" data-colony="red">
+                <h3>Red</h3>
+                <dl>
+                  <div><dt>Ants</dt><dd id="hudRedAnts">0</dd></div>
+                  <div class="location"><dt>Surface / Nest</dt><dd id="hudRedAntLocation">0 / 0</dd></div>
+                  <div><dt>Food</dt><dd id="hudRedFood">0</dd></div>
+                  <div><dt>Queen HP</dt><dd id="hudRedQueenHealth">0</dd></div>
+                </dl>
+                <h4>Deaths</h4>
+                <dl>
+                  <div><dt>Starvation</dt><dd id="hudRedDeathstarvation">0</dd></div>
+                  <div><dt>Old age</dt><dd id="hudRedDeatholdAge">0</dd></div>
+                  <div><dt>Hazard</dt><dd id="hudRedDeathhazard">0</dd></div>
+                  <div><dt>Combat</dt><dd id="hudRedDeathcombat">0</dd></div>
+                  <div><dt>Predation</dt><dd id="hudRedDeathpredation">0</dd></div>
+                  <div><dt>Other</dt><dd id="hudRedDeathother">0</dd></div>
+                </dl>
+              </section>
             </div>
+            <details class="hud-section">
+              <summary>Black colony detail</summary>
+              <div class="stat-lines">
+                <p>BOOTSTRAP: <span id="hudBootstrapFood">100%</span></p>
+                <p>WORKERS: <span id="hudWorkers">0</span><i id="hudWorkersBar" class="distribution-bar" aria-hidden="true"></i></p>
+                <p>SOLDIERS: <span id="hudSoldiers">0</span><i id="hudSoldiersBar" class="distribution-bar" aria-hidden="true"></i></p>
+                <p>NURSES: <span id="hudNurses">0</span><i id="hudNursesBar" class="distribution-bar" aria-hidden="true"></i></p>
+                <p>FORAGERS: <span id="hudForagers">0</span><i id="hudForagersBar" class="distribution-bar" aria-hidden="true"></i></p>
+                <p>DIGGERS: <span id="hudDiggers">0</span><i id="hudDiggersBar" class="distribution-bar" aria-hidden="true"></i></p>
+                <p>JOBS F/D/N: <span id="hudJobs">0 / 0 / 0</span></p>
+                <p>HEALTH: <span id="hudHealthStats">MIN:0.0 AVG:0.0 MAX:0.0</span></p>
+              </div>
+            </details>
+            <section class="ant-inspector" aria-label="Selected ant">
+              <h3>Selected ant</h3>
+              <p id="antInspector">Click an ant to inspect it.</p>
+              <div class="health-block">
+            <h3>HEALTH</h3>
+            <div class="health-bars">
+              <div class="health-meter" title="Selected ant health"><div class="bar-wrap"><div id="healthYellow" class="bar yellow" role="progressbar" aria-label="Selected ant health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="No ant selected"></div></div><span id="healthFocusLabel">SEL</span></div>
+              <div class="health-meter" title="Black colony average ant health"><div class="bar-wrap"><div id="healthBlack" class="bar black" role="progressbar" aria-label="Black colony average ant health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div><span>BLK</span></div>
+              <div class="health-meter" title="Red colony average ant health"><div class="bar-wrap"><div id="healthRed" class="bar red" role="progressbar" aria-label="Red colony average ant health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div><span>RED</span></div>
+            </div>
+          </div>
+            </section>
+            <details class="hud-section simulation-settings">
+              <summary>Simulation</summary>
+          <label>Seed <input id="seedInput" type="text" value="simant-default" /></label>
+          <label>Speed <span id="speedLabel">1.0x</span>
+            <input id="speedSlider" type="range" min="0.5" max="10" step="0.5" value="1" />
+          </label>
+          <label>Ant cap <span id="antCapLabel">2000</span>
+            <input id="antCapSlider" type="range" min="100" max="5000" step="100" value="2000" />
+          </label>
+
+            </details>
+            <details class="hud-section">
+              <summary>Debug</summary>
+              <div class="stat-lines">
+                <p>TICK: <span id="hudTick">0</span></p>
+                <p>FPS: <span id="hudFps">0</span></p>
+                <p>DIG: <span id="hudDig">AUTO-DIG: OFF</span></p>
+                <p>PHER MAX: <span id="hudPherMax">F:0.00 H:0.00</span></p>
+                <p>PHER AVG: <span id="hudPherAvg">F:0.00 H:0.00</span></p>
+                <p>FOLLOW: <span id="hudFollow">F:0 H:0</span></p>
+                <p>DEATHS: <span id="hudDeaths">0</span></p>
+                <p>BY CAUSE: <span id="hudDeathsByCause">S:0 A:0 H:0 C:0 P:0 O:0</span></p>
+              </div>
+            </details>
           </div>
 
           <div id="paramsView" class="hud-view">
@@ -142,6 +209,7 @@
       <h2 id="helpTitle" tabindex="-1" autofocus>How to Play</h2>
       <ul>
         <li><kbd>Q</kbd>: Toggle SURFACE / NEST view</li>
+        <li><kbd>Home</kbd>: Center the nest view on the black queen</li>
         <li><kbd>Space</kbd>: Pause/Resume</li>
         <li><kbd>N</kbd>: Step one tick</li>
         <li><kbd>R</kbd>: Reset simulation</li>
@@ -168,9 +236,10 @@
 
     <dialog id="statusPanel" aria-labelledby="statusTitle">
       <div class="dialog-heading">
-        <h2 id="statusTitle" class="status-title">STATUS</h2>
+        <h2 id="statusTitle" class="status-title">Colony allocation</h2>
         <button id="closeStatusBtn" type="button">Close</button>
       </div>
+      <p>Worker age ranges apply to both colonies.</p>
       <div class="status-grid">
         <div id="workTriangleContainer"></div>
         <div id="casteTriangleContainer"></div>
@@ -184,7 +253,6 @@
       aria-live="polite"
       aria-atomic="true"
     ></div>
-    <div id="versionLabel">v…</div>
 
     <script>
       fetch('./VERSION').then(r => r.text()).then(t => {

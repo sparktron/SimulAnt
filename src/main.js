@@ -4,6 +4,7 @@ import { updateHud } from './ui/hud.js';
 import { SurfaceRenderer } from './render/SurfaceRenderer.js';
 import { NestRenderer } from './render/NestRenderer.js';
 import { MiniMap } from './render/MiniMap.js';
+import { DEFAULT_WORK_ALLOCATION } from './sim/colony.js';
 import { SimulationCore } from './sim/SimulationCore.js';
 import { sanitizeTickConfig } from './sim/core/SimulationTypes.js';
 import { ViewManager, VIEW } from './ui/ViewManager.js';
@@ -43,6 +44,7 @@ const state = {
   config: {
     tickSeconds: SIM_DT,
     antCap: 2000,
+    nurseBroodSensingRadius: 20,
     // Food trails are deliberately MEDIUM-strength and short-lived. Stronger
     // trails (v0.26.6 tried evapFood=0.15, deposit=0.5) trap foragers on
     // stale corridors after a food cluster depletes — telemetry showed pop
@@ -125,7 +127,7 @@ const state = {
     queenHealthRecoveryPerNutrition: 0.25,
     queenFoodRequestHealthThreshold: 0.5,
     queenFoodRequestClearThreshold: 0.8,
-    queenFoodRequestHungerThreshold: 0.2,
+    queenFoodRequestHungerThreshold: 0.45,
     queenCourierPickupNutrition: 6,
     queenSuccessionDelayTicks: 150,
     queenSuccessionFoodCost: 60,
@@ -138,6 +140,8 @@ const state = {
     foodDropDistanceMin: 30,
     foodDropDistanceRange: 30,
     broodFoodDrainRate: 0.005,
+    broodDevelopmentNutrition: 24,
+    nurseBroodRation: 4,
     broodGestationSeconds: 8,
     broodStarvationTicks: 600,
     larvaeCrowdingThreshold: 8,
@@ -156,6 +160,8 @@ const state = {
     combatEngageChance: 0.25,
     redAggressionMultiplier: 2,
     combatSenseRadius: 6,
+    combatPursuitTicks: 30,
+    combatPursuitCooldownTicks: 30,
     // How hard ants look for the rival colony: soldier raid frequency and
     // enemy-sensing range both scale with it (0 = old home-patrol behavior).
     enemySeekBias: 0.5,
@@ -177,7 +183,7 @@ const state = {
     soldierSpawnChance: 0.05,  // Derived from the caste-allocation triangle
     foodVisionRadius: 18,
     surfaceFoodSearchMaxMissTicks: 400,  // Give foragers much more time to find food
-    surfaceReturnToNestHungerThreshold: 0.6,  // Return after timeout with safety margin
+    surfaceReturnToNestHungerThreshold: 0.25,
     followAlpha: 1.5,
     // Moderate trail pull — strong enough to bias toward established corridors,
     // weak enough that searchers don't get locked onto stale trails when food
@@ -323,7 +329,7 @@ const state = {
     dangerTurnGain: 0.40,   // max radians/tick when one side fully dominates
   },
   colonyStatus: {
-    workAllocation: { forage: 55, dig: 20, nurse: 25 },
+    workAllocation: { ...DEFAULT_WORK_ALLOCATION },
     casteAllocation: { workers: 90, soldiers: 10, breeders: 0 },
   },
 };
@@ -348,6 +354,8 @@ const viewManager = new ViewManager(VIEW.SURFACE);
 const surfaceRenderer = new SurfaceRenderer(canvas, simCore.world);
 const nestRenderer = new NestRenderer(canvas, simCore.world);
 const miniMap = new MiniMap(mustById('minimapCanvas'));
+centerNestOnQueen();
+mustById('minimapHomeBtn').addEventListener('click', showNestHome);
 
 const themeSelect = mustById('themeSelect');
 const applyTheme = (name) => {
@@ -379,6 +387,7 @@ surfaceRenderer.resize();
 nestRenderer.resize();
 
 simCore.colony.setWorkAllocation(state.colonyStatus.workAllocation);
+simCore.rivalColony.setWorkAllocation(state.colonyStatus.workAllocation);
 applyColonyStatusToConfig();
 
 new InputRouter(canvas, viewManager, {
@@ -422,12 +431,18 @@ const controls = createControls(state, {
     simCore.reset(state.seed);
     state.selectedAntId = null;
     syncRenderWorld();
+    centerNestOnQueen();
+    simCore.colony.setWorkAllocation(state.colonyStatus.workAllocation);
+    simCore.rivalColony.setWorkAllocation(state.colonyStatus.workAllocation);
+    applyColonyStatusToConfig();
   },
   save: () => saveState(),
   load: () => loadState(),
   clearWorld: () => simCore.clearWorld(),
   toggleView: () => viewManager.toggle(),
+  showNestHome,
   getView: () => viewManager.getCurrent(),
+  getAutoDig: () => simCore.digSystem.autoDig,
   toggleDebugStats: () => {
     state.debug.showStats = !state.debug.showStats;
     state.debug.showEntranceInfo = state.debug.showStats;
@@ -436,8 +451,12 @@ const controls = createControls(state, {
     state.overlays.showScent = !state.overlays.showScent;
   },
   spawnFoodAtCursor: () => {
-    if (viewManager.getCurrent() !== VIEW.SURFACE || !state.cursor.surface) return;
-    simCore.spawnFoodCluster(state.cursor.surface.x, state.cursor.surface.y, 8, 12);
+    if (viewManager.getCurrent() !== VIEW.SURFACE) return;
+    const point = state.cursor.surface ?? {
+      x: Math.floor(surfaceRenderer.cameraX),
+      y: Math.min(simCore.world.nestY - 1, Math.floor(surfaceRenderer.cameraY)),
+    };
+    simCore.spawnFoodCluster(point.x, point.y, 8, 12);
   },
   starveSelectedAnt: () => {
     const ant = simCore.findAntById(state.selectedAntId);
@@ -483,6 +502,7 @@ const colonyStatusPanel = new ColonyStatusPanel({
       nurse: percentages.c,
     };
     simCore.colony.setWorkAllocation(state.colonyStatus.workAllocation);
+    simCore.rivalColony.setWorkAllocation(state.colonyStatus.workAllocation);
   },
   onCasteChange: (percentages) => {
     state.colonyStatus.casteAllocation = {
@@ -509,7 +529,21 @@ parameterEditor = new ParameterEditor('#parameterEditorContainer', state, () => 
 });
 
 // Setup tab switching
+const rightPanel = mustById('rightPanel');
+const panelToggle = mustById('panelToggle');
+panelToggle.addEventListener('click', () => {
+  const open = rightPanel.classList.toggle('drawer-open');
+  panelToggle.setAttribute('aria-expanded', String(open));
+});
+rightPanel.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !rightPanel.classList.contains('drawer-open')) return;
+  rightPanel.classList.remove('drawer-open');
+  panelToggle.setAttribute('aria-expanded', 'false');
+  panelToggle.focus();
+});
+
 function switchTab(tabName) {
+  rightPanel.classList.toggle('params-open', tabName === 'params');
   const statsView = document.getElementById('statsView');
   const paramsView = document.getElementById('paramsView');
   const statsBtn = document.getElementById('statsTabBtn');
@@ -642,6 +676,7 @@ function loop(now) {
     const antHealthStats = getAntHealthStats(simCore.colony.ants);
     const redAntHealthStats = getAntHealthStats(simCore.rivalColony.ants);
     const hudCounts = getHudAntCounts(simCore.colony.ants, simCore.world.nestY);
+    const redHudCounts = getHudAntCounts(simCore.rivalColony.ants, simCore.world.nestY);
     const deathsByCause = mergeDeathCauses(
       simCore.colony.deathsByCause,
       simCore.rivalColony.deathsByCause,
@@ -682,6 +717,14 @@ function loop(now) {
         followingHome: hudCounts.followingHome,
         deaths: simCore.colony.deaths + simCore.rivalColony.deaths,
         deathsByCause,
+        blackDeathsByCause: simCore.colony.deathsByCause,
+        redDeathsByCause: simCore.rivalColony.deathsByCause,
+        redFood: getHudFoodTotal(simCore.rivalColony),
+        redQueenHealth: simCore.rivalColony.queen.health,
+        redQueenAlive: simCore.rivalColony.queen.alive,
+        redSurface: redHudCounts.surface,
+        redUnderground: redHudCounts.underground,
+        selectedAnt,
         virtualFoodRemaining: simCore.colony._virtualFoodStored,
         virtualFoodInitial: simCore.colony._virtualFoodInitial,
       });
@@ -800,6 +843,7 @@ function mergeDeathCauses(...causes) {
     oldAge: 0,
     hazard: 0,
     combat: 0,
+    predation: 0,
     other: 0,
   };
   for (const cause of causes) {
@@ -1059,6 +1103,7 @@ function loadState() {
     Object.assign(state.colonyStatus.casteAllocation, data.state.colonyStatus.casteAllocation || {});
   }
   simCore.colony.setWorkAllocation(state.colonyStatus.workAllocation);
+  simCore.rivalColony.setWorkAllocation(state.colonyStatus.workAllocation);
   applyColonyStatusToConfig();
   colonyStatusPanel.sync({
     work: state.colonyStatus.workAllocation,
@@ -1076,6 +1121,7 @@ function loadState() {
     surfaceRenderer.cameraY = surfaceCam.y;
     surfaceRenderer.zoom = surfaceCam.zoom;
   }
+  centerNestOnQueen();
   const nestCam = data.state?.cameras?.nest;
   if (nestCam && Number.isFinite(nestCam.x) && Number.isFinite(nestCam.y) && Number.isFinite(nestCam.zoom)) {
     nestRenderer.cameraX = nestCam.x;
@@ -1115,6 +1161,17 @@ function applyColonyStatusToConfig() {
  *
  * Required after reset/load because SimulationCore replaces world objects.
  */
+function centerNestOnQueen() {
+  const queen = simCore.colony.queen;
+  nestRenderer.cameraX = queen.x;
+  nestRenderer.cameraY = queen.y;
+}
+
+function showNestHome() {
+  centerNestOnQueen();
+  viewManager.setView(VIEW.NEST);
+}
+
 function syncRenderWorld() {
   surfaceRenderer.setWorld(simCore.world);
   nestRenderer.setWorld(simCore.world);

@@ -36,6 +36,8 @@ export class World {
 
     this.toFood = new Float32Array(this.size);
     this.toHome = new Float32Array(this.size);
+    this._rivalTrails = null;
+    this.combatAlarms = [];
     this.danger = new Float32Array(this.size);
 
     // Recruitment channel (config.dualPheromone): a SECOND food-scent field,
@@ -43,7 +45,7 @@ export class World {
     // channel. A fresh pickup deposits a burst here; it spreads fast to nearby
     // searchers then evaporates, so discovery can be recruited aggressively
     // WITHOUT polluting the stable corridor field. Off by default (single mode);
-    // when off this field stays empty and inert. Transient — not serialized.
+    // when off this field stays empty and inert.
     this.recruit = new Float32Array(this.size);
 
     // Exploration / dispersion channel (config.explorationField): a REPULSIVE
@@ -51,7 +53,7 @@ export class World {
     // coverage) and clusters that recently depleted (dead-source repulsion).
     // Searchers steer AWAY from it, spreading onto fresh ground and not re-checking
     // eaten-out spots. Off by default; empty + inert when off. Transient — not
-    // serialized. See docs/exploration-field-design.md.
+    // inert. See docs/exploration-field-design.md.
     this.explored = new Float32Array(this.size);
 
     // Harvest field (config.depletionReactive): a decaying "recent foraging
@@ -157,13 +159,51 @@ export class World {
   // active-cell list — otherwise it would never diffuse or evaporate. Math is
   // identical to the old in-place writes: Math.min(clampMax, current + amount),
   // with clampMax defaulting to Infinity for the unclamped dig boosts.
-  depositToFood(idx, amount, clampMax = Infinity) {
+  getTrail(channel, colonyId) {
+    const key = channel === 'home' ? 'home' : 'food';
+    if (colonyId === 'red') return this.#getRivalTrails()[key].values;
+    return channel === 'home' ? this.toHome : this.toFood;
+  }
+
+  #getRivalTrails() {
+    if (!this._rivalTrails) {
+      const createField = () => ({
+        values: new Float32Array(this.size),
+        next: new Float32Array(this.size),
+        active: [],
+        scratch: [],
+      });
+      this._rivalTrails = { food: createField(), home: createField() };
+    }
+    return this._rivalTrails;
+  }
+
+  #depositRivalTrail(channel, idx, amount, clampMax) {
+    const field = this.#getRivalTrails()[channel];
+    field.values[idx] = Math.min(clampMax, field.values[idx] + amount);
+    field.active.push(idx);
+    this.markFieldsDirty();
+  }
+
+  clearRivalTrails() {
+    this._rivalTrails = null;
+  }
+
+  depositToFood(idx, amount, clampMax = Infinity, colonyId = 'black') {
+    if (colonyId === 'red') {
+      this.#depositRivalTrail('food', idx, amount, clampMax);
+      return;
+    }
     this.toFood[idx] = Math.min(clampMax, this.toFood[idx] + amount);
     this._activeFood.push(idx);
     this.markFieldsDirty();
   }
 
-  depositToHome(idx, amount, clampMax = Infinity) {
+  depositToHome(idx, amount, clampMax = Infinity, colonyId = 'black') {
+    if (colonyId === 'red') {
+      this.#depositRivalTrail('home', idx, amount, clampMax);
+      return;
+    }
     this.toHome[idx] = Math.min(clampMax, this.toHome[idx] + amount);
     this._activeHome.push(idx);
     this.markFieldsDirty();
@@ -243,6 +283,26 @@ export class World {
   // Spatial classification: true when the tile is strictly below the
   // surface/underground horizon. Use this for view ownership / layer-based
   // logic (renderer filters, patch underground flag, HUD counts).
+  hasClearFoodSight(x, y, targetX, targetY) {
+    if (![x, y, targetX, targetY].every(Number.isFinite)) return false;
+    x = Math.round(x);
+    y = Math.round(y);
+    targetX = Math.round(targetX);
+    targetY = Math.round(targetY);
+    const dx = Math.abs(targetX - x);
+    const dy = -Math.abs(targetY - y);
+    const stepX = x < targetX ? 1 : -1;
+    const stepY = y < targetY ? 1 : -1;
+    let error = dx + dy;
+    while (x !== targetX || y !== targetY) {
+      const twice = 2 * error;
+      if (twice >= dy) { error += dy; x += stepX; }
+      if (twice <= dx) { error += dx; y += stepY; }
+      if (this.terrain[this.index(x, y)] === TERRAIN.WALL) return false;
+    }
+    return true;
+  }
+
   isBelowSurface(x, y) {
     return y > this.nestY;
   }
@@ -358,9 +418,15 @@ export class World {
       Note: Stability requires 4D < 1 (i.e., D < 0.25); values >= 0.25 warn in console.
   */
   updatePheromones(config, tick) {
+    if (this.combatAlarms.length > 0) {
+      for (const alarm of this.combatAlarms) alarm.remaining -= 1;
+      this.combatAlarms = this.combatAlarms.filter(alarm => alarm.remaining > 0);
+    }
     if (config.enablePheromones === false) {
       this.toFood.fill(0);
       this.toHome.fill(0);
+      this.clearRivalTrails();
+      this.combatAlarms.length = 0;
       this.danger.fill(0);
       this.recruit.fill(0);
       this.explored.fill(0);
@@ -428,12 +494,31 @@ export class World {
     this._activeRecruitScratch = this._activeRecruit; this._activeRecruit = nr;
     this._activeExploredScratch = this._activeExplored; this._activeExplored = ne;
 
+    if (this._rivalTrails) {
+      this.#updateRivalTrail(this._rivalTrails.food, config.evapFood, foodDiff, config, dt, mask);
+      this.#updateRivalTrail(this._rivalTrails.home, config.evapHome, homeDiff, config, dt, mask);
+    }
+
     // Depletion-reactive decay: collapse food trails that no longer lead to a
     // live source. Runs after the swap so it acts on the fresh toFood buffer and
     // its active list. ON by default since v0.47.0 (gated so it can be A/B'd off).
     if (config.depletionReactive) this.#applyDepletionDecay(config, dt);
 
     this.fieldsVersion += 1;
+  }
+
+  #updateRivalTrail(field, evap, diff, config, dt, mask) {
+    const active = this.#updatePheromonesField(field.values, field.next, field.active, field.scratch,
+      evap, diff, config.pheromoneMaxClamp, dt, mask);
+    [field.values, field.next] = [field.next, field.values];
+    field.scratch = field.active;
+    field.active = active;
+  }
+
+  depositCombatAlarm(x, y, ticks) {
+    const existing = this.combatAlarms.find(alarm => alarm.x === x && alarm.y === y);
+    if (existing) existing.remaining = Math.max(existing.remaining, ticks);
+    else this.combatAlarms.push({ x, y, remaining: ticks });
   }
 
   // Evolve the harvest field (decay) and apply EXTRA toFood evaporation wherever
@@ -464,15 +549,18 @@ export class World {
     const protectRef = Math.max(1e-6, config.harvestProtectRef ?? 0.2);
     const boost = Math.max(0, config.depletionDecayBoost ?? 0.3) * dt;
     if (boost === 0) return;
-    const toFood = this.toFood;
-    for (let k = 0; k < this._activeFood.length; k += 1) {
-      const idx = this._activeFood[k];
-      const protection = Math.min(1, harvest[idx] / protectRef);
+    this.#applyExtraFoodDecay(this.toFood, this._activeFood, protectRef, boost);
+    if (this._rivalTrails) {
+      const { values, active } = this._rivalTrails.food;
+      this.#applyExtraFoodDecay(values, active, protectRef, boost);
+    }
+  }
+
+  #applyExtraFoodDecay(values, active, protectRef, boost) {
+    for (const idx of active) {
+      const protection = Math.min(1, this.harvest[idx] / protectRef);
       const extra = boost * (1 - protection);
-      // extra < 1, so the cell stays strictly positive — it remains a valid
-      // active-list entry and is snapped to 0 by the normal field update once it
-      // crosses the evaporation threshold, exactly like baseline decay.
-      if (extra > 0) toFood[idx] *= (1 - extra);
+      if (extra > 0) values[idx] *= (1 - extra);
     }
   }
 
@@ -628,8 +716,8 @@ export class World {
     for (let i = 0; i < this.size; i += 1) {
       if (!mask[i]) continue;
       passable += 1;
-      const food = this.toFood[i];
-      const home = this.toHome[i];
+      const food = getDisplayTrailValue(this, 'food', i);
+      const home = getDisplayTrailValue(this, 'home', i);
       if (food > maxFood) maxFood = food;
       if (home > maxHome) maxHome = home;
       sumFood += food;
@@ -653,6 +741,17 @@ export class World {
     // cells. Saves land in localStorage (~5MB quota), so payload size is a
     // real constraint on large, pheromone-saturated worlds.
     const compactFloats = (field) => Array.from(field, (v) => (v === 0 ? 0 : Number(v.toPrecision(9))));
+    const sparseFields = {};
+    for (const [key, active] of [
+      ['recruit', this._activeRecruit],
+      ['explored', this._activeExplored],
+      ['harvest', this._activeHarvest],
+    ]) {
+      if (active.length > 0) {
+        sparseFields[key] = [...new Set(active)].filter(idx => this[key][idx] !== 0)
+          .sort((a, b) => a - b).map(idx => [idx, this[key][idx]]);
+      }
+    }
     return {
       width: this.width,
       height: this.height,
@@ -666,6 +765,14 @@ export class World {
       toFood: compactFloats(this.toFood),
       toHome: compactFloats(this.toHome),
       danger: compactFloats(this.danger),
+      ...(this._rivalTrails && (this._rivalTrails.food.active.length || this._rivalTrails.home.active.length) ? {
+        redTrails: {
+          food: compactFloats(this._rivalTrails.food.values),
+          home: compactFloats(this._rivalTrails.home.values),
+        },
+      } : {}),
+      ...(Object.keys(sparseFields).length ? { sparseFields } : {}),
+      ...(this.combatAlarms.length ? { combatAlarms: this.combatAlarms.map(alarm => ({ ...alarm })) } : {}),
     };
   }
 
@@ -684,8 +791,41 @@ export class World {
     world.toFood.set(data.toFood);
     world.toHome.set(data.toHome);
     world.danger.set(data.danger);
+    if (Array.isArray(data.redTrails?.food) && data.redTrails.food.length === world.size
+        && Array.isArray(data.redTrails?.home) && data.redTrails.home.length === world.size) {
+      const fields = world.#getRivalTrails();
+      for (const channel of ['food', 'home']) {
+        fields[channel].values.set(data.redTrails[channel]);
+        for (let i = 0; i < world.size; i += 1) {
+          if (fields[channel].values[i] !== 0) fields[channel].active.push(i);
+        }
+      }
+    }
+    if (Array.isArray(data.combatAlarms)) {
+      world.combatAlarms = data.combatAlarms.filter(alarm => alarm
+        && Number.isInteger(alarm.x) && Number.isInteger(alarm.y)
+        && world.inBounds(alarm.x, alarm.y) && Number.isFinite(alarm.remaining) && alarm.remaining > 0);
+    }
+    for (const key of ['recruit', 'explored', 'harvest']) {
+      const entries = data.sparseFields?.[key];
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        if (!Array.isArray(entry)) continue;
+        const [index, value] = entry;
+        if (!Number.isInteger(index) || index < 0 || index >= world.size || !Number.isFinite(value) || value <= 0) continue;
+        if (key === 'harvest' && world.harvest[index] === 0) world._activeHarvest.push(index);
+        world[key][index] = value;
+      }
+    }
     world.#rebuildActiveLists();
     world.recomputeNestInfluence();
     return world;
   }
+}
+
+// Rendering can combine the two colonies without changing either sensing field.
+export function getDisplayTrailValue(world, channel, index) {
+  const primary = channel === 'home' ? world.toHome : world.toFood;
+  const rival = world._rivalTrails?.[channel].values[index] ?? 0;
+  return Math.max(primary[index], rival);
 }

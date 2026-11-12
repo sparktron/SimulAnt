@@ -12,6 +12,7 @@ export class ParameterEditor {
     this.onConfigChange = onConfigChange;
     this.presetManager = new PresetManager();
     this.advancedMode = false;
+    this.filterQuery = '';
     this.expandedGroups = new Set();
     this.defaults = getDefaultConfig();
 
@@ -33,7 +34,20 @@ export class ParameterEditor {
     // Advanced toggle
     this.renderAdvancedToggle();
 
-    // Parameter groups
+    const filter = document.createElement('input');
+    filter.type = 'search';
+    filter.className = 'param-filter';
+    filter.placeholder = 'Filter parameters';
+    filter.setAttribute('aria-label', 'Filter parameters');
+    filter.value = this.filterQuery;
+    this.container.appendChild(filter);
+
+    this.groupsContainer = document.createElement('div');
+    this.container.appendChild(this.groupsContainer);
+    filter.addEventListener('input', () => {
+      this.filterQuery = filter.value;
+      this.renderParameterGroups();
+    });
     this.renderParameterGroups();
   }
 
@@ -53,12 +67,12 @@ export class ParameterEditor {
     presetDiv.className = 'preset-controls';
 
     const label = document.createElement('label');
-    label.textContent = 'Presets:';
+    label.textContent = 'Presets';
     label.htmlFor = 'presetSelect';
 
     const select = document.createElement('select');
     select.id = 'presetSelect';
-    select.innerHTML = '<option value="">-- Select preset --</option>';
+    select.innerHTML = '<option value="">Select preset</option>';
 
     const presets = this.presetManager.getPresetNames();
     presets.forEach(name => {
@@ -138,7 +152,20 @@ export class ParameterEditor {
   }
 
   renderParameterGroups() {
-    const grouped = getParametersByGroup(this.advancedMode);
+    this.groupsContainer.innerHTML = '';
+    const query = this.filterQuery.trim().toLowerCase();
+    const grouped = getParametersByGroup(this.advancedMode || Boolean(query));
+    if (query) {
+      for (const group of Object.keys(grouped)) {
+        grouped[group] = grouped[group].filter(param =>
+          `${group} ${param.label} ${param.key} ${param.description}`.toLowerCase().includes(query));
+        if (grouped[group].length === 0) delete grouped[group];
+      }
+    }
+    if (Object.keys(grouped).length === 0) {
+      this.groupsContainer.textContent = 'No matching parameters.';
+      return;
+    }
     const groupOrder = [
       'Movement',
       'Decision-Making',
@@ -159,18 +186,20 @@ export class ParameterEditor {
 
     orderedGroups.forEach(group => {
 
+      const isOpen = Boolean(query) || this.expandedGroups.has(group);
       const groupDiv = document.createElement('div');
       groupDiv.className = 'parameter-group';
 
       const header = document.createElement('button');
       header.type = 'button';
       header.className = 'group-header';
-      header.setAttribute('aria-expanded', String(this.expandedGroups.has(group)));
+      header.setAttribute('aria-expanded', String(isOpen));
       header.addEventListener('click', () => this.toggleGroup(group));
+      header.disabled = Boolean(query);
 
       const arrow = document.createElement('span');
       arrow.className = 'expand-arrow';
-      arrow.textContent = this.expandedGroups.has(group) ? '▼' : '▶';
+      arrow.textContent = isOpen ? '▼' : '▶';
 
       const title = document.createElement('span');
       title.className = 'group-title';
@@ -180,7 +209,7 @@ export class ParameterEditor {
       header.appendChild(title);
       groupDiv.appendChild(header);
 
-      if (this.expandedGroups.has(group)) {
+      if (isOpen) {
         const content = document.createElement('div');
         content.className = 'group-content';
 
@@ -191,7 +220,7 @@ export class ParameterEditor {
         groupDiv.appendChild(content);
       }
 
-      this.container.appendChild(groupDiv);
+      this.groupsContainer.appendChild(groupDiv);
     });
   }
 

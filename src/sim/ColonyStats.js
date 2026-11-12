@@ -102,6 +102,8 @@ export class ColonyStats {
       deathStarv: byCause.starvation || 0,
       deathAge: byCause.oldAge || 0,
       deathHazard: byCause.hazard || 0,
+      deathCombat: byCause.combat || 0,
+      deathPredation: byCause.predation || 0,
       deathOther: byCause.other || 0,
       avgHunger: round1(aliveCount > 0 ? hungerSum / aliveCount : 0),
       avgHealth: round1(aliveCount > 0 ? healthSum / aliveCount : 0),
@@ -166,6 +168,8 @@ export class ColonyStats {
       deathStarv: latest.deathStarv,
       deathAge: latest.deathAge,
       deathHazard: latest.deathHazard,
+      deathCombat: latest.deathCombat,
+      deathPredation: latest.deathPredation,
       deathOther: latest.deathOther,
     };
   }

@@ -1,4 +1,4 @@
-import { TERRAIN } from '../../sim/world.js';
+import { TERRAIN, getDisplayTrailValue } from '../../sim/world.js';
 import { drawSoilMound } from '../soilMound.js';
 
 // Terrain formulas moved from the original renderers without changing their output.
@@ -26,13 +26,13 @@ function surfaceTerrainPixel(terrain, x, y, idx, world, overlays) {
         }
 
         if (overlays.showToFood || overlays.showScent) {
-          const scentFood = Math.min(1, Math.sqrt(world.toFood[idx] / 6));
+          const scentFood = Math.min(1, Math.sqrt(getDisplayTrailValue(world, 'food', idx) / 6));
           r = Math.floor(r * (1 - scentFood) + 40 * scentFood);
           g = Math.floor(g * (1 - scentFood) + 220 * scentFood);
           b = Math.floor(b * (1 - scentFood) + 70 * scentFood);
         }
         if (overlays.showToHome || overlays.showScent) {
-          const scentHome = Math.min(1, Math.sqrt(world.toHome[idx] / 6));
+          const scentHome = Math.min(1, Math.sqrt(getDisplayTrailValue(world, 'home', idx) / 6));
           r = Math.floor(r * (1 - scentHome) + 55 * scentHome);
           g = Math.floor(g * (1 - scentHome) + 110 * scentHome);
           b = Math.floor(b * (1 - scentHome) + 245 * scentHome);

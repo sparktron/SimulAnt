@@ -1,4 +1,4 @@
-import { TERRAIN } from '../../sim/world.js';
+import { TERRAIN, getDisplayTrailValue } from '../../sim/world.js';
 import { classicSkin } from './classicSkin.js';
 import { bayer, hash2, noiseField, tileTableCache } from './skinAssets.js';
 
@@ -68,8 +68,8 @@ function surfaceTerrainPixel(terrain, x, y, idx, world, overlays) {
   }
   if (c) { OUT[0] = c[0]; OUT[1] = c[1]; OUT[2] = c[2]; }
   else { const g = groundTable(W, world.height), o = idx * 3; OUT[0] = g[o]; OUT[1] = g[o + 1]; OUT[2] = g[o + 2]; }
-  if (overlays.showToFood || overlays.showScent) ditherBlend(OUT, Math.min(1, Math.sqrt(world.toFood[idx] / 6)), d, RGB.lgreen);
-  if (overlays.showToHome || overlays.showScent) ditherBlend(OUT, Math.min(1, Math.sqrt(world.toHome[idx] / 6)), d, RGB.lblue);
+  if (overlays.showToFood || overlays.showScent) ditherBlend(OUT, Math.min(1, Math.sqrt(getDisplayTrailValue(world, 'food', idx) / 6)), d, RGB.lgreen);
+  if (overlays.showToHome || overlays.showScent) ditherBlend(OUT, Math.min(1, Math.sqrt(getDisplayTrailValue(world, 'home', idx) / 6)), d, RGB.lblue);
   if (overlays.showDanger) ditherBlend(OUT, Math.min(1, world.danger[idx]), d, RGB.lred);
   return OUT;
 }

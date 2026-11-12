@@ -75,24 +75,19 @@ export function applyVitals(ant, colony, config, dt, didMove, inNest) {
  * Caste-independent vitals: starvation damage, fed-state passive regen, and
  * old-age decline — applied in this fixed order for every ant.
  *
- * Passive regen threshold (hunger > 50%) sits below the post-meal hunger
- * level (eat at 35% + 25 = 60%) so workers heal between trips; anything
- * higher would block regen for the normal feed cycle. Senescent ants still
- * heal but at half rate, so age drain still wins and they fade out gradually
- * across the senescence window instead of collapsing mid-window.
+ * Senescence is irreversible, regardless of food supply.
  */
 export function applyStarvationRegenAging(ant, config, dt) {
   if (ant.hunger <= 0) {
     ant.health = Math.max(0, ant.health - (config.healthDrainRate ?? 0) * dt);
   }
 
-  if (ant.hunger > ant.hungerMax * 0.5 && ant.health < ant.healthMax) {
+  if (!isSenescent(ant) && ant.hunger > ant.hungerMax * 0.5 && ant.health < ant.healthMax) {
     const regenRate = Math.max(0, config.healthRegenRate ?? 0);
-    const senescenceFactor = ant.age > ant.maxAge * SENESCENCE_START_FRACTION ? 0.5 : 1;
-    ant.health = Math.min(ant.healthMax, ant.health + regenRate * senescenceFactor * dt);
+    ant.health = Math.min(ant.healthMax, ant.health + regenRate * dt);
   }
 
-  if (ant.age > ant.maxAge * SENESCENCE_START_FRACTION) {
+  if (isSenescent(ant)) {
     const ageFactor = (ant.age - ant.maxAge * SENESCENCE_START_FRACTION) / (ant.maxAge * (1 - SENESCENCE_START_FRACTION));
     ant.health = Math.max(0, ant.health - ageFactor * 2 * dt);
   }
@@ -107,7 +102,7 @@ export function applyStarvationRegenAging(ant, config, dt) {
  */
 export function deathCause(ant) {
   if (ant.hunger <= 0) return 'starvation';
-  if (ant.age > ant.maxAge * SENESCENCE_START_FRACTION) return 'oldAge';
+  if (isSenescent(ant)) return 'oldAge';
   return 'other';
 }
 
@@ -145,18 +140,13 @@ export function tryEatFromNest(ant, colony, inNest, config) {
   // ~30 sec, draining colony births with no return.
   if (ant.role !== 'worker' && ant.role !== 'soldier') return false;
 
-  // Cooldown: prevent ants from eating every single tick in the nest.
-  // 30 ticks between meals unless critically starving.
-  const eatCooldown = config.nestEatCooldownTicks ?? 30;
-  const ticksSinceLastEat = ant.stepCounter - ant._lastNestEatTick;
-  const critical = isCriticalHealth(ant);
-  if (!critical && ticksSinceLastEat < eatCooldown) return false;
+  const critical = isCriticalHealth(ant) && !isSenescent(ant);
+  if (!critical && ant.stepCounter - ant._lastNestEatTick < (config.nestEatCooldownTicks ?? 30)) {
+    return false;
+  }
 
-  // Hunger-based eating: eat when hungry, not when health dips.
-  // Health regenerates passively when hunger > 50%, so feeding hunger
-  // is the correct lever.  Critical-health ants still get priority.
-  const hungry = ant.hunger < ant.hungerMax * 0.35;
-  if (!hungry && !critical) return false;
+  const hungerThreshold = ant._recoveringInNest ? Math.max(0.5, nestMealFraction(config)) : nestMealFraction(config);
+  if (!critical && ant.hunger >= ant.hungerMax * hungerThreshold) return false;
   const wasStarving = ant.hunger < ant.hungerMax * 0.1;
 
   const requested = critical
@@ -166,8 +156,8 @@ export function tryEatFromNest(ant, colony, inNest, config) {
   // If hunger is already full there is nothing to absorb — passive regen
   // (hunger > 50%) will restore health without consuming colony stores.
   const hungerCapacity = Math.max(0, ant.hungerMax - ant.hunger);
-  if (hungerCapacity <= 0) return false;
-  const requestedIntake = Math.max(1, Math.min(requested, hungerCapacity));
+  const requestedIntake = Math.min(requested ?? 0, hungerCapacity);
+  if (requestedIntake <= 1e-6) return false;
 
   const consumed = colony.consumeFromStore(requestedIntake);
   if (consumed <= 0) return false;
@@ -177,7 +167,10 @@ export function tryEatFromNest(ant, colony, inNest, config) {
   const healthGain = consumed * (config.healthEatRecoveryRate ?? 0);
   // Recovery bonus only applies when the ant is actually starving, not when
   // health is low for other reasons (old age, combat damage, etc.).
-  ant.health = Math.min(ant.healthMax, ant.health + healthGain + (critical && wasStarving ? config.starvationRecoveryHealth : 0));
+  if (!isSenescent(ant)) {
+    const recoveryBonus = critical && wasStarving ? (config.starvationRecoveryHealth ?? 0) : 0;
+    ant.health = Math.min(ant.healthMax, ant.health + healthGain + recoveryBonus);
+  }
   return true;
 }
 
@@ -208,7 +201,7 @@ export function consumePelletForHealthThenCarry(ant, colony, pellet, config) {
     : (config.workerEatNutrition ?? nutrition);
   const fieldCap = critical ? nutrition : nutrition / 2;
   const consumed = Math.min(nutrition, requested, fieldCap);
-  const healthRecoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
+  const healthRecoveryRate = fieldRecoveryRate(ant, config);
 
   ant.hunger = Math.min(ant.hungerMax, ant.hunger + consumed);
   ant.health = Math.min(ant.healthMax, ant.health + consumed * healthRecoveryRate);
@@ -237,7 +230,7 @@ export function consumePelletForHealth(ant, colony, pellet, config) {
     ? (config.workerEmergencyEatNutrition ?? config.workerEatNutrition ?? nutrition)
     : (config.workerEatNutrition ?? nutrition);
   const consumed = Math.min(nutrition, requested);
-  const healthRecoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
+  const healthRecoveryRate = fieldRecoveryRate(ant, config);
 
   ant.hunger = Math.min(ant.hungerMax, ant.hunger + consumed);
   ant.health = Math.min(ant.healthMax, ant.health + consumed * healthRecoveryRate);
@@ -264,7 +257,7 @@ export function consumeCarriedFoodForHealth(ant, config) {
     : (config.workerEatNutrition ?? available);
   const cargoCap = critical ? available : available / 2;
   const consumed = Math.min(available, requested, cargoCap);
-  const recoveryRate = Math.max(0, config.healthEatRecoveryRate ?? 0);
+  const recoveryRate = fieldRecoveryRate(ant, config);
   ant.hunger = Math.min(ant.hungerMax, ant.hunger + consumed);
   ant.health = Math.min(ant.healthMax, ant.health + consumed * recoveryRate);
 
@@ -288,4 +281,33 @@ export function isLowHealth(ant) {
 // ants can re-feed every tick until hunger is full or they're stable.
 export function isCriticalHealth(ant) {
   return ant.health < ant.healthMax * 0.4;
+}
+
+export function isSenescent(ant) {
+  return ant.age > ant.maxAge * SENESCENCE_START_FRACTION;
+}
+
+export function nestMealFraction(config) {
+  return Math.max(0, Math.min(1, config.surfaceReturnToNestHungerThreshold ?? 0.25));
+}
+
+export function fieldRecoveryRate(ant, config) {
+  return isSenescent(ant) ? 0 : Math.max(0, config.healthEatRecoveryRate ?? 0);
+}
+
+// A recovery bout spans multiple pellets. Save the intent so crossing 40%
+// midway through the meal, or saving and reloading, cannot trigger pickup.
+export function consumeRecoveryMeal(ant, colony, pellet, config) {
+  const rate = fieldRecoveryRate(ant, config);
+  const healthNeed = rate > 0 ? (ant.healthMax - ant.health) / rate : 0;
+  const hungerNeed = ant.hunger < ant.hungerMax * 0.4 ? ant.hungerMax - ant.hunger : 0;
+  const needed = Math.max(healthNeed, hungerNeed);
+  const consumed = Math.min(pellet.nutrition, needed);
+  ant.hunger = Math.min(ant.hungerMax, ant.hunger + consumed);
+  ant.health = consumed >= healthNeed && rate > 0
+    ? ant.healthMax
+    : Math.min(ant.healthMax, ant.health + consumed * rate);
+  ant.fieldMeal = rate > 0 && ant.health < ant.healthMax ? 'recover' : 'pickup';
+  if (pellet.nutrition - consumed <= 1e-6) colony.removePelletById(pellet.id);
+  else pellet.nutrition -= consumed;
 }

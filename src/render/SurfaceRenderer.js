@@ -1,3 +1,4 @@
+import { drawCorpses } from './CorpseRenderer.js';
 /*
     Top-down rendering of the surface (y <= nestY).
 
@@ -18,7 +19,7 @@
     Uses off-screen canvas for terrain (ImageData) to avoid per-pixel fills.
 */
 
-import { TERRAIN } from '../sim/world.js';
+import { TERRAIN, getDisplayTrailValue } from '../sim/world.js';
 import { Ant } from '../sim/ant.js';
 import { getSkin } from './skins/index.js';
 
@@ -126,8 +127,10 @@ export class SurfaceRenderer {
       ? [...nestEntrances, ...options.rivalNestEntrances]
       : nestEntrances;
     this.#drawEntranceMounds(ctx, allEntrances, options.rivalNestEntrances);
+    drawCorpses(ctx, colony, this.world, false);
     this.#drawAnts(ctx, colony, allEntrances, options.selectedAntId, options.showDebugStats, overlays);
     if (options.rivalColony) {
+      drawCorpses(ctx, options.rivalColony, this.world, false);
       this.#drawAnts(
         ctx,
         options.rivalColony,
@@ -299,8 +302,8 @@ export class SurfaceRenderer {
 
   #drawCursorDebug(ctx, cursor) {
     const idx = this.world.index(cursor.x, cursor.y);
-    const scentFood = this.world.toFood[idx] || 0;
-    const scentHome = this.world.toHome[idx] || 0;
+    const scentFood = getDisplayTrailValue(this.world, 'food', idx) || 0;
+    const scentHome = getDisplayTrailValue(this.world, 'home', idx) || 0;
     ctx.fillStyle = '#b0fff0';
     ctx.font = '3px monospace';
     ctx.fillText(`Food:${scentFood.toFixed(2)} Home:${scentHome.toFixed(2)}`, cursor.x + 2, cursor.y + 2);

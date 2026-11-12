@@ -31,7 +31,7 @@ import { TERRAIN } from '../world.js';
 */
 export function moveByPheromone(ant, world, rng, config, channel, entrance, colony, trailAttractionField = null) {
   if (!colony) colony = ant._currentColony;
-  const field = channel === 'home' ? world.toHome : world.toFood;
+  const field = world.getTrail(channel, colony?.id);
   const epsilon = 0.001;
   const reverseDir = (ant.dir + 4) % DIRS.length;
   const homeScentWeight = getHomeScentWeight(ant, config, entrance);
@@ -521,6 +521,14 @@ export function getCrowdingPenalty(ant, x, y, colony) {
   return Math.min(3, localPenalty + nearbyPenalty);
 }
 
+export function moveTowardNest(ant, world, colony, target, rng) {
+  const field = colony.getNestDestinationField?.(target.x, target.y);
+  if (!field || !world.isUndergroundTile(ant.x, ant.y)) {
+    return moveToward(ant, world, target.x, target.y, rng);
+  }
+  return moveToward(ant, world, target.x, target.y, rng, { field });
+}
+
 export function moveToward(ant, world, tx, ty, rng, constraints = null) {
   // Score each passable neighbor by distance-to-target plus a crowding penalty.
   // Without the crowding term, every exit/enter goal sends ants to the exact
@@ -547,7 +555,9 @@ export function moveToward(ant, world, tx, ty, rng, constraints = null) {
         continue;
       }
     }
-    const d = Math.hypot(tx - nx, ty - ny);
+    const field = constraints?.field;
+    const d = field ? field.distanceAt(nx, ny) : Math.hypot(tx - nx, ty - ny);
+    if (field && (d < 0 || d >= field.distanceAt(ant.x, ant.y))) continue;
     const crowd = colony ? colony.countAntsAt(nx, ny) : 0;
     // Each already-present ant costs ~0.6 units of distance equivalence.
     // Strong enough to prefer an empty sidestep over a 1-tile-better but occupied target,

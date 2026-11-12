@@ -1,0 +1,30 @@
+
+== black ==
+1000: n=66 old=0 food=400 dep=2326 eatOld=0 eatYoung=3925 brood+queen=0 surfForagers~15 healers~0
+2000: n=103 old=7 food=929 dep=7504 eatOld=25 eatYoung=6948 brood+queen=0 surfForagers~15 healers~0
+3000: n=131 old=9 food=207 dep=8623 eatOld=50 eatYoung=9295 brood+queen=0 surfForagers~25 healers~0
+4000: n=154 old=7 food=1119 dep=9088 eatOld=62 eatYoung=8114 brood+queen=0 surfForagers~47 healers~0
+5000: n=162 old=13 food=3381 dep=10497 eatOld=100 eatYoung=8134 brood+queen=0 surfForagers~70 healers~0
+6000: n=167 old=19 food=4754 dep=9579 eatOld=75 eatYoung=8130 brood+queen=0 surfForagers~83 healers~0
+7000: n=151 old=25 food=6818 dep=9401 eatOld=325 eatYoung=7011 brood+queen=0 surfForagers~88 healers~0
+8000: n=152 old=36 food=7616 dep=6728 eatOld=500 eatYoung=5430 brood+queen=0 surfForagers~91 healers~0
+9000: n=121 old=28 food=7436 dep=5450 eatOld=500 eatYoung=5129 brood+queen=0 surfForagers~83 healers~0
+10000: n=109 old=16 food=7274 dep=5522 eatOld=150 eatYoung=5533 brood+queen=0 surfForagers~64 healers~0
+11000: n=107 old=14 food=7358 dep=6426 eatOld=75 eatYoung=6267 brood+queen=0 surfForagers~42 healers~0
+12000: n=112 old=11 food=6519 dep=6049 eatOld=100 eatYoung=6788 brood+queen=0 surfForagers~43 healers~0
+go-home-to-eat episodes 622, ended with a meal 266 (43%), ant-ticks in episodes 48203, of which in unfed episodes 17545; direction flips p50/p90/max 0/1/1
+
+== red ==
+1000: n=64 old=0 food=1220 dep=2182 eatOld=0 eatYoung=2961 brood+queen=0 surfForagers~19 healers~0
+2000: n=98 old=6 food=217 dep=6373 eatOld=50 eatYoung=7325 brood+queen=0 surfForagers~21 healers~0
+3000: n=123 old=5 food=51 dep=7929 eatOld=0 eatYoung=8095 brood+queen=0 surfForagers~23 healers~0
+4000: n=139 old=6 food=45 dep=8767 eatOld=0 eatYoung=8772 brood+queen=0 surfForagers~35 healers~0
+5000: n=159 old=6 food=3710 dep=11727 eatOld=25 eatYoung=8036 brood+queen=0 surfForagers~43 healers~0
+6000: n=160 old=7 food=5691 dep=8979 eatOld=50 eatYoung=6947 brood+queen=0 surfForagers~57 healers~0
+7000: n=157 old=11 food=6072 dep=7322 eatOld=225 eatYoung=6715 brood+queen=0 surfForagers~64 healers~0
+8000: n=160 old=17 food=8669 dep=9001 eatOld=250 eatYoung=6153 brood+queen=0 surfForagers~76 healers~0
+9000: n=150 old=24 food=11015 dep=8192 eatOld=75 eatYoung=5770 brood+queen=0 surfForagers~74 healers~0
+10000: n=150 old=22 food=10849 dep=5871 eatOld=225 eatYoung=5812 brood+queen=0 surfForagers~71 healers~0
+11000: n=140 old=19 food=10420 dep=6180 eatOld=175 eatYoung=6434 brood+queen=0 surfForagers~63 healers~0
+12000: n=133 old=23 food=9615 dep=5116 eatOld=250 eatYoung=5670 brood+queen=0 surfForagers~65 healers~0
+go-home-to-eat episodes 411, ended with a meal 141 (34%), ant-ticks in episodes 28050, of which in unfed episodes 11475; direction flips p50/p90/max 0/1/1

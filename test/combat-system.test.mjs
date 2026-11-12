@@ -253,3 +253,18 @@ test('close-fight margin, win chance and wound range follow config', () => {
   runTicks(new CombatSystem(scriptedRng([0.99, 0])), c, DUEL_TICKS + 1, base);
   assert.equal(c.blackAnt.alive, true);
 });
+
+test('a duel leaves a local alarm that recruits a soldier outside combat sight', () => {
+  const { blackColony, redColony, blackAnt } = createCollision('soldier');
+  const { world, rng } = blackColony;
+  const combat = new CombatSystem(new SeededRng('alarm-duel'));
+  assert.equal(combat.resolve(blackColony, redColony, CONFIG), 1);
+  const soldier = new Ant(blackAnt.x + 10, blackAnt.y, rng, 'soldier');
+  soldier.hunger = soldier.hungerMax;
+  soldier.health = soldier.healthMax;
+  blackColony.ants.push(soldier);
+  const before = soldier.x;
+  soldier.update(world, blackColony, rng, CONFIG);
+  assert.equal(soldier.state, 'RESPOND_ALARM');
+  assert.ok(soldier.x < before);
+});

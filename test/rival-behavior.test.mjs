@@ -227,3 +227,21 @@ test('enemySeekBias loosens the soldier hunger gate but not the worker gate', as
   assert.ok(Math.abs(fightHungerFloor(soldier, { enemySeekBias: 1 }) - 20) < 1e-9);
   assert.equal(fightHungerFloor(worker, { enemySeekBias: 1 }), 50);
 });
+
+test('pursuit continues without rerolling until the commitment expires', () => {
+  const { sim, red, black } = encounter();
+  const committedConfig = { ...config, combatPursuitTicks: 3, combatPursuitCooldownTicks: 10 };
+  red.update(sim.world, sim.rivalColony, sim.rng, committedConfig);
+  assert.equal(red.pursuit.targetId, black.id);
+  const restored = new SimulationCore('pursuit-reload');
+  restored.loadFromSerialized(JSON.parse(JSON.stringify(sim.serialize({}))));
+  assert.deepEqual(restored.rivalColony.ants[0].pursuit, red.pursuit);
+
+  const rareEngagement = { ...committedConfig, combatEngageChance: 1e-12 };
+  for (let i = 0; i < 2; i += 1) {
+    red.update(sim.world, sim.rivalColony, sim.rng, rareEngagement);
+    assert.equal(red.state, 'SEEK_FIGHT');
+  }
+  red.update(sim.world, sim.rivalColony, sim.rng, rareEngagement);
+  assert.notEqual(red.state, 'SEEK_FIGHT');
+});

@@ -60,7 +60,7 @@ export class Ant {
 
   static getJobColor(state, workFocus, role = 'worker') {
     if (state === 'FIGHT') return FIGHT_COLOR;
-    if (state === 'SEEK_FIGHT' || state === 'RAID') return '#ff3030';
+    if (state === 'SEEK_FIGHT' || state === 'RAID' || state === 'RESPOND_ALARM') return '#ff3030';
     if (role === 'soldier') return '#8b1a1a';  // Dark red for soldiers
 
     switch (state) {
@@ -86,6 +86,7 @@ export class Ant {
 
       // Hauling/storing - orange
       case 'HAUL_DIRT':
+      case 'HAUL_CORPSE':
       case 'STORE_FOOD_IN_NEST':
       case 'PICKUP':
         return '#ff8c00';
@@ -99,11 +100,18 @@ export class Ant {
 
       // Digging - red/brown
       case 'DIG':
+      case 'DIG_ENTER_NEST':
+      case 'DIG_MOVE_TO_FRONT':
+      case 'DIG_AT_FRONT':
       case 'FORCE_DIG':
         return '#d2691e';
 
       // Nursing - light green/mint
       case 'NURSE':
+      case 'NURSE_ENTER_NEST':
+      case 'NURSE_TEND_BROOD':
+      case 'NURSE_PICKUP_BROOD_FOOD':
+      case 'NURSE_FEED_BROOD':
         return '#66ff99';
 
       // Leaving nest - light gray
@@ -208,6 +216,8 @@ export class Ant {
     this.raiding = false;
     // Set while a hurt forager is recovering in the nest (HEAL_IN_NEST).
     this._recoveringInNest = false;
+    this.fieldMeal = null;
+    this.pursuit = null;
   }
 
   /**
@@ -242,7 +252,7 @@ export class Ant {
   #sensePhase(world, colony, config) {
     this._currentColony = colony;
 
-    if (this.carrying?.type === 'food' || this.carrying?.type === 'queen-food') {
+    if (['food', 'queen-food', 'brood-food'].includes(this.carrying?.type)) {
       this.carryingType = 'food';
     } else if (this.carryingType === 'food') {
       this.carryingType = 'none';
@@ -259,7 +269,12 @@ export class Ant {
       return { halted: true, action: STAY_ACTION };
     }
 
-    this.#applyPreMoveDecisions(colony, rng, config, context);
+    if (!context.inNest && !this.carrying?.type) {
+      const recovery = decisions.recoverAtSurfaceFood(this, world, colony, rng, config, context);
+      if (recovery) return { halted: false, action: recovery };
+    }
+
+    this.#applyPreMoveDecisions(colony, config, context);
 
     return {
       halted: false,
@@ -321,7 +336,7 @@ export class Ant {
    * Runs immediate actions like eating/depositing before path decisions.
    * Side effects include changing ant state and optionally depositing food.
    */
-  #applyPreMoveDecisions(colony, rng, config, context) {
+  #applyPreMoveDecisions(colony, config, context) {
     // Skip eating when already carrying something — prevents double-dipping
     // (eating from nest store while simultaneously carrying food to deposit)
     if (!this.carrying?.type) {
@@ -349,14 +364,12 @@ export class Ant {
     const combatAction = decisions.seekFight(this, world, colony, rng, config, context);
     if (combatAction) return combatAction;
 
-    if (this.role === 'soldier') {
-      return decisions.soldierDuty(this, world, colony, rng, config, context);
-    }
-
-    if (this.role !== 'worker') return STAY_ACTION;
-
     // Existing cargo takes priority over newly assigned work. In particular, a
     // queen-courier assignment must not replace food or dirt already in transit.
+    if (this.carrying?.type === 'corpse') {
+      return roles.haulCorpse(this, world, colony, rng, context);
+    }
+
     if (this.carrying?.type === 'dirt') {
       return decisions.haulDirt(this, world, colony, rng, config, context);
     }
@@ -365,8 +378,30 @@ export class Ant {
       return decisions.carryFood(this, world, colony, rng, config, context);
     }
 
-    if (roles.isQueenFoodCourier(this, colony)) {
+    if (this.role === 'soldier') {
+      return decisions.soldierDuty(this, world, colony, rng, config, context);
+    }
+
+    if (this.role !== 'worker') return STAY_ACTION;
+
+    if (this.carrying?.type === 'brood-food') {
+      return roles.runNurseBehavior(this, world, colony, rng, config, context);
+    }
+
+    if (this.carrying?.type === 'queen-food' || roles.isQueenFoodCourier(this, colony)) {
       return roles.runQueenCourierBehavior(this, world, colony, rng, config, context);
+    }
+
+    if ((context.inNest && this.workFocus !== 'forage')
+        || (!context.inNest && this.workFocus === 'forage' && navigation.distanceToEntrance(this, colony) < 8)) {
+      const corpse = colony.corpses.findIndex(item => !item.buried
+        && Math.max(Math.abs(item.x - this.x), Math.abs(item.y - this.y)) <= 1);
+      if (corpse >= 0) {
+        const [item] = colony.corpses.splice(corpse, 1);
+        this.carrying = { type: 'corpse', id: item.id };
+        this.state = 'HAUL_CORPSE';
+        return STAY_ACTION;
+      }
     }
 
     // Foragers exit the nest when not carrying anything.
@@ -374,7 +409,14 @@ export class Ant {
       return decisions.foragerExitNest(this, world, colony, rng, config, context);
     }
 
-    if (vitals.isLowHealth(this) && !context.inNest) {
+    if (context.inNest && this.workFocus !== 'forage'
+        && decisions.shouldHealInNest(this, colony)) {
+      const action = decisions.healInNest(this, world, colony, rng);
+      if (action) return action;
+    }
+
+    const canHealAtHome = colony.foodStored > 0 || this.hunger > this.hungerMax * 0.5;
+    if (vitals.isLowHealth(this) && !vitals.isSenescent(this) && canHealAtHome && !context.inNest) {
       this.state = 'RETURN_TO_NEST_HEAL';
       if (context.entrance) {
         return movementAction(steering.moveThroughEntranceShaft(
@@ -396,41 +438,8 @@ export class Ant {
       return roles.runDiggerBehavior(this, world, colony, rng, config, context);
     }
 
-    // Foragers never park on the surface: food stores run far above
-    // foodStoreTarget, so "fed and the store is full" is nearly always true and
-    // standing still here froze every freshly exited forager on the mouth row.
-    // (Foragers inside the nest were already routed out by foragerExitNest.)
-    if (!vitals.needsForage(this, colony) && this.workFocus !== 'forage') {
-      return STAY_ACTION;
-    }
-
-    if (vitals.isCriticalHealth(this)) {
-      this.state = 'RETURN_TO_NEST_HEAL';
-      if (context.entrance) {
-        return movementAction(
-          steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng),
-        );
-      }
-      return STAY_ACTION;
-    }
-
-    // Non-terminal: may exit the nest, or fall through to pellet search below.
     if (context.inNest && context.entrance) {
-      const distanceToEntrance = Math.hypot(this.x - context.entrance.x, this.y - context.entrance.y);
-      if (distanceToEntrance > (context.entrance.radius ?? 1)) {
-        this.state = 'EXIT_NEST';
-        return movementAction(
-          steering.moveThroughEntranceShaft(this, world, context.entrance, context.entrance.y, rng),
-        );
-      }
-
-      this.state = 'EXIT_NEST';
-      const exitTargetY = context.entrance.y - 1;
-      if (world.isPassable(context.entrance.x, exitTargetY)) {
-        return movementAction(
-          steering.moveThroughEntranceShaft(this, world, context.entrance, exitTargetY, rng),
-        );
-      }
+      return decisions.foragerExitNest(this, world, colony, rng, config, context);
     }
 
     const visible = colony.findVisiblePellet(this.x, this.y, config.foodVisionRadius);
@@ -453,12 +462,12 @@ export class Ant {
         1,
         (config.surfaceFoodSearchMaxMissTicks ?? 90) + missThresholdOffset,
       );
-      const returnHungerThreshold = Math.max(0, Math.min(1, config.surfaceReturnToNestHungerThreshold ?? 0.65));
+      const returnHungerThreshold = vitals.nestMealFraction(config);
       const shouldReturnToNestForFood = colony.foodStored > 0 && (
-        this.hunger < this.hungerMax * 0.15
-        || (
-          this.failedSurfaceFoodSearchTicks >= maxMissTicks
-          && this.hunger < this.hungerMax * returnHungerThreshold
+        this.hunger < this.hungerMax * returnHungerThreshold && (
+          this.hunger < this.hungerMax * 0.15
+          || this.state === 'RETURN_NEST_TO_EAT'
+          || this.failedSurfaceFoodSearchTicks >= maxMissTicks
         )
       );
 

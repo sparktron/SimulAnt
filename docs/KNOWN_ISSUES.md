@@ -25,8 +25,9 @@
    - Mitigated: passability-mask caching + pheromone double-buffering cut the
      pheromone path ~18% and whole-tick time ~8%; active-cell pheromone updates
      landed in v0.37.0, and surface terrain rendering is cached in v0.54.9.
-   - Note: the colony starves to zero before reaching truly large ant counts, so
-     per-tick perf-at-scale is partly moot until starvation is addressed.
+   - The v0.67.0 paired test finished with both queens alive for each of 12
+     seeds and positive food stores at tick 5,000. Ant-cap performance remains
+     unverified. See the [review measurements](2026-11-11-behavior-and-ui-review.md#implementation-experiment).
 
 ## Suggested next actions
 

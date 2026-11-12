@@ -58,7 +58,10 @@ export function syncToolPalette(state, view) {
     const valid = TOOL_VIEW[radio.value] === view;
     radio.disabled = !valid;
     const label = radio.closest('label');
-    if (label) label.classList.toggle('tool-disabled', !valid);
+    if (label) {
+      label.classList.toggle('tool-disabled', !valid);
+      label.title = valid ? '' : `Available in ${TOOL_VIEW[radio.value].toLowerCase()} view`;
+    }
     if (valid && firstValid === null) firstValid = radio;
     if (valid && radio.value === state.selectedTool) selectedStillValid = true;
   });
@@ -172,11 +175,37 @@ export function createControls(state, actions) {
     }
   });
 
-  // Pheromone/scent/danger overlays only render on the surface, so their
-  // shortcuts are inert anywhere else.
   const isSurfaceView = () => !actions.getView || actions.getView() === 'SURFACE';
+  const toggleOverlay = (name) => {
+    if (isSurfaceView()) state.overlays[name] = !state.overlays[name];
+  };
+  const commands = {
+    foodClusterBtn: () => actions.spawnFoodAtCursor?.(),
+    autoDigBtn: () => actions.toggleAutoDig?.(),
+    forceChamberBtn: () => actions.forceChamber?.(),
+    addFoodBtn: () => actions.addFoodToStore?.(),
+    starveAntBtn: () => actions.starveSelectedAnt?.(),
+    debugOverlayBtn: () => actions.toggleDebugStats?.(),
+    foodTrailBtn: () => toggleOverlay('showToFood'),
+    homeTrailBtn: () => toggleOverlay('showToHome'),
+    dangerTrailBtn: () => toggleOverlay('showDanger'),
+  };
+  const runCommand = (id) => {
+    commands[id]();
+    sync();
+  };
+  for (const id of Object.keys(commands)) {
+    document.getElementById(id)?.addEventListener('click', () => runCommand(id));
+  }
 
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Home' && actions.showNestHome
+        && !event.target.matches?.('input, textarea, select, [contenteditable="true"]')) {
+      event.preventDefault();
+      actions.showNestHome();
+      return;
+    }
+
     // Preserve native typing, activation, arrow-key, and Tab behavior whenever
     // focus is inside an interactive control.
     if (event.target.matches?.('input, textarea, select, button, [contenteditable="true"]')) return;
@@ -185,6 +214,7 @@ export function createControls(state, actions) {
       event.preventDefault();
       state.paused = !state.paused;
       sync();
+
     } else if (event.key.toLowerCase() === 'q') {
       actions.toggleView();
     } else if (event.key.toLowerCase() === 'n') {
@@ -195,18 +225,17 @@ export function createControls(state, actions) {
       if (helpPanel.open) helpPanel.close();
       else helpPanel.showModal();
     } else if (event.key.toLowerCase() === 'f') {
-      if (actions.spawnFoodAtCursor) actions.spawnFoodAtCursor();
+      runCommand('foodClusterBtn');
     } else if (event.key.toLowerCase() === 'k') {
-      if (actions.starveSelectedAnt) actions.starveSelectedAnt();
+      runCommand('starveAntBtn');
     } else if (event.key.toLowerCase() === 'o') {
-      if (actions.addFoodToStore) actions.addFoodToStore();
+      runCommand('addFoodBtn');
     } else if (event.key.toLowerCase() === 'g') {
-      if (actions.toggleAutoDig) actions.toggleAutoDig();
+      runCommand('autoDigBtn');
     } else if (event.key.toLowerCase() === 'c') {
-      if (actions.forceChamber) actions.forceChamber();
+      runCommand('forceChamberBtn');
     } else if (event.key.toLowerCase() === 't') {
-      if (!isSurfaceView()) return;
-      state.overlays.showToFood = !state.overlays.showToFood;
+      runCommand('foodTrailBtn');
     } else if (event.key.toLowerCase() === 'v') {
       if (!isSurfaceView()) return;
       if (actions.toggleScentOverlay) {
@@ -214,11 +243,9 @@ export function createControls(state, actions) {
         sync();
       }
     } else if (event.key.toLowerCase() === 'l') {
-      if (!isSurfaceView()) return;
-      state.overlays.showToHome = !state.overlays.showToHome;
+      runCommand('homeTrailBtn');
     } else if (event.key.toLowerCase() === 'd') {
-      if (!isSurfaceView()) return;
-      state.overlays.showDanger = !state.overlays.showDanger;
+      runCommand('dangerTrailBtn');
     } else if (event.key.toLowerCase() === 'j') {
       state.overlays.showAntJobs = !state.overlays.showAntJobs;
       sync();
@@ -231,7 +258,7 @@ export function createControls(state, actions) {
       }
     } else if (event.code === 'F3') {
       event.preventDefault();
-      if (actions.toggleDebugStats) actions.toggleDebugStats();
+      runCommand('debugOverlayBtn');
     } else if (TOOL_BY_KEY[event.key]) {
       const tool = TOOL_BY_KEY[event.key];
       // Ignore number-key shortcuts for tools that are disabled in this view.
@@ -246,6 +273,8 @@ export function createControls(state, actions) {
   function sync() {
     const view = actions.getView ? actions.getView() : 'SURFACE';
     syncControlState(state, view);
+    const autoDig = document.getElementById('autoDigBtn');
+    if (autoDig) syncToggleButton(autoDig, 'Auto-dig', Boolean(actions.getAutoDig?.()));
   }
 
   sync();
@@ -279,6 +308,20 @@ export function syncControlState(state, view) {
 
   syncToolPalette(state, view);
   syncSurfaceOnlyControls(view);
+  for (const [id, label, field] of [
+    ['foodTrailBtn', 'Food trail', 'showToFood'],
+    ['homeTrailBtn', 'Home trail', 'showToHome'],
+    ['dangerTrailBtn', 'Danger', 'showDanger'],
+  ]) {
+    const button = document.getElementById(id);
+    if (!button) continue;
+    button.disabled = view !== 'SURFACE';
+    syncToggleButton(button, label, Boolean(state.overlays[field]));
+  }
+  const foodCluster = document.getElementById('foodClusterBtn');
+  if (foodCluster) foodCluster.disabled = view !== 'SURFACE';
+  const debug = document.getElementById('debugOverlayBtn');
+  if (debug) syncToggleButton(debug, 'Debug overlay', Boolean(state.debug?.showStats));
 }
 
 function syncRange(inputId, labelId, value, format) {

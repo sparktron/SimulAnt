@@ -84,6 +84,7 @@ export function sanitizeTickConfig(config = {}) {
     ...config,
     tickSeconds: clampNonNegativeNumber(config.tickSeconds, 1 / 30),
     antCap: clampPositiveInt(config.antCap, 2000),
+    nurseBroodSensingRadius: clampFiniteRangeNumber(config.nurseBroodSensingRadius, 20, 4, 32),
 
     diffIntervalTicks: clampPositiveInt(config.diffIntervalTicks, 1),
     homeDepositIntervalTicks: clampPositiveInt(config.homeDepositIntervalTicks, 1),
@@ -141,7 +142,7 @@ export function sanitizeTickConfig(config = {}) {
     queenHealthRecoveryPerNutrition: clampNonNegativeNumber(config.queenHealthRecoveryPerNutrition, 0),
     queenFoodRequestHealthThreshold: clamp01(config.queenFoodRequestHealthThreshold, 0.5),
     queenFoodRequestClearThreshold: clamp01(config.queenFoodRequestClearThreshold, 0.8),
-    queenCourierPickupNutrition: clampNonNegativeNumber(config.queenCourierPickupNutrition, 0),
+    queenCourierPickupNutrition: clampNonNegativeNumber(config.queenCourierPickupNutrition, clampNonNegativeNumber(config.queenEatNutrition, 5)),
     // Queen succession: when the queen dies, after a delay a healthy worker
     // can be promoted (consuming a royal-jelly food cost) so the colony recovers
     // instead of ending permanently. Set delay to 0 and cost to 0 for instant,
@@ -161,6 +162,9 @@ export function sanitizeTickConfig(config = {}) {
     foodRespawnCooldownTicks: clampPositiveInt(config.foodRespawnCooldownTicks, 60, 0),
     foodDropDistanceMin: clampNonNegativeNumber(config.foodDropDistanceMin, 30),
     foodDropDistanceRange: clampNonNegativeNumber(config.foodDropDistanceRange, 30),
+    broodDevelopmentNutrition: config.broodDevelopmentNutrition == null
+      ? undefined : clampNonNegativeNumber(config.broodDevelopmentNutrition, 24),
+    nurseBroodRation: clampNonNegativeNumber(config.nurseBroodRation, 4),
     broodFoodDrainRate: clampNonNegativeNumber(config.broodFoodDrainRate, 0),
     broodGestationSeconds: clampNonNegativeNumber(config.broodGestationSeconds, 1),
     larvaeCrowdingThreshold: Math.floor(clampFiniteRangeNumber(config.larvaeCrowdingThreshold, 8, 0, 100)),
@@ -175,6 +179,8 @@ export function sanitizeTickConfig(config = {}) {
     healthWorkFightDrainRate: clampNonNegativeNumber(config.healthWorkFightDrainRate, 0),
     combatEngageChance: clamp01(config.combatEngageChance, 0.25),
     redAggressionMultiplier: clampFiniteRangeNumber(config.redAggressionMultiplier, 2, 1, 4),
+    combatPursuitTicks: clampPositiveInt(config.combatPursuitTicks, 30),
+    combatPursuitCooldownTicks: clampPositiveInt(config.combatPursuitCooldownTicks, 30),
     combatSenseRadius: Math.floor(clampFiniteRangeNumber(config.combatSenseRadius, 6, 1, 12)),
     enemySeekBias: clamp01(config.enemySeekBias, 0.5),
     combatDuelSeconds: clampFiniteRangeNumber(config.combatDuelSeconds, 3, 0.5, 10),
@@ -192,7 +198,7 @@ export function sanitizeTickConfig(config = {}) {
     soldierSpawnChance: clamp01(config.soldierSpawnChance, 0),
     foodVisionRadius: clampPositiveInt(config.foodVisionRadius, 1),
     surfaceFoodSearchMaxMissTicks: clampPositiveInt(config.surfaceFoodSearchMaxMissTicks, 90),
-    surfaceReturnToNestHungerThreshold: clamp01(config.surfaceReturnToNestHungerThreshold, 0.65),
+    surfaceReturnToNestHungerThreshold: clamp01(config.surfaceReturnToNestHungerThreshold, 0.25),
     homeDepositMinDistance: clampFiniteRangeNumber(config.homeDepositMinDistance, 20, 0, 100),
     nearEntranceScatterRadius: clampNonNegativeNumber(config.nearEntranceScatterRadius, 0),
     foodTrailDistanceScale: clampNonNegativeNumber(config.foodTrailDistanceScale, 1.0),
