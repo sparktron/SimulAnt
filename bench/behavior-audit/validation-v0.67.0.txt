@@ -1,0 +1,37 @@
+v0.66.0 — node bench/tick-profile.mjs 2500 500
+after 2500 grow ticks: 118 ants, 282 surface pellets (282 total)
+
+full tick: 2.4388 ms/tick over 500 ticks (410 ticks/sec, 122 ants)
+
+attribution over 500 ticks (instrumented total 1338 ms):
+  updatePheromones          230.6 ms   17.2%        500 calls  461175 ns/call
+  findVisiblePellet          22.7 ms    1.7%      26254 calls     865 ns/call
+  countVisiblePellets         0.3 ms    0.0%         99 calls    2871 ns/call
+  findAvailablePelletAt      16.1 ms    1.2%      25849 calls     623 ns/call
+  → pellet scans (sum)       39.1 ms    2.9%
+
+toFood field hash: 1033391973 | ants: 127 | surface pellets: 219
+
+v0.67.0 — node bench/tick-profile.mjs 2500 500
+after 2500 grow ticks: 121 ants, 500 surface pellets (500 total)
+
+full tick: 2.9521 ms/tick over 500 ticks (339 ticks/sec, 121 ants)
+
+attribution over 500 ticks (instrumented total 2108 ms):
+  updatePheromones          354.5 ms   16.8%        500 calls  708920 ns/call
+  findVisiblePellet          59.1 ms    2.8%      21828 calls    2708 ns/call
+  countVisiblePellets         1.3 ms    0.1%        152 calls    8309 ns/call
+  findAvailablePelletAt      20.3 ms    1.0%      21516 calls     943 ns/call
+  → pellet scans (sum)       80.7 ms    3.8%
+
+toFood field hash: 3871315287 | ants: 120 | surface pellets: 420
+
+v0.67.0 — node bench/environmental-foraging-sweep.mjs 16000 1 baseline
+Environmental-foraging sweep — 1 seeds × 16000 ticks (baseline)
+Target: sustain at least 150 ants at tick 16000; nest capacity ceiling remains 300.
+Pheromone recruitment/dispersion are intentionally unchanged.
+
+      scenario  avg final    min  avg peak  avg peak@   queen   target
+      baseline      107.0    107     133.0       4805     1/1      0/1
+  economy/seed: deposited 90810.1  consumed 91972.7  net -1162.7
+  deaths/seed: starvation 6.0  oldAge 39.0  hazard 0.0  other 0.0

@@ -1,7 +1,9 @@
 #versionLabel {
-  position: absolute;
-  inset: 50% 175px auto auto;
-  transform: translateY(-50%);
+  position: static;
+  inset: auto;
+  transform: none;
+  margin-inline-start: 10px;
+  font-size: 10px;
   color: inherit;
   background: transparent;
   padding: 0;
@@ -26,7 +28,9 @@
 
 #minimapHomeBtn .minimap {
   display: block;
-  max-width: 100%;
+  width: min(160px, 100%);
+  height: auto;
+  margin-inline: auto;
 }
 
 :root[data-theme='classic'] .canvas-footer {
@@ -45,4 +49,242 @@
 :root[data-theme='modern'] #startPauseBtn {
   padding-inline-end: 52px;
   color: var(--text);
+}
+
+:root {
+  --stats-panel-width: 286px;
+  --params-panel-width: clamp(340px, 42vw, 490px);
+  --active-panel-width: var(--stats-panel-width);
+}
+
+.frame:has(.params-open) {
+  --active-panel-width: var(--params-panel-width);
+}
+
+:root:not([data-theme='realistic']) .frame {
+  grid-template-columns: clamp(138px, 17vw, 200px) minmax(0, 1fr) var(--active-panel-width);
+}
+
+:root[data-theme='realistic'] .right-panel {
+  width: var(--active-panel-width);
+}
+
+.left-palette, .right-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.secondary-actions, .hud-section, .ant-inspector {
+  border-top: 1px solid var(--line, #9998);
+  margin-top: 8px;
+  padding-block: 8px;
+}
+
+.secondary-actions summary, .hud-section summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.secondary-actions .palette-btn {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  min-height: 24px;
+}
+
+.canvas-tools {
+  position: absolute;
+  z-index: 3;
+  inset: auto 8px 26px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  pointer-events: none;
+}
+
+:root:is([data-theme='modern'], [data-theme='retro']) .canvas-tools {
+  bottom: 33px;
+}
+
+:root[data-theme='realistic'] .canvas-tools {
+  inset-inline: calc(var(--left-w) + 24px) calc(var(--stats-panel-width) + 24px);
+  bottom: 52px;
+}
+
+.canvas-tools .palette-btn {
+  pointer-events: auto;
+  width: auto;
+  min-height: 25px;
+  padding: 4px 7px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.canvas-tools .palette-btn::after {
+  content: none;
+}
+
+.canvas-tools .active {
+  outline: 1px solid currentColor;
+  outline-offset: -3px;
+}
+
+.colony-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.colony-card {
+  border: 1px solid var(--line-strong, #808080);
+  background: var(--surface-2, transparent);
+  padding: 6px;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.colony-card h3, .colony-card h4, .ant-inspector h3 {
+  font: inherit;
+  font-weight: 700;
+  margin: 0 0 5px;
+}
+
+.colony-card[data-colony='red'] h3 {
+  color: var(--red, #b84138);
+}
+
+.colony-card dl {
+  margin: 0 0 5px;
+}
+
+.colony-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 3px;
+  padding-block: 2px;
+}
+
+.colony-card .location {
+  display: grid;
+}
+
+.colony-card dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+#antInspector {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0 0 8px;
+  white-space: pre-line;
+}
+
+.ant-inspector .health-block h3 {
+  display: none;
+}
+
+.simulation-settings label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  margin-top: 8px;
+}
+
+.simulation-settings input {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+#parameterEditorContainer .param-filter {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px;
+  margin-block: 4px;
+  background: var(--surface-2, #fff);
+  color: var(--text, #111);
+  border: 1px solid var(--line-strong, #777);
+  font: inherit;
+}
+
+#parameterEditorContainer .preset-controls {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, auto);
+  align-items: center;
+}
+
+#parameterEditorContainer .preset-controls label,
+#parameterEditorContainer .preset-controls .reset-btn {
+  grid-column: 1 / -1;
+}
+
+#parameterEditorContainer .preset-controls select {
+  width: 100%;
+  min-width: 0;
+}
+
+#parameterEditorContainer .parameter-item {
+  display: grid;
+  grid-template-columns: minmax(82px, 1fr) minmax(115px, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding-block: 3px;
+  min-height: 28px;
+}
+
+#parameterEditorContainer .param-label-container,
+#parameterEditorContainer .param-input-container,
+#parameterEditorContainer .param-slider {
+  min-width: 0;
+}
+
+#panelToggle {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  :root:not([data-theme='realistic']) .frame {
+    grid-template-columns: clamp(125px, 22vw, 165px) minmax(0, 1fr);
+  }
+
+  #panelToggle {
+    display: block;
+    position: absolute;
+    width: auto;
+    z-index: 6;
+    inset: auto 12px 32px auto;
+  }
+
+  #rightPanel {
+    position: absolute;
+    z-index: 5;
+    inset: 68px 10px 70px auto;
+    width: min(var(--active-panel-width), calc(100vw - 24px));
+    box-shadow: 0 6px 18px #0006;
+  }
+
+  #rightPanel:not(.drawer-open) {
+    display: none;
+  }
+
+  :root[data-theme='realistic'] .canvas-tools {
+    inset-inline-end: 12px;
+  }
+}
+
+.canvas-footer .canvas-hint {
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+
+:root[data-theme='classic'] .menu-bar {
+  text-align: left;
+  padding-inline-start: 8px;
+}
+
+:root[data-theme='nineties'] #versionLabel {
+  position: absolute;
+  inset: 5px 33px auto auto;
+  color: #fff;
+  z-index: 1;
 }

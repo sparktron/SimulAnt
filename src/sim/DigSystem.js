@@ -28,7 +28,7 @@ const CARDINAL_DIRS = [
 ];
 
 const TURN_OPTIONS = [0, -1, 1];
-const DIGGER_ASSIGNMENT_RADIUS2 = 64;
+const DIGGER_ASSIGNMENT_RADIUS2 = 2;
 // Branch fronts may only spawn within this fraction of the world width of the
 // colony's home column. 1/4 splits the map evenly between nests at 1/4 and 3/4.
 const BRANCH_TERRITORY_HALF_WIDTH_FRACTION = 0.25;
@@ -67,10 +67,6 @@ export class DigSystem {
 
     const activeWorkers = this.autoDig ? Math.max(workerCount, 30) : workerCount;
 
-    // Dig-focus recruitment radius (tiles, player-tunable) -> squared once.
-    const digRecruitRadius = config.digRecruitRadius ?? 16;
-    const digRecruitRadius2 = digRecruitRadius * digRecruitRadius;
-
     // Staff more fronts when more of the workforce is allocated to digging:
     // count the available dig-focus workers and map them to fronts via
     // digWorkersPerFront (lower = more aggressive). Floor at the legacy
@@ -91,7 +87,7 @@ export class DigSystem {
 
     for (let i = 0; i < assignedFronts; i += 1) {
       const front = this.fronts[i];
-      const digger = this.#findNearestAvailableWorker(front, activeDiggerIds, digRecruitRadius2);
+      const digger = this.#findNearestAvailableWorker(front, activeDiggerIds);
       if (!digger) continue;
 
       activeDiggerIds.add(digger.id);
@@ -101,7 +97,8 @@ export class DigSystem {
 
       let excavatedVolume = 0;
       let safetySteps = 0;
-      while (front.progress >= 1 && safetySteps < 8) {
+      while (front.progress >= 1 && safetySteps < 8
+          && Math.hypot(digger.x - front.x, digger.y - front.y) <= Math.SQRT2) {
         front.progress -= 1;
         // Dirt only exists when soil was actually removed. The old check
         // (lastAdvanceTick delta) also fired when the front merely walked
@@ -138,7 +135,7 @@ export class DigSystem {
     for (let i = 0; i < ants.length; i += 1) {
       const ant = ants[i];
       if (!ant.alive || ant.role !== 'worker') continue;
-      if (ant.carrying?.type === 'food') {
+      if (['food', 'queen-food', 'brood-food'].includes(ant.carrying?.type)) {
         ant.carryingType = 'food';
       } else if (ant.carrying?.type === 'dirt') {
         ant.carryingType = 'dirt';
@@ -148,14 +145,13 @@ export class DigSystem {
     }
   }
 
-  #findNearestAvailableWorker(front, unavailableIds, digRecruitRadius2) {
+  #findNearestAvailableWorker(front, unavailableIds) {
     const ants = this.colony.ants;
     let nearestDigger = null;
-    // Dig-focus workers are recruited from the player-tunable radius; non-dig
-    // workers remain a short-range fallback at the base radius.
-    let nearestDiggerDist2 = digRecruitRadius2;
+    // Recruitment guides walking. Work starts only when an ant can reach the front.
+    let nearestDiggerDist2 = DIGGER_ASSIGNMENT_RADIUS2 + 1;
     let nearestAny = null;
-    let nearestAnyDist2 = DIGGER_ASSIGNMENT_RADIUS2;
+    let nearestAnyDist2 = DIGGER_ASSIGNMENT_RADIUS2 + 1;
 
     for (let i = 0; i < ants.length; i += 1) {
       const ant = ants[i];
@@ -168,7 +164,7 @@ export class DigSystem {
       const dy = ant.y - front.y;
       const d2 = dx * dx + dy * dy;
 
-      // Dig-focus workers get priority and the (larger) tunable recruit radius.
+      // Dig-focus workers get priority among adjacent ants.
       if (ant.workFocus === 'dig') {
         if (d2 < nearestDiggerDist2) {
           nearestDiggerDist2 = d2;
@@ -342,7 +338,7 @@ export class DigSystem {
         if (this.world.terrain[idx] === TERRAIN.SOIL) {
           this.world.setTerrain(idx, TERRAIN.CHAMBER);
           this.colony.recordExcavation(1, x, y);
-          this.world.depositToHome(idx, config.digHomeBoost);
+          this.world.depositToHome(idx, config.digHomeBoost, Infinity, this.colony.id);
           carved += 1;
         } else if (this.world.terrain[idx] === TERRAIN.TUNNEL) {
           this.world.setTerrain(idx, TERRAIN.CHAMBER);
@@ -395,7 +391,7 @@ export class DigSystem {
     if (terrain === TERRAIN.SOIL) {
       this.world.setTerrain(idx, TERRAIN.TUNNEL);
       this.colony.recordExcavation(1, x, y);
-      this.world.depositToHome(idx, config.digHomeBoost);
+      this.world.depositToHome(idx, config.digHomeBoost, Infinity, this.colony.id);
       carved = 1;
     }
 
@@ -506,7 +502,7 @@ export class DigSystem {
           if (terrain === TERRAIN.SOIL) {
             this.world.setTerrain(idx, TERRAIN.TUNNEL);
             this.colony.recordExcavation(1, cx, shaft.y);
-            this.world.depositToHome(idx, config.digHomeBoost ?? 0.9);
+            this.world.depositToHome(idx, config.digHomeBoost ?? 0.9, Infinity, this.colony.id);
           }
         }
       }
@@ -541,7 +537,7 @@ export class DigSystem {
         const terrain = this.world.terrain[idx];
         if (terrain === TERRAIN.SOIL || terrain === TERRAIN.GROUND) {
           this.world.setTerrain(idx, TERRAIN.TUNNEL);
-          this.world.depositToHome(idx, config.digHomeBoost ?? 0.9);
+          this.world.depositToHome(idx, config.digHomeBoost ?? 0.9, Infinity, this.colony.id);
         }
       }
     }

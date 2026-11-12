@@ -689,7 +689,8 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   // ownerless centre nest, dig branches confined to each colony's side.
   // v0.63.0: seeded close-fight outcomes and survivor wounds.
   // v0.66.0: vitals, pursuit, predation and shared work allocation.
-  assert.equal(replayHash, 1146940244);
+  // v0.67.0: nurse-fed brood, chamber routes, age-based jobs and colony trails.
+  assert.equal(replayHash, 406431281);
 });
 
 // Survival regression: with the PRODUCTION defaults, the black colony used to peak
@@ -769,4 +770,20 @@ test('surface food cap pauses real drops and resumes after an ant collects food'
   assert.ok(sim.findAntById(collectedPellet.takenByAntId), 'the collector is a living simulation ant');
   assert.ok(sim.nextPelletId > nextIdAtCapacity, 'collection allows the real spawning path to resume');
   assert.ok(sim.foodPellets.some((p) => !initialPellets.includes(p)), 'replenishment adds a new pellet');
+});
+
+test('active foraging fields survive a midgame JSON save and replay', () => {
+  const sim = new SimulationCore('review-reload-midgame');
+  const config = getDefaultConfig();
+  for (let i = 0; i < 700; i += 1) sim.update(config);
+  const snapshot = JSON.parse(JSON.stringify(sim.serialize({})));
+  assert.ok(snapshot.world.sparseFields?.harvest.length > 0);
+  assert.ok(snapshot.world.redTrails);
+  const restored = new SimulationCore('midgame-reload');
+  restored.loadFromSerialized(snapshot);
+  for (let i = 0; i < 25; i += 1) {
+    sim.update(config);
+    restored.update(config);
+  }
+  assert.equal(JSON.stringify(restored.serialize({})), JSON.stringify(sim.serialize({})));
 });

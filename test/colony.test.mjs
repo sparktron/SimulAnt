@@ -139,20 +139,21 @@ test('queen dies when health reaches zero', () => {
   assert.equal(colony.queen.alive, false);
 });
 
-test('queen eats from food store when hungry', () => {
+test('hungry queen relies on attendants even with stored food', () => {
   const world = new World(64, 64);
   const rng = new SeededRng('queen-eat');
   const colony = new Colony(world, rng, 0);
   const config = createTestConfig();
 
-  colony.queen.hunger = 30; // below 40% threshold triggers eating
+  colony.queen.hunger = 10;
   colony.foodStored = 100;
   colony.setNestEntrances([]);
   colony.setSurfaceFoodPellets([]);
 
   colony.update(config);
 
-  assert.ok(colony.foodStored < 100, 'Queen should consume from food store');
+  assert.equal(colony.foodStored, 100);
+  assert.ok(colony.queen.hunger < 10);
 });
 
 // --- Egg Laying ---
@@ -320,7 +321,7 @@ test('sanitized zero oophagy delay preserves well-fed stage-1 brood for the firs
     queenEggTicks: 100,
   });
   colony.queen.brood = 1;
-  colony.larvae = [{ stage: 1, progress: 0 }];
+  colony.larvae = [{ stage: 1, progress: 0, nutrition: 1 }];
 
   colony.update(config);
 
@@ -345,7 +346,7 @@ test('oophagy culls a severely underfed stage-1 larva and recycles its nutrition
   config.queenEggTicks = 1e6;      // don't let the queen lay a replacement mid-test
   colony.foodStored = 0;           // nothing available to feed the brood chamber
   colony.queen.brood = 1;
-  colony.larvae = [{ stage: 1, progress: 0 }];
+  colony.larvae = [{ stage: 1, progress: 0, eggNutrition: 2 }];
   colony.setNestEntrances([]);
   colony.setSurfaceFoodPellets([]);
 
@@ -356,7 +357,7 @@ test('oophagy culls a severely underfed stage-1 larva and recycles its nutrition
   assert.equal(colony.larvae.length, 0, 'severely underfed stage-1 larva should be culled');
   assert.equal(colony.queen.brood, 0, 'brood count should drop with the culled larva');
   assert.equal(
-    colony.foodStored, config.oophagyRecycleNutrition,
+    colony.foodStored, 2,
     'culling should recycle its nutrition back into the store',
   );
 });
@@ -544,7 +545,7 @@ test('brood hatchling immediately replaces a dead queen', () => {
   config.antCap = 0;
   colony.foodStored = 10;
   colony.queen.brood = 1;
-  colony.larvae = [{ stage: 1, progress: 0 }];
+  colony.larvae = [{ stage: 1, progress: 0, nutrition: 1 }];
   colony.setNestEntrances([]);
   colony.setSurfaceFoodPellets([]);
   killQueen(colony);
@@ -555,7 +556,7 @@ test('brood hatchling immediately replaces a dead queen', () => {
 
   assert.equal(colony.queen.alive, true, 'the hatchling should replace the queen on its hatch tick');
   assert.equal(colony.queen.eggsLaid, eggsBefore, 'a dead queen must not reproduce');
-  assert.ok(colony.foodStored < foodBefore, 'queenless brood should continue feeding');
+  assert.equal(colony.foodStored, foodBefore, 'queenless brood feeds from its delivered ration');
   assert.equal(colony.larvae.length, 0, 'queenless brood should complete gestation');
   assert.equal(colony.ants.length, 0, 'the hatchling should become queen rather than enter the worker population');
   assert.equal(colony.births, 1, 'the royal hatchling should count as a birth');
@@ -613,7 +614,7 @@ test('hatch-ready brood waits at antCap and emerges when capacity opens', () => 
   config.queenEggTicks = 1e6;
   colony.foodStored = 100;
   colony.queen.brood = 1;
-  colony.larvae = [{ stage: 4, progress: 0 }];
+  colony.larvae = [{ stage: 4, progress: 0, nutrition: 1 }];
   colony.setNestEntrances([]);
   colony.setSurfaceFoodPellets([]);
 
@@ -1031,47 +1032,16 @@ test('countAntsAt excludes dead ants', () => {
 
 // --- Nest Food Tile Set ---
 
-test('nest food Set tracks pellets correctly', () => {
+test('chamber storage caps the stack on each tile', () => {
   const world = new World(64, 64);
-  const rng = new SeededRng('food-set');
-  const colony = new Colony(world, rng, 0);
-
-  // Directly add pellets to test the Set rebuild
-  const px = world.nestX;
-  const py = world.nestY + 3;
-  colony.nestFoodPellets.push({ x: px, y: py, amount: 5 });
-  colony.nestFoodPellets.push({ x: px + 1, y: py, amount: 10 });
-
-  // Clear and rebuild (simulating what update does)
-  colony._nestFoodTiles.clear();
-  for (const pellet of colony.nestFoodPellets) {
-    if (pellet.amount > 0.0001) {
-      colony._nestFoodTiles.add(`${Math.round(pellet.x)},${Math.round(pellet.y)}`);
-    }
-  }
-
-  assert.ok(colony._nestFoodTiles.has(`${px},${py}`));
-  assert.ok(colony._nestFoodTiles.has(`${px + 1},${py}`));
-  assert.ok(!colony._nestFoodTiles.has(`${px + 5},${py + 5}`));
-});
-
-test('nest food Set excludes depleted pellets', () => {
-  const world = new World(64, 64);
-  const rng = new SeededRng('food-depleted');
-  const colony = new Colony(world, rng, 0);
-
-  colony.nestFoodPellets.push({ x: 10, y: 35, amount: 5 });
-  colony.nestFoodPellets.push({ x: 11, y: 35, amount: 0.00001 }); // below threshold
-
-  colony._nestFoodTiles.clear();
-  for (const pellet of colony.nestFoodPellets) {
-    if (pellet.amount > 0.0001) {
-      colony._nestFoodTiles.add(`${Math.round(pellet.x)},${Math.round(pellet.y)}`);
-    }
-  }
-
-  assert.ok(colony._nestFoodTiles.has('10,35'));
-  assert.ok(!colony._nestFoodTiles.has('11,35'), 'Depleted pellet should not be in Set');
+  const colony = new Colony(world, new SeededRng('storage-stack'), 0);
+  const point = colony.findNestFoodDropPoint();
+  for (let i = 0; i < 4; i += 1) assert.equal(colony.depositPellet(1, point.x, point.y), 1);
+  assert.equal(colony.isFoodStorageAvailable(point.x, point.y), false);
+  assert.equal(colony.depositPellet(1, point.x, point.y), 1);
+  assert.equal(colony.nestFoodPellets.filter(pellet => pellet.x === point.x && pellet.y === point.y).length, 4);
+  const restored = Colony.fromSerialized(world, new SeededRng('storage-reload'), structuredClone(colony.serialize()));
+  assert.equal(restored.isFoodStorageAvailable(point.x, point.y), false);
 });
 
 // --- Queen Safe Tile Search ---
@@ -1267,7 +1237,7 @@ test('egg costs balance the food ledger without changing physical nest markers',
   colony._virtualFoodStored = 0;
   colony.depositPellet(10, world.nestX, world.nestY + 6);
   const pelletsBefore = structuredClone(colony.nestFoodPellets);
-  const tilesBefore = new Set(colony._nestFoodTiles);
+  const tilesBefore = new Map(colony._nestFoodTiles);
 
   colony.update(config);
 
@@ -1279,4 +1249,15 @@ test('egg costs balance the food ledger without changing physical nest markers',
     colony.foodStored,
     colony._virtualFoodStored + colony.getNestPelletNutritionTotal() + colony._foodLedgerAdjustment,
   );
+});
+
+test('surface food vision respects walls without shortening the radius', () => {
+  const world = new World(64, 64);
+  const colony = new Colony(world, new SeededRng('wall-sight'), 0);
+  const pellet = { id: 'wall-pellet', x: 27, y: 10, nutrition: 12 };
+  colony.setSurfaceFoodPellets([pellet]);
+  assert.equal(colony.findVisiblePellet(10, 10, 18), pellet);
+  world.setTerrain(world.index(15, 10), TERRAIN.WALL);
+  assert.equal(colony.findVisiblePellet(10, 10, 18), null);
+  assert.equal(colony.countVisiblePellets(10, 10, 18), 0);
 });

@@ -21,7 +21,10 @@ export function isQueenFoodCourier(ant, colony) {
 
 export function runQueenCourierBehavior(ant, world, colony, rng, config, context) {
   const queen = colony.queen;
-  if (!queen?.alive) return STAY_ACTION;
+  if (!queen?.alive) {
+    if (ant.carrying?.type === 'queen-food') ant.carrying.type = 'food';
+    return STAY_ACTION;
+  }
 
   if (ant.carrying?.type === 'queen-food') {
     const distanceToQueen = Math.hypot(ant.x - queen.x, ant.y - queen.y);
@@ -34,11 +37,11 @@ export function runQueenCourierBehavior(ant, world, colony, rng, config, context
     }
 
     ant.state = 'DELIVER_QUEEN_FOOD';
-    return movementAction(steering.moveToward(ant, world, queen.x, queen.y, rng));
+    return movementAction(steering.moveTowardNest(ant, world, colony, queen, rng));
   }
 
   if (context.inNest) {
-    const pickupNutrition = colony.reserveQueenFoodRation(config.queenCourierPickupNutrition ?? 6, config);
+    const pickupNutrition = colony.reserveQueenFoodRation(config.queenCourierPickupNutrition ?? config.queenEatNutrition ?? 6, config);
     if (pickupNutrition > 0) {
       ant.carrying = {
         type: 'queen-food',
@@ -98,68 +101,44 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
     ));
   }
 
-  // If carrying queen-food, deliver it
-  if (ant.carrying?.type === 'queen-food') {
-    const queen = colony.queen;
-    if (queen?.alive) {
-      const distToQueen = Math.hypot(ant.x - queen.x, ant.y - queen.y);
-      if (distToQueen <= 1.5) {
-        colony.feedQueen(ant.carrying.pelletNutrition, config);
-        ant.carrying = null;
-        ant.carryingType = 'none';
-        ant.state = 'NURSE_FEED_QUEEN';
-        return STAY_ACTION;
-      }
-      ant.state = 'NURSE_DELIVER_QUEEN_FOOD';
-      return movementAction(steering.moveToward(ant, world, queen.x, queen.y, rng));
-    }
-    // Queen dead — drop the food
-    ant.carrying = null;
-    ant.carryingType = 'none';
-  }
-
-  // Feed the queen if she is hungry or her health is declining.
-  // Guard on queen?.alive BEFORE reading her vitals — the previous order
-  // dereferenced queen.hunger a line above the null-safe check it relied on.
-  const queen = colony.queen;
-  const queenNeedsFood = !!queen
-    && (queen.hunger < queen.hungerMax * 0.25 || queen.health < queen.healthMax * 0.6);
-  if (queen?.alive && !ant.carrying?.type
-      && queenNeedsFood
-      && colony.foodStored > 2
-      && colony.countQueenFoodCouriers() < 2) {
-    const pickupAmount = config.queenCourierPickupNutrition ?? 6;
-    const nutrition = colony.reserveQueenFoodRation(pickupAmount, config);
-    if (nutrition > 0) {
-      ant.carrying = {
-        type: 'queen-food',
-        pelletId: null,
-        pelletNutrition: nutrition,
-      };
-      ant.carryingType = 'food';
-      ant.state = 'NURSE_PICKUP_QUEEN_FOOD';
+  if (ant.carrying?.type === 'brood-food') {
+    const larva = colony.findHungryLarva(ant.x, ant.y);
+    if (!larva) {
+      ant.carrying.type = 'food';
       return STAY_ACTION;
     }
-  }
-
-  // Spread overcrowded larvae periodically (every ~60 ticks per nurse)
-  if (ant.stepCounter % 60 === 0 && colony.larvae.length > 1) {
-    colony.spreadLarvae();
-  }
-
-  // Tend brood: move toward the brood area.
-  // Each nurse gets a stable per-ant offset so they spread across the chamber
-  // rather than all converging on the same tile.
-  if (colony.larvae.length > 0) {
-    const idSeed = parseInt(ant.id.replace(/\D/g, ''), 10) || 0;
-    const offsetX = (idSeed % 7) - 3;            // -3 to +3
-    const offsetY = (Math.floor(idSeed / 7) % 5) - 2;  // -2 to +2
-    const broodX = Math.max(0, Math.min(world.width - 1, colony.homeX + 4 + offsetX));
-    const broodY = Math.max(world.nestY + 2, Math.min(world.height - 1, colony.homeY + 5 + offsetY));
-    const distToBrood = Math.hypot(ant.x - broodX, ant.y - broodY);
-    if (distToBrood > 3) {
+    if (ant.x !== larva.x || ant.y !== larva.y) {
       ant.state = 'NURSE_TEND_BROOD';
-      return movementAction(steering.moveToward(ant, world, broodX, broodY, rng));
+      return movementAction(steering.moveTowardNest(ant, world, colony, larva, rng));
+    }
+    larva.nutrition = (larva.nutrition ?? 0) + ant.carrying.pelletNutrition;
+    ant.carrying = null;
+    ant.carryingType = 'none';
+    ant.state = 'NURSE_FEED_BROOD';
+    colony.spreadLarvae();
+    return STAY_ACTION;
+  }
+
+  const queen = colony.queen;
+  const queenNeedsFood = queen.alive
+    && (queen.hunger < queen.hungerMax * (config.queenFoodRequestHungerThreshold ?? 0.2)
+      || queen.health < queen.healthMax * 0.6);
+  if (queenNeedsFood && colony.foodStored > 0 && colony.countQueenFoodCouriers() < 2) {
+    return runQueenCourierBehavior(ant, world, colony, rng, config, context);
+  }
+
+  if (colony.foodStored > 0 && colony.findHungryLarva(ant.x, ant.y)) {
+    const source = colony.getNestRationPoint();
+    if (source && (ant.x !== source.x || ant.y !== source.y)) {
+      ant.state = 'NURSE_PICKUP_BROOD_FOOD';
+      return movementAction(steering.moveTowardNest(ant, world, colony, source, rng));
+    }
+    const ration = colony.consumeFromStore(config.nurseBroodRation ?? 4);
+    if (ration > 0) {
+      ant.carrying = { type: 'brood-food', pelletNutrition: ration };
+      ant.carryingType = 'food';
+      ant.state = 'NURSE_PICKUP_BROOD_FOOD';
+      return STAY_ACTION;
     }
   }
 
@@ -195,23 +174,46 @@ export function runDiggerBehavior(ant, world, colony, rng, config, context) {
   // Deposit home pheromone to help navigation
   const idx = world.index(ant.x, ant.y);
   if (config.enablePheromones !== false) {
-    world.depositToHome(idx, config.depositHome * 1.4, config.pheromoneMaxClamp);
+    world.depositToHome(idx, config.depositHome * 1.4, config.pheromoneMaxClamp, colony.id);
   }
 
   // Move toward the nearest active dig front
-  const digTarget = colony.getActiveDigFrontPosition(ant.x, ant.y);
+  const digTarget = colony.getActiveDigFrontPosition(ant.x, ant.y, config.digRecruitRadius ?? 16);
   if (digTarget) {
     const distToFront = Math.hypot(ant.x - digTarget.x, ant.y - digTarget.y);
-    if (distToFront > 2) {
+    if (distToFront > Math.SQRT2) {
       ant.state = 'DIG_MOVE_TO_FRONT';
-      return movementAction(steering.moveToward(ant, world, digTarget.x, digTarget.y, rng));
+      return movementAction(steering.moveTowardNest(ant, world, colony, digTarget, rng));
     }
     // At the front — wander nearby so DigSystem can assign us
     ant.state = 'DIG_AT_FRONT';
+    return STAY_ACTION;
   }
 
   // Wander near current position in tunnels.
   // Phase 3: digger at-front wander uses the correlated random walk too.
   steering.updateWanderHeading(ant, rng, world, config);
   return movementAction(steering.moveByPheromone(ant, world, rng, config, 'food', context.entrance));
+}
+
+export function haulCorpse(ant, world, colony, rng, context) {
+  ant.state = 'HAUL_CORPSE';
+  if (!context.inNest && context.entrance) {
+    const targetY = navigation.getNestEntryTargetY(ant, world, context.entrance);
+    return movementAction(steering.moveThroughEntranceShaft(ant, world, context.entrance, targetY, rng));
+  }
+  const midden = colony.findChamberTile(colony.homeX + 5, colony.homeY + 8);
+  if (midden && (ant.x !== midden.x || ant.y !== midden.y)) {
+    return { moved: steering.moveTowardNest(ant, world, colony, midden, rng), allowFallback: false };
+  }
+  colony.corpses.push({
+    id: ant.carrying.id,
+    x: ant.x,
+    y: ant.y,
+    buried: Boolean(midden),
+    expiresAt: colony._updateCounter + 900,
+  });
+  ant.carrying = null;
+  ant.carryingType = 'none';
+  return STAY_ACTION;
 }

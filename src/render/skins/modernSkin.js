@@ -1,4 +1,4 @@
-import { TERRAIN } from '../../sim/world.js';
+import { TERRAIN, getDisplayTrailValue } from '../../sim/world.js';
 import { classicSkin } from './classicSkin.js';
 import { drawSprite, polygon, postProcess } from './skinAssets.js';
 const fields = new WeakMap(), backgrounds = new WeakMap(), entrances = new WeakMap();
@@ -52,7 +52,7 @@ export const modernSkin = Object.freeze({
       const c=cached?.canvas || document.createElement('canvas');c.width=world.width;c.height=world.nestY+1;
       const b=c.getContext('2d'),image=b.createImageData(c.width,c.height),d=image.data;
       for(let i=0;i<c.width*c.height;i++) {
-        const f=food?Math.min(1,Math.sqrt(world.toFood[i]/6)):0,h=home?Math.min(1,Math.sqrt(world.toHome[i]/6)):0,v=danger?Math.min(1,world.danger[i]):0;
+        const f=food?Math.min(1,Math.sqrt(getDisplayTrailValue(world, 'food', i)/6)):0,h=home?Math.min(1,Math.sqrt(getDisplayTrailValue(world, 'home', i)/6)):0,v=danger?Math.min(1,world.danger[i]):0;
         d[i*4]=50*f+55*h+230*v;d[i*4+1]=215*f+100*h+40*v;d[i*4+2]=90*f+245*h+70*v;d[i*4+3]=Math.min(210,(f+h+v)*160);
       }
       b.putImageData(image,0,0);cached={key,world,canvas:c};fields.set(owner,cached);

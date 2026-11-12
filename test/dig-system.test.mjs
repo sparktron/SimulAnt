@@ -99,6 +99,10 @@ test('dig system excavates soil into tunnels', () => {
   const colony = new Colony(world, rng, 50);
   const dig = new DigSystem(world, colony, rng);
   dig.autoDig = true;
+  const x = world.nestX;
+  const y = world.nestY + 14;
+  dig.fronts = [{ x, y, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 }];
+  Object.assign(colony.ants.find(ant => ant.role === 'worker'), { x, y, hunger: 100, health: 100 });
 
   const config = createTestConfig();
   let tunnelsBefore = 0;
@@ -418,6 +422,10 @@ test('digging deposits home pheromone in carved tiles', () => {
   const colony = new Colony(world, rng, 50);
   const dig = new DigSystem(world, colony, rng);
   dig.autoDig = true;
+  const x = world.nestX;
+  const y = world.nestY + 14;
+  dig.fronts = [{ x, y, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 }];
+  Object.assign(colony.ants.find(ant => ant.role === 'worker'), { x, y, hunger: 100, health: 100 });
 
   // Clear home pheromone
   world.toHome.fill(0);
@@ -571,15 +579,19 @@ function digRadiusScenario(seed) {
   return { dig, worker };
 }
 
-test('digRecruitRadius controls how far a dig front recruits dig-focus workers', () => {
-  const inRange = digRadiusScenario('dig-radius-in');
-  inRange.dig.update({ ...createTestConfig(), digRecruitRadius: 16 });
-  assert.equal(inRange.worker.carryingType, 'dirt', 'recruited at radius 16 (covers a 10-tile worker)');
+test('a distant digger must walk to the front before it earns dirt', () => {
+  const { dig, worker } = digRadiusScenario('dig-adjacent-work');
+  const [front] = dig.fronts;
+  const start = { x: front.x, y: front.y };
+  dig.update({ ...createTestConfig(), digRecruitRadius: 16 });
+  assert.equal(worker.carrying, null);
+  assert.deepEqual({ x: front.x, y: front.y }, start);
 
-  const outOfRange = digRadiusScenario('dig-radius-out');
-  outOfRange.dig.update({ ...createTestConfig(), digRecruitRadius: 8 });
-  assert.equal(outOfRange.worker.carryingType, 'none', 'not recruited at radius 8 (10-tile worker is out of range)');
+  Object.assign(worker, { x: front.x, y: front.y + 1 });
+  dig.update(createTestConfig());
+  assert.equal(worker.carrying?.type, 'dirt');
 });
+
 
 test('lower digWorkersPerFront staffs more fronts from the same dig-focus workforce', () => {
   function manyFrontsScenario(workersPerFront) {
@@ -624,8 +636,7 @@ test('dig-focus workers are preferred over closer non-dig workers', () => {
   dig.fronts = [{ x: fx, y: fy, dir: 1, progress: 0, age: 0, stepsSinceChamber: 0, lastAdvanceTick: 0 }];
 
   // A non-dig worker sits ON the front (closest possible); a dig-focus worker is
-  // a few tiles away but within the assignment radius. The dig-focus worker must
-  // win assignment despite being farther — priority, not proximity.
+  // next to it. Both can dig, and the specialist gets priority.
   const nonDig = new Ant(fx, fy, rng, 'worker');
   nonDig.workFocus = 'forage';
   nonDig.health = nonDig.healthMax;
@@ -633,7 +644,7 @@ test('dig-focus workers are preferred over closer non-dig workers', () => {
   nonDig.carrying = null;
   nonDig.carryingType = 'none';
 
-  const digger = new Ant(fx + 4, fy + 2, rng, 'worker'); // d2 = 20, inside base radius 64
+  const digger = new Ant(fx + 1, fy, rng, 'worker');
   digger.workFocus = 'dig';
   digger.health = digger.healthMax;
   digger.hunger = digger.hungerMax;

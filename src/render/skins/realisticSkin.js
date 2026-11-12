@@ -1,4 +1,4 @@
-import { TERRAIN } from '../../sim/world.js';
+import { TERRAIN, getDisplayTrailValue } from '../../sim/world.js';
 import { SeededRng } from '../../sim/rng.js';
 import { classicSkin } from './classicSkin.js';
 import { hash2, noiseField, postProcess, tileTableCache } from './skinAssets.js';
@@ -77,8 +77,8 @@ function surfaceTerrainPixel(terrain, x, y, idx, world, overlays) {
     set(g[o], g[o + 1], g[o + 2]);
     if (T[idx - W] === TERRAIN.WALL || (x > 0 && T[idx - W - 1] === TERRAIN.WALL)) { OUT[0] *= 0.62; OUT[1] *= 0.62; OUT[2] *= 0.66; }
   }
-  if (overlays.showToFood || overlays.showScent) blend(120, 225, 95, Math.min(1, Math.sqrt(world.toFood[idx] / 6)) * 0.85);
-  if (overlays.showToHome || overlays.showScent) blend(95, 150, 245, Math.min(1, Math.sqrt(world.toHome[idx] / 6)) * 0.85);
+  if (overlays.showToFood || overlays.showScent) blend(120, 225, 95, Math.min(1, Math.sqrt(getDisplayTrailValue(world, 'food', idx) / 6)) * 0.85);
+  if (overlays.showToHome || overlays.showScent) blend(95, 150, 245, Math.min(1, Math.sqrt(getDisplayTrailValue(world, 'home', idx) / 6)) * 0.85);
   if (overlays.showDanger) blend(235, 70, 50, Math.min(1, world.danger[idx]) * 0.8);
   return OUT;
 }

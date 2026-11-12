@@ -433,6 +433,10 @@ export class SimulationCore {
     this.world.nestFood.fill(0);
     this.world.toFood.fill(0);
     this.world.toHome.fill(0);
+    this.world.clearRivalTrails();
+    this.world.combatAlarms.length = 0;
+    this.colony.corpses.length = 0;
+    this.rivalColony.corpses.length = 0;
     this.world.danger.fill(0);
     this.colony.nestFoodPellets = [];
     this.colony._nestFoodTiles.clear();

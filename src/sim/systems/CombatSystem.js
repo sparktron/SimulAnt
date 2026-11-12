@@ -87,6 +87,9 @@ export class CombatSystem {
           if (!soldierInvolved && this.rng.next() >= workerChance) continue;
 
           this.#beginDuel(blackAnt, redAnt, totalTicks);
+          if (config.enablePheromones !== false) {
+            blackColony.world.depositCombatAlarm(blackAnt.x, blackAnt.y, Math.min(totalTicks, 45));
+          }
           started += 1;
           engaged = true;
           break;

@@ -60,7 +60,7 @@ export class Ant {
 
   static getJobColor(state, workFocus, role = 'worker') {
     if (state === 'FIGHT') return FIGHT_COLOR;
-    if (state === 'SEEK_FIGHT' || state === 'RAID') return '#ff3030';
+    if (state === 'SEEK_FIGHT' || state === 'RAID' || state === 'RESPOND_ALARM') return '#ff3030';
     if (role === 'soldier') return '#8b1a1a';  // Dark red for soldiers
 
     switch (state) {
@@ -86,6 +86,7 @@ export class Ant {
 
       // Hauling/storing - orange
       case 'HAUL_DIRT':
+      case 'HAUL_CORPSE':
       case 'STORE_FOOD_IN_NEST':
       case 'PICKUP':
         return '#ff8c00';
@@ -99,11 +100,18 @@ export class Ant {
 
       // Digging - red/brown
       case 'DIG':
+      case 'DIG_ENTER_NEST':
+      case 'DIG_MOVE_TO_FRONT':
+      case 'DIG_AT_FRONT':
       case 'FORCE_DIG':
         return '#d2691e';
 
       // Nursing - light green/mint
       case 'NURSE':
+      case 'NURSE_ENTER_NEST':
+      case 'NURSE_TEND_BROOD':
+      case 'NURSE_PICKUP_BROOD_FOOD':
+      case 'NURSE_FEED_BROOD':
         return '#66ff99';
 
       // Leaving nest - light gray
@@ -244,7 +252,7 @@ export class Ant {
   #sensePhase(world, colony, config) {
     this._currentColony = colony;
 
-    if (this.carrying?.type === 'food' || this.carrying?.type === 'queen-food') {
+    if (['food', 'queen-food', 'brood-food'].includes(this.carrying?.type)) {
       this.carryingType = 'food';
     } else if (this.carryingType === 'food') {
       this.carryingType = 'none';
@@ -358,6 +366,10 @@ export class Ant {
 
     // Existing cargo takes priority over newly assigned work. In particular, a
     // queen-courier assignment must not replace food or dirt already in transit.
+    if (this.carrying?.type === 'corpse') {
+      return roles.haulCorpse(this, world, colony, rng, context);
+    }
+
     if (this.carrying?.type === 'dirt') {
       return decisions.haulDirt(this, world, colony, rng, config, context);
     }
@@ -372,8 +384,24 @@ export class Ant {
 
     if (this.role !== 'worker') return STAY_ACTION;
 
-    if (roles.isQueenFoodCourier(this, colony)) {
+    if (this.carrying?.type === 'brood-food') {
+      return roles.runNurseBehavior(this, world, colony, rng, config, context);
+    }
+
+    if (this.carrying?.type === 'queen-food' || roles.isQueenFoodCourier(this, colony)) {
       return roles.runQueenCourierBehavior(this, world, colony, rng, config, context);
+    }
+
+    if ((context.inNest && this.workFocus !== 'forage')
+        || (!context.inNest && this.workFocus === 'forage' && navigation.distanceToEntrance(this, colony) < 8)) {
+      const corpse = colony.corpses.findIndex(item => !item.buried
+        && Math.max(Math.abs(item.x - this.x), Math.abs(item.y - this.y)) <= 1);
+      if (corpse >= 0) {
+        const [item] = colony.corpses.splice(corpse, 1);
+        this.carrying = { type: 'corpse', id: item.id };
+        this.state = 'HAUL_CORPSE';
+        return STAY_ACTION;
+      }
     }
 
     // Foragers exit the nest when not carrying anything.

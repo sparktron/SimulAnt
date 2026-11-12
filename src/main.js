@@ -126,7 +126,7 @@ const state = {
     queenHealthRecoveryPerNutrition: 0.25,
     queenFoodRequestHealthThreshold: 0.5,
     queenFoodRequestClearThreshold: 0.8,
-    queenFoodRequestHungerThreshold: 0.2,
+    queenFoodRequestHungerThreshold: 0.45,
     queenCourierPickupNutrition: 6,
     queenSuccessionDelayTicks: 150,
     queenSuccessionFoodCost: 60,
@@ -139,6 +139,8 @@ const state = {
     foodDropDistanceMin: 30,
     foodDropDistanceRange: 30,
     broodFoodDrainRate: 0.005,
+    broodDevelopmentNutrition: 24,
+    nurseBroodRation: 4,
     broodGestationSeconds: 8,
     broodStarvationTicks: 600,
     larvaeCrowdingThreshold: 8,
@@ -439,6 +441,7 @@ const controls = createControls(state, {
   toggleView: () => viewManager.toggle(),
   showNestHome,
   getView: () => viewManager.getCurrent(),
+  getAutoDig: () => simCore.digSystem.autoDig,
   toggleDebugStats: () => {
     state.debug.showStats = !state.debug.showStats;
     state.debug.showEntranceInfo = state.debug.showStats;
@@ -447,8 +450,12 @@ const controls = createControls(state, {
     state.overlays.showScent = !state.overlays.showScent;
   },
   spawnFoodAtCursor: () => {
-    if (viewManager.getCurrent() !== VIEW.SURFACE || !state.cursor.surface) return;
-    simCore.spawnFoodCluster(state.cursor.surface.x, state.cursor.surface.y, 8, 12);
+    if (viewManager.getCurrent() !== VIEW.SURFACE) return;
+    const point = state.cursor.surface ?? {
+      x: Math.floor(surfaceRenderer.cameraX),
+      y: Math.min(simCore.world.nestY - 1, Math.floor(surfaceRenderer.cameraY)),
+    };
+    simCore.spawnFoodCluster(point.x, point.y, 8, 12);
   },
   starveSelectedAnt: () => {
     const ant = simCore.findAntById(state.selectedAntId);
@@ -521,7 +528,21 @@ parameterEditor = new ParameterEditor('#parameterEditorContainer', state, () => 
 });
 
 // Setup tab switching
+const rightPanel = mustById('rightPanel');
+const panelToggle = mustById('panelToggle');
+panelToggle.addEventListener('click', () => {
+  const open = rightPanel.classList.toggle('drawer-open');
+  panelToggle.setAttribute('aria-expanded', String(open));
+});
+rightPanel.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !rightPanel.classList.contains('drawer-open')) return;
+  rightPanel.classList.remove('drawer-open');
+  panelToggle.setAttribute('aria-expanded', 'false');
+  panelToggle.focus();
+});
+
 function switchTab(tabName) {
+  rightPanel.classList.toggle('params-open', tabName === 'params');
   const statsView = document.getElementById('statsView');
   const paramsView = document.getElementById('paramsView');
   const statsBtn = document.getElementById('statsTabBtn');
@@ -654,6 +675,7 @@ function loop(now) {
     const antHealthStats = getAntHealthStats(simCore.colony.ants);
     const redAntHealthStats = getAntHealthStats(simCore.rivalColony.ants);
     const hudCounts = getHudAntCounts(simCore.colony.ants, simCore.world.nestY);
+    const redHudCounts = getHudAntCounts(simCore.rivalColony.ants, simCore.world.nestY);
     const deathsByCause = mergeDeathCauses(
       simCore.colony.deathsByCause,
       simCore.rivalColony.deathsByCause,
@@ -694,6 +716,14 @@ function loop(now) {
         followingHome: hudCounts.followingHome,
         deaths: simCore.colony.deaths + simCore.rivalColony.deaths,
         deathsByCause,
+        blackDeathsByCause: simCore.colony.deathsByCause,
+        redDeathsByCause: simCore.rivalColony.deathsByCause,
+        redFood: getHudFoodTotal(simCore.rivalColony),
+        redQueenHealth: simCore.rivalColony.queen.health,
+        redQueenAlive: simCore.rivalColony.queen.alive,
+        redSurface: redHudCounts.surface,
+        redUnderground: redHudCounts.underground,
+        selectedAnt,
         virtualFoodRemaining: simCore.colony._virtualFoodStored,
         virtualFoodInitial: simCore.colony._virtualFoodInitial,
       });

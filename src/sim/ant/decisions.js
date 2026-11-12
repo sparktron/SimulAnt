@@ -122,6 +122,23 @@ export function seekFight(ant, world, colony, rng, config, context) {
  */
 export function soldierDuty(ant, world, colony, rng, config, context) {
   const opponent = colony.opponentColony;
+  if (!context.inNest && config.enablePheromones !== false
+      && config.combatEngageChance > 0 && isFitToFight(ant, config)) {
+    let alarm = null;
+    let bestDistance = combatSenseRadiusFor(ant, config) * 1.5;
+    for (const signal of world.combatAlarms) {
+      const distance = Math.hypot(ant.x - signal.x, ant.y - signal.y);
+      if (distance >= bestDistance) continue;
+      bestDistance = distance;
+      alarm = signal;
+    }
+    if (alarm) {
+      ant.state = 'RESPOND_ALARM';
+      return bestDistance > 0
+        ? movementAction(steering.moveToward(ant, world, alarm.x, alarm.y, rng))
+        : STAY_ACTION;
+    }
+  }
   const bias = config.enemySeekBias ?? 0;
   if (!opponent || bias <= 0 || config.combatEngageChance <= 0 || !isFitToFight(ant, config)) {
     ant.raiding = false;
@@ -175,7 +192,7 @@ export function soldierPatrol(ant, world, colony, rng, config, context) {
   }
   // Soldiers deposit home pheromone while patrolling
   if (didMove && ant.stepCounter % config.homeDepositIntervalTicks === 0 && config.enablePheromones !== false) {
-    world.depositToHome(context.idx, config.depositHome * 0.5, config.pheromoneMaxClamp);
+    world.depositToHome(context.idx, config.depositHome * 0.5, config.pheromoneMaxClamp, colony.id);
   }
   return movementAction(didMove);
 }
@@ -221,7 +238,12 @@ export function carryFood(ant, world, colony, rng, config, context) {
 
   ant.state = 'RETURN_HOME';
   if (context.inNest) {
-    const dropPoint = colony.findNestFoodDropPoint(context.entrance, ant.x, ant.y);
+    let dropPoint = ant.carrying.dropPoint;
+    if (!dropPoint || !colony.isFoodStorageAvailable?.(dropPoint.x, dropPoint.y)
+        || colony.getNestDestinationField(dropPoint.x, dropPoint.y).distanceAt(ant.x, ant.y) < 0) {
+      dropPoint = colony.findNestFoodDropPoint(context.entrance, null, null, ant);
+      ant.carrying.dropPoint = dropPoint;
+    }
     if (dropPoint) {
       if (ant.x === dropPoint.x && ant.y === dropPoint.y) {
         const deposited = colony.depositFoodFromAnt(ant, context.entrance, dropPoint);
@@ -241,18 +263,12 @@ export function carryFood(ant, world, colony, rng, config, context) {
       }
 
       ant.state = 'STORE_FOOD_IN_NEST';
-      didMove = steering.moveToward(ant, world, dropPoint.x, dropPoint.y, rng);
-      if (!didMove) didMove = steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance);
-      return movementAction(didMove);
+      return { moved: steering.moveTowardNest(ant, world, colony, dropPoint, rng), allowFallback: false };
     }
 
-    // No storage tile available (nest not excavated enough yet).
-    // Exit back to the surface so the ant doesn't freeze at the entrance boundary.
-    ant.state = 'RETURN_HOME';
-    if (context.entrance) {
-      didMove = steering.moveThroughEntranceShaft(ant, world, context.entrance, context.entrance.y - 1, rng);
-      if (didMove) return movementAction(didMove);
-    }
+    // Wait below the mouth with the cargo until a chamber slot opens.
+    ant.state = 'STORE_FOOD_IN_NEST';
+    return STAY_ACTION;
   }
 
   const distToNest = context.entrance ? Math.hypot(ant.x - context.entrance.x, ant.y - context.entrance.y) : 0;
@@ -293,6 +309,7 @@ export function carryFood(ant, world, colony, rng, config, context) {
       context.idx,
       config.depositFood * trailScale * entranceFadeFraction * recruitFactor,
       config.pheromoneMaxClamp,
+      colony.id,
     );
   }
 
@@ -308,7 +325,7 @@ export function carryFood(ant, world, colony, rng, config, context) {
       rng,
     );
   } else {
-    didMove = steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance, null, world.toFood);
+    didMove = steering.moveByPheromone(ant, world, rng, config, 'home', context.entrance, colony, world.getTrail('food', colony.id));
     if (!didMove && context.entrance) {
       didMove = steering.moveThroughEntranceShaft(ant, world, context.entrance, context.entrance.y, rng);
     }
@@ -571,7 +588,7 @@ export function forageSearch(ant, world, colony, rng, config, context) {
   // Skip the update when the ant is on a strong food trail — its theta
   // shouldn't keep drifting against pheromone steering, otherwise the
   // headingBias term injects sporadic course changes on a clear trail.
-  const trailAtAnt = world.toFood[context.idx] ?? 0;
+  const trailAtAnt = world.getTrail('food', colony.id)[context.idx] ?? 0;
   const onClearTrail = trailAtAnt > (config.trailLockThreshold ?? 1.0);
   if (!onClearTrail) {
     steering.updateWanderHeading(ant, rng, world, config);
@@ -598,6 +615,7 @@ export function forageSearch(ant, world, colony, rng, config, context) {
       context.idx,
       config.depositHome * homeDepositFraction,
       config.pheromoneMaxClamp,
+      colony.id,
     );
   }
 
@@ -620,7 +638,7 @@ export function forageSearch(ant, world, colony, rng, config, context) {
   // food pheromone peak deposited by returners. The radius is kept small
   // (config default 6) so the push is only 1–2 steps and never causes the
   // long diagonal march the larger radius produced.
-  const onFoodTrail = world.toFood[context.idx] > 0.5;
+  const onFoodTrail = world.getTrail('food', colony.id)[context.idx] > 0.5;
   const nearEntranceScatter = !context.inNest && context.entrance
     && (
       distFromEntrance < innerScatterRadius

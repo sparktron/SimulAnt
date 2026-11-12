@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SimulationCore } from '../src/sim/SimulationCore.js';
 import { TERRAIN } from '../src/sim/world.js';
+import { Ant } from '../src/sim/ant.js';
+import { SeededRng } from '../src/sim/rng.js';
+import { getDefaultConfig } from '../src/ui/params.js';
 
 test('ant lions spawn deterministically on clear surface ground, with a hard cap of four', () => {
   const a = new SimulationCore('ant-lions');
@@ -115,4 +118,37 @@ test('a pit eats the nearest ant across colonies and marks local danger', () => 
   const restored = new SimulationCore('restored-predation');
   restored.loadFromSerialized(structuredClone(sim.serialize({})));
   assert.equal(restored.rivalColony.deathsByCause.predation, 1);
+});
+
+test('danger left by three kills reduces entries into the pit', () => {
+  const sim = new SimulationCore('pit-avoidance-check');
+  const [lion] = sim.world.antLions;
+  const { world, colony } = sim;
+  const config = { ...getDefaultConfig(), antLionFeedingCooldown: 1 };
+  colony.setSurfaceFoodPellets([]);
+  colony.setNestEntrances([]);
+  colony.opponentColony = null;
+
+  function entries() {
+    let entered = 0;
+    for (let i = 0; i < 30; i += 1) {
+      const rng = new SeededRng(`pit-pair-${i}`);
+      const ant = new Ant(lion.x - 3, lion.y, rng);
+      Object.assign(ant, { hunger: ant.hungerMax, health: ant.healthMax, theta: 0, dir: 0, _hasInitiallyScattered: true });
+      colony.ants = [ant];
+      colony.rebuildAntGridFromAnts();
+      ant.update(world, colony, rng, config);
+      if (Math.hypot(ant.x - lion.x, ant.y - lion.y) <= 2.5) entered += 1;
+    }
+    return entered;
+  }
+
+  const before = entries();
+  const preyRng = new SeededRng('predation');
+  for (let i = 0; i < 3; i += 1) {
+    colony.ants = [new Ant(lion.x, lion.y, preyRng)];
+    sim.antLionSystem.update([colony], config);
+  }
+  assert.equal(colony.deathsByCause.predation, 3);
+  assert.ok(entries() < before);
 });

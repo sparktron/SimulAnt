@@ -399,7 +399,7 @@ test('ant dies immediately after stepping onto a hazard tile', () => {
 
 // --- Food Deposit ---
 
-test('ant deposits food when near entrance regardless of y position', () => {
+test('ant deposits food only at a valid chamber drop point', () => {
   const rng = new SeededRng('deposit-seed');
   const world = createTestWorld();
   const config = createTestConfig();
@@ -410,20 +410,16 @@ test('ant deposits food when near entrance regardless of y position', () => {
   colony.setSurfaceFoodPellets([]);
 
   // Place ant in nest with food
-  const dropPoint = { x: world.nestX + 1, y: world.nestY + 1 };
+  const dropPoint = colony.findNestFoodDropPoint(entrance);
   const ant = new Ant(dropPoint.x, dropPoint.y, rng, 'worker');
   ant.carrying = { type: 'food', pelletId: 'test-1', pelletNutrition: 10 };
   ant.carryingType = 'food';
-  // Make terrain passable
-  world.terrain[world.index(dropPoint.x, dropPoint.y)] = TERRAIN.TUNNEL;
   colony.ants.push(ant);
 
-  // Note: Master requires food to be deposited through depositFoodFromAnt with proper drop point
-  // which is more complex than old behavior. Test validates the capability exists.
   const result = colony.depositFoodFromAnt(ant, entrance, dropPoint);
   assert.ok(result, 'Colony should accept food deposit at valid drop point');
   assert.equal(ant.carrying, null, 'Ant should have cleared carrying after deposit');
-  assert.ok(colony.foodStored >= 10, 'Colony should have received the food');
+  assert.ok(colony.foodStored >= 8.5, 'Colony should have received the food');
 });
 
 test('nest food deposit completes without fallback movement', () => {
@@ -436,8 +432,9 @@ test('nest food deposit completes without fallback movement', () => {
   colony.setSurfaceFoodPellets([]);
   colony.foodStored = 0;
 
-  const ant = new Ant(world.nestX, world.nestY + 6, rng, 'worker');
-  ant.carrying = { type: 'food', pelletId: 'deposit-action-food', pelletNutrition: 10 };
+  const point = colony.findNestFoodDropPoint(entrance);
+  const ant = new Ant(point.x, point.y, rng, 'worker');
+  ant.carrying = { type: 'food', pelletId: 'deposit-action-food', pelletNutrition: 10, dropPoint: point };
   ant.carryingType = 'food';
   ant.health = ant.healthMax;
   ant.hunger = 80;

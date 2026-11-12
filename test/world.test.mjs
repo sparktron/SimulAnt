@@ -369,3 +369,26 @@ test('setNest updates nest position and recomputes influence', () => {
   assert.equal(world.nestY, 10);
   assert.notEqual(world.nestX, oldX);
 });
+
+test('food and home trails evolve independently and persist for both colonies', () => {
+  const world = new World(32, 32);
+  const blackTile = world.index(5, 6);
+  const redTile = world.index(20, 6);
+  for (const channel of ['Food', 'Home']) {
+    world[`depositTo${channel}`](blackTile, 2);
+    world[`depositTo${channel}`](redTile, 3, 5, 'red');
+  }
+  const config = { evapFood: 0.1, evapHome: 0.1, evapDanger: 0.1,
+    diffFood: 0.1, diffHome: 0.1, diffDanger: 0, pheromoneMaxClamp: 5 };
+  world.updatePheromones(config, 1);
+  const restored = World.fromSerialized(world.serialize());
+  for (const channel of ['food', 'home']) {
+    assert.equal(restored.getTrail(channel, 'red')[blackTile], 0);
+    assert.equal(restored.getTrail(channel, 'black')[redTile], 0);
+    assert.ok(restored.getTrail(channel, 'red')[redTile] > 0);
+    assert.ok(restored.getTrail(channel, 'black')[blackTile] > 0);
+  }
+  restored.updatePheromones(config, 2);
+  world.updatePheromones(config, 2);
+  assert.deepEqual(restored.serialize(), world.serialize());
+});

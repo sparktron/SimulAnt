@@ -383,3 +383,42 @@ on one row, and add a filter box above the groups.
 - `docs/KNOWN_ISSUES.md` still says the colony "starves to zero before reaching
   truly large ant counts". Item 1 is a concrete cause of late-run starvation;
   update that entry once it is fixed and re-measured.
+
+## Implementation experiment
+
+The paired comparison uses production defaults, 5,000 ticks per seed, and the
+same seeds `review-01` through `review-12` in each revision. The baseline is
+Phase 1 commit `038de01` on `master`, Node 24.16.0, with at most four independent
+simulation processes. The test revision is v0.67.0, including the linked brood, nurse, storage,
+navigation and worker-age changes alongside the remaining review items.
+
+**Hypothesis.** Ant-delivered nutrition and age-based work support surviving
+queens in at least 22 of 24 colonies at tick 5,000 while leaving a positive
+median food reserve. Either a lower survival count or a median reserve of zero
+refutes the hypothesis. This comparison measures the integrated effect.
+
+**Observed.** Both revisions finished with 24 living queens. Median colony
+population went from 168.5 to 164 ants, median reserves from 4,824.5 to 3,153
+nutrition, and the lowest reserve in the candidate was 1,252. Median births
+went from 259 to 233.5 and median excavated tiles from 788.5 to 1,344.5. Raw
+results are in [v0.66.0](../bench/behavior-audit/review-5000-v0.66.0.jsonl)
+and [v0.67.0](../bench/behavior-audit/review-5000-v0.67.0.jsonl).
+The elapsed times include process contention.
+
+The [12,000-tick vitals probe](../bench/behavior-audit/probe-a-v0.67.0.txt)
+recorded at most one direction flip per completed nest-meal episode in either
+colony. At ticks 8,000–9,000, aged red ants ate 75 of 5,845 adult nutrition.
+The red store finished at 9,615 with 133 ants. The probe now attributes
+attendants' brood and queen rations to their worker age buckets.
+
+**Interpretation.** The paired run supports the integrated survival hypothesis.
+The smaller reserves and birth counts are consistent with higher brood costs
+and nutrition-dependent laying. The trial estimates the combined effect of
+the implementation. Individual balance effects remain unmeasured.
+
+A separate baseline scenario ran to tick 16,000 with 107 ants and a living
+queen. It fell short of the sweep's 150-ant target. The fixed-seed tick profile
+measured 2.44 ms/tick on v0.66.0 and 2.95 ms/tick on v0.67.0, with 122 and 121
+black ants at the end of the timed interval, respectively. The versions
+produced different terrain, food counts and trail fields. This comparison
+captures the release's overall cost on that seed. [Raw validation output](../bench/behavior-audit/validation-v0.67.0.txt)
