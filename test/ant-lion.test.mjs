@@ -96,3 +96,23 @@ test('edited terrain removes invalid pits and loading cannot exceed the cap', ()
   sim.antLionSystem.load(saved);
   assert.equal(sim.world.antLions.length, 4);
 });
+
+test('a pit eats the nearest ant across colonies and marks local danger', () => {
+  const sim = new SimulationCore('closest-prey');
+  const [lion] = sim.world.antLions;
+  const [black] = sim.colony.ants;
+  const [red] = sim.rivalColony.ants;
+  Object.assign(black, { x: lion.x + 2, y: lion.y });
+  Object.assign(red, { x: lion.x, y: lion.y });
+  sim.world.setTerrain(sim.world.index(black.x, black.y), TERRAIN.GROUND);
+  sim.antLionSystem.update([sim.colony, sim.rivalColony]);
+  assert.equal(black.alive, true);
+  assert.equal(red.alive, false);
+  assert.equal(sim.rivalColony.deathsByCause.predation, 1);
+  assert.equal(sim.rivalColony.deathsByCause.other, 0);
+  assert.ok(sim.world.danger[sim.world.index(lion.x, lion.y)] > 0);
+  assert.ok(sim.world.danger[sim.world.index(black.x, black.y)] > 0);
+  const restored = new SimulationCore('restored-predation');
+  restored.loadFromSerialized(structuredClone(sim.serialize({})));
+  assert.equal(restored.rivalColony.deathsByCause.predation, 1);
+});

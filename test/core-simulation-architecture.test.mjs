@@ -336,7 +336,7 @@ test('workers deposit carried food into persistent nestFoodPellets at nest entra
   }
 
   assert.equal(sim.colony.nestFoodPellets.length > 0, true);
-  assert.equal(sim.colony.foodStored >= 3, true);
+  assert.ok(sim.colony.foodStored >= 3 * 0.85);
   assert.equal(ant.carrying, null);
   assert.ok(ant.carryingType === 'none' || ant.carryingType === 'dirt');
   assert.equal(ant.baseColor, ant.originalBaseColor);
@@ -434,7 +434,7 @@ test('low-health ant eats from pellet then carries the remainder home', () => {
 
   const ant = sim.colony.ants[0];
   ant.health = 45;  // low but above the 40% critical floor
-  ant.hunger = 15;
+  ant.hunger = 45;
 
   const pellet = sim.foodPellets[0];
   ant.x = pellet.x;
@@ -520,7 +520,10 @@ test('queen courier assignment preserves food already in transit', () => {
   const ant = sim.colony.ants[0];
   sim.colony.ants = [ant];
   ant.x = sim.world.nestX;
-  ant.y = sim.world.nestY + 8;
+  ant.y = sim.world.nestY - 5;
+  ant.role = 'worker';
+  ant.health = ant.healthMax;
+  sim.colony.setNestEntrances(sim.nestEntrances);
   ant.carrying = { type: 'food', pelletId: 'surface-food', pelletNutrition: 12 };
   ant.carryingType = 'food';
   sim.colony.queen.foodCourierAntId = ant.id;
@@ -900,7 +903,7 @@ test('food pickup overrides stale dirt carryingType so renderer markers stay cor
   ant.carrying = null;
   ant.carryingType = 'dirt';
   ant.health = ant.healthMax;
-  ant.hunger = 30;  // Below 40% threshold so ant will forage and pick up food
+  ant.hunger = 50;
   ant.workFocus = 'forage';
   sim.colony.foodStored = 0;  // Force colony into critical food shortage
   sim.colony.queen.alive = false;

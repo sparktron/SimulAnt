@@ -449,7 +449,7 @@ test('nest food deposit completes without fallback movement', () => {
   assert.deepEqual({ x: ant.x, y: ant.y }, start);
   assert.equal(ant.carrying, null);
   assert.equal(ant.state, 'EXIT_NEST');
-  assert.equal(colony.foodStored, 10);
+  assert.equal(colony.foodStored, 8.5);
 });
 
 // Regression: carriers must NOT lay food pheromone right at the entrance,
@@ -761,7 +761,7 @@ test('full-hunger worker with moderate health does not eat (relies on passive re
   assert.equal(colony.foodStored, 100, 'Full-hunger ant should not consume from store');
 });
 
-test('low-health worker eats from found pellet and carries the remainder', () => {
+test('worker below 40% eats multiple pellets to full health before hauling', () => {
   const rng = new SeededRng('eat-then-carry');
   const world = createTestWorld();
   const config = createTestConfig();
@@ -770,20 +770,28 @@ test('low-health worker eats from found pellet and carries the remainder', () =>
   const colony = createTestColony(world, rng, 0);
 
   colony.setNestEntrances([{ id: 'e', x: world.nestX, y: world.nestY, radius: 2 }]);
-  const pellet = { id: 'p-eat-carry', x: world.nestX + 8, y: world.nestY - 6, nutrition: 30 };
-  colony.setSurfaceFoodPellets([pellet]);
+  const pellets = [30, 30, 30, 10].map((nutrition, i) => ({
+    id: `recovery-${i}`, x: world.nestX + 8, y: world.nestY - 6, nutrition,
+  }));
+  const [pellet] = pellets;
+  colony.setSurfaceFoodPellets(pellets);
 
   const ant = new Ant(pellet.x, pellet.y, rng, 'worker');
   ant.health = 30;
   ant.hunger = 20;
   colony.ants.push(ant);
 
+  for (let i = 0; i < 3; i += 1) {
+    ant.update(world, colony, rng, config);
+    assert.equal(ant.carrying, null);
+  }
+  assert.equal(ant.health, ant.healthMax);
+  assert.equal(ant.fieldMeal, 'pickup');
+  const restored = Colony.fromSerialized(world, rng, structuredClone(colony.serialize()));
+  assert.equal(restored.ants[0].fieldMeal, 'pickup');
   ant.update(world, colony, rng, config);
-
   assert.equal(ant.carrying?.type, 'food');
-  assert.equal(ant.carrying?.pelletNutrition, 10);
-  assert.equal(colony.findAvailablePelletAt(pellet.x, pellet.y), null);
-  assert.ok(ant.health > 30, 'Ant should recover health before hauling');
+  assert.ok(ant.carrying?.pelletNutrition > 0);
 });
 
 test('low-health worker carrying food eats before continuing home', () => {
@@ -1572,4 +1580,43 @@ test('zero-nutrition pellet is removed and ant does not carry it', () => {
   );
   // Ant should not be carrying anything (no food to pick up)
   assert.equal(ant.carrying, null, 'Ant should not carry a zero-nutrition pellet');
+});
+
+test('senescent ants cannot buy back health or eat beyond hunger capacity', () => {
+  const rng = new SeededRng('senescence-store');
+  const world = createTestWorld();
+  const colony = createTestColony(world, rng);
+  const config = { ...createTestConfig(), healthEatRecoveryRate: 1 };
+  const ant = new Ant(world.nestX, world.nestY + 3, rng);
+  ant.age = ant.maxAge * 0.9;
+  ant.health = ant.healthMax * 0.3;
+  ant.hunger = ant.hungerMax - 0.1;
+  colony.foodStored = 100;
+  tryEatFromNest(ant, colony, true, config);
+  assert.ok(colony.foodStored >= 99.9);
+  assert.equal(ant.health, ant.healthMax * 0.3);
+  ant.update(world, colony, rng, config);
+  assert.ok(ant.health < ant.healthMax * 0.3);
+  assert.notEqual(ant.state, 'HEAL_IN_NEST');
+});
+
+test('a 50%-fed worker keeps foraging and a worker below 25% gets a nest meal', () => {
+  const world = createTestWorld();
+  const rng = new SeededRng('meal-threshold');
+  const colony = createTestColony(world, rng);
+  const config = { ...createTestConfig(), surfaceFoodSearchMaxMissTicks: 1 };
+  colony.setNestEntrances([{ x: world.nestX, y: world.nestY, radius: 2 }]);
+  const ant = new Ant(world.nestX, world.nestY - 2, rng);
+  colony.ants.push(ant);
+  ant.hunger = ant.hungerMax * 0.5;
+  ant.update(world, colony, rng, config);
+  assert.notEqual(ant.state, 'RETURN_NEST_TO_EAT');
+
+  ant.x = world.nestX;
+  ant.y = world.nestY - 1;
+  ant.hunger = ant.hungerMax * 0.24;
+  for (let i = 0; i < 12 && ant.hunger < ant.hungerMax * 0.25; i += 1) {
+    ant.update(world, colony, rng, config);
+  }
+  assert.ok(ant.hunger > ant.hungerMax * 0.25);
 });

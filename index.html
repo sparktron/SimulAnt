@@ -3,9 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>SimAnt Web App</title>
+    <title>SimulAnt</title>
     <link rel="stylesheet" href="themes/switcher.css" />
     <link id="themeStylesheet" rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/layout.css" />
     <script>
       (() => {
         const sheets = { classic: 'styles.css', retro: 'themes/retro.css', modern: 'themes/modern.css', nineties: 'themes/nineties.css', realistic: 'themes/realistic.css' };
@@ -19,10 +20,11 @@
   <body>
     <div class="screen">
       <header class="menu-bar">
-        <span class="classic-brand">SimAnt - Rival Colonies</span>
+        <span class="classic-brand">SimulAnt · Rival Colonies</span>
         <span class="theme-brand"><span class="brand-mark" aria-hidden="true">✳</span> SimulAnt <small>COLONY OBSERVATORY</small></span>
         <div class="header-readouts"><span class="live-status" id="hudRunState">LIVE</span><span><b id="hudFpsTitle">60</b> FPS</span><span class="tick-lcd">TICK <b id="hudTickTitle">0</b></span></div>
         <label class="theme-picker"><span>THEME</span><select id="themeSelect" aria-label="Theme"><option value="classic">Classic</option><option value="retro">Retro Polished</option><option value="modern">Modern Sleek</option><option value="nineties">90s Retro</option><option value="realistic">Realistic</option></select></label>
+        <span id="versionLabel">v…</span>
       </header>
 
       <div class="frame">
@@ -92,7 +94,9 @@
             <div class="legend-item"><div class="legend-color" style="background: #d2691e;"></div><span>Dig</span></div>
             <div class="legend-item"><div class="legend-color" style="background: #66ff99;"></div><span>Nurse</span></div>
             <div class="legend-item"><div class="legend-color" style="background: #ff1493;"></div><span>Queen</span></div>
-            <div class="legend-item"><div class="legend-color" style="background: #9a5aff;"></div><span>Patrol</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #8b1a1a;"></div><span>Soldier</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #b44cff;"></div><span>Duel</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #d3d3d3;"></div><span>Leaving nest</span></div>
           </div>
           <canvas id="simCanvas" width="960" height="640"></canvas>
         </main>
@@ -105,7 +109,9 @@
 
           <div id="statsView" class="hud-view active">
             <div class="section-title">World overview <span>LIVE</span></div>
-            <canvas id="minimapCanvas" class="minimap" width="256" height="256"></canvas>
+            <button type="button" id="minimapHomeBtn" aria-label="Center nest view on the black queen" title="Center nest on the black queen (Home)">
+              <canvas id="minimapCanvas" class="minimap" width="256" height="256"></canvas>
+            </button>
             <div class="stat-lines">
               <p>TICK: <span id="hudTick">0</span></p>
               <p class="headline-stat">BLACK ANTS: <span id="hudAnts">0</span> <span id="hudAntLocation" style="font-size:11px; opacity:0.7"></span></p>
@@ -114,7 +120,6 @@
               <p>BOOTSTRAP: <span id="hudBootstrapFood">100%</span></p>
               <p>WORKERS: <span id="hudWorkers">0</span><i id="hudWorkersBar" class="distribution-bar" aria-hidden="true"></i></p>
               <p>SOLDIERS: <span id="hudSoldiers">0</span><i id="hudSoldiersBar" class="distribution-bar" aria-hidden="true"></i></p>
-              <p>BREEDERS: <span id="hudBreeders">0</span><i id="hudBreedersBar" class="distribution-bar" aria-hidden="true"></i></p>
               <p>NURSES: <span id="hudNurses">0</span><i id="hudNursesBar" class="distribution-bar" aria-hidden="true"></i></p>
               <p>FORAGERS: <span id="hudForagers">0</span><i id="hudForagersBar" class="distribution-bar" aria-hidden="true"></i></p>
               <p>DIGGERS: <span id="hudDiggers">0</span><i id="hudDiggersBar" class="distribution-bar" aria-hidden="true"></i></p>
@@ -127,7 +132,7 @@
               <p>FOLLOW: <span id="hudFollow">F:0 H:0</span></p>
               <p>HEALTH: <span id="hudHealthStats">MIN:0.0 AVG:0.0 MAX:0.0</span></p>
               <p>DEATHS: <span id="hudDeaths">0</span></p>
-              <p>BY CAUSE: <span id="hudDeathsByCause">S:0 A:0 H:0 C:0 O:0</span></p>
+              <p>BY CAUSE: <span id="hudDeathsByCause">S:0 A:0 H:0 C:0 P:0 O:0</span></p>
             </div>
           </div>
 
@@ -142,6 +147,7 @@
       <h2 id="helpTitle" tabindex="-1" autofocus>How to Play</h2>
       <ul>
         <li><kbd>Q</kbd>: Toggle SURFACE / NEST view</li>
+        <li><kbd>Home</kbd>: Center the nest view on the black queen</li>
         <li><kbd>Space</kbd>: Pause/Resume</li>
         <li><kbd>N</kbd>: Step one tick</li>
         <li><kbd>R</kbd>: Reset simulation</li>
@@ -184,7 +190,6 @@
       aria-live="polite"
       aria-atomic="true"
     ></div>
-    <div id="versionLabel">v…</div>
 
     <script>
       fetch('./VERSION').then(r => r.text()).then(t => {

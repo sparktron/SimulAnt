@@ -39,6 +39,8 @@ function stepCrowding(value, overCapacity) {
     : Math.max(0, value - CROWDING_FALL_PER_TICK);
 }
 
+export const DEFAULT_WORK_ALLOCATION = Object.freeze({ forage: 55, dig: 20, nurse: 25 });
+
 export class Colony {
   constructor(world, rng, initialAnts = 300, options = {}) {
     this.world = world;
@@ -64,7 +66,7 @@ export class Colony {
     // deterministic drop placement while the aggregate food ledger balances.
     this._foodLedgerAdjustment = 0;
 
-    this.workAllocation = { forage: 90, dig: 5, nurse: 5 };
+    this.workAllocation = { ...DEFAULT_WORK_ALLOCATION };
     // Soldiers patrol the entrance and eat from the store but never forage, so
     // in the default (combat-free) scenario they are a pure food sink. The old
     // 25% allocation starved the colony once bootstrap food ran out
@@ -81,6 +83,7 @@ export class Colony {
       oldAge: 0,
       hazard: 0,
       combat: 0,
+      predation: 0,
       other: 0,
     };
     // Queen succession telemetry. _queenDeathCounter holds the _updateCounter
@@ -288,9 +291,9 @@ export class Colony {
     const nurse = Number.isFinite(allocation.nurse) ? allocation.nurse : this.workAllocation.nurse;
     const total = Math.max(1, forage + dig + nurse);
     this.workAllocation = {
-      forage: Math.max(0, (forage / total) * 100),
-      dig: Math.max(0, (dig / total) * 100),
-      nurse: Math.max(0, (nurse / total) * 100),
+      forage: Math.max(0, (forage * 100) / total),
+      dig: Math.max(0, (dig * 100) / total),
+      nurse: Math.max(0, (nurse * 100) / total),
     };
   }
 
@@ -1228,13 +1231,14 @@ export class Colony {
     // release the ant's cargo once the food is actually stored — otherwise the
     // carried nutrition would be destroyed without ever entering foodStored,
     // leaking food. On failure the ant keeps its cargo and retries next tick.
-    const deposited = this.depositPellet(nutrition, targetDropPoint.x, targetDropPoint.y, entrance);
+    const snack = Math.max(0, Math.min(nutrition * 0.15, ant.hungerMax - ant.hunger));
+    const deposited = this.depositPellet(nutrition - snack, targetDropPoint.x, targetDropPoint.y, entrance);
     if (deposited <= 0) return false;
     ant.carrying = null;
     ant.carryingType = 'none';
     ant.baseColor = ant.originalBaseColor || ant.baseColor;
     ant.state = 'FORAGE_SEARCH';
-    ant.hunger = Math.min(ant.hungerMax, ant.hunger + nutrition * 0.15);
+    ant.hunger += snack;
 
     if (this.world.isPassable(targetDropPoint.x, targetDropPoint.y)) {
       ant.x = targetDropPoint.x;
@@ -1517,6 +1521,8 @@ export class Colony {
         lastNestEatTick: ant._lastNestEatTick,
         ...(ant.raiding ? { raiding: true } : {}),
         ...(ant._recoveringInNest ? { recoveringInNest: true } : {}),
+        ...(ant.fieldMeal ? { fieldMeal: ant.fieldMeal } : {}),
+        ...(ant.pursuit ? { pursuit: { ...ant.pursuit } } : {}),
         ...(Number.isFinite(ant._recruitBudget) ? { recruitBudget: ant._recruitBudget } : {}),
       })),
     };
@@ -1542,6 +1548,7 @@ export class Colony {
       colony.deathsByCause.oldAge = data.deathsByCause.oldAge || 0;
       colony.deathsByCause.hazard = data.deathsByCause.hazard || 0;
       colony.deathsByCause.combat = data.deathsByCause.combat || 0;
+      colony.deathsByCause.predation = data.deathsByCause.predation || 0;
       colony.deathsByCause.other = data.deathsByCause.other || 0;
     }
     colony.queenDeaths = data.queenDeaths || 0;
@@ -1636,6 +1643,10 @@ export class Colony {
       ant.state = a.state || ant.state;
       ant.raiding = a.raiding === true;
       ant._recoveringInNest = a.recoveringInNest === true;
+      ant.fieldMeal = a.fieldMeal === 'recover' || a.fieldMeal === 'pickup' ? a.fieldMeal : null;
+      if (typeof a.pursuit?.targetId === 'string' && Number.isFinite(a.pursuit.until)) {
+        ant.pursuit = { ...a.pursuit };
+      }
       ant.stepCounter = a.stepCounter || 0;
       ant.age = a.age || 0;
       if (a.maxAge) ant.maxAge = a.maxAge;

@@ -1,0 +1,48 @@
+#versionLabel {
+  position: absolute;
+  inset: 50% 175px auto auto;
+  transform: translateY(-50%);
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+}
+
+.left-palette .tool-grid label {
+  min-width: 0;
+  font-size: clamp(9px, 1vw, 11px);
+  padding-inline: 2px;
+}
+
+#minimapHomeBtn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+#minimapHomeBtn .minimap {
+  display: block;
+  max-width: 100%;
+}
+
+:root[data-theme='classic'] .canvas-footer {
+  display: flex;
+  position: absolute;
+  inset: auto 0 0;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px;
+  background: #ddd;
+  color: #202020;
+  font-size: 10px;
+  pointer-events: none;
+}
+
+:root[data-theme='modern'] #startPauseBtn {
+  padding-inline-end: 52px;
+  color: var(--text);
+}

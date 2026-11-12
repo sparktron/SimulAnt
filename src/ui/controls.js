@@ -58,7 +58,10 @@ export function syncToolPalette(state, view) {
     const valid = TOOL_VIEW[radio.value] === view;
     radio.disabled = !valid;
     const label = radio.closest('label');
-    if (label) label.classList.toggle('tool-disabled', !valid);
+    if (label) {
+      label.classList.toggle('tool-disabled', !valid);
+      label.title = valid ? '' : `Available in ${TOOL_VIEW[radio.value].toLowerCase()} view`;
+    }
     if (valid && firstValid === null) firstValid = radio;
     if (valid && radio.value === state.selectedTool) selectedStillValid = true;
   });
@@ -185,6 +188,9 @@ export function createControls(state, actions) {
       event.preventDefault();
       state.paused = !state.paused;
       sync();
+    } else if (event.key === 'Home' && actions.showNestHome) {
+      event.preventDefault();
+      actions.showNestHome();
     } else if (event.key.toLowerCase() === 'q') {
       actions.toggleView();
     } else if (event.key.toLowerCase() === 'n') {

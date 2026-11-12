@@ -88,6 +88,7 @@ export function updateHud(stats) {
       + `A:${asNonNegativeInt(byCause.oldAge)} `
       + `H:${asNonNegativeInt(byCause.hazard)} `
       + `C:${asNonNegativeInt(byCause.combat)} `
+      + `P:${asNonNegativeInt(byCause.predation)} `
       + `O:${asNonNegativeInt(byCause.other)}`,
   );
 }

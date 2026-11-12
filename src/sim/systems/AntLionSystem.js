@@ -60,23 +60,31 @@ export class AntLionSystem {
         continue;
       }
       if (lion.cooldown === 0) {
-        let fed = false;
+        let nearest = null;
+        let nearestColony = null;
+        let nearestDistance = Infinity;
         for (const colony of colonies) {
-          const prey = colony.ants.find((ant) => ant.alive
-            && this.world.terrain[ant.y * this.world.width + ant.x] === TERRAIN.GROUND
-            && Math.hypot(ant.x - lion.x, ant.y - lion.y) <= 2.5);
-          if (!prey) continue;
-          prey.health = 0;
-          prey.alive = false;
-          colony.recordDeath('predation');
-          affected.add(colony);
+          for (const ant of colony.ants) {
+            if (!ant.alive || Math.abs(ant.x - lion.x) > 2 || Math.abs(ant.y - lion.y) > 2) continue;
+            const distance = (ant.x - lion.x) ** 2 + (ant.y - lion.y) ** 2;
+            if (distance > 2.5 ** 2 || distance >= nearestDistance) continue;
+            if (this.world.terrain[this.world.index(ant.x, ant.y)] !== TERRAIN.GROUND) continue;
+            nearest = ant;
+            nearestColony = colony;
+            nearestDistance = distance;
+          }
+        }
+        if (nearest) {
+          nearest.health = 0;
+          nearest.alive = false;
+          nearestColony.recordDeath('predation');
+          affected.add(nearestColony);
           lion.hungryTicks = 0;
           lion.health = 100;
           lion.cooldown = settings.antLionFeedingCooldown;
-          fed = true;
-          break;
+          this.#markPitDanger(lion, settings);
+          continue;
         }
-        if (fed) continue;
       }
       if (lion.hungryTicks > settings.antLionStarvationTicks) {
         lion.health = Math.max(0, lion.health - settings.antLionStarvationDamage);
@@ -91,6 +99,19 @@ export class AntLionSystem {
     if (this.spawnClock >= settings.antLionSpawnInterval) {
       this.spawnClock = 0;
       this.spawn();
+    }
+  }
+
+  #markPitDanger(lion, config) {
+    if (config.enablePheromones === false) return;
+    const radius = 4;
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        const distance = Math.hypot(dx, dy);
+        if (distance > radius || !this.isGround(lion.x + dx, lion.y + dy)) continue;
+        const amount = (config.dangerDeposit ?? 0.3) * (radius + 1 - distance);
+        this.world.depositDanger(this.world.index(lion.x + dx, lion.y + dy), amount, config.pheromoneMaxClamp);
+      }
     }
   }
 

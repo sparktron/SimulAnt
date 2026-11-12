@@ -713,12 +713,13 @@ test('depositFoodFromAnt stores food and clears ant carrying', () => {
   ant.carryingType = 'food';
 
   const foodBefore = colony.foodStored;
+  const hungerBefore = ant.hunger;
   const result = colony.depositFoodFromAnt(ant, null);
 
   assert.ok(result);
   assert.equal(ant.carrying, null);
   assert.equal(ant.carryingType, 'none');
-  assert.equal(colony.foodStored, foodBefore + 15);
+  assert.equal((colony.foodStored - foodBefore) + (ant.hunger - hungerBefore), 15);
   assert.equal(colony.nestFoodPellets.length, 1);
 });
 
