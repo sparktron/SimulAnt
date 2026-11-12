@@ -102,14 +102,24 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
   }
 
   if (ant.carrying?.type === 'brood-food') {
-    const larva = colony.findHungryLarva(ant.x, ant.y);
+    if (!Number.isInteger(ant.carrying.targetX) || !Number.isInteger(ant.carrying.targetY)) {
+      const nearbyLarva = colony.findHungryLarva(ant.x, ant.y, config.nurseBroodSensingRadius);
+      if (nearbyLarva) {
+        ant.carrying.targetX = nearbyLarva.x;
+        ant.carrying.targetY = nearbyLarva.y;
+      }
+    }
+    const target = { x: ant.carrying.targetX, y: ant.carrying.targetY };
+    const larva = colony.findHungryLarvaAt(target.x, target.y);
     if (!larva) {
       ant.carrying.type = 'food';
+      delete ant.carrying.targetX;
+      delete ant.carrying.targetY;
       return STAY_ACTION;
     }
-    if (ant.x !== larva.x || ant.y !== larva.y) {
+    if (ant.x !== target.x || ant.y !== target.y) {
       ant.state = 'NURSE_TEND_BROOD';
-      return movementAction(steering.moveTowardNest(ant, world, colony, larva, rng));
+      return movementAction(steering.moveTowardNest(ant, world, colony, target, rng));
     }
     larva.nutrition = (larva.nutrition ?? 0) + ant.carrying.pelletNutrition;
     ant.carrying = null;
@@ -127,7 +137,10 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
     return runQueenCourierBehavior(ant, world, colony, rng, config, context);
   }
 
-  if (colony.foodStored > 0 && colony.findHungryLarva(ant.x, ant.y)) {
+  const nearbyLarva = colony.foodStored > 0
+    ? colony.findHungryLarva(ant.x, ant.y, config.nurseBroodSensingRadius)
+    : null;
+  if (nearbyLarva) {
     const source = colony.getNestRationPoint();
     if (source && (ant.x !== source.x || ant.y !== source.y)) {
       ant.state = 'NURSE_PICKUP_BROOD_FOOD';
@@ -135,7 +148,12 @@ export function runNurseBehavior(ant, world, colony, rng, config, context) {
     }
     const ration = colony.consumeFromStore(config.nurseBroodRation ?? 4);
     if (ration > 0) {
-      ant.carrying = { type: 'brood-food', pelletNutrition: ration };
+      ant.carrying = {
+        type: 'brood-food',
+        pelletNutrition: ration,
+        targetX: nearbyLarva.x,
+        targetY: nearbyLarva.y,
+      };
       ant.carryingType = 'food';
       ant.state = 'NURSE_PICKUP_BROOD_FOOD';
       return STAY_ACTION;

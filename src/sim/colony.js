@@ -951,7 +951,7 @@ export class Colony {
     return field;
   }
 
-  findHungryLarva(x, y) {
+  findHungryLarva(x, y, radius = 20) {
     const underground = this.world.isUndergroundTile(x, y);
     let target = null;
     let best = Infinity;
@@ -960,11 +960,19 @@ export class Colony {
       const distance = underground
         ? this.getNestDestinationField(larva.x, larva.y).distanceAt(x, y)
         : Math.hypot(x - larva.x, y - larva.y);
-      if (distance < 0 || distance >= best) continue;
+      if (distance < 0 || distance > radius || distance >= best) continue;
       best = distance;
       target = larva;
     }
     return target;
+  }
+
+  findHungryLarvaAt(x, y) {
+    return this.larvae.find((larva) => larva.x === x
+      && larva.y === y
+      && larva.stage <= 4
+      && (larva.nutrition ?? 0) < 1
+      && this.isChamberTile(larva.x, larva.y)) ?? null;
   }
 
   getNestRationPoint() {

@@ -44,6 +44,7 @@ const state = {
   config: {
     tickSeconds: SIM_DT,
     antCap: 2000,
+    nurseBroodSensingRadius: 20,
     // Food trails are deliberately MEDIUM-strength and short-lived. Stronger
     // trails (v0.26.6 tried evapFood=0.15, deposit=0.5) trap foragers on
     // stale corridors after a food cluster depletes — telemetry showed pop

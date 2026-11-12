@@ -75,3 +75,8 @@ test('oophagy delay has a one-tick minimum in the editor and tick sanitizer', ()
   assert.equal(sanitizeTickConfig({ oophagyDelayTicks: 0 }).oophagyDelayTicks, 1);
   assert.equal(sanitizeTickConfig({ oophagyDelayTicks: 1 }).oophagyDelayTicks, 1);
 });
+
+test('nurse brood sensing radius is constrained to its editor range', () => {
+  assert.equal(sanitizeTickConfig({ nurseBroodSensingRadius: 100 }).nurseBroodSensingRadius, 32);
+  assert.equal(sanitizeTickConfig({ nurseBroodSensingRadius: 1 }).nurseBroodSensingRadius, 4);
+});

@@ -197,12 +197,19 @@ test('applyTool erase clears terrain and pheromones', () => {
 
   // Place some stuff first
   sim.applyTool('wall', x, y, 2);
-  sim.world.toFood[sim.world.index(x, y)] = 5.0;
+  const idx = sim.world.index(x, y);
+  sim.world.toFood[idx] = 5.0;
+  sim.world.toHome[idx] = 4.0;
+  sim.world.depositToFood(idx, 5.0, Infinity, 'red');
+  sim.world.depositToHome(idx, 4.0, Infinity, 'red');
 
   sim.applyTool('erase', x, y, 2);
 
   assert.equal(sim.world.terrain[sim.world.index(x, y)], TERRAIN.GROUND);
-  assert.equal(sim.world.toFood[sim.world.index(x, y)], 0);
+  assert.equal(sim.world.toFood[idx], 0);
+  assert.equal(sim.world.toHome[idx], 0);
+  assert.equal(sim.world.getTrail('food', 'red')[idx], 0);
+  assert.equal(sim.world.getTrail('home', 'red')[idx], 0);
 });
 
 test('applyTool erase removes food pellets in area', () => {
@@ -262,8 +269,16 @@ test('applyTool fill seals tunnels in underground area', () => {
 
   // Verify it's a tunnel before trying to fill
   if (sim.world.terrain[idx] === TERRAIN.TUNNEL) {
+    sim.world.toFood[idx] = 3;
+    sim.world.toHome[idx] = 4;
+    sim.world.depositToFood(idx, 5, Infinity, 'red');
+    sim.world.depositToHome(idx, 6, Infinity, 'red');
     sim.applyTool('fill', x, y, 2);
     assert.equal(sim.world.terrain[idx], TERRAIN.SOIL, 'Should be soil after filling');
+    assert.equal(sim.world.toFood[idx], 0);
+    assert.equal(sim.world.toHome[idx], 0);
+    assert.equal(sim.world.getTrail('food', 'red')[idx], 0);
+    assert.equal(sim.world.getTrail('home', 'red')[idx], 0);
   }
 });
 
@@ -690,7 +705,8 @@ test('ant sense choose apply phases preserve the captured replay baseline', () =
   // v0.63.0: seeded close-fight outcomes and survivor wounds.
   // v0.66.0: vitals, pursuit, predation and shared work allocation.
   // v0.67.0: nurse-fed brood, chamber routes, age-based jobs and colony trails.
-  assert.equal(replayHash, 406431281);
+  // v0.68.0: nurses only respond to hungry brood inside their sensing radius.
+  assert.equal(replayHash, 3272882200);
 });
 
 // Survival regression: with the PRODUCTION defaults, the black colony used to peak

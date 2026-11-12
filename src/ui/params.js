@@ -93,6 +93,15 @@ export const parameterDefinitions = {
     step: 1,
     advanced: false,
   },
+  nurseBroodSensingRadius: {
+    label: 'Brood Sensing Radius',
+    description: 'How far nurses can sense hungry brood when choosing a local care target.',
+    group: 'Decision-Making',
+    min: 4,
+    max: 32,
+    step: 1,
+    advanced: true,
+  },
   surfaceFoodSearchMaxMissTicks: {
     label: 'Food Search Timeout (ticks)',
     description: 'How long foragers search before giving up. Higher = longer foraging, may find more distant food.',
@@ -695,6 +704,7 @@ export function getDefaultConfig() {
     broodFoodDrainRate: 0.005,
     broodDevelopmentNutrition: 24,
     nurseBroodRation: 4,
+    nurseBroodSensingRadius: 20,
     broodGestationSeconds: 8,
     broodStarvationTicks: 600,
     larvaeCrowdingThreshold: 8,

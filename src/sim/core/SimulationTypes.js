@@ -84,6 +84,7 @@ export function sanitizeTickConfig(config = {}) {
     ...config,
     tickSeconds: clampNonNegativeNumber(config.tickSeconds, 1 / 30),
     antCap: clampPositiveInt(config.antCap, 2000),
+    nurseBroodSensingRadius: clampFiniteRangeNumber(config.nurseBroodSensingRadius, 20, 4, 32),
 
     diffIntervalTicks: clampPositiveInt(config.diffIntervalTicks, 1),
     homeDepositIntervalTicks: clampPositiveInt(config.homeDepositIntervalTicks, 1),

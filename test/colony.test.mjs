@@ -49,6 +49,25 @@ function createTestConfig() {
 
 // --- Construction ---
 
+test('nurse brood target selection stays within local nest range', () => {
+  const world = new World(64, 64);
+  const colony = new Colony(world, new SeededRng('local-brood-target'), 0);
+  const x = colony.homeX;
+  const y = colony.homeY + 8;
+
+  for (let offset = 0; offset <= 14; offset += 1) {
+    world.setTerrain(world.index(x + offset, y), TERRAIN.TUNNEL);
+  }
+  const nearLarva = { stage: 1, nutrition: 0, x: x + 2, y };
+  const distantLarva = { stage: 1, nutrition: 0, x: x + 12, y };
+  world.setTerrain(world.index(nearLarva.x, y), TERRAIN.CHAMBER);
+  world.setTerrain(world.index(distantLarva.x, y), TERRAIN.CHAMBER);
+  colony.larvae = [distantLarva, nearLarva];
+
+  assert.equal(colony.findHungryLarva(x, y), nearLarva);
+  assert.equal(colony.findHungryLarva(x + 8, y), distantLarva);
+});
+
 test('colony initializes with correct ant count', () => {
   const world = new World(64, 64);
   const rng = new SeededRng('colony-init');
