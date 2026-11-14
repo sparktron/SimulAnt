@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FoodEconomySystem } from '../src/sim/systems/FoodEconomySystem.js';
 import { SeededRng } from '../src/sim/rng.js';
+import { sanitizeTickConfig } from '../src/sim/core/SimulationTypes.js';
+import { getDefaultConfig, parameterDefinitions } from '../src/ui/params.js';
 
 // FoodEconomySystem (v0.50.0 dual-trigger strategy): a respawn fires when EITHER
 // free (unclaimed) surface pellets fall below minSurfacePellets OR the larder
@@ -37,6 +39,7 @@ function makeSystem(opts = {}) {
     spawnFoodCluster: (x, y, r, count) => calls.push({ x, y, r, count }),
     bootFoodTotal: opts.bootFoodTotal ?? 390,
     minSurfacePellets: opts.minSurfacePellets ?? 200,
+    maxSurfacePellets: opts.maxSurfacePellets ?? 500,
     foodReservePerAnt: opts.foodReservePerAnt ?? 12,
     foodMinReserve: opts.foodMinReserve ?? 150,
     foodRespawnCooldownTicks: opts.foodRespawnCooldownTicks ?? 60,
@@ -90,7 +93,7 @@ test('does not respawn while free surface pellets are at or above the floor', ()
   assert.equal(atFloor.calls.length, 0, 'floor is inclusive — no drop at exactly the floor');
 
   const plenty = makeSystem({ minSurfacePellets: 200 });
-  plenty.sys.update({ foodPellets: pellets(500) });
+  plenty.sys.update({ foodPellets: pellets(400) });
   assert.equal(plenty.calls.length, 0, 'plenty of free pellets — no drop');
 });
 
@@ -165,19 +168,19 @@ test('cluster size tracks bootFoodTotal (a quarter of it)', () => {
 // --- v0.50.0 hunger trigger (RCA cause #2 fix) ------------------------------
 
 test('HUNGER trigger fires even when the surface is full (the RCA bug fix)', () => {
-  // 500 free pellets sit uncollected (e.g. unreachable) — the old surface-only
+  // 400 free pellets sit uncollected (e.g. unreachable) — the old surface-only
   // gate would stay silent. With a starved larder the colony is HUNGRY → drop.
   const { sys, calls } = makeSystem({
     ants: 100, foodStored: 0, minSurfacePellets: 200,
   });
-  sys.update({ foodPellets: pellets(500) });
+  sys.update({ foodPellets: pellets(400) });
   assert.equal(calls.length, 1, 'hungry larder fires the net despite a full surface');
 });
 
 test('global hunger trigger monitors the rival colony and drops near its home', () => {
   const { sys, calls, red } = makeGlobalSystem({ blackFood: 10_000, redFood: 0 });
 
-  sys.update({ foodPellets: pellets(500) });
+  sys.update({ foodPellets: pellets(400) });
 
   assert.equal(calls.length, 1, 'red hunger should trigger relief even while black is well stocked');
   const redDistance = Math.hypot(calls[0].x - red.homeX, calls[0].y - red.homeY);
@@ -190,7 +193,7 @@ test('global hunger trigger selects the greatest normalized reserve shortfall', 
   // Both colonies have a 1200 floor. Black is 25% short; red is 75% short.
   const { sys, calls, red } = makeGlobalSystem({ blackFood: 900, redFood: 300 });
 
-  sys.update({ foodPellets: pellets(500) });
+  sys.update({ foodPellets: pellets(400) });
 
   assert.equal(calls.length, 1);
   const redDistance = Math.hypot(calls[0].x - red.homeX, calls[0].y - red.homeY);
@@ -217,23 +220,23 @@ test('a well-stocked larder AND full surface → no drop', () => {
   const { sys, calls } = makeSystem({
     ants: 100, foodStored: 1_000_000, minSurfacePellets: 200,
   });
-  sys.update({ foodPellets: pellets(500) });
+  sys.update({ foodPellets: pellets(400) });
   assert.equal(calls.length, 0, 'neither trigger crosses → silent');
 });
 
 test('hunger floor is population-scaled: max(minReserve, ants*perAnt)', () => {
   // 100 ants * 12 = 1200 floor (above the 150 minReserve).
   const hungry = makeSystem({ ants: 100, foodStored: 1199, foodReservePerAnt: 12, foodMinReserve: 150 });
-  hungry.sys.update({ foodPellets: pellets(500) });
+  hungry.sys.update({ foodPellets: pellets(400) });
   assert.equal(hungry.calls.length, 1, 'foodStored 1199 < 1200 floor → hungry');
 
   const fed = makeSystem({ ants: 100, foodStored: 1200, foodReservePerAnt: 12, foodMinReserve: 150 });
-  fed.sys.update({ foodPellets: pellets(500) });
+  fed.sys.update({ foodPellets: pellets(400) });
   assert.equal(fed.calls.length, 0, 'foodStored 1200 >= floor → not hungry (inclusive)');
 
   // Tiny colony: the minReserve floor dominates the per-ant term.
   const tiny = makeSystem({ ants: 1, foodStored: 149, foodReservePerAnt: 12, foodMinReserve: 150 });
-  tiny.sys.update({ foodPellets: pellets(500) });
+  tiny.sys.update({ foodPellets: pellets(400) });
   assert.equal(tiny.calls.length, 1, '1 ant: floor is max(150, 12)=150; 149 < 150 → hungry');
 });
 
@@ -271,8 +274,55 @@ test('drop distance band is configurable (the E4 logistics lever)', () => {
 test('config overrides the hunger params per tick', () => {
   // Constructor floor 0 (never hungry); config lifts perAnt so the colony is hungry.
   const { sys, calls } = makeSystem({ ants: 100, foodStored: 500, foodReservePerAnt: 0, foodMinReserve: 0 });
-  sys.update({ foodPellets: pellets(500) });
+  sys.update({ foodPellets: pellets(400) });
   assert.equal(calls.length, 0, 'ctor floor 0 → not hungry, surface full → silent');
-  sys.update({ foodPellets: pellets(500), config: { foodReservePerAnt: 12, foodMinReserve: 150 } });
+  sys.update({ foodPellets: pellets(400), config: { foodReservePerAnt: 12, foodMinReserve: 150 } });
   assert.equal(calls.length, 1, 'config floor 1200 > 500 → hungry → drop');
+});
+
+
+test('surface cap blocks hunger drops at and above capacity', () => {
+  const { sys, calls } = makeSystem({ foodStored: 0 });
+  sys.update({ foodPellets: pellets(500), tick: 0 });
+  sys.update({ foodPellets: pellets(700), tick: 100 });
+  assert.equal(calls.length, 0);
+});
+
+test('drops fit remaining capacity and resume after foraging without consuming cooldown', () => {
+  const { sys, calls } = makeSystem({ foodStored: 0, maxSurfacePellets: 250 });
+  sys.update({ foodPellets: pellets(250), tick: 100 });
+  assert.equal(calls.length, 0);
+  sys.update({ foodPellets: pellets(240), tick: 101 });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].count, 10);
+  sys.update({ foodPellets: pellets(230), tick: 102 });
+  assert.equal(calls.length, 1, 'successful drops still honor cooldown');
+  sys.update({ foodPellets: pellets(230), tick: 161 });
+  assert.equal(calls[1].count, 20);
+});
+
+test('cap overrides the surface floor and ignores carried pellets', () => {
+  const { sys, calls } = makeSystem({ minSurfacePellets: 200, maxSurfacePellets: 100 });
+  sys.update({ foodPellets: pellets(100) });
+  assert.equal(calls.length, 0, 'maximum wins over a larger minimum');
+  sys.update({ foodPellets: pellets(90, 500) });
+  assert.equal(calls[0].count, 10, 'carried pellets do not use free surface capacity');
+});
+
+test('per-tick surface cap overrides constructor and zero disables replenishment', () => {
+  const { sys, calls } = makeSystem({ foodStored: 0, maxSurfacePellets: 250 });
+  sys.update({ foodPellets: pellets(0), config: { maxSurfacePellets: 0 } });
+  assert.equal(calls.length, 0);
+  sys.update({ foodPellets: pellets(90), config: { maxSurfacePellets: 100 } });
+  assert.equal(calls[0].count, 10);
+});
+
+test('surface cap defaults, parameter metadata and sanitization agree', () => {
+  assert.equal(getDefaultConfig().maxSurfacePellets, 500);
+  assert.equal(parameterDefinitions.maxSurfacePellets.group, 'Food Economy');
+  for (const value of [undefined, NaN, Infinity, -1]) {
+    assert.equal(sanitizeTickConfig({ maxSurfacePellets: value }).maxSurfacePellets, 500);
+  }
+  assert.equal(sanitizeTickConfig({ maxSurfacePellets: 0 }).maxSurfacePellets, 0);
+  assert.equal(sanitizeTickConfig({ maxSurfacePellets: 42.9 }).maxSurfacePellets, 42);
 });
